@@ -2729,9 +2729,12 @@ status_t QCameraHardwareInterface::setHighFrameRate(const CameraParameters& para
 //                                      hfr_thread,
 //                                      (void*)NULL);
 //                    mHFRThreadWaitLock.unlock();
- 		    stopPreview();
+                    stopPreviewInternal();
+                    mPreviewState = QCAMERA_HAL_PREVIEW_STOPPED;
                     native_set_parms(MM_CAMERA_PARM_HFR, sizeof(int32_t), (void *)&mHFRLevel);
-                    startPreview();
+                    mPreviewState = QCAMERA_HAL_PREVIEW_START;
+                    if (startPreview2() == NO_ERROR)
+                        mPreviewState = QCAMERA_HAL_PREVIEW_STARTED;
                     return NO_ERROR;
                 }
             }
@@ -3072,6 +3075,16 @@ status_t QCameraHardwareInterface::setPictureFormat(const CameraParameters& para
     return NO_ERROR;
 }
 
+status_t QCameraHardwareInterface::setRecordingHintValue(const int32_t value)
+{
+    native_set_parms(MM_CAMERA_PARM_RECORDING_HINT, sizeof(value),
+                                           (void *)&value);
+    native_set_parms(MM_CAMERA_PARM_CAF_ENABLE, sizeof(value),
+                                           (void *)&value);
+    setDISMode();
+    setFullLiveshot();
+    return NO_ERROR;
+}
 
 status_t QCameraHardwareInterface::setRecordingHint(const CameraParameters& params)
 {
@@ -3082,14 +3095,12 @@ status_t QCameraHardwareInterface::setRecordingHint(const CameraParameters& para
       int32_t value = attr_lookup(recording_Hints,
                                   sizeof(recording_Hints) / sizeof(str_map), str);
       if(value != NOT_FOUND){
-        mRecordingHint = value;
-        native_set_parms(MM_CAMERA_PARM_RECORDING_HINT, sizeof(value),
-                                               (void *)&value);
-        if (value == TRUE) {
-          native_set_parms(MM_CAMERA_PARM_CAF_ENABLE, sizeof(value),
-                                               (void *)&value);
-        }
-        mParameters.set(CameraParameters::KEY_RECORDING_HINT, str);
+          if (mRecordingHint == FALSE) {
+              mRecordingHint = value;
+          }
+          setRecordingHintValue(mRecordingHint);
+          mParameters.set(CameraParameters::KEY_RECORDING_HINT, str);
+          return NO_ERROR;
       } else {
           LOGE("Invalid Picture Format value: %s", str);
           setDISMode();

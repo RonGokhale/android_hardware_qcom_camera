@@ -581,6 +581,7 @@ private:
     status_t setAecAwbLock(const CameraParameters & params);
     status_t setHistogram(int histogram_en);
     status_t setRecordingHint(const CameraParameters& params);
+    status_t setRecordingHintValue(const int32_t value);
     status_t setFocusAreas(const CameraParameters& params);
     status_t setMeteringAreas(const CameraParameters& params);
     status_t setFullLiveshot(void);

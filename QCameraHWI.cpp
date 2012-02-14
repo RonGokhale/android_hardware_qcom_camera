@@ -1129,6 +1129,15 @@ void QCameraHardwareInterface::stopPreview()
     LOGI("%s: stopPreview: E", __func__);
     Mutex::Autolock lock(mLock);
     mFaceDetectOn = false;
+
+    // reset recording hint to the value passed from Apps
+    const char * str = mParameters.get(CameraParameters::KEY_RECORDING_HINT);
+    if((str != NULL) && !strcmp(str, "true")){
+        mRecordingHint = TRUE;
+    } else {
+        mRecordingHint = FALSE;
+    }
+
     switch(mPreviewState) {
       case QCAMERA_HAL_PREVIEW_START:
           //mPreviewWindow = NULL;
@@ -1222,6 +1231,20 @@ status_t QCameraHardwareInterface::startRecording()
         if(!mFullLiveshotEnabled) {
             prepareVideoPicture(true);
         }
+        if (mRecordingHint == FALSE) {
+            LOGE("%s: start recording when hint is false, stop preview first", __func__);
+            stopPreviewInternal();
+            mPreviewState = QCAMERA_HAL_PREVIEW_STOPPED;
+
+            // Set recording hint to TRUE
+            mRecordingHint = TRUE;
+            setRecordingHintValue(mRecordingHint);
+
+            // start preview again
+            mPreviewState = QCAMERA_HAL_PREVIEW_START;
+            if (startPreview2() == NO_ERROR)
+                mPreviewState = QCAMERA_HAL_PREVIEW_STARTED;
+}
         ret =  mStreamRecord->start();
         if (MM_CAMERA_OK != ret){
             LOGE("%s: error - mStreamRecord->start!", __func__);
