@@ -162,8 +162,7 @@ status_t QCameraStream_preview::getBufferFromSurface() {
     previewBufSize = dim.display_width * dim.display_height * 3/2;
     err = mPreviewWindow->set_usage(mPreviewWindow,
         CAMERA_GRALLOC_HEAP_ID  |
-        CAMERA_GRALLOC_FALLBACK_HEAP_ID |
-        GRALLOC_USAGE_PRIVATE_UNCACHED);
+        CAMERA_GRALLOC_FALLBACK_HEAP_ID);
 	if(err != 0) {
         /* set_usage error out */
 		LOGE("%s: set_usage rc = %d", __func__, err);
@@ -470,6 +469,7 @@ status_t QCameraStream_preview::initDisplayBuffers()
 	      mHalCamCtrl->mPreviewMemory.private_buffer_handle[i]->offset;
       mDisplayStreamBuf.frame[i].buffer =
           (long unsigned int)mHalCamCtrl->mPreviewMemory.camera_memory[i]->data;
+      mDisplayStreamBuf.frame[i].ion_alloc.len = mHalCamCtrl->mPreviewMemory.private_buffer_handle[i]->size;
 
     LOGE("%s: idx = %d, fd = %d, size = %d, cbcr_offset = %d, y_offset = %d, "
       "offset = %d, vaddr = 0x%x", __func__, i, mDisplayStreamBuf.frame[i].fd,
