@@ -1200,6 +1200,8 @@ void QCameraHardwareInterface::initDefaultParameters()
     if (setParameters(mParameters) != NO_ERROR) {
         LOGE("Failed to set default parameters?!");
     }
+
+    mParameters.set("no-display-mode", 0);
     //mUseOverlay = useOverlay();
     mParameters.set("zoom", 0);
     mInitialized = true;
@@ -1297,7 +1299,8 @@ status_t QCameraHardwareInterface::setParameters(const CameraParameters& params)
     // setHighFrameRate needs to be done at end, as there can
     // be a preview restart, and need to use the updated parameters
     if ((rc = setHighFrameRate(params)))  final_rc = rc;
-	
+    if ((rc = setNoDisplayMode(params))) final_rc = rc;
+
    LOGI("%s: X", __func__);
    return final_rc;
 }
@@ -3829,5 +3832,28 @@ void QCameraHardwareInterface::prepareVideoPicture(bool disable){
         mParameters.set(CameraParameters::KEY_JPEG_THUMBNAIL_HEIGHT, 384);
     }
 }
+
+status_t QCameraHardwareInterface::setNoDisplayMode(const CameraParameters& params)
+{
+  char prop[PROPERTY_VALUE_MAX];
+  memset(prop, 0, sizeof(prop));
+  property_get("persist.camera.nodisplay", prop, "0");
+  int prop_val = atoi(prop);
+
+  if (prop_val == 0) {
+    const char *str_val  = params.get("no-display-mode");
+    if(str_val && strlen(str_val) > 0) {
+      mNoDisplayMode = atoi(str_val);
+    } else {
+      mNoDisplayMode = 0;
+    }
+    LOGD("Param mNoDisplayMode =%d", mNoDisplayMode);
+  } else {
+    mNoDisplayMode = prop_val;
+    LOGD("prop mNoDisplayMode =%d", mNoDisplayMode);
+  }
+  return NO_ERROR;
+}
+
 
 }; /*namespace android */

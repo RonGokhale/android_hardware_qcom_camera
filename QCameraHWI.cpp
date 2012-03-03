@@ -171,7 +171,8 @@ QCameraHardwareInterface(int cameraId, int mode)
                     mStreamLiveSnap(NULL),
                     mExifTableNumEntries(0),
                     mDenoiseValue(0),
-                    mSnapshotFormat(0)
+                    mSnapshotFormat(0),
+                    mNoDisplayMode(0)
 {
     LOGI("QCameraHardwareInterface: E");
     int32_t result = MM_CAMERA_E_GENERAL;
@@ -964,7 +965,8 @@ status_t QCameraHardwareInterface::startPreview()
         mPreviewState = QCAMERA_HAL_PREVIEW_START;
         LOGE("%s:  HAL::startPreview begin", __func__);
 
-        if(QCAMERA_HAL_PREVIEW_START == mPreviewState && mPreviewWindow) {
+        if(QCAMERA_HAL_PREVIEW_START == mPreviewState &&
+           (mPreviewWindow || isNoDisplayMode())) {
             LOGE("%s:  start preview now", __func__);
             retVal = startPreview2();
             if(retVal == NO_ERROR)
@@ -980,7 +982,7 @@ status_t QCameraHardwareInterface::startPreview()
         LOGE("%s: cannot start preview in recording state", __func__);
         break;
     case QCAMERA_HAL_TAKE_PICTURE:
-        LOGE("%s: cannot start preview in SNAPSHOT state", __func__);
+        LOGI("%s: start preview after SNAPSHOT state", __func__);
         mPreviewState = QCAMERA_HAL_PREVIEW_START;
         retVal = startPreview2();
         if(retVal == NO_ERROR)
@@ -1429,7 +1431,7 @@ status_t QCameraHardwareInterface::cancelPictureInternal()
 
 void QCameraHardwareInterface::pausePreviewForSnapshot()
 {
-    if (mStreamDisplay) {
+    if (mStreamDisplay && !isNoDisplayMode()) {
         mStreamDisplay->setPreviewPauseFlag(TRUE);
     }
     stopPreviewInternal( );
@@ -1468,7 +1470,7 @@ void liveshot_callback(mm_camera_ch_data_buf_t *recvd_frame,
         LOGE("%s: X", __func__);
     }
 
-#if 1 
+#if 1
     LOGE("Live Snapshot Enabled");
     frame->snapshot.main.frame = frame->video.video.frame;
     frame->snapshot.main.idx = frame->video.video.idx;
@@ -1906,7 +1908,7 @@ void QCameraHardwareInterface::handleZoomEventForPreview(app_notify_cb_t *app_cb
     LOGI("%s: E", __func__);
 
     /*regular zooming or smooth zoom stopped*/
-    if (!mSmoothZoomRunning) {
+    if (!mSmoothZoomRunning && mPreviewWindow) {
         memset(&v4l2_crop, 0, sizeof(v4l2_crop));
         v4l2_crop.ch_type = MM_CAMERA_CH_PREVIEW;
 
@@ -2456,5 +2458,10 @@ void QCameraHardwareInterface::pausePreviewForZSL()
 
     }
 }
+bool QCameraHardwareInterface::isNoDisplayMode()
+{
+  return (mNoDisplayMode != 0);
+}
+
 }; // namespace android
 
