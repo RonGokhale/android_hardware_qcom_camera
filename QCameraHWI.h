@@ -680,6 +680,7 @@ private:
     bool mFullLiveshotEnabled;
     bool mRecordingHint;
     int mHdrMode;
+    int mSnapshotFormat;
 
 /*for histogram*/
     int            mStatsOn;
