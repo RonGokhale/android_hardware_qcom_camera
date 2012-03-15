@@ -2304,7 +2304,7 @@ status_t QCameraHardwareInterface::setVideoSize(const CameraParameters& params)
         mParameters.set(CameraParameters::KEY_VIDEO_SIZE, "");
         //If application didn't set this parameter string, use the values from
         //getPreviewSize() as video dimensions.
-        LOGV("No Record Size requested, use the preview dimensions");
+        LOGE("No Record Size requested, use the preview dimensions");
         videoWidth = previewWidth;
         videoHeight = previewHeight;
     } else {
@@ -2315,7 +2315,7 @@ status_t QCameraHardwareInterface::setVideoSize(const CameraParameters& params)
             //VFE output1 shouldn't be greater than VFE output2.
             if( (previewWidth > videoWidth) || (previewHeight > videoHeight)) {
                 //Set preview sizes as record sizes.
-                LOGI("Preview size %dx%d is greater than record size %dx%d,\
+                LOGE("Preview size %dx%d is greater than record size %dx%d,\
                    resetting preview size to record size",previewWidth,
                      previewHeight, videoWidth, videoHeight);
                 previewWidth = videoWidth;
@@ -2330,6 +2330,7 @@ status_t QCameraHardwareInterface::setVideoSize(const CameraParameters& params)
                  * like 720P and 1080p where the application can
                  * request different preview sizes like 768x432
                  */
+                LOGE("3D mod is on");
                 previewWidth = videoWidth;
                 previewHeight = videoHeight;
                 mParameters.setPreviewSize(previewWidth, previewHeight);
@@ -2412,6 +2413,7 @@ status_t QCameraHardwareInterface::setPreviewSize(const CameraParameters& params
         if (width ==  mPreviewSizes[i].width
            && height ==  mPreviewSizes[i].height) {
             mParameters.setPreviewSize(width, height);
+            LOGE("setPreviewSize:  width: %d   heigh: %d", width, height);
             previewWidth = width;
             previewHeight = height;
             mDimension.display_width = width;
