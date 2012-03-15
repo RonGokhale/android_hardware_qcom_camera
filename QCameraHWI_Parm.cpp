@@ -134,6 +134,7 @@ static camera_size_type jpeg_thumbnail_sizes[]  = {
 { 432, 288 },
 { 512, 384 },
 { 352, 288 },
+{ 176, 144 },
 {0,0}
 };
 
@@ -1654,6 +1655,7 @@ static int parseCameraAreaString(const char* str, int max_num_areas,
        pAreas[index].x2 = values[2];
        pAreas[index].y2 = values[3];
        pAreas[index].weight = values[4];
+
        index++;
        start = strchr(end, '('); // serach for next '('
     }
@@ -1797,6 +1799,7 @@ status_t QCameraHardwareInterface::setMeteringAreas(const CameraParameters& para
     if(max_num_mtr_areas == 0) {
         return NO_ERROR;
     }
+
     const char *str = params.get(CameraParameters::KEY_METERING_AREAS);
     if (str == NULL) {
         LOGE("%s: Parameter string is null", __func__);
@@ -2405,6 +2408,7 @@ status_t QCameraHardwareInterface::setJpegThumbnailSize(const CameraParameters& 
            return NO_ERROR;
        }
     }
+    LOGE("error: setting jpeg thumbnail size");
     return BAD_VALUE;
 }
 status_t QCameraHardwareInterface::setPictureSize(const CameraParameters& params)
@@ -3657,4 +3661,30 @@ void QCameraHardwareInterface::parseGPSCoordinate(const char *latlonString, rat_
     coord[1] = getRational((int) minF, 1);
     coord[2] = getRational((int) (secF * 10000), 10000);
 }
+
+void QCameraHardwareInterface::prepareVideoPicture(bool disable){
+    String8 str;
+    char buffer[32];
+
+    if(disable) {
+        sprintf(buffer, "%dx%d", mDimension.video_width, mDimension.video_height);
+        str.append(buffer);
+
+        mParameters.setPictureSize(mDimension.video_width, mDimension.video_height);
+        mParameters.set(CameraParameters::KEY_SUPPORTED_PICTURE_SIZES,
+                        str.string());
+
+        mParameters.set(CameraParameters::KEY_JPEG_THUMBNAIL_WIDTH, mDimension.video_width);
+        mParameters.set(CameraParameters::KEY_JPEG_THUMBNAIL_HEIGHT, mDimension.video_height);
+    }else{
+        //Set Picture Size
+        mParameters.setPictureSize(DEFAULT_PICTURE_WIDTH, DEFAULT_PICTURE_HEIGHT);
+        mParameters.set(CameraParameters::KEY_SUPPORTED_PICTURE_SIZES,
+                        mPictureSizeValues.string());
+        //set to default thumbnail setting
+        mParameters.set(CameraParameters::KEY_JPEG_THUMBNAIL_WIDTH, 512);
+        mParameters.set(CameraParameters::KEY_JPEG_THUMBNAIL_HEIGHT, 384);
+    }
+}
+
 }; /*namespace android */

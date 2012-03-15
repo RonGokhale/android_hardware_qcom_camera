@@ -1239,12 +1239,33 @@ takePictureLiveshot(mm_camera_ch_data_buf_t* recvd_frame,
 {
     status_t ret = NO_ERROR;
     common_crop_t crop_info;
+    //common_crop_t crop;
     uint32_t aspect_ratio;
+    camera_notify_callback notifyCb;
+    camera_data_callback dataCb;
 
     LOGI("%s: E", __func__);
 
     /* set flag to indicate we are doing livesnapshot */
     setModeLiveSnapshot(true);
+
+    if(!mHalCamCtrl->mShutterSoundPlayed) {
+        notifyShutter(&crop_info, TRUE);
+    }
+    notifyShutter(&crop_info, FALSE);
+    mHalCamCtrl->mShutterSoundPlayed = FALSE;
+
+    // send upperlayer callback for raw image (data or notify, not both)
+    if((mHalCamCtrl->mDataCb) && (mHalCamCtrl->mMsgEnabled & CAMERA_MSG_RAW_IMAGE)){
+      dataCb = mHalCamCtrl->mDataCb;
+    } else {
+      dataCb = NULL;
+    }
+    if((mHalCamCtrl->mNotifyCb) && (mHalCamCtrl->mMsgEnabled & CAMERA_MSG_RAW_IMAGE_NOTIFY)){
+      notifyCb = mHalCamCtrl->mNotifyCb;
+    } else {
+      notifyCb = NULL;
+    }
 
     LOGI("%s:Passed picture size: %d X %d", __func__,
          dim->picture_width, dim->picture_height);
@@ -1277,6 +1298,14 @@ takePictureLiveshot(mm_camera_ch_data_buf_t* recvd_frame,
         }
         setModeLiveSnapshot(false);
         goto end;
+    }
+
+    if (dataCb) {
+      dataCb(CAMERA_MSG_RAW_IMAGE, mHalCamCtrl->mSnapshotMemory.camera_memory[0],
+                           1, NULL, mHalCamCtrl->mCallbackCookie);
+    }
+    if (notifyCb) {
+      notifyCb(CAMERA_MSG_RAW_IMAGE_NOTIFY, 0, 0, mHalCamCtrl->mCallbackCookie);
     }
 
 end:

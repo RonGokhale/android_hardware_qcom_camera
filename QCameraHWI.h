@@ -598,6 +598,8 @@ private:
     int32_t createRecord();
     int32_t createSnapshot();
 
+    void prepareVideoPicture(bool disable);
+
     int getHDRMode();
     //EXIF
     void addExifTag(exif_tag_id_t tagid, exif_tag_type_t type,
