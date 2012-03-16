@@ -464,6 +464,9 @@ status_t QCameraHardwareInterface::sendCommand(int32_t command, int32_t arg1,
             rc = NO_ERROR;
             break;
         case CAMERA_CMD_START_FACE_DETECTION:
+           // maximum number of detected faces > 0 to process this command
+           if(strcmp(mParameters.get(CameraParameters::KEY_MAX_NUM_DETECTED_FACES_HW), "0") == 0)
+                return BAD_VALUE;
            if(supportsFaceDetection() == false){
                 LOGE("Face detection support is not available");
                 return NO_ERROR;
