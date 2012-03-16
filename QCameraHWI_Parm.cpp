@@ -1473,6 +1473,12 @@ CameraParameters& QCameraHardwareInterface::getParameters()
 status_t QCameraHardwareInterface::runFaceDetection()
 {
     bool ret = true;
+    // Return error if face detection is not supported or max number of faces detected is 0
+    if((strcmp(mParameters.get(CameraParameters::KEY_MAX_NUM_DETECTED_FACES_HW), "0") == 0)
+            || (supportsFaceDetection() == false)) {
+        LOGE("Error: face detection is not supported");
+        return BAD_VALUE;
+    }
 
     const char *str = mParameters.get(CameraParameters::KEY_FACE_DETECTION);
     if (str != NULL) {
