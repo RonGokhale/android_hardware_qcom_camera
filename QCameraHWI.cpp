@@ -147,6 +147,7 @@ QCameraHardwareInterface(int cameraId, int mode)
                     mDumpFrmCnt(0), mDumpSkipCnt(0),
                     mPictureSizeCount(15),
                     mPreviewSizeCount(13),
+                    mVideoSizeCount(0),
                     mAutoFocusRunning(false),
                     mHasAutoFocusSupport(false),
                     mInitialized(false),
@@ -163,6 +164,7 @@ QCameraHardwareInterface(int cameraId, int mode)
                     mZslLookBackValue(0),
                     mZslEmptyQueueFlag(FALSE),
                     mPictureSizes(NULL),
+                    mVideoSizes(NULL),
                     mCameraState(CAMERA_STATE_UNINITED),
                     mPostPreviewHeap(NULL),
                     mHdrMode(HDR_BRACKETING_OFF),
@@ -230,6 +232,13 @@ QCameraHardwareInterface(int cameraId, int mode)
       LOGD(" %d  %d", mPreviewSizes[i].width, mPreviewSizes[i].height);
     }
 
+    setVideoSizeTable();
+    LOGD("%s: Video table size: %d", __func__, mVideoSizeCount);
+    LOGD("%s: Video table: ", __func__);
+    for(unsigned int i=0; i < mVideoSizeCount;i++) {
+      LOGD(" %d  %d", mVideoSizes[i].width, mVideoSizes[i].height);
+    }
+
     /* set my mode - update myMode member variable due to difference in
      enum definition between upper and lower layer*/
     setMyMode(mode);
@@ -287,6 +296,7 @@ QCameraHardwareInterface::~QCameraHardwareInterface()
     mPreviewState = QCAMERA_HAL_PREVIEW_STOPPED;
 
     freePictureTable();
+    freeVideoSizeTable();
     if(mStatHeap != NULL) {
       mStatHeap.clear( );
       mStatHeap = NULL;
