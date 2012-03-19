@@ -150,21 +150,26 @@ static void snapshot_jpeg_fragment_cb(uint8_t *ptr,
 static void snapshot_jpeg_cb(jpeg_event_t event, void *user_data)
 {
     QCameraStream_Snapshot *pme = (QCameraStream_Snapshot *)user_data;
-    LOGE("%s: E ",__func__);
-
-    if (event != JPEG_EVENT_DONE) {
-        if (event == JPEG_EVENT_THUMBNAIL_DROPPED) {
-            LOGE("%s: Error in thumbnail encoding (event: %d)!!!",
-                 __func__, event);
-            LOGD("%s: X",__func__);
-            return;
+    LOGV("%s: E ",__func__);
+    switch(event) {
+    case JPEG_EVENT_DONE:
+        break;
+    case JPEG_EVENT_THUMBNAIL_DROPPED:
+        LOGE("%s: Error in thumbnail encoding (event: %d) : X !!!",
+                __func__, event);
+        return;
+    case JPEG_EVENT_ERROR:
+    case JPEG_EVENT_ABORTED:
+        if (NULL != pme) {
+           pme->jpegErrorHandler(event);
+           pme->stop();
         }
-        else {
-            LOGE("%s: Error (event: %d) while jpeg encoding!!!",
-                 __func__, event);
-        }
+        LOGE("Error event handled from JPEG \n");
+        return;
+    default:
+        LOGE("Unsupported JPEG event %d \n", event);
+        break;
     }
-
     if (pme != NULL) {
        pme->receiveCompleteJpegPicture(event);
        LOGE(" Completed issuing JPEG callback");
@@ -181,10 +186,7 @@ static void snapshot_jpeg_cb(jpeg_event_t event, void *user_data)
     }
     else
         LOGW("%s: Receive jpeg cb Obj Null", __func__);
-
-
     LOGD("%s: X",__func__);
-
 }
 
 // ---------------------------------------------------------------------------
@@ -223,7 +225,24 @@ receiveJpegFragment(uint8_t *ptr, uint32_t size)
 
     LOGD("%s: X", __func__);
 }
-
+void QCameraStream_Snapshot::
+jpegErrorHandler(jpeg_event_t event)
+{
+    LOGV("%s: E", __func__);
+    mStopCallbackLock.lock( );
+    setSnapshotState(SNAPSHOT_STATE_ERROR);
+    if (!mSnapshotQueue.isEmpty()) {
+        LOGI("%s: JPEG Queue not empty. flush the queue in "
+             "error case.", __func__);
+        mSnapshotQueue.flush();
+    }
+    mStopCallbackLock.unlock( );
+    if (NULL != mHalCamCtrl->mDataCb)
+        mHalCamCtrl->mDataCb (CAMERA_MSG_COMPRESSED_IMAGE,
+                       NULL, 0, NULL,
+                       mHalCamCtrl->mCallbackCookie);
+    LOGV("%s: X", __func__);
+}
 
 void QCameraStream_Snapshot::
 receiveCompleteJpegPicture(jpeg_event_t event)
@@ -234,29 +253,24 @@ receiveCompleteJpegPicture(jpeg_event_t event)
     camera_data_callback jpg_data_cb = NULL;
     bool fail_cb_flag = false;
 
-    //Mutex::Autolock l(&snapshotLock);
     mStopCallbackLock.lock( );
     if(!mActive && !isLiveSnapshot()) {
         LOGE("Cancel Picture");
         goto end;
     }
-
     if(mCurrentFrameEncoded!=NULL && isLiveSnapshot()){
         LOGE("<DEBUG>: Calling buf done for liveshot buffer");
         cam_evt_buf_done(mCameraId, mCurrentFrameEncoded);
         free(mCurrentFrameEncoded);
         mCurrentFrameEncoded=NULL;
     }
-    /* If for some reason jpeg heap is NULL we'll just return */
+    if (NULL != mHalCamCtrl->mDataCb) jpg_data_cb = mHalCamCtrl->mDataCb;
 
-    LOGE("%s: Calling upperlayer callback to store JPEG image", __func__);
-
-    msg_type = CAMERA_MSG_COMPRESSED_IMAGE;
     mHalCamCtrl->dumpFrameToFile(mHalCamCtrl->mJpegMemory.camera_memory[0]->data, mJpegOffset, (char *)"marvin", (char *)"jpg", 0);
-    if (mHalCamCtrl->mDataCb && (mHalCamCtrl->mMsgEnabled & msg_type)) {
+    if (jpg_data_cb && (mHalCamCtrl->mMsgEnabled & msg_type)) {
         // Create camera_memory_t object backed by the same physical
         // memory but with actual bitstream size.
-        camera_memory_t *encodedMem = mHalCamCtrl->mGetMemory(
+        encodedMem = mHalCamCtrl->mGetMemory(
             mHalCamCtrl->mJpegMemory.fd[0], mJpegOffset, 1,
             mHalCamCtrl);
         if (!encodedMem || !encodedMem->data) {
@@ -264,26 +278,16 @@ receiveCompleteJpegPicture(jpeg_event_t event)
             goto end;
         }
       mStopCallbackLock.unlock();
-      if(mActive || isLiveSnapshot()){
-          jpg_data_cb  = mHalCamCtrl->mDataCb;
-      }
-
-      mStopCallbackLock.unlock( );
-      if (jpg_data_cb != NULL) {
-        jpg_data_cb (msg_type,
-                             encodedMem, 0, NULL,
-                             mHalCamCtrl->mCallbackCookie);
-        encodedMem->release( encodedMem );
-        jpg_data_cb = NULL;
-      }
-      mStopCallbackLock.lock( );
+      jpg_data_cb (msg_type, encodedMem, 0, NULL,
+                    mHalCamCtrl->mCallbackCookie);
+      encodedMem->release(encodedMem);
     } else {
+      mStopCallbackLock.unlock();
       LOGW("%s: JPEG callback was cancelled--not delivering image.", __func__);
     }
-
+    mStopCallbackLock.lock( );
     //reset jpeg_offset
     mJpegOffset = 0;
-
     /* Tell lower layer that we are done with this buffer.
        If it's live snapshot, we don't need to call it. Recording
        object will take care of it */
@@ -319,10 +323,7 @@ end:
         if ( NO_ERROR != encodeDisplayAndSave(buf, 1)){
           fail_cb_flag = true;
         }
-    }
-    else
-    {
-
+    } else {
       LOGD("%s: Before omxJpegFinish", __func__);
       omxJpegFinish();
       LOGD("%s: After omxJpegFinish", __func__);
@@ -340,14 +341,6 @@ end:
         }else {
             LOGD("%s: mNumOfRecievedJPEG(%d), mNumOfSnapshot(%d)", __func__, mNumOfRecievedJPEG, mNumOfSnapshot);
         }
-    }
-
-    if(fail_cb_flag && mHalCamCtrl->mDataCb &&
-        (mHalCamCtrl->mMsgEnabled & CAMERA_MSG_COMPRESSED_IMAGE)) {
-        /* get picture failed. Give jpeg callback with NULL data
-         * to the application to restore to preview mode
-         */
-        jpg_data_cb  = mHalCamCtrl->mDataCb;
     }
     mStopCallbackLock.unlock( );
     if(jpg_data_cb != NULL) {
@@ -1645,7 +1638,9 @@ status_t QCameraStream_Snapshot::receiveRawPicture(mm_camera_ch_data_buf_t* recv
         LOGD("%s: Stop receiving raw pic ", __func__);
         return NO_ERROR;
     }
-
+    if(getSnapshotState() == SNAPSHOT_STATE_ERROR) {
+       cam_evt_buf_done(mCameraId, recvd_frame);
+    }
     mHalCamCtrl->dumpFrameToFile(recvd_frame->snapshot.main.frame, HAL_DUMP_FRM_MAIN);
     if (!isFullSizeLiveshot())
         mHalCamCtrl->dumpFrameToFile(recvd_frame->snapshot.thumbnail.frame,
