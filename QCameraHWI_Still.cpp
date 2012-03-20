@@ -382,6 +382,13 @@ configSnapshotDimension(cam_ctrl_dimension_t* dim)
          mPostviewWidth = THUMBNAIL_DEFAULT_WIDTH;
          mPostviewHeight = THUMBNAIL_DEFAULT_HEIGHT;
     }
+    if (isZSLMode() && ((mPictureWidth < mPostviewWidth) &&
+        (mPictureHeight < mPostviewHeight))) {
+       LOGD("Setting input thumbnail size to PreviewWidth = %d PreviewHeight = %d in ZSL mode",
+             mHalCamCtrl->previewWidth, mHalCamCtrl->previewHeight);
+       mPostviewHeight = mHalCamCtrl->previewHeight;
+       mPostviewWidth = mHalCamCtrl->previewWidth;
+    }
 
     LOGD("%s: Postview size received: %d x %d", __func__,
          mPostviewWidth, mPostviewHeight);
