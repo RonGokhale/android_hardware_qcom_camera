@@ -1616,7 +1616,6 @@ status_t  QCameraHardwareInterface::takePicture()
       if (canTakeFullSizeLiveshot()) {
         takeFullSizeLiveshot();
       }else{
-          LOGV(" Calling register for Live snapshot");
           (void) cam_evt_register_buf_notify(mCameraId, MM_CAMERA_CH_VIDEO,
                                                     liveshot_callback,
                                                     MM_CAMERA_REG_BUF_CB_COUNT,

@@ -126,6 +126,9 @@ static thumbnail_size_type thumbnail_sizes[] = {
 { 6144, 432, 288 }, //1.5
 { 5461, 512, 384 }, //1.333333
 { 5006, 352, 288 }, //1.222222
+{ 5461, 320, 240 }, //1.33333
+{ 5006, 176, 144 }, //1.222222
+
 };
 static camera_size_type jpeg_thumbnail_sizes[]  = {
 { 512, 288 },
@@ -133,6 +136,7 @@ static camera_size_type jpeg_thumbnail_sizes[]  = {
 { 432, 288 },
 { 512, 384 },
 { 352, 288 },
+{ 320, 240 },
 { 176, 144 },
 {0,0}
 };
@@ -2460,6 +2464,8 @@ status_t QCameraHardwareInterface::setJpegThumbnailSize(const CameraParameters& 
     for (unsigned int i = 0; i < JPEG_THUMBNAIL_SIZE_COUNT; ++i) {
        if (width == jpeg_thumbnail_sizes[i].width
          && height == jpeg_thumbnail_sizes[i].height) {
+           thumbnailWidth = width;
+           thumbnailHeight = height;
            mParameters.set(CameraParameters::KEY_JPEG_THUMBNAIL_WIDTH, width);
            mParameters.set(CameraParameters::KEY_JPEG_THUMBNAIL_HEIGHT, height);
            return NO_ERROR;
@@ -3850,17 +3856,11 @@ void QCameraHardwareInterface::prepareVideoPicture(bool disable){
         mParameters.setPictureSize(mDimension.video_width, mDimension.video_height);
         mParameters.set(CameraParameters::KEY_SUPPORTED_PICTURE_SIZES,
                         str.string());
-
-        mParameters.set(CameraParameters::KEY_JPEG_THUMBNAIL_WIDTH, THUMBNAIL_DEFAULT_WIDTH);
-        mParameters.set(CameraParameters::KEY_JPEG_THUMBNAIL_HEIGHT, THUMBNAIL_DEFAULT_HEIGHT);
     }else{
         //Set Picture Size
         mParameters.setPictureSize(DEFAULT_PICTURE_WIDTH, DEFAULT_PICTURE_HEIGHT);
         mParameters.set(CameraParameters::KEY_SUPPORTED_PICTURE_SIZES,
                         mPictureSizeValues.string());
-        //set to default thumbnail setting
-        mParameters.set(CameraParameters::KEY_JPEG_THUMBNAIL_WIDTH, THUMBNAIL_DEFAULT_WIDTH);
-        mParameters.set(CameraParameters::KEY_JPEG_THUMBNAIL_HEIGHT, THUMBNAIL_DEFAULT_HEIGHT);
     }
 }
 
