@@ -3602,7 +3602,7 @@ int QCameraHardwareInterface::getZSLBackLookCount(void) const
 
 bool QCameraHardwareInterface::isLowPowerCamcorder() {
 
-    if ((mPowerMode == LOW_POWER) || !mRecordingHint) {
+    if (mPowerMode == LOW_POWER) {
         return true;
     }
     if(mHFRLevel > 1) /* hard code the value now. Need to move tgtcommon to camear.h */
