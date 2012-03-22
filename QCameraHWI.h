@@ -69,6 +69,9 @@ extern "C" {
 #define D1_WIDTH        720
 #define D1_HEIGHT       480
 
+#define THUMBNAIL_DEFAULT_WIDTH 512
+#define THUMBNAIL_DEFAULT_HEIGHT 384
+
 struct str_map {
     const char *const desc;
     int val;

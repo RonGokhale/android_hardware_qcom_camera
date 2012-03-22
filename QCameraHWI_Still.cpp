@@ -29,9 +29,6 @@
 #include "QCameraHAL.h"
 #include "QCameraHWI.h"
 
-#define THUMBNAIL_DEFAULT_WIDTH 512
-#define THUMBNAIL_DEFAULT_HEIGHT 384
-
 /* following code implement the still image capture & encoding logic of this class*/
 namespace android {
 

@@ -3831,16 +3831,16 @@ void QCameraHardwareInterface::prepareVideoPicture(bool disable){
         mParameters.set(CameraParameters::KEY_SUPPORTED_PICTURE_SIZES,
                         str.string());
 
-        mParameters.set(CameraParameters::KEY_JPEG_THUMBNAIL_WIDTH, mDimension.video_width);
-        mParameters.set(CameraParameters::KEY_JPEG_THUMBNAIL_HEIGHT, mDimension.video_height);
+        mParameters.set(CameraParameters::KEY_JPEG_THUMBNAIL_WIDTH, THUMBNAIL_DEFAULT_WIDTH);
+        mParameters.set(CameraParameters::KEY_JPEG_THUMBNAIL_HEIGHT, THUMBNAIL_DEFAULT_HEIGHT);
     }else{
         //Set Picture Size
         mParameters.setPictureSize(DEFAULT_PICTURE_WIDTH, DEFAULT_PICTURE_HEIGHT);
         mParameters.set(CameraParameters::KEY_SUPPORTED_PICTURE_SIZES,
                         mPictureSizeValues.string());
         //set to default thumbnail setting
-        mParameters.set(CameraParameters::KEY_JPEG_THUMBNAIL_WIDTH, 512);
-        mParameters.set(CameraParameters::KEY_JPEG_THUMBNAIL_HEIGHT, 384);
+        mParameters.set(CameraParameters::KEY_JPEG_THUMBNAIL_WIDTH, THUMBNAIL_DEFAULT_WIDTH);
+        mParameters.set(CameraParameters::KEY_JPEG_THUMBNAIL_HEIGHT, THUMBNAIL_DEFAULT_HEIGHT);
     }
 }
 
