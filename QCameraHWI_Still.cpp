@@ -285,6 +285,7 @@ receiveCompleteJpegPicture(jpeg_event_t event)
       mStopCallbackLock.unlock();
       LOGW("%s: JPEG callback was cancelled--not delivering image.", __func__);
     }
+    jpg_data_cb = NULL;
     mStopCallbackLock.lock( );
     //reset jpeg_offset
     mJpegOffset = 0;
@@ -341,6 +342,13 @@ end:
         }else {
             LOGD("%s: mNumOfRecievedJPEG(%d), mNumOfSnapshot(%d)", __func__, mNumOfRecievedJPEG, mNumOfSnapshot);
         }
+    }
+     if(fail_cb_flag && mHalCamCtrl->mDataCb &&
+        (mHalCamCtrl->mMsgEnabled & CAMERA_MSG_COMPRESSED_IMAGE)) {
+        /* get picture failed. Give jpeg callback with NULL data
+         * to the application to restore to preview mode
+         */
+        jpg_data_cb  = mHalCamCtrl->mDataCb;
     }
     mStopCallbackLock.unlock( );
     LOGD("%s: X", __func__);
