@@ -348,6 +348,12 @@ end:
         jpg_data_cb  = mHalCamCtrl->mDataCb;
     }
     mStopCallbackLock.unlock( );
+    if(jpg_data_cb != NULL) {
+      jpg_data_cb (CAMERA_MSG_COMPRESSED_IMAGE,
+                   NULL, 0, NULL,
+                   mHalCamCtrl->mCallbackCookie);
+    }
+
     LOGD("%s: X", __func__);
 }
 
