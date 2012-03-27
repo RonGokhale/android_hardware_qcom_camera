@@ -214,6 +214,16 @@ typedef struct{
     rat_t       focalLength;
     uint16_t    flashMode;
     uint16_t    isoSpeed;
+
+    bool        mAltitude;
+    bool        mLongitude;
+    bool        mLatitude;
+    bool        mTimeStamp;
+    bool        mGpsProcess;
+
+    int         mAltitude_ref;
+    long        mGPSTimestamp;
+
 } exif_values_t;
 
 namespace android {
@@ -426,9 +436,6 @@ public:
 
     //bool     useOverlay(void);
     //virtual status_t setOverlay(const sp<Overlay> &overlay);
-
-    void        encodeData();
-
     void processEvent(mm_camera_event_t *);
     int  getJpegQuality() const;
     int  getNumOfSnapshots(void) const;
@@ -445,11 +452,11 @@ public:
     void getZSLLookBack(int *mode, int *value);
     void setZSLEmptyQueueFlag(bool flag);
     void getZSLEmptyQueueFlag(bool *flag);
-	int getZSLQueueDepth(void) const;
-	int getZSLBackLookCount(void) const;
+    int getZSLQueueDepth(void) const;
+    int getZSLBackLookCount(void) const;
     //QCameraHardwareInterface(int  cameraId, int mode);
     ~QCameraHardwareInterface();
-   int initHeapMem(QCameraHalHeap_t *heap,
+    int initHeapMem(QCameraHalHeap_t *heap,
 				int num_of_buf,
 				int pmem_type,
 				int frame_len,
@@ -460,15 +467,12 @@ public:
                                 uint8_t num_planes,
                                 uint32_t *planes);
 
-	int releaseHeapMem( QCameraHalHeap_t *heap);
+    int releaseHeapMem( QCameraHalHeap_t *heap);
     int allocate_ion_memory(QCameraHalHeap_t *p_camera_memory, int cnt, int ion_type);
     int deallocate_ion_memory(QCameraHalHeap_t *p_camera_memory, int cnt);
     void dumpFrameToFile(const void * data, uint32_t size, char* name, char* ext, int index);
     preview_format_info_t  getPreviewFormatInfo( );
     bool isCameraReady();
-    exif_tags_info_t* getExifData(){ return mExifData; }
-    void resetExifData();
-    int getExifTableNumEntries() { return mExifTableNumEntries; }
     bool isNoDisplayMode();
 
 private:
@@ -478,7 +482,7 @@ private:
     void initDefaultParameters();
     bool getMaxPictureDimension(mm_camera_dimension_t *dim);
 
-    status_t updateFocusDistances(const char *focusmode);
+    status_t updateFocusDistances();
 
     bool native_set_parms(mm_camera_parm_type_t type, uint16_t length, void *value);
     bool native_set_parms( mm_camera_parm_type_t type, uint16_t length, void *value, int *result);
@@ -524,10 +528,10 @@ private:
 
     status_t runFaceDetection();
 
-	status_t          setParameters(const CameraParameters& params);
-	CameraParameters&  getParameters() ;
+    status_t           setParameters(const CameraParameters& params);
+    CameraParameters&  getParameters() ;
 
-	status_t setCameraMode(const CameraParameters& params);
+    status_t setCameraMode(const CameraParameters& params);
     status_t setPictureSizeTable(void);
     status_t setPreviewSizeTable(void);
     status_t setVideoSizeTable(void);
@@ -614,7 +618,11 @@ private:
     void addExifTag(exif_tag_id_t tagid, exif_tag_type_t type,
                         uint32_t count, uint8_t copy, void *data);
     void setExifTags();
+    void initExifData();
+    void deinitExifData();
     void setExifTagsGPS();
+    exif_tags_info_t* getExifData(){ return mExifData; }
+    int getExifTableNumEntries() { return mExifTableNumEntries; }
     void parseGPSCoordinate(const char *latlonString, rat_t* coord);
 
     int           mCameraId;
@@ -649,7 +657,7 @@ private:
     QCameraStream       *mStreamLiveSnap;
 
     cam_ctrl_dimension_t mDimension;
-    int  previewWidth, previewHeight;
+    int  mPreviewWidth, mPreviewHeight;
     int  videoWidth, videoHeight;
     int  thumbnailWidth, thumbnailHeight;
     int  maxSnapshotWidth, maxSnapshotHeight;
@@ -661,6 +669,8 @@ private:
     int  mDenoiseValue;
     int  mHJR;
     int  mRotation;
+    int  mJpegQuality;
+    int  mThumbnailQuality;
     int  mTargetSmoothZoom;
     int  mSmoothZoomStep;
     int  mMaxZoom;
@@ -669,6 +679,7 @@ private:
     int  mFaceDetectOn;
     int  mDumpFrmCnt;
     int  mDumpSkipCnt;
+    int  mFocusMode;
 
     unsigned int mPictureSizeCount;
     unsigned int mPreviewSizeCount;
@@ -735,6 +746,7 @@ private:
     String8 denoise_value;
     String8 mFpsRangesSupportedValues;
     String8 mZslValues;
+    String8 mFocusDistance;
 
     friend class QCameraStream;
     friend class QCameraStream_record;
@@ -754,10 +766,10 @@ private:
     sp<PmemPool> mPostPreviewHeap;
 #endif
      mm_cameara_stream_buf_t mPrevForPostviewBuf;
-	 int mStoreMetaDataInFrame;
-	 preview_stream_ops_t *mPreviewWindow;
+     int mStoreMetaDataInFrame;
+     preview_stream_ops_t *mPreviewWindow;
      Mutex                mStateLock;
-	 int                  mPreviewState;
+     int                  mPreviewState;
      /*preview memory with display case: memory is allocated and freed via
      gralloc */
      QCameraHalMemory_t   mPreviewMemory;
@@ -771,8 +783,8 @@ private:
      QCameraHalHeap_t     mRecordingMemory;
      QCameraHalHeap_t     mJpegMemory;
      QCameraHalHeap_t     mRawMemory;
-	 camera_frame_metadata_t mMetadata;
-	 camera_face_t           mFace[MAX_ROI];
+     camera_frame_metadata_t mMetadata;
+     camera_face_t           mFace[MAX_ROI];
      preview_format_info_t  mPreviewFormatInfo;
      friend void liveshot_callback(mm_camera_ch_data_buf_t *frame,void *user_data);
 
@@ -780,7 +792,7 @@ private:
      exif_tags_info_t       mExifData[MAX_EXIF_TABLE_ENTRIES];  //Exif tags for JPEG encoder
      exif_values_t          mExifValues;                        //Exif values in usable format
      int                    mExifTableNumEntries;            //NUmber of entries in mExifData
-     int                 mNoDisplayMode;
+	 int                    mNoDisplayMode;
 };
 
 }; // namespace android

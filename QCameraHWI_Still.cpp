@@ -309,7 +309,7 @@ end:
     setSnapshotState(SNAPSHOT_STATE_JPEG_ENCODE_DONE);
 
     mNumOfRecievedJPEG++;
-    mHalCamCtrl->resetExifData();
+    mHalCamCtrl->deinitExifData();
 
     /* Before leaving check the jpeg queue. If it's not empty give the available
        frame for encoding*/
@@ -340,7 +340,7 @@ end:
             LOGD("%s: mNumOfRecievedJPEG(%d), mNumOfSnapshot(%d)", __func__, mNumOfRecievedJPEG, mNumOfSnapshot);
         }
     }
-     if(fail_cb_flag && mHalCamCtrl->mDataCb &&
+    if(fail_cb_flag && mHalCamCtrl->mDataCb &&
         (mHalCamCtrl->mMsgEnabled & CAMERA_MSG_COMPRESSED_IMAGE)) {
         /* get picture failed. Give jpeg callback with NULL data
          * to the application to restore to preview mode
@@ -390,9 +390,9 @@ configSnapshotDimension(cam_ctrl_dimension_t* dim)
     if (isZSLMode() && ((mPictureWidth < mPostviewWidth) &&
         (mPictureHeight < mPostviewHeight))) {
        LOGD("Setting input thumbnail size to PreviewWidth = %d PreviewHeight = %d in ZSL mode",
-             mHalCamCtrl->previewWidth, mHalCamCtrl->previewHeight);
-       mPostviewHeight = mHalCamCtrl->previewHeight;
-       mPostviewWidth = mHalCamCtrl->previewWidth;
+             mHalCamCtrl->mPreviewWidth, mHalCamCtrl->mPreviewHeight);
+       mPostviewHeight = mHalCamCtrl->mPreviewHeight;
+       mPostviewWidth = mHalCamCtrl->mPreviewWidth;
     }
 
     LOGD("%s: Postview size received: %d x %d", __func__,
@@ -1461,12 +1461,10 @@ encodeData(mm_camera_ch_data_buf_t* recvd_frame,
 
         if(!mDropThumbnail) {
             if(isZSLMode()) {
-                int mCurrPreviewWidth, mCurrPreviewHeight;
-                mHalCamCtrl->getPreviewSize(&mCurrPreviewWidth, &mCurrPreviewHeight);
                 LOGI("Setting input thumbnail size to previewWidth= %d   previewheight= %d in ZSL mode",
-                     mCurrPreviewWidth, mCurrPreviewHeight);
-                dimension.thumbnail_width = width = mCurrPreviewWidth;
-                dimension.thumbnail_height = height = mCurrPreviewHeight;
+                     mHalCamCtrl->mPreviewWidth, mHalCamCtrl->mPreviewHeight);
+                dimension.thumbnail_width = width = mHalCamCtrl->mPreviewWidth;
+                dimension.thumbnail_height = height = mHalCamCtrl->mPreviewHeight;
             } else {
                 dimension.thumbnail_width = width = mThumbnailWidth;
                 dimension.thumbnail_height = height = mThumbnailHeight;
@@ -1484,7 +1482,7 @@ encodeData(mm_camera_ch_data_buf_t* recvd_frame,
         set_callbacks(snapshot_jpeg_fragment_cb, snapshot_jpeg_cb, this,
              mHalCamCtrl->mJpegMemory.camera_memory[0]->data, &mJpegOffset);
         omxJpegStart();
-        mm_jpeg_encoder_setMainImageQuality(mHalCamCtrl->getJpegQuality());
+        mm_jpeg_encoder_setMainImageQuality(mHalCamCtrl->mJpegQuality);
 
         LOGE("%s: Dimension to encode: main: %dx%d thumbnail: %dx%d", __func__,
              dimension.orig_picture_dx, dimension.orig_picture_dy,
@@ -1531,7 +1529,7 @@ encodeData(mm_camera_ch_data_buf_t* recvd_frame,
         }
 
         //update exif parameters in HAL
-        mHalCamCtrl->setExifTags();
+        mHalCamCtrl->initExifData();
 
         /*Fill in the encode parameters*/
         encode_params.dimension = (const cam_ctrl_dimension_t *)&dimension;
@@ -2112,6 +2110,7 @@ status_t QCameraStream_Snapshot::start(void) {
             LOGE("%s : Error while Initializing ZSL snapshot",__func__);
             goto end;
         }
+        mHalCamCtrl->setExifTags();
         /* In case of ZSL, start will only start snapshot stream and
            continuously queue the frames in a queue. When user clicks
            shutter we'll call get buffer from the queue and pass it on */
@@ -2135,6 +2134,9 @@ status_t QCameraStream_Snapshot::start(void) {
         LOGE("%s : Error while Initializing snapshot",__func__);
         goto end;
     }
+
+    //Update Exiftag values.
+    mHalCamCtrl->setExifTags();
 
     if (mSnapshotFormat == PICTURE_FORMAT_RAW) {
         ret = takePictureRaw();

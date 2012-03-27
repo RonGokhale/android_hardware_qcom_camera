@@ -928,6 +928,7 @@ void QCameraHardwareInterface::initDefaultParameters()
                     mPictureFormatValues);
 
     mParameters.set(CameraParameters::KEY_JPEG_QUALITY, "85"); // max quality
+    mJpegQuality = 85;
     //Set Video Format
     mParameters.set(CameraParameters::KEY_VIDEO_FRAME_FORMAT, "yuv420sp");
 
@@ -1022,6 +1023,7 @@ void QCameraHardwareInterface::initDefaultParameters()
     if(mHasAutoFocusSupport){
        mParameters.set(CameraParameters::KEY_FOCUS_MODE,
                           CameraParameters::FOCUS_MODE_AUTO);
+       mFocusMode = AF_MODE_AUTO;
        mParameters.set(CameraParameters::KEY_SUPPORTED_FOCUS_MODES,
                           mFocusModeValues);
        mParameters.set(CameraParameters::KEY_MAX_NUM_FOCUS_AREAS, "1");
@@ -1029,6 +1031,7 @@ void QCameraHardwareInterface::initDefaultParameters()
    } else {
        mParameters.set(CameraParameters::KEY_FOCUS_MODE,
        CameraParameters::FOCUS_MODE_INFINITY);
+       mFocusMode = DONT_CARE;
        mParameters.set(CameraParameters::KEY_SUPPORTED_FOCUS_MODES,
        CameraParameters::FOCUS_MODE_INFINITY);
        mParameters.set(CameraParameters::KEY_MAX_NUM_FOCUS_AREAS, "0");
@@ -1304,6 +1307,9 @@ status_t QCameraHardwareInterface::setParameters(const CameraParameters& params)
     if ((rc = setHighFrameRate(params)))  final_rc = rc;
     if ((rc = setNoDisplayMode(params))) final_rc = rc;
 
+    //Update Exiftag values.
+    setExifTags();
+
    LOGI("%s: X", __func__);
    return final_rc;
 }
@@ -1320,10 +1326,12 @@ int QCameraHardwareInterface::getParameters(char **parms)
     //param.dump();
     str = param.flatten( );
     rc = (char *)malloc(sizeof(char)*(str.length()+1));
-    memset(rc, 0, sizeof(char)*(str.length()+1));
-    strncpy(rc, str.string(), str.length());
+    if(rc != NULL){
+        memset(rc, 0, sizeof(char)*(str.length()+1));
+        strncpy(rc, str.string(), str.length());
 	rc[str.length()] = 0;
 	*parms = rc;
+    }
     return 0;
 }
 
@@ -1341,6 +1349,7 @@ void QCameraHardwareInterface::putParameters(char *rc)
 CameraParameters& QCameraHardwareInterface::getParameters()
 {
     Mutex::Autolock lock(mLock);
+    mParameters.set(CameraParameters::KEY_FOCUS_DISTANCES, mFocusDistance.string());
     return mParameters;
 }
 
@@ -1580,7 +1589,7 @@ status_t  QCameraHardwareInterface::setISOValue(const CameraParameters& params) 
     return BAD_VALUE;
 }
 
-status_t QCameraHardwareInterface::updateFocusDistances(const char *focusmode)
+status_t QCameraHardwareInterface::updateFocusDistances()
 {
     LOGV("%s: IN", __FUNCTION__);
     focus_distances_info_t focusDistances;
@@ -1589,7 +1598,7 @@ status_t QCameraHardwareInterface::updateFocusDistances(const char *focusmode)
         String8 str;
         char buffer[32] = {0};
         //set all distances to infinity if focus mode is infinity
-        if(strcmp(focusmode, CameraParameters::FOCUS_MODE_INFINITY) == 0) {
+        if(mFocusMode == DONT_CARE) {
             snprintf(buffer, sizeof(buffer), "Infinity,");
             str.append(buffer);
             snprintf(buffer, sizeof(buffer), "Infinity,");
@@ -1605,7 +1614,7 @@ status_t QCameraHardwareInterface::updateFocusDistances(const char *focusmode)
             str.append(buffer);
         }
         LOGE("%s: setting KEY_FOCUS_DISTANCES as %s", __FUNCTION__, str.string());
-        mParameters.set(CameraParameters::KEY_FOCUS_DISTANCES, str.string());
+        mFocusDistance = str;
         return NO_ERROR;
     }
     LOGE("%s: get CAMERA_PARM_FOCUS_DISTANCES failed!!!", __FUNCTION__);
@@ -1934,12 +1943,13 @@ status_t QCameraHardwareInterface::setFocusMode(const CameraParameters& params)
                                     sizeof(focus_modes) / sizeof(str_map), str);
         if (value != NOT_FOUND) {
             mParameters.set(CameraParameters::KEY_FOCUS_MODE, str);
+            mFocusMode = value;
 
-            if(updateFocusDistances(str) != NO_ERROR) {
+            if(updateFocusDistances() != NO_ERROR) {
                LOGE("%s: updateFocusDistances failed for %s", __FUNCTION__, str);
                return UNKNOWN_ERROR;
             }
-
+            mParameters.set(CameraParameters::KEY_FOCUS_DISTANCES, mFocusDistance.string());
             if(mHasAutoFocusSupport){
                 int cafSupport = FALSE;
                 if(!strcmp(str, CameraParameters::FOCUS_MODE_CONTINUOUS_VIDEO) ||
@@ -2316,22 +2326,22 @@ status_t QCameraHardwareInterface::setVideoSize(const CameraParameters& params)
         //If application didn't set this parameter string, use the values from
         //getPreviewSize() as video dimensions.
         LOGE("No Record Size requested, use the preview dimensions");
-        videoWidth = previewWidth;
-        videoHeight = previewHeight;
+        videoWidth = mPreviewWidth;
+        videoHeight = mPreviewHeight;
     } else {
         //Extract the record witdh and height that application requested.
         LOGI("%s: requested record size %s", __func__, str);
         if(!parse_size(str, videoWidth, videoHeight)) {
             mParameters.set(CameraParameters::KEY_VIDEO_SIZE, str);
             //VFE output1 shouldn't be greater than VFE output2.
-            if( (previewWidth > videoWidth) || (previewHeight > videoHeight)) {
+            if( (mPreviewWidth > videoWidth) || (mPreviewHeight > videoHeight)) {
                 //Set preview sizes as record sizes.
                 LOGE("Preview size %dx%d is greater than record size %dx%d,\
-                   resetting preview size to record size",previewWidth,
-                     previewHeight, videoWidth, videoHeight);
-                previewWidth = videoWidth;
-                previewHeight = videoHeight;
-                mParameters.setPreviewSize(previewWidth, previewHeight);
+                   resetting preview size to record size",mPreviewWidth,
+                     mPreviewHeight, videoWidth, videoHeight);
+                mPreviewWidth = videoWidth;
+                mPreviewHeight = videoHeight;
+                mParameters.setPreviewSize(mPreviewWidth, mPreviewHeight);
             }
 
             if(mIs3DModeOn == true) {
@@ -2342,9 +2352,9 @@ status_t QCameraHardwareInterface::setVideoSize(const CameraParameters& params)
                  * request different preview sizes like 768x432
                  */
                 LOGE("3D mod is on");
-                previewWidth = videoWidth;
-                previewHeight = videoHeight;
-                mParameters.setPreviewSize(previewWidth, previewHeight);
+                mPreviewWidth = videoWidth;
+                mPreviewHeight = videoHeight;
+                mParameters.setPreviewSize(mPreviewWidth, mPreviewHeight);
             }
         } else {
             mParameters.set(CameraParameters::KEY_VIDEO_SIZE, "");
@@ -2352,10 +2362,10 @@ status_t QCameraHardwareInterface::setVideoSize(const CameraParameters& params)
             return BAD_VALUE;
         }
     }
-    LOGE("%s: preview dimensions: %dx%d", __func__, previewWidth, previewHeight);
+    LOGE("%s: preview dimensions: %dx%d", __func__, mPreviewWidth, mPreviewHeight);
     LOGE("%s: video dimensions: %dx%d", __func__, videoWidth, videoHeight);
-    mDimension.display_width = previewWidth;
-    mDimension.display_height= previewHeight;
+    mDimension.display_width = mPreviewWidth;
+    mDimension.display_height= mPreviewHeight;
     mDimension.orig_video_width = videoWidth;
     mDimension.orig_video_height = videoHeight;
     mDimension.video_width = videoWidth;
@@ -2425,10 +2435,10 @@ status_t QCameraHardwareInterface::setPreviewSize(const CameraParameters& params
            && height ==  mPreviewSizes[i].height) {
             mParameters.setPreviewSize(width, height);
             LOGE("setPreviewSize:  width: %d   heigh: %d", width, height);
-            previewWidth = width;
-            previewHeight = height;
+            mPreviewWidth = width;
+            mPreviewHeight = height;
             mDimension.display_width = width;
-            mDimension.display_height= height;
+            mDimension.display_height = height;
             return NO_ERROR;
         }
     }
@@ -2506,13 +2516,11 @@ status_t QCameraHardwareInterface::setPictureSize(const CameraParameters& params
 }
 
 status_t QCameraHardwareInterface::setJpegRotation(int isZsl) {
-    int rotation = mParameters.getInt("rotation");
-    return mm_jpeg_encoder_setRotation(rotation, isZsl);
+    return mm_jpeg_encoder_setRotation(mRotation, isZsl);
 }
 
 int QCameraHardwareInterface::getJpegRotation(void) {
-    int rotation = mParameters.getInt("rotation");
-    return rotation;
+    return mRotation;
 }
 
 int QCameraHardwareInterface::getISOSpeedValue()
@@ -2530,6 +2538,7 @@ status_t QCameraHardwareInterface::setJpegQuality(const CameraParameters& params
     LOGE("setJpegQuality E");
     if (quality >= 0 && quality <= 100) {
         mParameters.set(CameraParameters::KEY_JPEG_QUALITY, quality);
+        mJpegQuality = quality;
     } else {
         LOGE("Invalid jpeg quality=%d", quality);
         rc = BAD_VALUE;
@@ -3193,15 +3202,8 @@ status_t QCameraHardwareInterface::setFullLiveshot()
 isp3a_af_mode_t QCameraHardwareInterface::getAutoFocusMode(
   const CameraParameters& params)
 {
-
   isp3a_af_mode_t afMode = AF_MODE_MAX;
-  const char * focusMode = params.get(CameraParameters::KEY_FOCUS_MODE);
-
-  if (focusMode ) {
-    afMode = (isp3a_af_mode_t)attr_lookup(focus_modes,
-      sizeof(focus_modes) / sizeof(str_map),
-      params.get(CameraParameters::KEY_FOCUS_MODE));
-  }
+  afMode = (isp3a_af_mode_t)mFocusMode;
   return afMode;
 }
 
@@ -3214,13 +3216,12 @@ void QCameraHardwareInterface::getPictureSize(int *picture_width,
 void QCameraHardwareInterface::getPreviewSize(int *preview_width,
                                               int *preview_height) const
 {
-
     mParameters.getPreviewSize(preview_width, preview_height);
 }
 
 cam_format_t QCameraHardwareInterface::getPreviewFormat() const
 {
-  cam_format_t foramt = CAMERA_YUV_420_NV21;
+    cam_format_t foramt = CAMERA_YUV_420_NV21;
     const char *str = mParameters.getPreviewFormat();
     int32_t value = attr_lookup(preview_formats,
                                 sizeof(preview_formats)/sizeof(str_map),
@@ -3247,7 +3248,7 @@ cam_pad_format_t QCameraHardwareInterface::getPreviewPadding() const
 
 int QCameraHardwareInterface::getJpegQuality() const
 {
-    return mParameters.getInt(CameraParameters::KEY_JPEG_QUALITY);
+    return mJpegQuality;
 }
 
 int QCameraHardwareInterface::getNumOfSnapshots(void) const
@@ -3646,7 +3647,7 @@ bool QCameraHardwareInterface::isLowPowerCamcorder() {
 }
 
 //EXIF functions
-void QCameraHardwareInterface::resetExifData()
+void QCameraHardwareInterface::deinitExifData()
 {
     LOGD("Clearing EXIF data");
     for(int i=0; i<MAX_EXIF_TABLE_ENTRIES; i++)
@@ -3691,6 +3692,67 @@ rat_t getRational(int num, int denom)
     return temp;
 }
 
+void QCameraHardwareInterface::initExifData(){
+    if(mExifValues.dateTime) {
+        addExifTag(EXIFTAGID_EXIF_DATE_TIME_ORIGINAL, EXIF_ASCII,
+                  20, 1, (void *)mExifValues.dateTime);
+    }
+    addExifTag(EXIFTAGID_FOCAL_LENGTH, EXIF_RATIONAL, 1, 1, (void *)&(mExifValues.focalLength));
+    addExifTag(EXIFTAGID_ISO_SPEED_RATING,EXIF_SHORT,1,1,(void *)&(mExifValues.isoSpeed));
+
+    if(mExifValues.mGpsProcess) {
+        addExifTag(EXIFTAGID_GPS_PROCESSINGMETHOD, EXIF_ASCII,
+           EXIF_ASCII_PREFIX_SIZE + strlen(mExifValues.gpsProcessingMethod + EXIF_ASCII_PREFIX_SIZE) + 1,
+           1, (void *)mExifValues.gpsProcessingMethod);
+    }
+
+    if(mExifValues.mLatitude) {
+        addExifTag(EXIFTAGID_GPS_LATITUDE, EXIF_RATIONAL, 3, 1, (void *)mExifValues.latitude);
+
+        if(mExifValues.latRef) {
+            addExifTag(EXIFTAGID_GPS_LATITUDE_REF, EXIF_ASCII, 2,
+                                    1, (void *)mExifValues.latRef);
+        }
+    }
+
+    if(mExifValues.mLongitude) {
+        addExifTag(EXIFTAGID_GPS_LONGITUDE, EXIF_RATIONAL, 3, 1, (void *)mExifValues.longitude);
+
+        if(mExifValues.lonRef) {
+            addExifTag(EXIFTAGID_GPS_LONGITUDE_REF, EXIF_ASCII, 2,
+                                1, (void *)mExifValues.lonRef);
+        }
+    }
+
+    if(mExifValues.mAltitude) {
+        addExifTag(EXIFTAGID_GPS_ALTITUDE, EXIF_RATIONAL, 1,
+                    1, (void *)&(mExifValues.altitude));
+
+        addExifTag(EXIFTAGID_GPS_ALTITUDE_REF, EXIF_BYTE, 1, 1, (void *)&mExifValues.mAltitude_ref);
+    }
+
+    if(mExifValues.mTimeStamp) {
+        time_t unixTime;
+        struct tm *UTCTimestamp;
+
+        unixTime = (time_t)mExifValues.mGPSTimestamp;
+        UTCTimestamp = gmtime(&unixTime);
+
+        strftime(mExifValues.gpsDateStamp, sizeof(mExifValues.gpsDateStamp), "%Y:%m:%d", UTCTimestamp);
+        addExifTag(EXIFTAGID_GPS_DATESTAMP, EXIF_ASCII,
+                          strlen(mExifValues.gpsDateStamp)+1 , 1, (void *)mExifValues.gpsDateStamp);
+
+        mExifValues.gpsTimeStamp[0] = getRational(UTCTimestamp->tm_hour, 1);
+        mExifValues.gpsTimeStamp[1] = getRational(UTCTimestamp->tm_min, 1);
+        mExifValues.gpsTimeStamp[2] = getRational(UTCTimestamp->tm_sec, 1);
+
+        addExifTag(EXIFTAGID_GPS_TIMESTAMP, EXIF_RATIONAL,
+                  3, 1, (void *)mExifValues.gpsTimeStamp);
+        LOGE("EXIFTAGID_GPS_TIMESTAMP set");
+    }
+
+}
+
 //Add all exif tags in this function
 void QCameraHardwareInterface::setExifTags()
 {
@@ -3701,8 +3763,6 @@ void QCameraHardwareInterface::setExifTags()
     if(str != NULL) {
       strncpy(mExifValues.dateTime, str, 19);
       mExifValues.dateTime[19] = '\0';
-      addExifTag(EXIFTAGID_EXIF_DATE_TIME_ORIGINAL, EXIF_ASCII,
-                  20, 1, (void *)mExifValues.dateTime);
     }
 
     //Set focal length
@@ -3711,11 +3771,8 @@ void QCameraHardwareInterface::setExifTags()
 
     mExifValues.focalLength = getRational(focalLengthValue, FOCAL_LENGTH_DECIMAL_PRECISION);
 
-    addExifTag(EXIFTAGID_FOCAL_LENGTH, EXIF_RATIONAL, 1, 1, (void *)&(mExifValues.focalLength));
-
     //Set ISO Speed
     mExifValues.isoSpeed = getISOSpeedValue();
-    addExifTag(EXIFTAGID_ISO_SPEED_RATING,EXIF_SHORT,1,1,(void *)&(mExifValues.isoSpeed));
 
     //set gps tags
     setExifTagsGPS();
@@ -3732,11 +3789,11 @@ void QCameraHardwareInterface::setExifTagsGPS()
        strncpy(mExifValues.gpsProcessingMethod + EXIF_ASCII_PREFIX_SIZE, str,
            GPS_PROCESSING_METHOD_SIZE - 1);
        mExifValues.gpsProcessingMethod[EXIF_ASCII_PREFIX_SIZE + GPS_PROCESSING_METHOD_SIZE-1] = '\0';
-       addExifTag(EXIFTAGID_GPS_PROCESSINGMETHOD, EXIF_ASCII,
-           EXIF_ASCII_PREFIX_SIZE + strlen(mExifValues.gpsProcessingMethod + EXIF_ASCII_PREFIX_SIZE) + 1,
-           1, (void *)mExifValues.gpsProcessingMethod);
        LOGE("EXIFTAGID_GPS_PROCESSINGMETHOD = %s %s", mExifValues.gpsProcessingMethod,
                                                     mExifValues.gpsProcessingMethod+8);
+       mExifValues.mGpsProcess  = true;
+    }else{
+        mExifValues.mGpsProcess = false;
     }
     str = NULL;
 
@@ -3744,7 +3801,6 @@ void QCameraHardwareInterface::setExifTagsGPS()
     str = mParameters.get(CameraParameters::KEY_GPS_LATITUDE);
     if(str != NULL) {
         parseGPSCoordinate(str, mExifValues.latitude);
-        addExifTag(EXIFTAGID_GPS_LATITUDE, EXIF_RATIONAL, 3, 1, (void *)mExifValues.latitude);
         LOGE("EXIFTAGID_GPS_LATITUDE = %s", str);
 
         //set Latitude Ref
@@ -3755,10 +3811,11 @@ void QCameraHardwareInterface::setExifTagsGPS()
             mExifValues.latRef[0] = 'N';
         }
         mExifValues.latRef[1] = '\0';
+        mExifValues.mLatitude = true;
         mParameters.set(CameraParameters::KEY_GPS_LATITUDE_REF,mExifValues.latRef);
-        addExifTag(EXIFTAGID_GPS_LATITUDE_REF, EXIF_ASCII, 2,
-                                1, (void *)mExifValues.latRef);
         LOGE("EXIFTAGID_GPS_LATITUDE_REF = %s", mExifValues.latRef);
+    }else{
+        mExifValues.mLatitude = false;
     }
 
     //set Longitude
@@ -3766,7 +3823,6 @@ void QCameraHardwareInterface::setExifTagsGPS()
     str = mParameters.get(CameraParameters::KEY_GPS_LONGITUDE);
     if(str != NULL) {
         parseGPSCoordinate(str, mExifValues.longitude);
-        addExifTag(EXIFTAGID_GPS_LONGITUDE, EXIF_RATIONAL, 3, 1, (void *)mExifValues.longitude);
         LOGE("EXIFTAGID_GPS_LONGITUDE = %s", str);
 
         //set Longitude Ref
@@ -3777,54 +3833,39 @@ void QCameraHardwareInterface::setExifTagsGPS()
             mExifValues.lonRef[0] = 'E';
         }
         mExifValues.lonRef[1] = '\0';
+        mExifValues.mLongitude = true;
         LOGE("EXIFTAGID_GPS_LONGITUDE_REF = %s", mExifValues.lonRef);
         mParameters.set(CameraParameters::KEY_GPS_LONGITUDE_REF, mExifValues.lonRef);
-        addExifTag(EXIFTAGID_GPS_LONGITUDE_REF, EXIF_ASCII, 2,
-                                1, (void *)mExifValues.lonRef);
+    }else{
+        mExifValues.mLongitude = false;
     }
 
     //set Altitude
     str = mParameters.get(CameraParameters::KEY_GPS_ALTITUDE);
-
     if(str != NULL) {
         double value = atof(str);
-        int ref = 0;
+        mExifValues.mAltitude_ref = 0;
         if(value < 0){
-            ref = 1;
+            mExifValues.mAltitude_ref = 1;
             value = -value;
         }
         mExifValues.altitude = getRational(value*1000, 1000);
-
-        addExifTag(EXIFTAGID_GPS_ALTITUDE, EXIF_RATIONAL, 1,
-                    1, (void *)&(mExifValues.altitude));
+        mExifValues.mAltitude = true;
         //set AltitudeRef
-        mParameters.set(CameraParameters::KEY_GPS_ALTITUDE_REF, ref);
-        addExifTag(EXIFTAGID_GPS_ALTITUDE_REF, EXIF_BYTE, 1, 1, (void *)&ref);
+        mParameters.set(CameraParameters::KEY_GPS_ALTITUDE_REF, mExifValues.mAltitude_ref);
         LOGE("EXIFTAGID_GPS_ALTITUDE = %f", value);
+    }else{
+        mExifValues.mAltitude = false;
     }
 
     //set Gps TimeStamp
     str = NULL;
     str = mParameters.get(CameraParameters::KEY_GPS_TIMESTAMP);
     if(str != NULL) {
-      long value = atol(str);
-      time_t unixTime;
-      struct tm *UTCTimestamp;
-
-      unixTime = (time_t)value;
-      UTCTimestamp = gmtime(&unixTime);
-
-      strftime(mExifValues.gpsDateStamp, sizeof(mExifValues.gpsDateStamp), "%Y:%m:%d", UTCTimestamp);
-      addExifTag(EXIFTAGID_GPS_DATESTAMP, EXIF_ASCII,
-                          strlen(mExifValues.gpsDateStamp)+1 , 1, (void *)mExifValues.gpsDateStamp);
-
-      mExifValues.gpsTimeStamp[0] = getRational(UTCTimestamp->tm_hour, 1);
-      mExifValues.gpsTimeStamp[1] = getRational(UTCTimestamp->tm_min, 1);
-      mExifValues.gpsTimeStamp[2] = getRational(UTCTimestamp->tm_sec, 1);
-
-      addExifTag(EXIFTAGID_GPS_TIMESTAMP, EXIF_RATIONAL,
-                  3, 1, (void *)mExifValues.gpsTimeStamp);
-      LOGE("EXIFTAGID_GPS_TIMESTAMP set");
+      mExifValues.mTimeStamp = true;
+      mExifValues.mGPSTimestamp = atol(str);
+    }else{
+         mExifValues.mTimeStamp = false;
     }
 }
 
