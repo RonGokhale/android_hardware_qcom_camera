@@ -2432,13 +2432,18 @@ status_t QCameraHardwareInterface::setPowerMode(const CameraParameters& params) 
 status_t QCameraHardwareInterface::setPreviewSize(const CameraParameters& params)
 {
     int width, height;
+    int oldWidth, oldHeight;
     params.getPreviewSize(&width, &height);
+    mParameters.getPreviewSize(&oldWidth, &oldHeight);
     LOGE("################requested preview size %d x %d", width, height);
 
     // Validate the preview size
     for (size_t i = 0; i <  mPreviewSizeCount; ++i) {
         if (width ==  mPreviewSizes[i].width
            && height ==  mPreviewSizes[i].height) {
+            if((oldWidth != width) || (oldHeight!= height)) {
+                mStreamDisplay->freeBuffersBeforeStartPreview();
+            }
             mParameters.setPreviewSize(width, height);
             LOGE("setPreviewSize:  width: %d   heigh: %d", width, height);
             mPreviewWidth = width;
