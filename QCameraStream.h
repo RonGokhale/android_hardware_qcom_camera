@@ -121,6 +121,7 @@ public:
     virtual void setFullSizeLiveshot(bool){};
     /* Set the ANativeWindow */
     virtual int setPreviewWindow(preview_stream_ops_t* window) {return NO_ERROR;}
+    virtual status_t freeBuffersBeforeStartPreview(void){return NO_ERROR;}
     virtual void notifyROIEvent(fd_roi_t roi) {;}
     virtual void notifyWDenoiseEvent(cam_ctrl_status_t status, void * cookie) {;}
     virtual void resetSnapshotCounters(void ){};
@@ -221,6 +222,7 @@ public:
     status_t processPreviewFrameWithOutDisplay(mm_camera_ch_data_buf_t *frame);
 
     int setPreviewWindow(preview_stream_ops_t* window);
+    status_t freeBuffersBeforeStartPreview();
     void notifyROIEvent(fd_roi_t roi);
     void setPreviewPauseFlag(bool bPaused);
     status_t reinitDisplayBuffers(); /* re-initialize display buffers when resume preview stream after snapshot*/
