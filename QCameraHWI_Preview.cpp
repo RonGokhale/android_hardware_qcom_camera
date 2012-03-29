@@ -936,20 +936,19 @@ status_t QCameraStream_preview::processPreviewFrameWithOutDisplay(
   LOGD("Message enabled = 0x%x", mHalCamCtrl->mMsgEnabled);
 
   camera_memory_t *previewMem = NULL;
-  int previewWidth, previewHeight;
-  mHalCamCtrl->mParameters.getPreviewSize(&previewWidth, &previewHeight);
 
   if (pcb != NULL) {
       //Sending preview callback if corresponding Msgs are enabled
       if(mHalCamCtrl->mMsgEnabled & CAMERA_MSG_PREVIEW_FRAME) {
+          LOGE("Q%s: PCB callback enabled", __func__);
           msgType |=  CAMERA_MSG_PREVIEW_FRAME;
-          int previewBufSize;
+
           /* For CTS : Forcing preview memory buffer lenth to be
              'previewWidth * previewHeight * 3/2'.
               Needed when gralloc allocated extra memory.*/
           //Can add this check for other formats as well.
           if( mHalCamCtrl->mPreviewFormat == CAMERA_YUV_420_NV21) {
-              previewBufSize = previewWidth * previewHeight * 3/2;
+
               if(previewBufSize != mHalCamCtrl->mPreviewMemory.private_buffer_handle[frame->def.idx]->size) {
                   previewMem = mHalCamCtrl->mGetMemory(mHalCamCtrl->mPreviewMemory.private_buffer_handle[frame->def.idx]->fd,
                   previewBufSize, 1, mHalCamCtrl->mCallbackCookie);

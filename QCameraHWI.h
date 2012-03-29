@@ -525,10 +525,10 @@ private:
 
     status_t runFaceDetection();
 
-    status_t          setParameters(const CameraParameters& params);
-    CameraParameters&  getParameters() ;
+	status_t          setParameters(const CameraParameters& params);
+	CameraParameters&  getParameters() ;
 
-    status_t setCameraMode(const CameraParameters& params);
+	status_t setCameraMode(const CameraParameters& params);
     status_t setPictureSizeTable(void);
     status_t setPreviewSizeTable(void);
     status_t setVideoSizeTable(void);
@@ -542,7 +542,7 @@ private:
     status_t setJpegQuality(const CameraParameters& params);
     status_t setNumOfSnapshot(const CameraParameters& params);
     status_t setJpegRotation(int isZSL);
-    int getJpegRotation(void);
+	int getJpegRotation(void);
     int getISOSpeedValue();
     status_t setAntibanding(const CameraParameters& params);
     status_t setEffect(const CameraParameters& params);
