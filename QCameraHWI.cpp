@@ -177,7 +177,9 @@ QCameraHardwareInterface(int cameraId, int mode)
                     mSkinToneEnhancement(0),
                     mRotation(0),
                     mFocusMode(AF_MODE_MAX),
-                    mPreviewFormat(CAMERA_YUV_420_NV21)
+                    mPreviewFormat(CAMERA_YUV_420_NV21),
+                    mZslInterval(1),
+                    mNumOfSnapshot(1)
 {
     LOGI("QCameraHardwareInterface: E");
     int32_t result = MM_CAMERA_E_GENERAL;
@@ -405,10 +407,10 @@ void QCameraHardwareInterface::setCallbacks(
 
 void QCameraHardwareInterface::enableMsgType(int32_t msgType)
 {
-    LOGI("enableMsgType: E");
+    LOGI("enableMsgType: E, msgType =0x%x", msgType);
     Mutex::Autolock lock(mLock);
     mMsgEnabled |= msgType;
-    LOGI("enableMsgType: X");
+    LOGI("enableMsgType: X, msgType =0x%x, mMsgEnabled=0x%x", msgType, mMsgEnabled);
 }
 
 void QCameraHardwareInterface::disableMsgType(int32_t msgType)
@@ -416,7 +418,7 @@ void QCameraHardwareInterface::disableMsgType(int32_t msgType)
     LOGI("disableMsgType: E");
     Mutex::Autolock lock(mLock);
     mMsgEnabled &= ~msgType;
-    LOGI("disableMsgType: X");
+    LOGI("disableMsgType: X, msgType =0x%x, mMsgEnabled=0x%x", msgType, mMsgEnabled);
 }
 
 int QCameraHardwareInterface::msgTypeEnabled(int32_t msgType)

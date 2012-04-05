@@ -118,6 +118,14 @@ typedef enum {
   HAL_DUMP_FRM_MAX = 1 << 8
 } HAL_cam_dump_frm_type_t;
 
+
+typedef enum {
+  HAL_CAM_MODE_ZSL = 1,
+
+  /*add new entry before and update the max entry*/
+  HAL_CAM_MODE_MAX = HAL_CAM_MODE_ZSL << 1,
+} qQamera_mode_t;
+
 #define HAL_DUMP_FRM_MASK_ALL ( HAL_DUMP_FRM_PREVIEW + HAL_DUMP_FRM_VIDEO + \
     HAL_DUMP_FRM_MAIN + HAL_DUMP_FRM_THUMBNAIL)
 #define QCAMERA_HAL_PREVIEW_STOPPED    0
@@ -444,6 +452,7 @@ public:
     void processEvent(mm_camera_event_t *);
     int  getJpegQuality() const;
     int  getNumOfSnapshots(void) const;
+    int  getNumOfSnapshots(const CameraParameters& params);
     int  getThumbSizesFromAspectRatio(uint32_t aspect_ratio,
                                      int *picture_width,
                                      int *picture_height);
@@ -453,10 +462,9 @@ public:
 
     static QCameraHardwareInterface *createInstance(int, int);
 	//QCameraHardwareInterface(int cameraId, int mode);
-    status_t setZSLLookBack(int mode, int value);
-    void getZSLLookBack(int *mode, int *value);
-    void setZSLEmptyQueueFlag(bool flag);
-    void getZSLEmptyQueueFlag(bool *flag);
+    status_t setZSLBurstLookBack(const CameraParameters& params);
+    status_t setZSLBurstInterval(const CameraParameters& params);
+    int getZSLBurstInterval(void);
     int getZSLQueueDepth(void) const;
     int getZSLBackLookCount(void) const;
     //QCameraHardwareInterface(int  cameraId, int mode);
@@ -598,7 +606,7 @@ private:
     status_t setMeteringAreas(const CameraParameters& params);
     status_t setFullLiveshot(void);
     status_t setDISMode(void);
-    status_t setCaptureBurstExp(void);
+    status_t setCaptureBurstExp(const CameraParameters& params);
     status_t setPowerMode(const CameraParameters& params);
     void takePicturePrepareHardware( );
     status_t setNoDisplayMode(const CameraParameters& params);
@@ -711,6 +719,7 @@ private:
     bool mRecordingHint;
     int mHdrMode;
     int mSnapshotFormat;
+    int mZslInterval;
 
 /*for histogram*/
     int            mStatsOn;
@@ -802,7 +811,8 @@ private:
      exif_tags_info_t       mExifData[MAX_EXIF_TABLE_ENTRIES];  //Exif tags for JPEG encoder
      exif_values_t          mExifValues;                        //Exif values in usable format
      int                    mExifTableNumEntries;            //NUmber of entries in mExifData
-	 int                    mNoDisplayMode;
+     int                    mNoDisplayMode;
+     int                    mNumOfSnapshot;
 };
 
 }; // namespace android

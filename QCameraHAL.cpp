@@ -47,7 +47,7 @@ extern "C" int HAL_getNumberOfCameras()
     /* try to query every time we get the call!*/
     uint8_t num_camera = 0;
     mm_camera_t * handle_base = 0;
-    LOGV("%s: E", __func__);
+    LOGE("%s: E", __func__);
 
     handle_base= mm_camera_query(&num_camera);
 
@@ -66,11 +66,11 @@ extern "C" int HAL_getNumberOfCameras()
             HAL_camerahandle[i]=handle_base + i;
             p_camera_info = &(HAL_camerahandle[i]->camera_info);
             if (p_camera_info) {
-                LOGI("Camera sensor %d info:", i);
-                LOGI("camera_id: %d", p_camera_info->camera_id);
-                LOGI("modes_supported: %x", p_camera_info->modes_supported);
-                LOGI("position: %d", p_camera_info->position);
-                LOGI("sensor_mount_angle: %d", p_camera_info->sensor_mount_angle);
+                LOGE("Camera sensor %d info:", i);
+                LOGE("camera_id: %d", p_camera_info->camera_id);
+                LOGE("modes_supported: %x", p_camera_info->modes_supported);
+                LOGE("position: %d", p_camera_info->position);
+                LOGE("sensor_mount_angle: %d", p_camera_info->sensor_mount_angle);
             }
         }
     }
@@ -88,7 +88,7 @@ extern "C" int HAL_isIn3DMode()
 extern "C" void HAL_getCameraInfo(int cameraId, struct CameraInfo* cameraInfo)
 {
     mm_camera_t *mm_camer_obj = 0;
-    LOGV("%s: E", __func__);
+    LOGE("%s: id =%d E", __func__, cameraId);
 
     if (!HAL_numOfCameras || HAL_numOfCameras < cameraId || !cameraInfo)
         return;
@@ -103,6 +103,7 @@ extern "C" void HAL_getCameraInfo(int cameraId, struct CameraInfo* cameraInfo)
             CAMERA_FACING_FRONT : CAMERA_FACING_BACK;
 
         cameraInfo->orientation = mm_camer_obj->camera_info.sensor_mount_angle;
+        LOGE("Caminfo facing =%d, orit =%d", cameraInfo->facing, cameraInfo->orientation);
 #if 0
         // TODO: fix me
         /* We always supprot ZSL in our stack*/

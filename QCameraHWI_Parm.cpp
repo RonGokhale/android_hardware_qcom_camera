@@ -81,6 +81,10 @@ extern "C" {
 
 #define HDR_HAL_FRAME 2
 
+#define BURST_INTREVAL_MIN 1
+#define BURST_INTREVAL_MAX 10
+#define BURST_INTREVAL_DEFAULT 1
+
 //Default FPS
 #define MINIMUM_FPS 5
 #define MAXIMUM_FPS 31
@@ -1204,18 +1208,52 @@ void QCameraHardwareInterface::initDefaultParameters()
 
     mParameters.set("num-snaps-per-shutter", 1);
 
-   // if(mIs3DModeOn)
-   //     mParameters.set("3d-frame-format", "left-right");
+    mParameters.set("capture-burst-captures-values", getZSLQueueDepth());
+    mParameters.set("capture-burst-interval-supported", "true");
+    mParameters.set("capture-burst-interval-max", BURST_INTREVAL_MAX); /*skip frames*/
+    mParameters.set("capture-burst-interval-min", BURST_INTREVAL_MIN); /*skip frames*/
+    mParameters.set("capture-burst-interval", BURST_INTREVAL_DEFAULT); /*skip frames*/
+    mParameters.set("capture-burst-retroactive", 0);
+    mParameters.set("capture-burst-retroactive-max", getZSLQueueDepth());
+    mParameters.set("capture-burst-exposures", "");
+    mParameters.set("capture-burst-exposures-values",
+      "-12,-11,-10,-9,-8,-7,-6,-5,-4,-3,-2,-1,0,1,2,3,4,5,6,7,8,9,10,11,12");
+    {
+      String8 CamModeStr;
+      char buffer[32];
+      int flag = 0;
 
-    if (setParameters(mParameters) != NO_ERROR) {
-        LOGE("Failed to set default parameters?!");
+      for (int i = 0; i < HAL_CAM_MODE_MAX; i++) {
+        if ( 0 ) { /*exclude some conflicting case*/
+        } else {
+          if (flag == 0) { /*first item*/
+          snprintf(buffer, sizeof(buffer), "%d", i);
+          } else {
+            snprintf(buffer, sizeof(buffer), ",%d", i);
+          }
+          flag = 1;
+          CamModeStr.append(buffer);
+        }
+      }
+      mParameters.set("camera-mode-values", CamModeStr);
     }
 
     mParameters.set("no-display-mode", 0);
     //mUseOverlay = useOverlay();
     mParameters.set("zoom", 0);
-    mInitialized = true;
-    strTexturesOn = false;
+    mParameters.set("ae-bracket-hdr-values",
+      create_values_str(hdr_bracket, sizeof(hdr_bracket)/sizeof(str_map) ));
+
+// if(mIs3DModeOn)
+//     mParameters.set("3d-frame-format", "left-right");
+
+if (setParameters(mParameters) != NO_ERROR) {
+    LOGE("Failed to set default parameters?!");
+}
+
+//mUseOverlay = useOverlay();
+mInitialized = true;
+strTexturesOn = false;
 
     LOGI("%s: X", __func__);
     return;
@@ -1276,15 +1314,13 @@ status_t QCameraHardwareInterface::setParameters(const CameraParameters& params)
     if ((rc = setAntibanding(params)))                  final_rc = rc;
     //    if ((rc = setOverlayFormats(params)))         final_rc = rc;
     if ((rc = setRedeyeReduction(params)))              final_rc = rc;
-    if ((rc = setCaptureBurstExp()))                    final_rc = rc;
+    if ((rc = setCaptureBurstExp(params)))              final_rc = rc;
 
-    mParameters.set("num-snaps-per-shutter", params.get("num-snaps-per-shutter"));
-
+    if ((rc = setNumOfSnapshot(params)))                final_rc = rc;
     if ((rc = setAEBracket(params)))              final_rc = rc;
     //    if ((rc = setDenoise(params)))                final_rc = rc;
     if ((rc = setPreviewFpsRange(params)))              final_rc = rc;
     if((rc = setRecordingHint(params)))                 final_rc = rc;
-    if ((rc = setNumOfSnapshot(params)))                final_rc = rc;
     if ((rc = setAecAwbLock(params)))                   final_rc = rc;
 
     const char *str = params.get(CameraParameters::KEY_SCENE_MODE);
@@ -1309,6 +1345,8 @@ status_t QCameraHardwareInterface::setParameters(const CameraParameters& params)
     // be a preview restart, and need to use the updated parameters
     if ((rc = setHighFrameRate(params)))  final_rc = rc;
     if ((rc = setNoDisplayMode(params))) final_rc = rc;
+    if ((rc = setZSLBurstLookBack(params))) final_rc = rc;
+    if ((rc = setZSLBurstInterval(params))) final_rc = rc;
 
     //Update Exiftag values.
     setExifTags();
@@ -2593,7 +2631,7 @@ status_t QCameraHardwareInterface::
 setNumOfSnapshot(const CameraParameters& params) {
     status_t rc = NO_ERROR;
 
-    int num_of_snapshot = getNumOfSnapshots();
+    int num_of_snapshot = getNumOfSnapshots(params);
 
     if (num_of_snapshot <= 0) {
         num_of_snapshot = 1;
@@ -2606,6 +2644,7 @@ setNumOfSnapshot(const CameraParameters& params) {
                                    (void *)&num_of_snapshot);
     if(!result)
         LOGI("%s:Failure setting number of snapshots!!!", __func__);
+    mNumOfSnapshot = num_of_snapshot;
     return rc;
 }
 
@@ -2613,25 +2652,27 @@ status_t QCameraHardwareInterface::setPreviewFormat(const CameraParameters& para
     const char *str = params.getPreviewFormat();
     int32_t previewFormat = attr_lookup(preview_formats, sizeof(preview_formats) / sizeof(str_map), str);
     if(previewFormat != NOT_FOUND) {
-        preview_format_info_t format_info;
         int num = sizeof(preview_format_info_list)/sizeof(preview_format_info_t);
         int i;
+
         for (i = 0; i < num; i++) {
           if (preview_format_info_list[i].Hal_format == previewFormat) {
             mPreviewFormatInfo = preview_format_info_list[i];
             break;
           }
         }
+
         if (i == num) {
           mPreviewFormatInfo.mm_cam_format = CAMERA_YUV_420_NV21;
           mPreviewFormatInfo.padding = CAMERA_PAD_TO_WORD;
           return BAD_VALUE;
         }
         bool ret = native_set_parms(MM_CAMERA_PARM_PREVIEW_FORMAT, sizeof(cam_format_t),
-                                   (void *)&format_info.mm_cam_format);
+                                   (void *)&mPreviewFormatInfo.mm_cam_format);
         mParameters.set(CameraParameters::KEY_PREVIEW_FORMAT, str);
-        mPreviewFormat = previewFormat;
-        LOGE("Setting preview format to %d",mPreviewFormat);
+        mPreviewFormat = mPreviewFormatInfo.mm_cam_format;
+        LOGI("Setting preview format to %d, i =%d, num=%d, hal_format=%d",
+             mPreviewFormat, i, num, mPreviewFormatInfo.Hal_format);
         return NO_ERROR;
     } else if ( strTexturesOn ) {
       mPreviewFormatInfo.mm_cam_format = CAMERA_YUV_420_NV21;
@@ -2949,13 +2990,19 @@ status_t QCameraHardwareInterface::setAEBracket(const CameraParameters& params)
     return NO_ERROR;
 }
 
-status_t QCameraHardwareInterface::setCaptureBurstExp()
+status_t QCameraHardwareInterface::setCaptureBurstExp(const CameraParameters& params)
 {
-    char burst_exp[PROPERTY_VALUE_MAX];
-    memset(burst_exp, 0, sizeof(burst_exp));
-    property_get("persist.capture.burst.exposures", burst_exp, "");
-    if (NULL != burst_exp)
-      mParameters.set("capture-burst-exposures", burst_exp);
+    const char *str_val = params.get("capture-burst-exposures");
+    if ( str_val == NULL || strlen(str_val)==0 ) {
+        char burst_exp[PROPERTY_VALUE_MAX];
+        memset(burst_exp, 0, sizeof(burst_exp));
+        property_get("persist.capture.burst.exposures", burst_exp, "");
+        if ( strlen(burst_exp)>0 ) {
+            mParameters.set("capture-burst-exposures", burst_exp);
+        }
+    } else {
+      mParameters.set("capture-burst-exposures", str_val);
+    }
     return NO_ERROR;
 }
 
@@ -3270,7 +3317,23 @@ int QCameraHardwareInterface::getNumOfSnapshots(void) const
              "from properties", __func__, atoi(prop));
         return atoi(prop);
     } else {
-        return mParameters.getInt("num-snaps-per-shutter");
+        return mNumOfSnapshot;
+    }
+}
+
+/*getNumOfSnapshots(params ) shall only be called in setparameters( )*/
+int QCameraHardwareInterface::getNumOfSnapshots(const CameraParameters& params)
+{
+    char prop[PROPERTY_VALUE_MAX];
+    memset(prop, 0, sizeof(prop));
+    property_get("persist.camera.snapshot.number", prop, "0");
+    LOGI("%s: prop enable/disable = %d", __func__, atoi(prop));
+    if (atoi(prop)) {
+        LOGI("%s: Reading maximum no of snapshots = %d"
+             "from properties", __func__, atoi(prop));
+        return atoi(prop);
+    } else {
+        return params.getInt("num-snaps-per-shutter");
     }
 
 }
@@ -3588,73 +3651,48 @@ status_t QCameraHardwareInterface::setHistogram(int histogram_en)
     return NO_ERROR;
 }
 
-/* mode: lookback mode -
-   0: look back based on timestamp
-   1: based on frame count.
-   value: number of miliseconds or frame count*/
-status_t QCameraHardwareInterface::setZSLLookBack(int mode, int value)
+status_t QCameraHardwareInterface::setZSLBurstLookBack(const CameraParameters& params)
 {
-    if (value < 0) {
-        LOGE("%s: Undefined look back value!!!", __func__);
-        return BAD_VALUE;
-    }
-
-    mZslLookBackMode = mode;
-    mZslLookBackValue = value;
-
-    return NO_ERROR;
+  const char *v = params.get("capture-burst-retroactive");
+  if (v) {
+    int look_back = atoi(v);
+    LOGI("%s: look_back =%d", __func__, look_back);
+    mParameters.set("capture-burst-retroactive", look_back);
+  }
+  return NO_ERROR;
 }
 
-void QCameraHardwareInterface::getZSLLookBack(int *mode, int *value)
+status_t QCameraHardwareInterface::setZSLBurstInterval(const CameraParameters& params)
 {
+  mZslInterval = 1;
+  const char *v = params.get("capture-burst-interval");
+  if (v) {
+    int interval = atoi(v);
+    LOGI("%s: Interval =%d", __func__, interval);
+    if(interval <= 0) {
+      interval = 1;
+    }
+    mZslInterval =  interval;
+  }
+  return NO_ERROR;
+}
+
+int QCameraHardwareInterface::getZSLBurstInterval( void )
+{
+  int val;
+
+  if (mZslInterval == 1) {
     char prop[PROPERTY_VALUE_MAX];
-    LOGV("%s: BEGIN", __func__);
-
     memset(prop, 0, sizeof(prop));
-    property_get("persist.camera.zsl.prop.enable", prop, "0");
-    /* If we set this property, we'll read zsl look back values from set
-       properties. Otherwise it should be the value passed by User. */
-    if (atoi(prop)) {
-        LOGI("%s: Reading look-back mode from properties", __func__);
-        memset(prop, 0, sizeof(prop));
-        property_get("persist.camera.zsl.lb_mode", prop, "0");
-        mZslLookBackMode = atoi(prop);
-
-        memset(prop, 0, sizeof(prop));
-        property_get("persist.camera.zsl.lb_value", prop, "0");
-        mZslLookBackValue = atoi(prop);
-    }
-    *mode = mZslLookBackMode;
-    *value = mZslLookBackValue;
-    LOGI("%s: ZSL Lookback mode: %d value: %d", __func__, *mode, *value);
+    property_get("persist.camera.zsl.interval", prop, "1");
+    val = atoi(prop);
+    LOGD("%s: prop interval = %d", __func__, val);
+  } else {
+    val = mZslInterval;
+  }
+  return val;
 }
 
-void QCameraHardwareInterface::setZSLEmptyQueueFlag(bool value)
-{
-    LOGI("%s: Setting ZSL Empty_Queue Flag to %d", __func__, value);
-    mZslEmptyQueueFlag = value;
-}
-
-void QCameraHardwareInterface::getZSLEmptyQueueFlag(bool *flag)
-{
-    char value[PROPERTY_VALUE_MAX];
-    LOGV("%s: BEGIN", __func__);
-
-    memset(value, 0, sizeof(value));
-    property_get("persist.camera.zsl.prop.enable", value, "0");
-    /* If we set this property, we'll read zsl look back values from set
-       properties. Otherwise it should be the value passed by User */
-    if (atoi(value)) {
-        LOGI("%s: Reading empty_queue flag from properties", __func__);
-        memset(value, 0, sizeof(value));
-        property_get("persist.camera.zsl.empty_queue", value, "0");
-        mZslEmptyQueueFlag = (bool)atoi(value);
-    }
-
-    *flag = mZslEmptyQueueFlag;
-
-    LOGI("%s: ZSL Empty Queue Flag is set to %d", __func__, mZslEmptyQueueFlag);
-}
 
 int QCameraHardwareInterface::getZSLQueueDepth(void) const
 {
@@ -3667,11 +3705,17 @@ int QCameraHardwareInterface::getZSLQueueDepth(void) const
 
 int QCameraHardwareInterface::getZSLBackLookCount(void) const
 {
+    int look_back;
     char prop[PROPERTY_VALUE_MAX];
     memset(prop, 0, sizeof(prop));
     property_get("persist.camera.zsl.backlookcount", prop, "0");
     LOGI("%s: prop = %d", __func__, atoi(prop));
-    return atoi(prop);
+    look_back = atoi(prop);
+    if (look_back == 0 ) {
+      look_back = mParameters.getInt("capture-burst-retroactive");
+      LOGE("%s: look_back = %d", __func__, look_back);
+    }
+    return look_back;
 }
 
 bool QCameraHardwareInterface::isLowPowerCamcorder() {

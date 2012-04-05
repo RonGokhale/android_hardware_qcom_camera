@@ -143,6 +143,7 @@ typedef struct {
     mm_camera_stream_t main;
     int    delivered_cnt;
     int8_t pending_cnt;
+    uint32_t expected_matching_id;
 } mm_camera_ch_snapshot_t;
 
 typedef struct {

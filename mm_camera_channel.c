@@ -270,6 +270,7 @@ static int32_t mm_camera_ch_util_stream_null_val(mm_camera_obj_t * my_obj,
                                 NULL);
             break;
         case MM_CAMERA_CH_SNAPSHOT:
+            my_obj->ch[ch_type].snapshot.expected_matching_id = 0;
             rc = mm_camera_stream_fsm_fn_vtbl(my_obj,
                             &my_obj->ch[ch_type].snapshot.main, evt,
                             NULL);
@@ -564,8 +565,9 @@ static int mm_camera_channel_skip_frames(mm_camera_obj_t *my_obj,
     count = mm_camera_stream_frame_get_q_cnt(mq);
     if(count < mm_camera_stream_frame_get_q_cnt(sq))
         count = mm_camera_stream_frame_get_q_cnt(sq);
-    CDBG("count =%d, look_back=%d,mq->match_cnt=%d, sq->match_cnt=%d",
-               count ,frame_attr->look_back, mq->match_cnt,sq->match_cnt);
+    CDBG("%s: Q-size=%d, look_back =%d, M_match=%d, T_match=%d", __func__,
+         count, frame_attr->look_back, mq->match_cnt, sq->match_cnt);
+
     count -= frame_attr->look_back;
     CDBG("count=%d, frame_attr->look_back=%d,mq->match_cnt=%d, sq->match_cnt=%d",
                count, frame_attr->look_back, mq->match_cnt,sq->match_cnt);
@@ -588,6 +590,9 @@ static int mm_camera_channel_skip_frames(mm_camera_obj_t *my_obj,
             mm_camera_stream_util_buf_done(my_obj, sstream, &notify_frame);
         }
     }
+
+    CDBG("Post %s: Q-size=%d, look_back =%d, M_match=%d, T_match=%d", __func__,
+         count, frame_attr->look_back, mq->match_cnt, sq->match_cnt);
     return MM_CAMERA_OK;
 }
 
