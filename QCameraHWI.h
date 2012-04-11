@@ -702,6 +702,7 @@ private:
     bool mSendMetaData;
     bool mFullLiveshotEnabled;
     bool mRecordingHint;
+    bool mStateLiveshot;
     int mHdrMode;
     int mSnapshotFormat;
 
