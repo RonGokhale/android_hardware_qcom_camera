@@ -95,8 +95,8 @@ extern "C" {
 #define DEFAULT_PREVIEW_HEIGHT 480
 
 //Default Video Width
-#define DEFAULT_VIDEO_WIDTH 1280
-#define DEFAULT_VIDEO_HEIGHT 720
+#define DEFAULT_VIDEO_WIDTH 1920
+#define DEFAULT_VIDEO_HEIGHT 1088
 
 #define THUMBNAIL_SIZE_COUNT (sizeof(thumbnail_sizes)/sizeof(thumbnail_size_type))
 #define DEFAULT_THUMBNAIL_SETTING 4
@@ -863,7 +863,7 @@ void QCameraHardwareInterface::initDefaultParameters()
     mParameters.set(CameraParameters::KEY_SUPPORTED_VIDEO_SIZES, mVideoSizeValues.string());
 
     //set default video size to first one in supported table
-    String8 vSize = create_sizes_str(&mVideoSizes[1], 1);
+    String8 vSize = create_sizes_str(&mVideoSizes[0], 1);
     mParameters.set(CameraParameters::KEY_VIDEO_SIZE, vSize.string());
 
     //Set Preview size
