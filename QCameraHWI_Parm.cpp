@@ -1017,10 +1017,13 @@ void QCameraHardwareInterface::initDefaultParameters()
 
     //Set AEC_LOCK
     mParameters.set(CameraParameters::KEY_AUTO_EXPOSURE_LOCK, "false");
-    if(cam_config_is_parm_supported(mCameraId, MM_CAMERA_PARM_AEC_LOCK))
+    if(cam_config_is_parm_supported(mCameraId, MM_CAMERA_PARM_AEC_LOCK)){
+        LOGE("ne0: aec lock supported");
         mParameters.set(CameraParameters::KEY_AUTO_EXPOSURE_LOCK_SUPPORTED, "true");
-    else
+    } else {
+        LOGE("ne0: aec lock not supported");
         mParameters.set(CameraParameters::KEY_AUTO_EXPOSURE_LOCK_SUPPORTED, "false");
+    }
     //Set AWB_LOCK
     mParameters.set(CameraParameters::KEY_AUTO_WHITEBALANCE_LOCK, "false");
     if(cam_config_is_parm_supported(mCameraId, MM_CAMERA_PARM_AWB_LOCK))
