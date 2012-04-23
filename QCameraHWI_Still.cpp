@@ -2232,6 +2232,8 @@ end:
     if (ret == NO_ERROR) {
         setSnapshotState(SNAPSHOT_STATE_IMAGE_CAPTURE_STRTD);
         mActive = true;
+    } else {
+        deInitBuffer();
     }
     LOGV("%s: X", __func__);
     return ret;
