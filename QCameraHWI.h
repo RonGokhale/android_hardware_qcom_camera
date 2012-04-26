@@ -721,6 +721,7 @@ private:
     int mHdrMode;
     int mSnapshotFormat;
     int mZslInterval;
+    bool mRestartPreview;
 
 /*for histogram*/
     int            mStatsOn;

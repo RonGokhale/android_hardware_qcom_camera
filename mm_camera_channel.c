@@ -281,7 +281,7 @@ static int32_t mm_camera_ch_util_stream_null_val(mm_camera_obj_t * my_obj,
             break;
         default:
             CDBG_ERROR("%s: Invalid ch_type=%d", __func__, ch_type);
-            return -1;
+            rc = -1;
             break;
         }
         return rc;
@@ -621,7 +621,8 @@ void mm_camera_dispatch_buffered_frames(mm_camera_obj_t *my_obj,
       sq = &stream2->frame.readyq;
     }
     CDBG("mq=%p, sq=%p, stream1=%p, stream2=%p", mq, sq, stream1, stream2);
-    pthread_mutex_lock(&ch->mutex);
+    pthread_mutex_lock(&my_obj->ch[MM_CAMERA_CH_PREVIEW].mutex);
+    pthread_mutex_lock(&my_obj->ch[MM_CAMERA_CH_SNAPSHOT].mutex);
     if (mq && sq && stream1 && stream2) {
         rc = mm_camera_channel_skip_frames(my_obj, mq, sq, stream1, stream2, &ch->buffering_frame);
         if(rc != MM_CAMERA_OK) {
@@ -678,7 +679,8 @@ void mm_camera_dispatch_buffered_frames(mm_camera_obj_t *my_obj,
     CDBG("%s: Number of burst: %d, pending_count: %d", __func__,
         ch->snapshot.num_shots, ch->snapshot.pending_cnt);
 end:
-    pthread_mutex_unlock(&ch->mutex);
+    pthread_mutex_unlock(&my_obj->ch[MM_CAMERA_CH_SNAPSHOT].mutex);
+    pthread_mutex_unlock(&my_obj->ch[MM_CAMERA_CH_PREVIEW].mutex);
     /* If we are done sending callbacks for all the requested number of snapshots
        send data delivery done event*/
     if((rc == MM_CAMERA_OK) && (!ch->snapshot.pending_cnt)) {

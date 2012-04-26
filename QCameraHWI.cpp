@@ -177,10 +177,11 @@ QCameraHardwareInterface(int cameraId, int mode)
                     mSkinToneEnhancement(0),
                     mRotation(0),
                     mFocusMode(AF_MODE_MAX),
-                    mPreviewFormat(CAMERA_YUV_420_NV21),
                     mZslInterval(1),
                     mNumOfSnapshot(1),
-                    mStateLiveshot(false)
+                    mStateLiveshot(false),
+                    mPreviewFormat(CAMERA_YUV_420_NV21),
+                    mRestartPreview(false)
 {
     LOGI("QCameraHardwareInterface: E");
     int32_t result = MM_CAMERA_E_GENERAL;
@@ -978,6 +979,7 @@ status_t QCameraHardwareInterface::startPreview()
     Mutex::Autolock lock(mLock);
     switch(mPreviewState) {
     case QCAMERA_HAL_PREVIEW_STOPPED:
+    case QCAMERA_HAL_TAKE_PICTURE:
         mPreviewState = QCAMERA_HAL_PREVIEW_START;
         LOGE("%s:  HAL::startPreview begin", __func__);
 
@@ -996,13 +998,6 @@ status_t QCameraHardwareInterface::startPreview()
     break;
     case QCAMERA_HAL_RECORDING_STARTED:
         LOGE("%s: cannot start preview in recording state", __func__);
-        break;
-    case QCAMERA_HAL_TAKE_PICTURE:
-        LOGI("%s: start preview after SNAPSHOT state", __func__);
-        mPreviewState = QCAMERA_HAL_PREVIEW_START;
-        retVal = startPreview2();
-        if(retVal == NO_ERROR)
-            mPreviewState = QCAMERA_HAL_PREVIEW_STARTED;
         break;
     default:
         LOGE("%s: unknow state %d received", __func__, mPreviewState);
@@ -1190,11 +1185,11 @@ void QCameraHardwareInterface::stopPreviewInternal()
         return;
     }
 
-    mStreamDisplay->stop();
     if(isZSLMode()) {
         /* take care snapshot object for ZSL mode */
         mStreamSnap->stop();
     }
+    mStreamDisplay->stop();
 
     mCameraState = CAMERA_STATE_PREVIEW_STOP_CMD_SENT;
     LOGI("stopPreviewInternal: X");
@@ -2483,21 +2478,7 @@ void QCameraHardwareInterface::takePicturePrepareHardware()
 
 void QCameraHardwareInterface::pausePreviewForZSL()
 {
-    status_t ret = NO_ERROR;
-    bool matching = TRUE;
-    int width,height;
-    cam_ctrl_dimension_t dim;
-
-    memset(&dim, 0, sizeof(cam_ctrl_dimension_t));
-    ret = cam_config_get_parm(mCameraId, MM_CAMERA_PARM_DIMENSION,&dim);
-
-    getPictureSize(&width, &height);
-
-    if(dim.picture_width != width || dim.picture_height != height) {
-        LOGE("%s : Video dimension changed.. Restart preview to reconfgure",__func__);
-        matching = false;
-    }
-    if(!matching) {
+    if(mRestartPreview) {
         if (mStreamDisplay) {
             mStreamDisplay->setPreviewPauseFlag(TRUE);
         }
@@ -2505,7 +2486,7 @@ void QCameraHardwareInterface::pausePreviewForZSL()
         mPreviewState = QCAMERA_HAL_PREVIEW_STOPPED;
         startPreview2();
         mPreviewState = QCAMERA_HAL_PREVIEW_STARTED;
-
+        mRestartPreview = false;
     }
 }
 bool QCameraHardwareInterface::isNoDisplayMode()
