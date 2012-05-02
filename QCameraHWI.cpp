@@ -308,7 +308,9 @@ QCameraHardwareInterface::~QCameraHardwareInterface()
       mStatHeap.clear( );
       mStatHeap = NULL;
     }
-
+    /* Join the threads, complete operations and then delete
+       the instances. */
+    cam_ops_close(mCameraId);
     if(mStreamDisplay){
         QCameraStream_preview::deleteInstance (mStreamDisplay);
         mStreamDisplay = NULL;
@@ -327,7 +329,6 @@ QCameraHardwareInterface::~QCameraHardwareInterface()
         mStreamLiveSnap = NULL;
     }
 
-    cam_ops_close(mCameraId);
     LOGI("~QCameraHardwareInterface: X");
 }
 
