@@ -1494,9 +1494,6 @@ status_t QCameraHardwareInterface::cancelPictureInternal()
 
 void QCameraHardwareInterface::pausePreviewForSnapshot()
 {
-    if (mStreamDisplay && !isNoDisplayMode()) {
-        mStreamDisplay->setPreviewPauseFlag(TRUE);
-    }
     stopPreviewInternal( );
 }
 status_t QCameraHardwareInterface::resumePreviewAfterSnapshot()
@@ -1589,6 +1586,13 @@ status_t  QCameraHardwareInterface::takePicture()
     LOGI("takePicture: E");
     status_t ret = MM_CAMERA_OK;
     Mutex::Autolock lock(mLock);
+
+    // if we have liveSnapshot instance,
+    // we need to delete it here to release teh channel it acquires
+    if (NULL != mStreamLiveSnap) {
+        delete(mStreamLiveSnap);
+        mStreamLiveSnap = NULL;
+    }
 
     mStreamSnap->resetSnapshotCounters( );
     switch(mPreviewState) {
