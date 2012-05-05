@@ -179,7 +179,8 @@ QCameraHardwareInterface(int cameraId, int mode)
                     mFocusMode(AF_MODE_MAX),
                     mPreviewFormat(CAMERA_YUV_420_NV21),
                     mZslInterval(1),
-                    mNumOfSnapshot(1)
+                    mNumOfSnapshot(1),
+                    mStateLiveshot(false)
 {
     LOGI("QCameraHardwareInterface: E");
     int32_t result = MM_CAMERA_E_GENERAL;
@@ -1313,6 +1314,10 @@ void QCameraHardwareInterface::stopRecordingInternal()
     * call QCameraStream_record::stop()
     * Unregister Callback, action stop
     */
+    if(mStateLiveshot && mStreamLiveSnap != NULL) {
+        mStreamLiveSnap->stop();
+        mStateLiveshot = false;
+    }
     mStreamRecord->stop();
     mCameraState = CAMERA_STATE_PREVIEW;  //TODO : Apurva : Hacked for 2nd time Recording
     mPreviewState = QCAMERA_HAL_PREVIEW_STARTED;
@@ -1440,8 +1445,13 @@ status_t QCameraHardwareInterface::cancelPicture()
         case QCAMERA_HAL_PREVIEW_STOPPED:
         case QCAMERA_HAL_PREVIEW_START:
         case QCAMERA_HAL_PREVIEW_STARTED:
-        case QCAMERA_HAL_RECORDING_STARTED:
         default:
+        break;
+        case QCAMERA_HAL_RECORDING_STARTED:
+            if(mStateLiveshot && (mStreamLiveSnap != NULL)) {
+                mStreamLiveSnap->stop();
+                mStateLiveshot = false;
+            }
             break;
         case QCAMERA_HAL_TAKE_PICTURE:
             ret = cancelPictureInternal();
@@ -1619,6 +1629,10 @@ status_t  QCameraHardwareInterface::takePicture()
       ret = UNKNOWN_ERROR;
       break;
     case QCAMERA_HAL_RECORDING_STARTED:
+      if(mStateLiveshot) {
+          LOGE("takePicture : Duplicate TakePicture Call");
+          return ret;
+      }
       if (canTakeFullSizeLiveshot()) {
         LOGD(" Calling takeFullSizeLiveshot");
         takeFullSizeLiveshot();
@@ -1629,7 +1643,7 @@ status_t  QCameraHardwareInterface::takePicture()
                                                     1,
                                                     this);
       }
-
+      mStateLiveshot = true;
       break;
     default:
         ret = UNKNOWN_ERROR;
