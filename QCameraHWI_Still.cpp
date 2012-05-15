@@ -159,7 +159,9 @@ static void snapshot_jpeg_cb(jpeg_event_t event, void *user_data)
     case JPEG_EVENT_ABORTED:
         if (NULL != pme) {
            pme->jpegErrorHandler(event);
-           pme->stop();
+           if (!(pme->isZSLMode())) {
+               pme->stop();
+           }
         }
         LOGE("Error event handled from JPEG \n");
         return;
@@ -227,6 +229,10 @@ jpegErrorHandler(jpeg_event_t event)
 {
     LOGV("%s: E", __func__);
     mStopCallbackLock.lock( );
+    if(mCurrentFrameEncoded) {
+        free(mCurrentFrameEncoded);
+        mCurrentFrameEncoded = NULL;
+    }
     setSnapshotState(SNAPSHOT_STATE_ERROR);
     if (!mSnapshotQueue.isEmpty()) {
         LOGI("%s: JPEG Queue not empty. flush the queue in "
@@ -692,9 +698,10 @@ status_t QCameraStream_Snapshot::deinitRawSnapshotBuffers(void)
     int ret = NO_ERROR;
 
     LOGD("%s: E", __func__);
+    int err = getSnapshotState();
 
     /* deinit buffers only if we have already allocated */
-    if (getSnapshotState() >= SNAPSHOT_STATE_BUF_INITIALIZED ){
+    if (err >= SNAPSHOT_STATE_BUF_INITIALIZED || err == SNAPSHOT_STATE_ERROR){
 
         LOGD("%s: Unpreparing Snapshot Buffer", __func__);
         ret = cam_config_unprepare_buf(mCameraId, MM_CAMERA_CH_RAW);
@@ -859,9 +866,10 @@ deinitSnapshotBuffers(void)
     int ret = NO_ERROR;
 
     LOGD("%s: E", __func__);
+    int err = getSnapshotState();
 
     /* Deinit only if we have already initialized*/
-    if (getSnapshotState() >= SNAPSHOT_STATE_BUF_INITIALIZED ){
+    if (err >= SNAPSHOT_STATE_BUF_INITIALIZED || err == SNAPSHOT_STATE_ERROR){
 
         if(!isLiveSnapshot()) {
             LOGD("%s: Unpreparing Snapshot Buffer", __func__);
@@ -923,7 +931,9 @@ void QCameraStream_Snapshot::deInitBuffer(void)
 
 
     /* deinit jpeg buffer if allocated */
-    if(mJpegHeap != NULL) mJpegHeap.clear();
+    if(mJpegHeap != NULL) {
+        mJpegHeap.clear();
+    }
     mJpegHeap = NULL;
 
     /* memset some global structure */
@@ -1530,7 +1540,11 @@ encodeData(mm_camera_ch_data_buf_t* recvd_frame,
         LOGD(" Passing my obj: %x", (unsigned int) this);
         set_callbacks(snapshot_jpeg_fragment_cb, snapshot_jpeg_cb, this,
              mHalCamCtrl->mJpegMemory.camera_memory[0]->data, &mJpegOffset);
-        omxJpegStart();
+        if(omxJpegStart() != NO_ERROR){
+            LOGE("Error In omxJpegStart!!! Return");
+            ret = FAILED_TRANSACTION;
+            goto end;
+        }
         mm_jpeg_encoder_setMainImageQuality(mHalCamCtrl->mJpegQuality);
 
         LOGE("%s: Dimension to encode: main: %dx%d thumbnail: %dx%d", __func__,
@@ -1700,7 +1714,6 @@ encodeDisplayAndSave(mm_camera_ch_data_buf_t* recvd_frame,
                      enqueued);
     if (ret != NO_ERROR) {
         LOGE("%s: Failure configuring JPEG encoder", __func__);
-
         goto end;
     }
 
