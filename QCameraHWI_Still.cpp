@@ -256,12 +256,12 @@ receiveCompleteJpegPicture(jpeg_event_t event)
     camera_data_callback jpg_data_cb = NULL;
     bool fail_cb_flag = false;
 
-    mStopCallbackLock.lock( );
     if(!mActive && !isLiveSnapshot()) {
         ALOGE("%s : Cancel Picture",__func__);
         fail_cb_flag = true;
         goto end;
     }
+    mStopCallbackLock.lock( );
 
     if(mCurrentFrameEncoded!=NULL /*&& !isLiveSnapshot()*/){
         ALOGV("<DEBUG>: Calling buf done for snapshot buffer");
