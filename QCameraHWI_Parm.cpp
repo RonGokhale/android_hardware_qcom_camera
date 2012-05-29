@@ -1598,7 +1598,7 @@ status_t QCameraHardwareInterface::updateFocusDistances()
         String8 str;
         char buffer[32] = {0};
         //set all distances to infinity if focus mode is infinity
-        if(mFocusMode == AF_MODE_INFINITY) {
+        if(mFocusMode == DONT_CARE) {
             snprintf(buffer, sizeof(buffer), "Infinity,");
             str.append(buffer);
             snprintf(buffer, sizeof(buffer), "Infinity,");
