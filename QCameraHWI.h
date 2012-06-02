@@ -532,6 +532,7 @@ private:
     void processInfoEvent(mm_camera_info_event_t *event, app_notify_cb_t *);
     void processprepareSnapshotEvent(cam_ctrl_status_t *);
     void roiEvent(fd_roi_t roi, app_notify_cb_t *);
+    void zslFlashEvent(struct zsl_flash_t evt, app_notify_cb_t *);
     void zoomEvent(cam_ctrl_status_t *status, app_notify_cb_t *);
     void autofocusevent(cam_ctrl_status_t *status, app_notify_cb_t *);
     void handleZoomEventForPreview(app_notify_cb_t *);
@@ -575,6 +576,7 @@ private:
     status_t setJpegRotation(int isZSL);
     int getJpegRotation(void);
     int getISOSpeedValue();
+    int getFlashMode();
     status_t setAntibanding(const CameraParameters& params);
     status_t setEffect(const CameraParameters& params);
     status_t setExposureCompensation(const CameraParameters &params);

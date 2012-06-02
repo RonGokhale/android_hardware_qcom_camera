@@ -937,6 +937,9 @@ void  QCameraHardwareInterface::processInfoEvent(
         case MM_CAMERA_INFO_EVT_ROI:
             roiEvent(event->e.roi, app_cb);
             break;
+        case MM_CAMERA_INFO_FLASH_FRAME_IDX:
+            zslFlashEvent(event->e.zsl_flash_info, app_cb);
+            break;
         default:
             break;
     }
@@ -983,6 +986,17 @@ void  QCameraHardwareInterface::processEvent(mm_camera_event_t *event)
     }
     LOGI("processEvent: X");
     return;
+}
+
+
+void QCameraHardwareInterface::zslFlashEvent(struct zsl_flash_t evt, app_notify_cb_t *) {
+    LOGE("%s: E", __func__);
+    LOGE("flashEvent: numFrames = %d, frameId[0] = %d", evt.valid_entires, evt.frame_idx[0]);
+    status_t ret = mStreamSnap->takePictureZSL();
+    if (ret != MM_CAMERA_OK) {
+        LOGE("%s: Error taking ZSL snapshot!", __func__);
+    }
+    LOGE("%s: X", __func__);
 }
 
 bool QCameraHardwareInterface::preview_parm_config (cam_ctrl_dimension_t* dim,
@@ -1715,11 +1729,35 @@ status_t  QCameraHardwareInterface::takePicture()
 
         if (isZSLMode()) {
             if (mStreamSnap != NULL) {
-                pausePreviewForZSL();
-                ret = mStreamSnap->takePictureZSL();
-                if (ret != MM_CAMERA_OK) {
-                    LOGE("%s: Error taking ZSL snapshot!", __func__);
-                    ret = BAD_VALUE;
+                // Query if flash is required based on lighting condition
+                int32_t flash_expected = 0;
+                if(MM_CAMERA_OK != cam_config_get_parm(mCameraId,
+                          MM_CAMERA_PARM_QUERY_FLASH4SNAP, &flash_expected)){
+                    LOGE("%s: error: can not get flash_expected value", __func__);
+                    return BAD_VALUE;
+                }
+                LOGV("flash_expected = %d", flash_expected);
+                if(getFlashMode() != LED_MODE_OFF && flash_expected) {
+                    // Flash is used
+                    takePicturePrepareHardware();
+
+                    //start flash LED
+                    uint32_t value = 1;
+                    if(native_set_parms(MM_CAMERA_PARM_ZSL_FLASH, sizeof(value),
+                                           (void *)&value) == false) {
+                        LOGE("%s: error: cannot set ZSL flash", __func__);
+                        return BAD_VALUE;
+                    }
+                    pausePreviewForZSL();
+                    // takepictureZSL() will be called when the event for
+                    // zslflash is received
+                } else {
+                    //Flash is not used
+                    pausePreviewForZSL();
+                    if (MM_CAMERA_OK != mStreamSnap->takePictureZSL()) {
+                        LOGE("%s: Error taking ZSL snapshot!", __func__);
+                        ret = BAD_VALUE;
+                    }
                 }
             }
             else {
@@ -2653,14 +2691,14 @@ bool QCameraHardwareInterface::isWDenoiseEnabled()
 
 void QCameraHardwareInterface::takePicturePrepareHardware()
 {
-    LOGV("%s: E", __func__);
+    LOGE("%s: E", __func__);
 
     /* Prepare snapshot*/
     cam_ops_action(mCameraId,
                   TRUE,
                   MM_CAMERA_OPS_PREPARE_SNAPSHOT,
                   this);
-    LOGV("%s: X", __func__);
+    LOGE("%s: X", __func__);
 }
 
 bool QCameraHardwareInterface::isNoDisplayMode()
