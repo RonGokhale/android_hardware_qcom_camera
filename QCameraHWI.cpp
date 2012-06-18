@@ -1048,7 +1048,23 @@ status_t QCameraHardwareInterface::startPreview()
     Mutex::Autolock lock(mLock);
     switch(mPreviewState) {
     case QCAMERA_HAL_PREVIEW_STOPPED:
+        mPreviewState = QCAMERA_HAL_PREVIEW_START;
+        LOGE("%s:  HAL::startPreview begin", __func__);
+
+        if(QCAMERA_HAL_PREVIEW_START == mPreviewState &&
+           (mPreviewWindow || isNoDisplayMode())) {
+            LOGE("%s:  start preview now", __func__);
+            retVal = startPreview2();
+            if(retVal == NO_ERROR)
+                mPreviewState = QCAMERA_HAL_PREVIEW_STARTED;
+        } else {
+            LOGE("%s:  received startPreview, but preview window = null", __func__);
+        }
+        break;
     case QCAMERA_HAL_TAKE_PICTURE:
+        if(mStreamSnap) {
+            mStreamSnap->stop();
+        }
         mPreviewState = QCAMERA_HAL_PREVIEW_START;
         LOGE("%s:  HAL::startPreview begin", __func__);
 
