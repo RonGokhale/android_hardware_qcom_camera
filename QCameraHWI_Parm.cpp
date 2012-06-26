@@ -3412,6 +3412,11 @@ void QCameraHardwareInterface::getPreviewSize(int *preview_width,
 {
     mParameters.getPreviewSize(preview_width, preview_height);
 }
+void QCameraHardwareInterface::getVideoSize(int *video_width,
+                                              int *video_height) const
+{
+    mParameters.getVideoSize(video_width, video_height);
+}
 
 cam_format_t QCameraHardwareInterface::getPreviewFormat() const
 {

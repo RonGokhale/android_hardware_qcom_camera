@@ -438,6 +438,7 @@ public:
     //size_t *alignedSize);
     void         getPictureSize(int *picture_width, int *picture_height) const;
     void         getPreviewSize(int *preview_width, int *preview_height) const;
+    void         getVideoSize(int *video_width, int *video_height) const;
     cam_format_t getPreviewFormat() const;
 
     cam_pad_format_t getPreviewPadding() const;
