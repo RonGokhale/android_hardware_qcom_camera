@@ -1121,9 +1121,11 @@ status_t QCameraHardwareInterface::startPreview2()
            maxDim.width, maxDim.height);
 #endif
         int mPictureWidth, mPictureHeight;
+        int videoWidth, videoHeight;
         bool matching;
         /* First check if the picture resolution is the same, if not, change it*/
         getPictureSize(&mPictureWidth, &mPictureHeight);
+        getVideoSize(&videoWidth, &videoHeight);
 
         matching = (mPictureWidth == dim.picture_width) &&
             (mPictureHeight == dim.picture_height);
@@ -1134,9 +1136,15 @@ status_t QCameraHardwareInterface::startPreview2()
             dim.ui_thumbnail_height = dim.display_height;
             dim.ui_thumbnail_width = dim.display_width;
         }
-        LOGE("%s: Fullsize Liveshaot Picture size to set: %d x %d", __func__,
+        //Workaround for liveshot case when picture size is smaller than video size
+        if(videoWidth > mPictureWidth || videoHeight > mPictureHeight) {
+            LOGE("picture size is smaller than video size for full liveshot, using jpeg to downscale");
+            dim.picture_width  = videoWidth;
+            dim.picture_height = videoHeight;
+        }
+        LOGE("%s: Fullsize Liveshot Picture size to set: %dx%d", __func__,
              dim.picture_width, dim.picture_height);
-        mParameters.setPictureSize(dim.picture_width, dim.picture_height);
+       // mParameters.setPictureSize(dim.picture_width, dim.picture_height);
     }
 
     ret = cam_config_set_parm(mCameraId, MM_CAMERA_PARM_DIMENSION,&dim);
