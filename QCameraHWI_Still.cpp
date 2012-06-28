@@ -1007,8 +1007,9 @@ status_t QCameraStream_Snapshot::initJPEGSnapshot(int num_of_snapshots)
 
     LOGV("%s: E", __func__);
 
-    if (isFullSizeLiveshot())
+    if (isFullSizeLiveshot()){
       goto end;
+    }
 
     LOGD("%s: Get current dimension", __func__);
     /* Query mm_camera to get current dimension */
