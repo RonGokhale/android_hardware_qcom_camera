@@ -403,7 +403,7 @@ static void mm_camera_read_rdi_frame(mm_camera_obj_t * my_obj)
     if (idx < 0) {
         return;
     }
-    LOGE("%s Read RDI frame %d ", __func__, idx);
+    CDBG("%s Read RDI frame %d ", __func__, idx);
     pthread_mutex_lock(&my_obj->ch[MM_CAMERA_CH_RDI].mutex);
     for( i=0;i<MM_CAMERA_BUF_CB_MAX;i++) {
         if((my_obj->ch[MM_CAMERA_CH_RDI].buf_cb[i].cb) &&
@@ -463,7 +463,7 @@ static void mm_camera_read_preview_frame(mm_camera_obj_t * my_obj)
     if (idx < 0) {
         return;
     }
-    LOGE("%s Read Preview frame %d ", __func__, idx);
+    CDBG("%s Read Preview frame %d ", __func__, idx);
     pthread_mutex_lock(&my_obj->ch[MM_CAMERA_CH_PREVIEW].mutex);
     for( i=0;i<MM_CAMERA_BUF_CB_MAX;i++) {
         if((my_obj->ch[MM_CAMERA_CH_PREVIEW].buf_cb[i].cb) &&
