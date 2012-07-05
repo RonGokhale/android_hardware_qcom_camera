@@ -3130,9 +3130,7 @@ status_t QCameraHardwareInterface::setRecordingHint(const CameraParameters& para
       int32_t value = attr_lookup(recording_Hints,
                                   sizeof(recording_Hints) / sizeof(str_map), str);
       if(value != NOT_FOUND){
-          if (mRecordingHint == FALSE) {
-              mRecordingHint = value;
-          }
+          mRecordingHint = value;
           setRecordingHintValue(mRecordingHint);
           mParameters.set(CameraParameters::KEY_RECORDING_HINT, str);
           return NO_ERROR;
