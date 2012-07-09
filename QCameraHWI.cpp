@@ -356,7 +356,6 @@ QCameraHardwareInterface::~QCameraHardwareInterface()
     }
     /* Join the threads, complete operations and then delete
        the instances. */
-    cam_ops_close(mCameraId);
     if(mStreamDisplay){
         QCameraStream_preview::deleteInstance (mStreamDisplay);
         mStreamDisplay = NULL;
@@ -380,6 +379,8 @@ QCameraHardwareInterface::~QCameraHardwareInterface()
         mStreamRdi = NULL;
     }
 
+    /* Now close the camera after deleting all the instances */
+    cam_ops_close(mCameraId);
     pthread_mutex_destroy(&mAsyncCmdMutex);
     pthread_cond_destroy(&mAsyncCmdWait);
 
