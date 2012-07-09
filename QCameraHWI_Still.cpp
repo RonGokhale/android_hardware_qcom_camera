@@ -2305,6 +2305,12 @@ void QCameraStream_Snapshot::stop(void)
        whatever state we are in */
     ALOGV("Calling omxjpegjoin from release\n");
     omxJpegFinish();
+    if (!isFullSizeLiveshot() &&
+          (mHalCamCtrl->mPreviewState == QCAMERA_HAL_TAKE_PICTURE)) {
+       ALOGE("%s: set preview state to stoppped after take pic \n", __func__);
+       mHalCamCtrl->mPreviewState = QCAMERA_HAL_PREVIEW_STOPPED;
+    }
+
 #if 0
     omxJpegClose();
 #endif
