@@ -557,20 +557,19 @@ status_t QCameraHardwareInterface::sendCommand(int32_t command, int32_t arg1,
 void QCameraHardwareInterface::setMyMode(int mode)
 {
     ALOGI("setMyMode: E");
-//    if (mode & CAMERA_SUPPORT_MODE_3D) {
-  //      myMode = CAMERA_MODE_3D;
-    //}else {
+    if (mode & CAMERA_SUPPORT_MODE_3D) {
+        myMode = CAMERA_MODE_3D;
+    }else {
         /* default mode is 2D */
         myMode = CAMERA_MODE_2D;
-    //}
-#if 0
+    }
+
     if (mode & CAMERA_SUPPORT_MODE_ZSL) {
         myMode = (camera_mode_t)(myMode |CAMERA_ZSL_MODE);
     }else {
-        myMode = (camera_mode_t) (myMode | CAMERA_NONZSL_MODE);
+       myMode = (camera_mode_t) (myMode | CAMERA_NONZSL_MODE);
     }
     ALOGI("setMyMode: Set mode to %d (passed mode: %d)", myMode, mode);
-#endif
     ALOGI("setMyMode: X");
 }
 /* static factory function */
@@ -827,7 +826,6 @@ void  QCameraHardwareInterface::processStatsEvent(
     switch (event->event_id) {
         case MM_CAMERA_STATS_EVT_HISTO:
         {
-#if 0
             ALOGE("HAL process Histo: mMsgEnabled=0x%x, mStatsOn=%d, mSendData=%d, mDataCb=%p ",
             (mMsgEnabled & CAMERA_MSG_STATS_DATA), mStatsOn, mSendData, mDataCb);
             int msgEnabled = mMsgEnabled;
@@ -852,7 +850,6 @@ void  QCameraHardwareInterface::processStatsEvent(
                 app_cb->argm_data_cb.metadata = NULL;
                 app_cb->argm_data_cb.cookie =  mCallbackCookie;
             }
-#endif
             break;
         }
         default:

@@ -41,7 +41,7 @@ LOCAL_HAL_FILES := QCameraHAL.cpp QCameraHWI_Parm.cpp\
                    QCameraHWI_Mem.cpp QCameraHWI_Display.cpp \
                    QCameraStream.cpp QualcommCamera2.cpp QCameraParameters.cpp
 else
-LOCAL_HAL_FILES := QualcommCamera.cpp QualcommCameraHardware.cpp
+LOCAL_HAL_FILES := QualcommCamera.cpp QualcommCameraHardware.cpp QCameraParameters.cpp
 MM_CAM_FILES:=
 endif
 

@@ -380,7 +380,6 @@ status_t   QCameraStream_preview::freeBufferNoDisplay()
 
 void QCameraStream_preview::notifyROIEvent(fd_roi_t roi)
 {
-#if 0
     int faces_detected = roi.rect_num;
     if(faces_detected > MAX_ROI)
       faces_detected = MAX_ROI;
@@ -407,7 +406,6 @@ void QCameraStream_preview::notifyROIEvent(fd_roi_t roi)
     }
     mHalCamCtrl->mMetadata.number_of_faces = faces_detected;
     mHalCamCtrl->mMetadata.faces = mHalCamCtrl->mFace;
-#endif
 }
 
 status_t QCameraStream_preview::initDisplayBuffers()
