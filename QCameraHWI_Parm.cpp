@@ -979,7 +979,7 @@ void QCameraHardwareInterface::initDefaultParameters()
     mParameters.set("video-snapshot-supported", "true");
 
     //Set default power mode
-    mParameters.set(QCameraParameters::KEY_POWER_MODE,"Low_Power");
+    mParameters.set(QCameraParameters::KEY_POWER_MODE,"Normal_Power");
 
     //Set Camera Mode
     mParameters.set(QCameraParameters::KEY_CAMERA_MODE,0);
@@ -2413,7 +2413,6 @@ status_t QCameraHardwareInterface::setPowerMode(const QCameraParameters& params)
     if (powermode != NULL) {
         value = attr_lookup(power_modes,
                 sizeof(power_modes) / sizeof(str_map), powermode);
-        value = LOW_POWER;
         if(value == LOW_POWER) {
             ALOGI("Enable Low Power Mode");
             mPowerMode = value;
