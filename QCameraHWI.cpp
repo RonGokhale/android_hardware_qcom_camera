@@ -1202,10 +1202,8 @@ void QCameraHardwareInterface::stopPreview()
 
     switch(mPreviewState) {
       case QCAMERA_HAL_PREVIEW_START:
-          //mPreviewWindow = NULL;
-          mPreviewState = QCAMERA_HAL_PREVIEW_STOPPED;
-          break;
       case QCAMERA_HAL_PREVIEW_STARTED:
+          ALOGE("%s:mPreviewState__= %d ", __func__, mPreviewState);
           stopPreviewInternal();
           mPreviewState = QCAMERA_HAL_PREVIEW_STOPPED;
           break;
