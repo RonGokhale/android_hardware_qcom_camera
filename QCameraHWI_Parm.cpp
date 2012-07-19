@@ -1316,7 +1316,7 @@ void QCameraHardwareInterface::initDefaultParameters()
 
     if (setParameters(mParameters) != NO_ERROR) {
         LOGE("Failed to set default parameters?!");
-    }  
+    }
     mInitialized = true;
     strTexturesOn = false;
 
@@ -1426,7 +1426,7 @@ status_t QCameraHardwareInterface::setParameters(const CameraParameters& params)
     if ((rc = setZSLBurstLookBack(params))) final_rc = rc;
     if ((rc = setZSLBurstInterval(params))) final_rc = rc;
     if ((rc = setNoDisplayMode(params))) final_rc = rc;
-    
+
     //Update Exiftag values.
     setExifTags();
 
@@ -1604,7 +1604,7 @@ status_t QCameraHardwareInterface::setContrast(const CameraParameters& params)
         if(bestshot_reconfigure) {
              if (mContrast != contrast) {
                   mContrast = contrast;
-                 if (mPreviewState == QCAMERA_HAL_PREVIEW_STARTED && ret) {
+                 if (isPreviewRunning( ) && ret) {
                       mRestartPreview = 1;
                       pausePreviewForZSL();
                   }
@@ -2138,7 +2138,7 @@ status_t QCameraHardwareInterface::setSceneMode(const CameraParameters& params)
             if(bestshot_reconfigure) {
                 if (mBestShotMode != value) {
                      mBestShotMode = value;
-                     if (mPreviewState == QCAMERA_HAL_PREVIEW_STARTED && ret) {
+                     if (isPreviewRunning( ) && ret) {
                            mRestartPreview = 1;
                            pausePreviewForZSL();
                       }
@@ -2207,7 +2207,7 @@ status_t QCameraHardwareInterface::setEffect(const CameraParameters& params)
                 if(bestshot_reconfigure) {
                      if (mEffects != value) {
                          mEffects = value;
-                         if (mPreviewState == QCAMERA_HAL_PREVIEW_STARTED && ret) {
+                         if (isPreviewRunning() && ret) {
                                mRestartPreview = 1;
                                pausePreviewForZSL();
                           }
@@ -2704,7 +2704,8 @@ status_t QCameraHardwareInterface::setPictureSize(const CameraParameters& params
           && height == mPictureSizesPtr[i].height) {
             int old_width, old_height;
             mParameters.getPictureSize(&old_width,&old_height);
-            if(width != old_width || height != old_height) {
+            if((width != old_width || height != old_height) &&
+               isPreviewRunning( ) ) {
                 mRestartPreview = true;
             }
             mParameters.setPictureSize(width, height);
