@@ -905,6 +905,13 @@ status_t QCameraStream_preview::processPreviewFrameWithDisplay(
           data = NULL;
       }
 
+      if(mHalCamCtrl->mMsgEnabled & CAMERA_MSG_PREVIEW_METADATA){
+          msgType  |= CAMERA_MSG_PREVIEW_METADATA;
+          metadata = &mHalCamCtrl->mMetadata;
+      } else {
+          metadata = NULL;
+      }
+      ALOGD("%s: msgType=0x%x, data =%p, metadata=%p", __func__, msgType, data, metadata);
       if(msgType) {
           mStopCallbackLock.unlock();
 	  ALOGE("before pcb");
@@ -915,6 +922,8 @@ status_t QCameraStream_preview::processPreviewFrameWithDisplay(
               previewMem->release(previewMem);
       }
 	  ALOGD("end of cb");
+  } else {
+    ALOGD("%s PCB is not enabled", __func__);
   }
 
   /* Save the last displayed frame. We'll be using it to fill the gap between
