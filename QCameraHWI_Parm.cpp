@@ -961,7 +961,27 @@ void QCameraHardwareInterface::initDefaultParameters()
 
     //Set Overlay Format
     mParameters.set("overlay-format", HAL_PIXEL_FORMAT_YCbCr_420_SP);
-    mParameters.set("max-num-detected-faces-hw", "2");
+
+    // Set supported max faces
+    int maxNumFaces = 0;
+    if (supportsFaceDetection()) {
+        //Query the maximum number of faces supported by hardware.
+        if(MM_CAMERA_OK != cam_config_get_parm(mCameraId,
+                               MM_CAMERA_PARM_MAX_NUM_FACES_DECT, &maxNumFaces)){
+            LOGE("%s:Failed to get max number of faces supported",__func__);
+        }
+    }
+    mParameters.set(CameraParameters::KEY_MAX_NUM_DETECTED_FACES_HW, maxNumFaces);
+    //This paramtere is set to default here. This will be changed by application
+    //if it needs to support specific number of faces. See also setParameters.
+    mParameters.set(CameraParameters::KEY_QC_MAX_NUM_REQUESTED_FACES, 2);
+
+    // Set camera features supported flag
+    int32_t featureFlag = 0;
+    if (supportsFaceDetection()) {
+        featureFlag |= 0x00000001; // bit 0 indicate faciral feature
+    }
+    mParameters.set(CameraParameters::KEY_QC_SUPPORTED_CAMERA_FEATURES, featureFlag);
 
     //Set Picture Size
     mParameters.setPictureSize(DEFAULT_PICTURE_WIDTH, DEFAULT_PICTURE_HEIGHT);
@@ -998,6 +1018,7 @@ void QCameraHardwareInterface::initDefaultParameters()
     String8 valuesStr = create_sizes_str(default_thumbnail_sizes, thumbnail_sizes_count);
     mParameters.set(CameraParameters::KEY_SUPPORTED_JPEG_THUMBNAIL_SIZES,
                 valuesStr.string());
+ 
     // Define CAMERA_SMOOTH_ZOOM in Android.mk file , to enable smoothzoom
 #ifdef CAMERA_SMOOTH_ZOOM
     mParameters.set(CameraParameters::KEY_SMOOTH_ZOOM_SUPPORTED, "true");
@@ -1480,37 +1501,12 @@ status_t QCameraHardwareInterface::runFaceDetection()
     if (str != NULL) {
         int value = attr_lookup(facedetection,
                 sizeof(facedetection) / sizeof(str_map), str);
-#if 0
-        mMetaDataWaitLock.lock();
-        if (value == true) {
-            if(mMetaDataHeap != NULL)
-                mMetaDataHeap.clear();
-
-            mMetaDataHeap =
-                new AshmemPool((sizeof(int)*(MAX_ROI*4+1)),
-                        1,
-                        (sizeof(int)*(MAX_ROI*4+1)),
-                        "metadata");
-            if (!mMetaDataHeap->initialized()) {
-                LOGE("Meta Data Heap allocation failed ");
-                mMetaDataHeap.clear();
-                LOGE("runFaceDetection X: error initializing mMetaDataHeap");
-                mMetaDataWaitLock.unlock();
-                return UNKNOWN_ERROR;
-            }
-            mSendMetaData = true;
-        } else {
-            if(mMetaDataHeap != NULL)
-                mMetaDataHeap.clear();
-        }
-        mMetaDataWaitLock.unlock();
-#endif
-        cam_ctrl_dimension_t dim;
-        cam_config_get_parm(mCameraId, MM_CAMERA_PARM_DIMENSION,&dim);
-        preview_parm_config (&dim, mParameters);
-        LOGE("%s: why set_dimension everytime?", __func__);
-        ret = cam_config_set_parm(mCameraId, MM_CAMERA_PARM_DIMENSION,&dim);
-        ret = native_set_parms(MM_CAMERA_PARM_FD, sizeof(int8_t), (void *)&value);
+        fd_set_parm_t fd_set_parm;
+        int requested_faces = mParameters.getInt(CameraParameters::KEY_QC_MAX_NUM_REQUESTED_FACES);
+        fd_set_parm.fd_mode = value;
+        fd_set_parm.num_fd = requested_faces;
+        LOGE("%s Face detection value = %d, num_fd = %d",__func__, value, requested_faces);
+        ret = native_set_parms(MM_CAMERA_PARM_FD, sizeof(fd_set_parm_t), (void *)&fd_set_parm);
         return ret ? NO_ERROR : UNKNOWN_ERROR;
     }
     LOGE("Invalid Face Detection value: %s", (str == NULL) ? "NULL" : str);
@@ -3004,18 +3000,24 @@ status_t QCameraHardwareInterface::setLensshadeValue(const CameraParameters& par
 
 status_t QCameraHardwareInterface::setFaceDetect(const CameraParameters& params)
 {
+    int requested_faces = params.getInt(CameraParameters::KEY_QC_MAX_NUM_REQUESTED_FACES);
+    int hardware_supported_faces = mParameters.getInt(CameraParameters::KEY_MAX_NUM_DETECTED_FACES_HW);
+    if (requested_faces > hardware_supported_faces) {
+        requested_faces = hardware_supported_faces;
+    }
+    mParameters.set(CameraParameters::KEY_QC_MAX_NUM_REQUESTED_FACES, requested_faces);
+
     const char *str = params.get(CameraParameters::KEY_FACE_DETECTION);
     LOGE("setFaceDetect: %s", str);
     if (str != NULL) {
+        fd_set_parm_t fd_set_parm;
         int value = attr_lookup(facedetection,
                 sizeof(facedetection) / sizeof(str_map), str);
         mFaceDetectOn = value;
-        LOGE("%s Face detection value = %d",__func__, value);
-        cam_ctrl_dimension_t dim;
-//        cam_config_get_parm(mCameraId, MM_CAMERA_PARM_DIMENSION,&dim);
-//        preview_parm_config (&dim, mParameters);
-//        cam_config_set_parm(mCameraId, MM_CAMERA_PARM_DIMENSION,&dim);
-        native_set_parms(MM_CAMERA_PARM_FD, sizeof(int8_t), (void *)&value);
+        fd_set_parm.fd_mode = value;
+        fd_set_parm.num_fd = requested_faces;
+        LOGE("%s Face detection value = %d, num_fd = %d",__func__, value, requested_faces);
+        native_set_parms(MM_CAMERA_PARM_FD, sizeof(fd_set_parm_t), (void *)&fd_set_parm);
         mParameters.set(CameraParameters::KEY_FACE_DETECTION, str);
         return NO_ERROR;
     }
@@ -3029,14 +3031,18 @@ status_t QCameraHardwareInterface::setFaceDetection(const char *str)
         return NO_ERROR;
     }
     if (str != NULL) {
+        int requested_faces = mParameters.getInt(CameraParameters::KEY_QC_MAX_NUM_REQUESTED_FACES);
         int value = attr_lookup(facedetection,
                                     sizeof(facedetection) / sizeof(str_map), str);
         if (value != NOT_FOUND) {
+            fd_set_parm_t fd_set_parm;
             mMetaDataWaitLock.lock();
             mFaceDetectOn = value;
             mMetaDataWaitLock.unlock();
-            mParameters.set(CameraParameters::KEY_FACE_DETECTION, str);
-            native_set_parms(MM_CAMERA_PARM_FD, sizeof(int8_t), (void *)&value);
+            fd_set_parm.fd_mode = value;
+            fd_set_parm.num_fd = requested_faces;
+            LOGE("%s Face detection value = %d, num_fd = %d",__func__, value, requested_faces);
+            native_set_parms(MM_CAMERA_PARM_FD, sizeof(fd_set_parm_t), (void *)&fd_set_parm);
             mParameters.set(CameraParameters::KEY_FACE_DETECTION, str);
             return NO_ERROR;
         }
