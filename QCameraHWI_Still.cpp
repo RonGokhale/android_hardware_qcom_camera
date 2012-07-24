@@ -2275,10 +2275,6 @@ void QCameraStream_Snapshot::stop(void)
 #if 0
     omxJpegClose();
 #endif
-    if (!isFullSizeLiveshot()){
-        mHalCamCtrl->mPreviewState = QCAMERA_HAL_PREVIEW_STOPPED;
-    }
-
     mFullLiveshot = false;
     LOGV("%s: X", __func__);
 
