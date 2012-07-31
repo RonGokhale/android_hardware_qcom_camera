@@ -455,21 +455,18 @@ status_t QCameraHardwareInterface::sendCommand(int32_t command, int32_t arg1,
     ALOGI("sendCommand: E");
     status_t rc = NO_ERROR;
     Mutex::Autolock l(&mLock);
-#if 0
     switch (command) {
         case CAMERA_CMD_HISTOGRAM_ON:
-            ALOGE("histogram set to on");
             rc = setHistogram(1);
             break;
         case CAMERA_CMD_HISTOGRAM_OFF:
-            ALOGE("histogram set to off");
             rc = setHistogram(0);
             break;
         case CAMERA_CMD_HISTOGRAM_SEND_DATA:
-            ALOGE("histogram send data");
             mSendData = true;
             rc = NO_ERROR;
             break;
+#if 0
         case CAMERA_CMD_START_FACE_DETECTION:
            // maximum number of detected faces > 0 to process this command
            if(strcmp(mParameters.get(CameraParameters::KEY_MAX_NUM_DETECTED_FACES_HW), "0") == 0)
@@ -487,7 +484,6 @@ status_t QCameraHardwareInterface::sendCommand(int32_t command, int32_t arg1,
            }
            setFaceDetection("off");
            return runFaceDetection();
-#if 0
         case CAMERA_CMD_SEND_META_DATA:
            mMetaDataWaitLock.lock();
            if(mFaceDetectOn == true) {
@@ -549,7 +545,6 @@ status_t QCameraHardwareInterface::sendCommand(int32_t command, int32_t arg1,
         default:
             break;
     }
-#endif
     ALOGI("sendCommand: X");
     return rc;
 }
