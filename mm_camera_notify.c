@@ -140,12 +140,21 @@ int mm_camera_zsl_frame_cmp_and_enq(mm_camera_obj_t * my_obj,
         peerstream = &my_obj->ch[MM_CAMERA_CH_SNAPSHOT].snapshot.main;
     } else
         peerstream = &my_obj->ch[MM_CAMERA_CH_PREVIEW].preview.stream;
+
     myq = &mystream->frame.readyq;
     peerq = &peerstream->frame.readyq;
     watermark = my_obj->ch[MM_CAMERA_CH_SNAPSHOT].buffering_frame.water_mark;
     /* lock both queues */
     pthread_mutex_lock(pSnapshotMutex);
     pthread_mutex_lock(pPreviewMutex);
+
+    if(MM_CAMERA_STREAM_STATE_NOTUSED == mystream->state || MM_CAMERA_STREAM_STATE_NOTUSED == peerstream->state) {
+        CDBG_ERROR("%s: one or two streams have been released, not processing here", __func__);
+        pthread_mutex_unlock(&my_obj->ch[MM_CAMERA_CH_SNAPSHOT].mutex);
+        pthread_mutex_unlock(&my_obj->ch[MM_CAMERA_CH_PREVIEW].mutex);
+        return rc;
+    }
+
     peer_frame = peerq->tail;
     /* for 30-120 fps streaming no need to consider the wrapping back of frame_id */
     if(!peer_frame || node->frame.frame_id > peer_frame->frame.frame_id) {
@@ -355,6 +364,12 @@ end:
               &my_obj->ch[MM_CAMERA_CH_PREVIEW].preview.stream, &deliver_done);
     pthread_mutex_unlock(pPreviewMutex);
     pthread_mutex_unlock(pSnapshotMutex);
+    if(MM_CAMERA_STREAM_STATE_NOTUSED == mystream->state || MM_CAMERA_STREAM_STATE_NOTUSED == peerstream->state) {
+        CDBG("%s: one or two streams have been released, not processing here", __func__);
+        pthread_mutex_unlock(&my_obj->ch[MM_CAMERA_CH_SNAPSHOT].mutex);
+        pthread_mutex_unlock(&my_obj->ch[MM_CAMERA_CH_PREVIEW].mutex);
+        return 0;
+    }
     if(deliver_done > 0) {
         mm_camera_event_t data;
         CDBG("%s: ZSL delivered", __func__);
