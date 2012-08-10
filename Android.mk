@@ -1,3 +1,4 @@
+ifeq ($(call is-board-platform,msm7627a),false)
 ifneq ($(USE_CAMERA_STUB),true)
 ifeq ($(strip $(BOARD_USES_QCOM_HARDWARE)), true)
 ifneq ($(BUILD_TINY_ANDROID),true)
@@ -120,3 +121,4 @@ include $(BUILD_SHARED_LIBRARY)
 endif # BUILD_TINY_ANDROID
 endif # BOARD_USES_QCOM_HARDWARE
 endif # USE_CAMERA_STUB
+endif # disable module for msm7627a
