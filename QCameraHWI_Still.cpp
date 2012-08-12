@@ -1107,9 +1107,7 @@ status_t QCameraStream_Snapshot::initFullLiveshot(void)
 #if 1
     /* First check if the picture resolution is the same, if not, change it*/
     mHalCamCtrl->getPictureSize(&mPictureWidth, &mPictureHeight);
-    int videoWidth, videoHeight;
-    mHalCamCtrl->getVideoSize(&videoWidth, &videoHeight);
-    LOGE("%s: Picture size received: %d x %d", __func__,
+    LOGD("%s: Picture size received: %d x %d", __func__,
          mPictureWidth, mPictureHeight);
 
     //Use main image as input to encoder to generate thumbnail
@@ -1135,16 +1133,6 @@ status_t QCameraStream_Snapshot::initFullLiveshot(void)
         dim.ui_thumbnail_height = mThumbnailHeight;
         dim.ui_thumbnail_width = mThumbnailWidth;
     }
-    //Workaround for liveshot case when picture size is smaller than video size
-    // Using jpeg downscaling to generate main image
-    if(videoWidth > mPictureWidth || videoHeight > mPictureHeight) {
-        LOGE("picturesize is smaller than video size for full liveshot");
-        dim.picture_width  = videoWidth;
-        dim.picture_height = videoHeight;
-        mJpegDownscaling = TRUE;
-        mActualPictureWidth = mPictureWidth;
-        mActualPictureHeight = mPictureHeight;
-    }//end of workaround
     LOGD("%s: Picture size to set: %d x %d", __func__,
          dim.picture_width, dim.picture_height);
     ret = cam_config_set_parm(mCameraId, MM_CAMERA_PARM_DIMENSION,&dim);
@@ -1568,10 +1556,8 @@ encodeData(mm_camera_ch_data_buf_t* recvd_frame,
         /* Setting crop info */
 
         /*Main image*/
-
         crop.in2_w=mCrop.snapshot.main_crop.width;// dimension.picture_width
         crop.in2_h=mCrop.snapshot.main_crop.height;// dimension.picture_height;
-
         if (!mJpegDownscaling) {
             crop.out2_w = mPictureWidth;
             crop.out2_h = mPictureHeight;
@@ -1583,7 +1569,6 @@ encodeData(mm_camera_ch_data_buf_t* recvd_frame,
                 crop.in2_h = mPictureHeight;
             }
         }
-
         main_crop_offset.x=mCrop.snapshot.main_crop.left;
         main_crop_offset.y=mCrop.snapshot.main_crop.top;
         /*Thumbnail image*/
