@@ -25,8 +25,8 @@
 #include <utils/Errors.h>
 #include <utils/threads.h>
 
-#include <binder/MemoryHeapPmem.h>
 #if 0
+#include <binder/MemoryHeapPmem.h>
 #include <binder/MemoryHeapIon.h>
 #endif
 #include <camera/Camera.h>
@@ -1995,7 +1995,7 @@ void QualcommCameraHardware::initDefaultParameters()
     mParameters.set(QCameraParameters::KEY_QC_SUPPORTED_HISTOGRAM_MODES,
                     histogram_values);
     mParameters.set(QCameraParameters::KEY_QC_SKIN_TONE_ENHANCEMENT,
-                    QCameraParameters::SKIN_TNE_ENHANCEMENT_DISABLE);
+                    QCameraParameters::SKIN_TONE_ENHANCEMENT_DISABLE);
     mParameters.set(QCameraParameters::KEY_QC_SUPPORTED_SKIN_TONE_ENHANCEMENT_MODES,
                     skinToneEnhancement_values);
     mParameters.set(QCameraParameters::KEY_SCENE_MODE,
@@ -8772,7 +8772,7 @@ status_t QualcommCameraHardware::setGpsLocation(const QCameraParameters& params)
     if (latitudeRef) {
         mParameters.set(QCameraParameters::KEY_QC_GPS_LATITUDE_REF, latitudeRef);
     }else {
-         mParameters.remove(QCameraParameters::KEY_QC__GPS_LATITUDE_REF);
+         mParameters.remove(QCameraParameters::KEY_QC_GPS_LATITUDE_REF);
     }
 
     const char *longitude = params.get(QCameraParameters::KEY_GPS_LONGITUDE);
@@ -9243,7 +9243,7 @@ bool QualcommCameraHardware::register_record_buffers(bool register_buffer) {
 #endif
     return true;
 }
-
+#if 0
 QualcommCameraHardware::PmemPool::PmemPool(const char *pmem_pool,
                                            int flags,
                                            int pmem_type,
@@ -9385,6 +9385,7 @@ QualcommCameraHardware::PmemPool::~PmemPool()
     mMMCameraDLRef.clear();
     ALOGI("%s: %s X", __FUNCTION__, mName);
 }
+#endif
 #if 0
 #ifdef USE_ION
 const char QualcommCameraHardware::IonPool::mIonDevName[] = "/dev/ion";

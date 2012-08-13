@@ -25,7 +25,9 @@
 #include <binder/MemoryBase.h>
 #include <binder/MemoryHeapBase.h>
 #include <stdint.h>
+#if 0
 #include <ui/egl/android_natives.h>
+#endif
 #ifdef ICS
 #include <hardware/camera.h>
 #endif
