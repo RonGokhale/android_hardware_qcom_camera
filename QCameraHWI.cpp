@@ -1148,6 +1148,19 @@ status_t QCameraHardwareInterface::startPreview2()
         /* First check if the picture resolution is the same, if not, change it*/
         getPictureSize(&mPictureWidth, &mPictureHeight);
 
+        /* remember picture size required by ui */
+        mPictureWidth_ui = mPictureWidth;
+        mPictureHeight_ui = mPictureHeight;
+
+        /* check if picture size is less than video size */
+        if (mPictureWidth < dim.video_width ||
+            mPictureHeight < dim.video_height) {
+            /* picture size can not be less than video size,
+             * if so, need to change picture size to video size*/
+            mPictureWidth = dim.video_width;
+            mPictureHeight = dim.video_height;
+        }
+
         matching = (mPictureWidth == dim.picture_width) &&
             (mPictureHeight == dim.picture_height);
 
@@ -1699,7 +1712,7 @@ status_t  QCameraHardwareInterface::takePicture()
 		/*Currently concurrent streaming is not enabled for snapshot
               So in snapshot mode, we turn of the RDI channel and configure backend
               for only pixel stream*/
-		
+
         if (isZSLMode()) {
             if (mStreamSnap != NULL) {
                 pausePreviewForZSL();

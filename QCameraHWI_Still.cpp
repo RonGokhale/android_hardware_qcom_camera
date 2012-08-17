@@ -405,7 +405,7 @@ configSnapshotDimension(cam_ctrl_dimension_t* dim)
       mPostviewWidth = mHalCamCtrl->mParameters.getInt(CameraParameters::KEY_JPEG_THUMBNAIL_WIDTH);
       mPostviewHeight =  mHalCamCtrl->mParameters.getInt(CameraParameters::KEY_JPEG_THUMBNAIL_HEIGHT);
     }
-    /*If application requested thumbnail size to be (0,0) 
+    /*If application requested thumbnail size to be (0,0)
        then configure second outout to a default size.
        Jpeg encoder will drop thumbnail as reflected in encodeParams.
     */
@@ -838,7 +838,7 @@ initSnapshotBuffers(cam_ctrl_dimension_t *dim, int num_of_buf)
                     mHalCamCtrl->releaseHeapMem(&mHalCamCtrl->mJpegMemory);
     	        goto end;
     	    }
-        } 
+        }
         /* register the streaming buffers for the channel*/
         reg_buf.ch_type = MM_CAMERA_CH_SNAPSHOT;
         reg_buf.snapshot.main.num = mSnapshotStreamBuf.num;
@@ -847,7 +847,7 @@ initSnapshotBuffers(cam_ctrl_dimension_t *dim, int num_of_buf)
             reg_buf.snapshot.thumbnail.num = mPostviewStreamBuf.num;
         else
             reg_buf.snapshot.thumbnail.num = 0;
-    
+
         ret = cam_config_prepare_buf(mCameraId, &reg_buf);
         if(ret != NO_ERROR) {
             LOGV("%s:reg snapshot buf err=%d\n", __func__, ret);
@@ -1617,6 +1617,16 @@ encodeData(mm_camera_ch_data_buf_t* recvd_frame,
                 crop.in2_h = mPictureHeight;
             }
         }
+        if (isFullSizeLiveshot()) {
+            /* if HAl changed full size live snapshot picture size due to VFE limitation,
+               Need to rescale picture size to what ui defines */
+            if (mHalCamCtrl->mPictureWidth_ui != mPictureWidth ||
+                mHalCamCtrl->mPictureHeight_ui != mPictureHeight) {
+                crop.out2_w = mHalCamCtrl->mPictureWidth_ui;
+                crop.out2_h = mHalCamCtrl->mPictureHeight_ui;
+            }
+        }
+
         main_crop_offset.x=mCrop.snapshot.main_crop.left;
         main_crop_offset.y=mCrop.snapshot.main_crop.top;
         /*Thumbnail image*/
@@ -2157,7 +2167,7 @@ status_t QCameraStream_Snapshot::start(void) {
 
     /* Keep track of number of snapshots to take - in case of
        multiple snapshot/burst mode */
-   
+
 	if(mHalCamCtrl->isRawSnapshot()) {
         LOGD("%s: Acquire Raw Snapshot Channel", __func__);
         ret = cam_ops_ch_acquire(mCameraId, MM_CAMERA_CH_RAW);
