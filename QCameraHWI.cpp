@@ -2514,9 +2514,6 @@ void QCameraHardwareInterface::pausePreviewForZSL()
         matching = false;
     }
     if(!matching) {
-        if (mStreamDisplay) {
-            mStreamDisplay->setPreviewPauseFlag(TRUE);
-        }
         stopPreviewInternal();
         mPreviewState = QCAMERA_HAL_PREVIEW_STOPPED;
         startPreview2();
