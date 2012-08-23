@@ -75,7 +75,7 @@ typedef enum {
     LIVESHOT_IN_PROGRESS,
     LIVESHOT_STOPPED
 }liveshotState;
-#define MIN_UNDEQUEUD_BUFFER_COUNT 2
+#define MIN_UNDEQUEUD_BUFFER_COUNT 3
 struct target_map {
     const char *targetStr;
     targetType targetEnum;
