@@ -4267,6 +4267,10 @@ bool QualcommCameraHardware::createSnapshotMemory (int numberOfRawBuffers, int n
     char * pmem_region;
     int ret;
     int ion_heap = ION_CP_MM_HEAP_ID;
+
+	if (mCurrentTarget == TARGET_MSM7627A)
+		ion_heap = ION_CAMERA_HEAP_ID;
+
     if(mCurrentTarget == TARGET_MSM8660) {
        pmem_region = "/dev/pmem_smipool";
     } else {
