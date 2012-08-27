@@ -728,6 +728,7 @@ initSnapshotBuffers(cam_ctrl_dimension_t *dim, int num_of_buf)
     int rotation = 0;
 
     ALOGD("%s: E", __func__);
+    mNumOfRecievedJPEG = 0;
     memset(&reg_buf,  0,  sizeof(mm_camera_reg_buf_t));
     memset(&mSnapshotStreamBuf, 0, sizeof(mSnapshotStreamBuf));
 
@@ -742,16 +743,17 @@ initSnapshotBuffers(cam_ctrl_dimension_t *dim, int num_of_buf)
          __func__, myMode, num_of_buf,
          dim->picture_width, dim->picture_height,
          dim->ui_thumbnail_width, dim->ui_thumbnail_height);
-
-    reg_buf.snapshot.main.buf.mp = new mm_camera_mp_buf_t[num_of_buf];
-    if (!reg_buf.snapshot.main.buf.mp) {
-          ALOGE("%s Error allocating memory for mplanar struct ", __func__);
-          ret = NO_MEMORY;
-          goto end;
+    if (!isLiveSnapshot()) {
+        reg_buf.snapshot.main.buf.mp = new mm_camera_mp_buf_t[num_of_buf];
+        if (!reg_buf.snapshot.main.buf.mp) {
+            ALOGE("%s Error allocating memory for mplanar struct ", __func__);
+            ret = NO_MEMORY;
+            goto end;
+        }
+        memset(reg_buf.snapshot.main.buf.mp, 0,
+            num_of_buf * sizeof(mm_camera_mp_buf_t));
     }
-    memset(reg_buf.snapshot.main.buf.mp, 0,
-      num_of_buf * sizeof(mm_camera_mp_buf_t));
-    if (!isFullSizeLiveshot()) {
+    if (!isFullSizeLiveshot() || !isLiveSnapshot()) {
       reg_buf.snapshot.thumbnail.buf.mp = new mm_camera_mp_buf_t[num_of_buf];
       if (!reg_buf.snapshot.thumbnail.buf.mp) {
         ALOGE("%s Error allocating memory for mplanar struct ", __func__);
@@ -1358,7 +1360,9 @@ takePictureLiveshot(mm_camera_ch_data_buf_t* recvd_frame,
    }
     crop_info.out1_w = mHalCamCtrl->thumbnailWidth;
     crop_info.out1_h =  mHalCamCtrl->thumbnailHeight;
+    mNumOfSnapshot = 1;
     ret = encodeData(recvd_frame, &crop_info, frame_len, 0);
+
     if (ret != NO_ERROR) {
         ALOGE("%s: Failure configuring JPEG encoder", __func__);
 
