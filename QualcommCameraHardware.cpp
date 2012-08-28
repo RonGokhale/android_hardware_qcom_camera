@@ -273,7 +273,6 @@ static struct camera_size_type for_3D_picture_sizes[] = {
 };
 
 static int data_counter = 0;
-static int sensor_rotation = 0;
 static int record_flag = 0;
 static camera_size_type* picture_sizes;
 static camera_size_type* preview_sizes;
@@ -7066,18 +7065,17 @@ status_t QualcommCameraHardware::setVpeParameters()
     video_rotation_param_ctrl_t rotCtrl;
     bool ret = true;
     ALOGV("videoWidth = %d, videoHeight = %d", videoWidth, videoHeight);
-    int rotation = (mRotation + sensor_rotation)%360;
-    rotCtrl.rotation = (rotation == 0) ? ROT_NONE :
-                       ((rotation == 90) ? ROT_CLOCKWISE_90 :
-                  ((rotation == 180) ? ROT_CLOCKWISE_180 : ROT_CLOCKWISE_270));
+    rotCtrl.rotation = (mRotation == 0) ? ROT_NONE :
+                       ((mRotation == 90) ? ROT_CLOCKWISE_90 :
+                  ((mRotation == 180) ? ROT_CLOCKWISE_180 : ROT_CLOCKWISE_270));
 
     if( ((videoWidth == 1280 && videoHeight == 720) || (videoWidth == 800 && videoHeight == 480))
-        && (rotation == 90 || rotation == 270) ){
+        && (mRotation == 90 || mRotation == 270) ){
         /* Due to a limitation at video core to support heights greater than 720, adding this check.
          * This is a temporary hack, need to be removed once video core support is available
          */
         ALOGI("video resolution (%dx%d) with rotation (%d) is not supported, setting rotation to NONE",
-            videoWidth, videoHeight, rotation);
+            videoWidth, videoHeight, mRotation);
         rotCtrl.rotation = ROT_NONE;
     }
     ALOGV("rotCtrl.rotation = %d", rotCtrl.rotation);
@@ -8837,7 +8835,6 @@ status_t QualcommCameraHardware::setRotation(const QCameraParameters& params)
     if (rotation != NOT_FOUND) {
         if (rotation == 0 || rotation == 90 || rotation == 180
             || rotation == 270) {
-          rotation = (rotation + sensor_rotation)%360;
           mParameters.set(QCameraParameters::KEY_ROTATION, rotation);
           mRotation = rotation;
         } else {
@@ -9978,7 +9975,6 @@ extern "C" void HAL_getCameraInfo(int cameraId, struct CameraInfo* cameraInfo)
                 cameraInfo->orientation = ((APP_ORIENTATION - HAL_cameraInfo[i].sensor_mount_angle) + 360)%360;
 
             ALOGI("%s: orientation = %d", __FUNCTION__, cameraInfo->orientation);
-            sensor_rotation = HAL_cameraInfo[i].sensor_mount_angle;
             cameraInfo->mode = 0;
             if(HAL_cameraInfo[i].modes_supported & CAMERA_MODE_2D)
                 cameraInfo->mode |= CAMERA_SUPPORT_MODE_2D;
