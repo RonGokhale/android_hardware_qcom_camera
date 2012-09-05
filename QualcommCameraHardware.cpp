@@ -4267,8 +4267,8 @@ bool QualcommCameraHardware::createSnapshotMemory (int numberOfRawBuffers, int n
     int ret;
     int ion_heap = ION_CP_MM_HEAP_ID;
 
-	if (mCurrentTarget == TARGET_MSM7627A)
-		ion_heap = ION_CAMERA_HEAP_ID;
+    if((mCurrentTarget == TARGET_MSM7627A) || (mCurrentTarget == TARGET_MSM7630))
+       ion_heap = ION_CAMERA_HEAP_ID;
 
     if(mCurrentTarget == TARGET_MSM8660) {
        pmem_region = "/dev/pmem_smipool";
@@ -6856,9 +6856,12 @@ bool QualcommCameraHardware::initRecord()
     int ion_heap = ION_CP_MM_HEAP_ID;
     int CbCrOffset;
     int recordBufferSize;
-	int active, type =0;
+    int active, type =0;
 
     ALOGV("initREcord E");
+    if((mCurrentTarget == TARGET_MSM7630))
+       ion_heap = ION_CAMERA_HEAP_ID;
+
     if(mZslEnable){
        ALOGV("initRecord X.. Not intializing Record buffers in ZSL mode");
        return true;
