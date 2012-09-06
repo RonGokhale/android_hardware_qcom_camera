@@ -4,7 +4,7 @@ ifneq ($(USE_CAMERA_STUB),true)
     ifneq ($(BUILD_TINY_ANDROID),true)
       V4L2_BASED_LIBCAM := false
       MM_STILL_V4L2_DRIVER_LIST := msm7627a
-      #MM_STILL_V4L2_DRIVER_LIST += msm7630_surf
+      MM_STILL_V4L2_DRIVER_LIST += msm7630_surf
       #MM_STILL_V4L2_DRIVER_LIST += msm7630_fusion
       MM_STILL_V4L2_DRIVER_LIST += msm8660
       MM_STILL_V4L2_DRIVER_LIST += msm8960
