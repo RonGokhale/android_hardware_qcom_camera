@@ -278,6 +278,11 @@ static uint32_t mm_camera_util_get_v4l2_fmt(cam_format_t fmt,
         val = V4L2_PIX_FMT_NV21;
         *num_planes = 2;
         break;
+    case CAMERA_YUV_420_YV12:
+        val= V4L2_PIX_FMT_NV12;
+        *num_planes = 3;
+        break;
+
     case CAMERA_BAYER_SBGGR10:
         val= V4L2_PIX_FMT_SBGGR10;
         *num_planes = 1;

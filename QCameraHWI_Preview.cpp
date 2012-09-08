@@ -155,7 +155,12 @@ status_t QCameraStream_preview::getBufferFromSurface() {
          ret = UNKNOWN_ERROR;
      goto end;
     }
-    previewBufSize = dim.display_width * dim.display_height * 3/2;
+    if (format == HAL_PIXEL_FORMAT_YV12) {
+      previewBufSize = ((dim.display_width + 15)/16) * dim.display_height * 16+
+        ((dim.display_width/2 +15)/16) * dim.display_height * 16;
+    } else {
+      previewBufSize = dim.display_width * dim.display_height * 3/2;
+    }
     err = mPreviewWindow->set_usage(mPreviewWindow,
         GRALLOC_USAGE_PRIVATE_MM_HEAP |
         GRALLOC_USAGE_PRIVATE_IOMMU_HEAP);
@@ -420,6 +425,7 @@ status_t QCameraStream_preview::initDisplayBuffers()
   uint32_t planes[VIDEO_MAX_PLANES];
   void *vaddr = NULL;
   cam_ctrl_dimension_t dim;
+  int i;
 
   ALOGE("%s:BEGIN",__func__);
   memset(&mHalCamCtrl->mMetadata, 0, sizeof(camera_frame_metadata_t));
@@ -454,9 +460,10 @@ status_t QCameraStream_preview::initDisplayBuffers()
   memset(&mDisplayStreamBuf, 0, sizeof(mDisplayStreamBuf));
   this->mDisplayStreamBuf.num = mHalCamCtrl->mPreviewMemory.buffer_count;
   this->myMode=myMode; /*Need to assign this in constructor after translating from mask*/
-  num_planes = 2;
-  planes[0] = dim.display_frame_offset.mp[0].len;
-  planes[1] = dim.display_frame_offset.mp[1].len;
+  num_planes = dim.display_frame_offset.num_planes;
+  for (i=0; i< num_planes; i++) {
+    planes[i] = dim.display_frame_offset.mp[i].len;
+  }
   this->mDisplayStreamBuf.frame_len = dim.display_frame_offset.frame_len;
 
   memset(&mDisplayBuf, 0, sizeof(mDisplayBuf));
@@ -470,7 +477,7 @@ status_t QCameraStream_preview::initDisplayBuffers()
     mDisplayStreamBuf.num * sizeof(mm_camera_mp_buf_t));
 
   /*allocate memory for the buffers*/
-  for(int i = 0; i < mDisplayStreamBuf.num; i++){
+  for(i = 0; i < mDisplayStreamBuf.num; i++){
 	  if (mHalCamCtrl->mPreviewMemory.private_buffer_handle[i] == NULL)
 		  continue;
       mDisplayStreamBuf.frame[i].fd = mHalCamCtrl->mPreviewMemory.private_buffer_handle[i]->fd;
@@ -772,7 +779,7 @@ status_t QCameraStream_preview::processPreviewFrameWithDisplay(
     ALOGE("Preview Stopped. Returning callback");
     return NO_ERROR;
   }
-  
+
   if(mHalCamCtrl==NULL) {
     ALOGE("%s: X: HAL control object not set",__func__);
     /*Call buf done*/
@@ -1113,12 +1120,15 @@ status_t QCameraStream_preview::start()
 {
     ALOGV("%s: E", __func__);
     status_t ret = NO_ERROR;
+    cam_format_t format;
 
     Mutex::Autolock lock(mStopCallbackLock);
 
+	format = mHalCamCtrl->getPreviewFormatInfo().mm_cam_format;
+
     /* call start() in parent class to start the monitor thread*/
     //QCameraStream::start ();
-    setFormat(MM_CAMERA_CH_PREVIEW_MASK);
+    setFormat(MM_CAMERA_CH_PREVIEW_MASK, format);
 
     /* We do initDisplayBuffers only it's a clean start.
      * If preview is stopped because of taking picutre,
