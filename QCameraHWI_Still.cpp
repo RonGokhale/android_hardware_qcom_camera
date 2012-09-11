@@ -1685,7 +1685,7 @@ encodeDisplayAndSave(mm_camera_ch_data_buf_t* recvd_frame,
     cache_inv_data.handle = recvd_frame->snapshot.main.frame->fd_data.handle;
     cache_inv_data.length = recvd_frame->snapshot.main.frame->ion_alloc.len;
     if(ion_fd > 0) {
-      if(ioctl(ion_fd, ION_IOC_CLEAN_INV_CACHES, &cache_inv_data) < 0)
+      if(mHalCamCtrl->cache_ops(&cache_inv_data, ION_IOC_CLEAN_INV_CACHES) < 0)
           ALOGE("%s: Cache Invalidate failed\n", __func__);
       else {
           ALOGD("%s: Successful cache invalidate\n", __func__);
@@ -1694,7 +1694,7 @@ encodeDisplayAndSave(mm_camera_ch_data_buf_t* recvd_frame,
             cache_inv_data.fd = recvd_frame->snapshot.thumbnail.frame->fd;
             cache_inv_data.handle = recvd_frame->snapshot.thumbnail.frame->fd_data.handle;
             cache_inv_data.length = recvd_frame->snapshot.thumbnail.frame->ion_alloc.len;
-            if(ioctl(ion_fd, ION_IOC_CLEAN_INV_CACHES, &cache_inv_data) < 0)
+            if(mHalCamCtrl->cache_ops(&cache_inv_data, ION_IOC_CLEAN_INV_CACHES) < 0)
               ALOGE("%s: Cache Invalidate failed\n", __func__);
             else
               ALOGD("%s: Successful cache invalidate\n", __func__);
