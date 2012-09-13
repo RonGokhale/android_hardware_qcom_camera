@@ -254,7 +254,7 @@ status_t QCameraStream::setMode(int enable) {
   return NO_ERROR;
 }
 
-status_t QCameraStream::setFormat(uint8_t ch_type_mask)
+status_t QCameraStream::setFormat(uint8_t ch_type_mask, cam_format_t preview_format)
 {
     int rc = MM_CAMERA_OK;
     status_t ret = NO_ERROR;
@@ -276,7 +276,7 @@ status_t QCameraStream::setFormat(uint8_t ch_type_mask)
     memset(&fmt, 0, sizeof(mm_camera_ch_image_fmt_parm_t));
     if(MM_CAMERA_CH_PREVIEW_MASK & ch_type_mask){
         fmt.ch_type = MM_CAMERA_CH_PREVIEW;
-        fmt.def.fmt = CAMERA_YUV_420_NV12; //dim.prev_format;
+        fmt.def.fmt = preview_format; //dim.prev_format;
         fmt.def.dim.width = dim.display_width;
         fmt.def.dim.height =  dim.display_height;
     }else if(MM_CAMERA_CH_VIDEO_MASK & ch_type_mask){
@@ -284,25 +284,7 @@ status_t QCameraStream::setFormat(uint8_t ch_type_mask)
         fmt.video.video.fmt = CAMERA_YUV_420_NV21; //dim.enc_format;
         fmt.video.video.dim.width = dim.video_width;
         fmt.video.video.dim.height = dim.video_height;
-    }/*else if(MM_CAMERA_CH_SNAPSHOT_MASK & ch_type_mask){
-        if(mHalCamCtrl->isRawSnapshot()) {
-            fmt.ch_type = MM_CAMERA_CH_RAW;
-            fmt.def.fmt = CAMERA_BAYER_SBGGR10;
-            fmt.def.dim.width = dim.raw_picture_width;
-            fmt.def.dim.height = dim.raw_picture_height;
-        }else{
-            //Jpeg???
-            fmt.ch_type = MM_CAMERA_CH_SNAPSHOT;
-            fmt.snapshot.main.fmt = dim.main_img_format;
-            fmt.snapshot.main.dim.width = dim.picture_width;
-            fmt.snapshot.main.dim.height = dim.picture_height;
-
-            fmt.snapshot.thumbnail.fmt = dim.thumb_format;
-            fmt.snapshot.thumbnail.dim.width = dim.ui_thumbnail_width;
-            fmt.snapshot.thumbnail.dim.height = dim.ui_thumbnail_height;
-        }
-    }*/
-
+    }
     rc = cam_config_set_parm(mCameraId, MM_CAMERA_PARM_CH_IMAGE_FMT, &fmt);
     ALOGV("%s: Stream MM_CAMERA_PARM_CH_IMAGE_FMT rc = %d\n", __func__, rc);
     if(MM_CAMERA_OK != rc) {
