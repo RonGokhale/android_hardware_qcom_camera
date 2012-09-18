@@ -2210,7 +2210,7 @@ status_t QCameraStream_Snapshot::start(void) {
     }
 
     if (isZSLMode()) {
-        prepareHardware();
+        //prepareHardware();
         ret = initZSLSnapshot();
         if(ret != NO_ERROR) {
             LOGE("%s : Error while Initializing ZSL snapshot",__func__);
