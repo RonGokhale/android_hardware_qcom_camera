@@ -216,7 +216,8 @@ QCameraHardwareInterface(int cameraId, int mode)
 		    mSupportedFpsRanges(NULL),
                     mSupportedFpsRangesCount(0),
                     mPowerModule(0),
-                    mChannelInterfaceMask(STREAM_IMAGE)
+                    mChannelInterfaceMask(STREAM_IMAGE),
+                    mNeedToUnlockCaf(false)
 {
     ALOGI("QCameraHardwareInterface: E");
     int32_t result = MM_CAMERA_E_GENERAL;
@@ -1507,9 +1508,11 @@ status_t QCameraHardwareInterface::autoFocusEvent(cam_ctrl_status_t *status, app
 
     /* If autofocus call has been made during CAF, CAF will be locked.
      * We specifically need to call cancelAutoFocus to unlock CAF.
-     * In that sense, AF is still running.*/
+     */
     isp3a_af_mode_t afMode = getAutoFocusMode(mParameters);
-    mAutoFocusRunning = (afMode == AF_MODE_CAF) ? true : false;
+    if (afMode == AF_MODE_CAF)
+       mNeedToUnlockCaf = true;
+    mAutoFocusRunning = false;
     mAutofocusLock.unlock();
 
 /************************************************************
@@ -1521,7 +1524,7 @@ status_t QCameraHardwareInterface::autoFocusEvent(cam_ctrl_status_t *status, app
     }
 
     /* update focus distances after autofocus is done */
-    if(updateFocusDistances() != NO_ERROR) {
+    if((*status != CAM_CTRL_FAILED) && updateFocusDistances() != NO_ERROR) {
        ALOGE("%s: updateFocusDistances failed for %d", __FUNCTION__, mFocusMode);
     }
 
@@ -1986,9 +1989,10 @@ status_t QCameraHardwareInterface::cancelAutoFocus()
 *************************************************************/
 
     mAutofocusLock.lock();
-    if(mAutoFocusRunning) {
+    if(mAutoFocusRunning || mNeedToUnlockCaf) {
 
       mAutoFocusRunning = false;
+      mNeedToUnlockCaf = false;
       mAutofocusLock.unlock();
 
     }else/*(!mAutoFocusRunning)*/{
