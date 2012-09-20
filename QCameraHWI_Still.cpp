@@ -31,7 +31,6 @@
 
 #define THUMBNAIL_DEFAULT_WIDTH 512
 #define THUMBNAIL_DEFAULT_HEIGHT 384
-
 /* following code implement the still image capture & encoding logic of this class*/
 namespace android {
 
@@ -233,7 +232,6 @@ receiveCompleteJpegPicture(jpeg_event_t event)
     camera_memory_t *encodedMem = NULL;
     camera_data_callback jpg_data_cb = NULL;
     bool fail_cb_flag = false;
-
     if(!mActive && !isLiveSnapshot()) {
         ALOGE("%s : Cancel Picture",__func__);
         fail_cb_flag = true;
@@ -264,7 +262,6 @@ end:
         free(mCurrentFrameEncoded);
         mCurrentFrameEncoded = NULL;
     }
-
     /* Before leaving check the jpeg queue. If it's not empty give the available
        frame for encoding*/
     if (!mSnapshotQueue.isEmpty()) {
@@ -276,6 +273,7 @@ end:
           fail_cb_flag = true;
         }
     }  else if (mNumOfSnapshot == mNumOfRecievedJPEG )  { /* finished */
+      ALOGD("nusnap %d, mNumjpeg %d", mNumOfSnapshot, mNumOfRecievedJPEG);
       ALOGD("%s: Before omxJpegFinish", __func__);
       omxJpegFinish();
       ALOGD("%s: After omxJpegFinish", __func__);
@@ -314,6 +312,7 @@ end:
         }
         memcpy(encodedMem->data, mHalCamCtrl->mJpegMemory.camera_memory[0]->data, mJpegOffset );
         mStopCallbackLock.unlock( );
+
         if ((mActive || isLiveSnapshot()) && jpg_data_cb != NULL) {
             ALOGV("%s: Calling upperlayer callback to store JPEG image", __func__);
             jpg_data_cb (msg_type,encodedMem, 0, NULL,mHalCamCtrl->mCallbackCookie);
@@ -1221,6 +1220,9 @@ takePictureJPEG(void)
 
     ALOGD("%s: E", __func__);
 
+    if (mHalCamCtrl->mHdrMode == HDR_MODE) {
+        hdrRawCount = 0;
+    }
     /* Take snapshot */
     ALOGD("%s: Call MM_CAMERA_OPS_SNAPSHOT", __func__);
     if (NO_ERROR != cam_ops_action(mCameraId,
@@ -1812,6 +1814,15 @@ status_t QCameraStream_Snapshot::receiveRawPicture(mm_camera_ch_data_buf_t* recv
         /* TBD: Temp: To be removed once event handling is enabled */
         mm_app_snapshot_done();
     } else {
+        if(mHalCamCtrl->mHdrMode == HDR_MODE) {
+            hdrRawCount++;
+            if ((hdrRawCount % 2) != 0) {
+                cam_evt_buf_done(mCameraId, recvd_frame);
+                mStopCallbackLock.unlock();
+                return NO_ERROR;
+            }
+        }
+
         /*TBD: v4l2 doesn't have support to provide cropinfo along with
           frame. We'll need to query.*/
         memset(&crop, 0, sizeof(common_crop_t));
@@ -1840,8 +1851,7 @@ status_t QCameraStream_Snapshot::receiveRawPicture(mm_camera_ch_data_buf_t* recv
         memcpy(frame, recvd_frame, sizeof(mm_camera_ch_data_buf_t));
 
         //mStopCallbackLock.lock();
-
-        // only in ZSL mode and Wavelet Denoise is enabled, we will send frame to deamon to do WDN
+       // only in ZSL mode and Wavelet Denoise is enabled, we will send frame to deamon to do WDN
         if (isZSLMode() && mHalCamCtrl->isWDenoiseEnabled()) {
             if(mIsDoingWDN){
                 mWDNQueue.enqueue((void *)frame);
@@ -1864,7 +1874,6 @@ status_t QCameraStream_Snapshot::receiveRawPicture(mm_camera_ch_data_buf_t* recv
             rc = encodeDisplayAndSave(frame, 0);
         }
 
-
         // send upperlayer callback for raw image (data or notify, not both)
         if((mHalCamCtrl->mDataCb) && (mHalCamCtrl->mMsgEnabled & CAMERA_MSG_RAW_IMAGE)){
           dataCb = mHalCamCtrl->mDataCb;
@@ -1885,8 +1894,7 @@ status_t QCameraStream_Snapshot::receiveRawPicture(mm_camera_ch_data_buf_t* recv
         notifyShutter(&crop, FALSE);
         mHalCamCtrl->mShutterSoundPlayed = FALSE;
 
-
-        if (rc != NO_ERROR)
+       if (rc != NO_ERROR)
         {
             ALOGE("%s: Error while encoding/displaying/saving image", __func__);
             cam_evt_buf_done(mCameraId, recvd_frame);
