@@ -942,8 +942,6 @@ void QCameraStream_Snapshot::deInitBuffer(void)
     mSnapshotQueue.flush();
     mWDNQueue.flush();
 
-    mNumOfSnapshot = 0;
-    mNumOfRecievedJPEG = 0;
     setSnapshotState(SNAPSHOT_STATE_UNINIT);
 
     ALOGD("%s: X", __func__);
@@ -1474,6 +1472,7 @@ encodeData(mm_camera_ch_data_buf_t* recvd_frame,
        Also, if the queue isn't empty then we need to queue this
        one too till its turn comes (only if it's not already
        queued up there)*/
+    ALOGV("%s: getSnapshotState()=%d, enqueued =%d", __func__, getSnapshotState(), enqueued);
     if((getSnapshotState() == SNAPSHOT_STATE_JPEG_ENCODING) ||
        (!mSnapshotQueue.isEmpty() && !enqueued)){ /*busy and new buffer*/
         /* encoding is going on. Just queue the frame for now.*/
@@ -1481,7 +1480,9 @@ encodeData(mm_camera_ch_data_buf_t* recvd_frame,
              "Enqueuing frame id(%d) for later processing.", __func__,
              recvd_frame->snapshot.main.idx);
         mSnapshotQueue.enqueue((void *)recvd_frame);
-    } else if (enqueued) { /*not busy and old buffer (continue job)*/
+    } else if (enqueued ||
+       (mNumOfRecievedJPEG != mNumOfSnapshot  && mNumOfRecievedJPEG != 0)) { /*not busy, not first*/
+      ALOGV("%s: JPG not busy, not first frame.", __func__);
       postviewframe = recvd_frame->snapshot.thumbnail.frame;
       mainframe = recvd_frame->snapshot.main.frame;
       cam_config_get_parm(mHalCamCtrl->mCameraId, MM_CAMERA_PARM_DIMENSION, &dimension);
@@ -1502,6 +1503,7 @@ encodeData(mm_camera_ch_data_buf_t* recvd_frame,
       mCurrentFrameEncoded = recvd_frame;
       setSnapshotState(SNAPSHOT_STATE_JPEG_ENCODING);
     } else {  /*not busy and new buffer (first job)*/
+      ALOGV("%s: JPG Idle and  first frame.", __func__);
         postviewframe = recvd_frame->snapshot.thumbnail.frame;
         /* No thumbnail for full size liveshot */
         if (!isFullSizeLiveshot())
@@ -1831,6 +1833,7 @@ status_t QCameraStream_Snapshot::receiveRawPicture(mm_camera_ch_data_buf_t* recv
             }
         }
         else {
+          ALOGV("%s: encodeDisplayAndSave ", __func__);
             rc = encodeDisplayAndSave(frame, 0);
         }
 
@@ -1974,6 +1977,15 @@ bool QCameraStream_Snapshot::isFullSizeLiveshot()
     return mFullLiveshot;
 }
 
+void QCameraStream_Snapshot::resetSnapshotCounters(void )
+{
+  mNumOfSnapshot = mHalCamCtrl->getNumOfSnapshots();
+  if (mNumOfSnapshot <= 0) {
+      mNumOfSnapshot = 1;
+  }
+  mNumOfRecievedJPEG = 0;
+  ALOGD("%s: Number of images to be captured: %d", __func__, mNumOfSnapshot);
+}
 //------------------------------------------------------------------
 // Constructor and Destructor
 //------------------------------------------------------------------
@@ -1988,7 +2000,7 @@ QCameraStream_Snapshot(int cameraId, camera_mode_t mode)
     mThumbnailFormat(CAMERA_YUV_420_NV21),
     mJpegOffset(0),
     mSnapshotState(SNAPSHOT_STATE_UNINIT),
-    mNumOfSnapshot(0),
+    mNumOfSnapshot(1),
     mModeLiveSnapshot(false),
     mBurstModeFlag(false),
     mActualPictureWidth(0),
@@ -2093,7 +2105,6 @@ status_t QCameraStream_Snapshot::init()
     }
 
 
-    mNumOfRecievedJPEG = 0;
     mInit = true;
 
 end:
@@ -2127,12 +2138,7 @@ status_t QCameraStream_Snapshot::start(void) {
 
     /* Keep track of number of snapshots to take - in case of
        multiple snapshot/burst mode */
-    mNumOfSnapshot = mHalCamCtrl->getNumOfSnapshots();
-    if (mNumOfSnapshot == 0) {
         /* If by chance returned value is 0, we'll just take one snapshot */
-        mNumOfSnapshot = 1;
-    }
-    ALOGD("%s: Number of images to be captured: %d", __func__, mNumOfSnapshot);
 
 	if(mHalCamCtrl->isRawSnapshot()) {
         ALOGD("%s: Acquire Raw Snapshot Channel", __func__);

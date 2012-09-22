@@ -1576,6 +1576,7 @@ status_t  QCameraHardwareInterface::takePicture()
         mStreamLiveSnap = NULL;
     }
 
+    mStreamSnap->resetSnapshotCounters( );
     switch(mPreviewState) {
     case QCAMERA_HAL_PREVIEW_STARTED:
         mStreamSnap->setFullSizeLiveshot(false);
