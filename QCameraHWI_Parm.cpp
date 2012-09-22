@@ -911,9 +911,23 @@ void QCameraHardwareInterface::initDefaultParameters()
     //set supported video sizes
     mParameters.set(QCameraParameters::KEY_SUPPORTED_VIDEO_SIZES, mVideoSizeValues.string());
 
-    //set default video size to first one in supported table
-    String8 vSize = create_sizes_str(&mVideoSizes[0], 1);
-    mParameters.set(QCameraParameters::KEY_VIDEO_SIZE, vSize.string());
+    int mNuberOfVFEOutputs;
+    ret = cam_config_get_parm(mCameraId, MM_CAMERA_PARM_VFE_OUTPUT_ENABLE, &mNuberOfVFEOutputs);
+    if(ret != MM_CAMERA_OK) {
+        ALOGE("get parm MM_CAMERA_PARM_VFE_OUTPUT_ENABLE  failed");
+        ret = BAD_VALUE;
+    }
+    if(mNuberOfVFEOutputs == 1) {
+       //set default video size to second one in supported table
+       //This is required for 8x25 to set the preview size same as Video size for 720p recording resolution
+       String8 vSize = create_sizes_str(&mVideoSizes[1], 1);
+       mParameters.set(QCameraParameters::KEY_VIDEO_SIZE, vSize.string());
+    }
+    else {
+       //set default video size to first one in supported table
+       String8 vSize = create_sizes_str(&mVideoSizes[0], 1);
+       mParameters.set(QCameraParameters::KEY_VIDEO_SIZE, vSize.string());
+    }
 
     //Set Preview size
     int default_preview_width, default_preview_height;
@@ -1332,12 +1346,6 @@ void QCameraHardwareInterface::initDefaultParameters()
     //mUseOverlay = useOverlay();
     mParameters.set("zoom", 0);
 
-    int mNuberOfVFEOutputs;
-    ret = cam_config_get_parm(mCameraId, MM_CAMERA_PARM_VFE_OUTPUT_ENABLE, &mNuberOfVFEOutputs);
-    if(ret != MM_CAMERA_OK) {
-        ALOGE("get parm MM_CAMERA_PARM_VFE_OUTPUT_ENABLE  failed");
-        ret = BAD_VALUE;
-    }
     if(mNuberOfVFEOutputs == 1)
     {
        mParameters.set(QCameraParameters::KEY_QC_SINGLE_ISP_OUTPUT_ENABLED, "true");
@@ -2478,6 +2486,8 @@ status_t QCameraHardwareInterface::setVideoSize(const QCameraParameters& params)
     const char *str= NULL;
     const char *str_t= NULL;
     int old_vid_w = 0, old_vid_h = 0;
+    int mNuberOfVFEOutputs = 0;
+    bool ret;
     ALOGE("%s: E", __func__);
     str = params.get(QCameraParameters::KEY_VIDEO_SIZE);
     str_t = mParameters.get(CameraParameters::KEY_VIDEO_SIZE);
@@ -2498,8 +2508,16 @@ status_t QCameraHardwareInterface::setVideoSize(const QCameraParameters& params)
                 ALOGE("%s: Video sizes changes, Restart preview...", __func__, str);
             }
             mParameters.set(QCameraParameters::KEY_VIDEO_SIZE, str);
+
+            ret = cam_config_get_parm(mCameraId, MM_CAMERA_PARM_VFE_OUTPUT_ENABLE, &mNuberOfVFEOutputs);
+            if(ret != MM_CAMERA_OK) {
+               ALOGE("get parm MM_CAMERA_PARM_VFE_OUTPUT_ENABLE  failed");
+               ret = BAD_VALUE;
+            }
             //VFE output1 shouldn't be greater than VFE output2.
-            if( (mPreviewWidth > videoWidth) || (mPreviewHeight > videoHeight)) {
+            //For 7x27A/8x25, mNuberOfVFEOutputs=1, So set preview size equals to video size for 1280x720 recording size
+            if( ((mNuberOfVFEOutputs == 1) && (videoWidth == 1280) && (videoHeight == 720)) ||
+                (mPreviewWidth > videoWidth) || (mPreviewHeight > videoHeight)) {
                 //Set preview sizes as record sizes.
                 ALOGE("Preview size %dx%d is greater than record size %dx%d,\
                         resetting preview size to record size",mPreviewWidth,
