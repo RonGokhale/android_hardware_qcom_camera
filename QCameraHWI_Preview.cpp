@@ -16,7 +16,7 @@
 
 /*#error uncomment this for compiler test!*/
 
-#define ALOG_TAG "QCameraHWI_Preview"
+#define LOG_TAG "QCameraHWI_Preview"
 #include <utils/Log.h>
 #include <utils/threads.h>
 #include <fcntl.h>
@@ -970,7 +970,7 @@ status_t QCameraStream_preview::processPreviewFrameWithDisplay(
             mHalCamCtrl->mMsgEnabled, mHalCamCtrl->mPreviewFormat);
       //Sending preview callback if corresponding Msgs are enabled
       if(mHalCamCtrl->mMsgEnabled & CAMERA_MSG_PREVIEW_FRAME) {
-          ALOGE("Q%s: PCB callback enabled", __func__);
+          ALOGD("Q%s: PCB callback enabled", __func__);
           msgType |=  CAMERA_MSG_PREVIEW_FRAME;
           int previewBufSize;
           /* The preview buffer size sent back in the callback should be (width*height*bytes_per_pixel)
