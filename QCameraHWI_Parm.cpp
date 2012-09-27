@@ -16,7 +16,7 @@
 
 //#define ALOG_NDEBUG 0
 #define ALOG_NIDEBUG 0
-#define ALOG_TAG "QCameraHWI_Parm"
+#define LOG_TAG "QCameraHWI_Parm"
 #include <utils/Log.h>
 
 #include <utils/Errors.h>
@@ -402,7 +402,7 @@ static int attr_lookup(const str_map arr[], int len, const char *name)
 bool QCameraHardwareInterface::native_set_parms(
     mm_camera_parm_type_t type, uint16_t length, void *value)
 {
-    ALOGE("%s : type : %d Value : %d",__func__,type,*((int *)value));
+    ALOGV("%s : type : %d Value : %d",__func__,type,*((int *)value));
     if(MM_CAMERA_OK != cam_config_set_parm(mCameraId, type,value )) {
         ALOGE("native_set_parms failed: type %d length %d error %s",
             type, length, strerror(errno));
@@ -418,7 +418,7 @@ bool QCameraHardwareInterface::native_set_parms(
 {
     *result= cam_config_set_parm(mCameraId, type,value );
     if(MM_CAMERA_OK == *result) {
-        ALOGE("native_set_parms: succeeded : %d", *result);
+        ALOGV("native_set_parms: succeeded : %d", *result);
         return true;
     }
 
@@ -644,7 +644,7 @@ void QCameraHardwareInterface::loadTables()
 {
 
     bool ret = NO_ERROR;
-    ALOGE("%s: E", __func__);
+    ALOGV("%s: E", __func__);
 
     ret = cam_config_get_parm(mCameraId,
             MM_CAMERA_PARM_PREVIEW_SIZES_CNT, &preview_sizes_count);
@@ -688,7 +688,7 @@ void QCameraHardwareInterface::loadTables()
                             MM_CAMERA_PARM_DEF_HFR_SIZES, &hfr_sizes_tbl)){
         ALOGE("%s:Failed to get default HFR  sizes",__func__);
     }
-    ALOGE("%s: X", __func__);
+    ALOGV("%s: X", __func__);
 }
 void QCameraHardwareInterface::initDefaultParameters()
 {
@@ -696,7 +696,7 @@ void QCameraHardwareInterface::initDefaultParameters()
     char prop[PROPERTY_VALUE_MAX];
     mm_camera_dimension_t maxDim;
     int rc = MM_CAMERA_OK;
-    ALOGI("%s: E", __func__);
+    ALOGV("%s: E", __func__);
 
     memset(&maxDim, 0, sizeof(mm_camera_dimension_t));
     ret = getMaxPictureDimension(&maxDim);
@@ -1351,7 +1351,7 @@ void QCameraHardwareInterface::initDefaultParameters()
     mInitialized = true;
     strTexturesOn = false;
 
-    ALOGI("%s: X", __func__);
+    ALOGV("%s: X", __func__);
     return;
 }
 
@@ -1379,7 +1379,7 @@ status_t QCameraHardwareInterface::setParameters(const QCameraParameters& params
 {
     status_t ret = NO_ERROR;
 
-    ALOGI("%s: E", __func__);
+    ALOGV("%s: E", __func__);
 //    Mutex::Autolock l(&mLock);
     status_t rc, final_rc = NO_ERROR;
 
@@ -1461,7 +1461,7 @@ status_t QCameraHardwareInterface::setParameters(const QCameraParameters& params
     //Update Exiftag values.
     setExifTags();
 
-   ALOGI("%s: X", __func__);
+   ALOGV("%s: X", __func__);
    return final_rc;
 }
 
@@ -1549,7 +1549,7 @@ status_t QCameraHardwareInterface::setSaturation(const QCameraParameters& params
 {
     bool ret = false;
     int rc = MM_CAMERA_OK;
-    ALOGE("%s",__func__);
+    ALOGV("%s",__func__);
     rc = cam_config_is_parm_supported(mCameraId, MM_CAMERA_PARM_SATURATION);
     if(!rc) {
         ALOGE("%s:MM_CAMERA_PARM_SATURATION not supported", __func__);
@@ -1573,7 +1573,7 @@ status_t QCameraHardwareInterface::setSaturation(const QCameraParameters& params
 
 status_t QCameraHardwareInterface::setContrast(const QCameraParameters& params)
 {
-   ALOGE("%s E", __func__ );
+   ALOGV("%s E", __func__ );
    int rc = MM_CAMERA_OK;
    rc = cam_config_is_parm_supported(mCameraId, MM_CAMERA_PARM_CONTRAST);
    if(!rc) {
@@ -1581,7 +1581,7 @@ status_t QCameraHardwareInterface::setContrast(const QCameraParameters& params)
         return NO_ERROR;
     }
    const char *str = params.get(QCameraParameters::KEY_SCENE_MODE);
-   ALOGE("Contrast : %s",str);
+   ALOGV("Contrast : %s",str);
    int32_t value = attr_lookup(scenemode, sizeof(scenemode) / sizeof(str_map), str);
    if(value == CAMERA_BESTSHOT_OFF) {
         int contrast = params.getInt(QCameraParameters::KEY_QC_CONTRAST);
@@ -1593,10 +1593,10 @@ status_t QCameraHardwareInterface::setContrast(const QCameraParameters& params)
         }
         ALOGV("setting contrast %d", contrast);
         mParameters.set(QCameraParameters::KEY_QC_CONTRAST, contrast);
-        ALOGE("Calling Contrast set on Lower layer");
+        ALOGV("Calling Contrast set on Lower layer");
         bool ret = native_set_parms(MM_CAMERA_PARM_CONTRAST, sizeof(contrast),
                                    (void *)&contrast);
-        ALOGE("Lower layer returned %d", ret);
+        ALOGV("Lower layer returned %d", ret);
         int bestshot_reconfigure;
         cam_config_get_parm(mCameraId, MM_CAMERA_PARM_BESTSHOT_RECONFIGURE,
                             &bestshot_reconfigure);
@@ -1620,7 +1620,7 @@ status_t QCameraHardwareInterface::setContrast(const QCameraParameters& params)
 
 status_t QCameraHardwareInterface::setSceneDetect(const QCameraParameters& params)
 {
-    ALOGE("%s",__func__);
+    ALOGV("%s",__func__);
     bool retParm;
     int rc = MM_CAMERA_OK;
 
@@ -1651,7 +1651,7 @@ status_t QCameraHardwareInterface::setZoom(const QCameraParameters& params)
 {
     status_t rc = NO_ERROR;
 
-    ALOGE("%s: E",__func__);
+    ALOGV("%s: E",__func__);
 
 
     if( !( cam_config_is_parm_supported(mCameraId, MM_CAMERA_PARM_ZOOM))) {
@@ -1681,7 +1681,7 @@ status_t QCameraHardwareInterface::setZoom(const QCameraParameters& params)
     } else {
         rc = BAD_VALUE;
     }
-    ALOGE("%s X",__func__);
+    ALOGV("%s X",__func__);
     return rc;
 
 }
