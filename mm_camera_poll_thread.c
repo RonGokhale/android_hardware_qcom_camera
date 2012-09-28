@@ -160,6 +160,7 @@ static void mm_camera_poll_proc_pipe(mm_camera_poll_thread_t *poll_cb)
       break;
     }
     case MM_CAMERA_PIPE_CMD_ADD_CH:
+        pthread_mutex_lock(&poll_cb->mutex);
         if(poll_cb->data.poll_type == MM_CAMERA_POLL_TYPE_CH) {
             for(i = 0; i < MM_CAMERA_CH_STREAM_MAX; i++) {
                 if(poll_cb->data.poll_streams[i]) {
@@ -170,13 +171,16 @@ static void mm_camera_poll_proc_pipe(mm_camera_poll_thread_t *poll_cb)
         poll_cb->data.num_fds += mm_camera_ch_util_get_num_stream(poll_cb->data.my_obj,
                                                                       poll_cb->data.ch_type);
         poll_cb->data.used = 1;
+        pthread_mutex_unlock(&poll_cb->mutex);
         CDBG("Num fds after MM_CAMERA_PIPE_CMD_ADD_CH = %d",poll_cb->data.num_fds);
         break;
 
     case MM_CAMERA_PIPE_CMD_DEL_CH:
+        pthread_mutex_lock(&poll_cb->mutex);
         poll_cb->data.num_fds -= mm_camera_ch_util_get_num_stream(poll_cb->data.my_obj,
                                                                   poll_cb->data.ch_type);
         poll_cb->data.used = 0;
+        pthread_mutex_unlock(&poll_cb->mutex);
         CDBG("Num fds after MM_CAMERA_PIPE_CMD_DEL_CH = %d",poll_cb->data.num_fds);
         break;
 
