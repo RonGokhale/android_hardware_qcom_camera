@@ -60,6 +60,7 @@ const char QCameraParameters::KEY_QC_SUPPORTED_ZSL_MODES[] = "zsl-values";
 const char QCameraParameters::KEY_QC_CAMERA_MODE[] = "camera-mode";
 const char QCameraParameters::KEY_QC_AE_BRACKET_HDR[] = "ae-bracket-hdr";
 const char QCameraParameters::KEY_QC_POWER_MODE[] = "power-mode";
+const char QCameraParameters::KEY_QC_HDR_SUPPORTED[] = "hdr-supported";
 /*only effective when KEY_QC_AE_BRACKET_HDR set to ae_bracketing*/
 //const char QCameraParameters::KEY_QC_AE_BRACKET_SETTING_KEY[] = "ae-bracket-setting";
 

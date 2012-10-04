@@ -1107,6 +1107,11 @@ void QCameraHardwareInterface::initDefaultParameters()
     else
         mParameters.set(QCameraParameters::KEY_AUTO_WHITEBALANCE_LOCK_SUPPORTED, "false");
 
+    if(cam_config_is_parm_supported(mCameraId, MM_CAMERA_PARM_HDR))
+        mParameters.set(QCameraParameters::KEY_QC_HDR_SUPPORTED, "true");
+    else
+        mParameters.set(QCameraParameters::KEY_QC_HDR_SUPPORTED, "false");
+
     //Set Focus Mode
     if(mHasAutoFocusSupport){
        mParameters.set(QCameraParameters::KEY_FOCUS_MODE,
