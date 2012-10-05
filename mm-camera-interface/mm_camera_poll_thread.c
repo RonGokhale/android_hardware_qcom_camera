@@ -408,8 +408,9 @@ int mm_camera_poll_thread_release(mm_camera_obj_t * my_obj, int ch_type)
              __func__, ch_type, my_obj->my_id);
         return -MM_CAMERA_E_INVALID_OPERATION;
     }
+    if ((!poll_cb->data.pfds[0]) || (!poll_cb->data.pfds[1]))
+    return MM_CAMERA_OK;
     rc = mm_camera_poll_stop(my_obj, poll_cb);
-
     if(poll_cb->data.pfds[0]) {
         close(poll_cb->data.pfds[0]);
     }

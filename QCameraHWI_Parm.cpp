@@ -40,6 +40,7 @@
 #include "linux/msm_mdp.h"
 #include <linux/fb.h>
 #include <limits.h>
+#include <sys/sysinfo.h>
 
 
 extern "C" {
@@ -997,7 +998,7 @@ void QCameraHardwareInterface::initDefaultParameters()
     if(mFps >= MINIMUM_FPS && mFps <= MAXIMUM_FPS) {
         mParameters.setPreviewFrameRate(mFps);
     }else{
-        mParameters.setPreviewFrameRate(DEFAULT_FPS);
+        mParameters.setPreviewFrameRate(DEFAULT_FIXED_FPS);
     }
 
     //Set Picture Format
@@ -1105,6 +1106,11 @@ void QCameraHardwareInterface::initDefaultParameters()
         mParameters.set(QCameraParameters::KEY_AUTO_WHITEBALANCE_LOCK_SUPPORTED, "true");
     else
         mParameters.set(QCameraParameters::KEY_AUTO_WHITEBALANCE_LOCK_SUPPORTED, "false");
+
+    if(cam_config_is_parm_supported(mCameraId, MM_CAMERA_PARM_HDR))
+        mParameters.set(QCameraParameters::KEY_QC_HDR_SUPPORTED, "true");
+    else
+        mParameters.set(QCameraParameters::KEY_QC_HDR_SUPPORTED, "false");
 
     //Set Focus Mode
     if(mHasAutoFocusSupport){
@@ -2579,11 +2585,27 @@ status_t QCameraHardwareInterface::setPowerMode(const QCameraParameters& params)
         ALOGE("get parm MM_CAMERA_PARM_VFE_OUTPUT_ENABLE  failed");
         ret = BAD_VALUE;
     }
-    if(mNuberOfVFEOutputs == 1) {
-       value = LOW_POWER;
-       mPowerMode = value;
-       mParameters.set(QCameraParameters::KEY_QC_POWER_MODE,"Low_Power");
-    }
+    if(mNuberOfVFEOutputs == 1) { // VFE OUTPUTS = 1 for 7x27A & 8x25 targets
+       struct sysinfo info;
+       uint32_t result;
+       ALOGI("%s: Calling sysinfo() ", __func__);
+       result = sysinfo(&info);
+       if (result) {
+           ALOGE("%s: Problem in reading sysinfo()and so setting LOW POWER MODE", __func__);
+           value = LOW_POWER;
+           mPowerMode = value;
+           mParameters.set(QCameraParameters::KEY_QC_POWER_MODE,"Low_Power");
+       }
+       else {
+           ALOGI("%s: totalram = %ld, freeram = %ld ", __func__, info.totalram, info.freeram );
+           if (info.totalram < 536870912) {  // 512 MB = 536870912
+               ALOGI("Always SET LOW Power Mode for 7x27A/8x25 due to Shortage of memory(RAM < 512 MB)");
+               value = LOW_POWER;
+               mPowerMode = value;
+               mParameters.set(QCameraParameters::KEY_QC_POWER_MODE,"Low_Power");
+           }
+       }
+    } // End of if(nNumberofVFEOutputs == 1)
     ALOGI("%s Low power mode %s value = %d", __func__,
           value ? "Enabled" : "Disabled", value);
     native_set_parms(MM_CAMERA_PARM_LOW_POWER_MODE, sizeof(value),
