@@ -358,7 +358,6 @@ QCameraHardwareInterface::~QCameraHardwareInterface()
     }
     /* Join the threads, complete operations and then delete
        the instances. */
-    cam_ops_close(mCameraId);
     if(mStreamDisplay){
         QCameraStream_preview::deleteInstance (mStreamDisplay);
         mStreamDisplay = NULL;
@@ -382,6 +381,8 @@ QCameraHardwareInterface::~QCameraHardwareInterface()
         mStreamRdi = NULL;
     }
 
+    /* Now close the camera after deleting all the instances */
+    cam_ops_close(mCameraId);
     pthread_mutex_destroy(&mAsyncCmdMutex);
     pthread_cond_destroy(&mAsyncCmdWait);
 
@@ -728,7 +729,7 @@ void QCameraHardwareInterface::debugShowPreviewFPS() const
     nsecs_t diff = now - mLastFpsTime;
     if (diff > ms2ns(250)) {
         mFps =  ((mFrameCount - mLastFrameCount) * float(s2ns(1))) / diff;
-        ALOGI("Preview Frames Per Second: %.4f", mFps);
+        ALOGE("Preview Frames Per Second: %.4f", mFps);
         mLastFpsTime = now;
         mLastFrameCount = mFrameCount;
     }
@@ -1481,7 +1482,11 @@ status_t QCameraHardwareInterface::autoFocusEvent(cam_ctrl_status_t *status, app
       return ret;
     }
 
-    mAutoFocusRunning = false;
+    /* If autofocus call has been made during CAF, CAF will be locked.
+     * We specifically need to call cancelAutoFocus to unlock CAF.
+     * In that sense, AF is still running.*/
+    isp3a_af_mode_t afMode = getAutoFocusMode(mParameters);
+    mAutoFocusRunning = (afMode == AF_MODE_CAF) ? true : false;
     mAutofocusLock.unlock();
 
 /************************************************************
