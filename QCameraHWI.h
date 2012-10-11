@@ -727,6 +727,7 @@ private:
     unsigned int mVideoSizeCount;
 
     bool mAutoFocusRunning;
+    bool mNeedToUnlockCaf;
     bool mMultiTouch;
     bool mHasAutoFocusSupport;
     bool mInitialized;
