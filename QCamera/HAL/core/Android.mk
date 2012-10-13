@@ -58,7 +58,8 @@ LOCAL_HAL_FILES := \
         src/QCameraHWI_Rdi.cpp \
         src/QCameraHWI_Mem.cpp \
         src/QCameraParameters.cpp\
-        src/QCameraStream.cpp
+        src/QCameraStream.cpp\
+        src/QualcommUsbCamera.cpp
 
 LOCAL_HAL_WRAPPER_FILES := ../wrapper/QualcommCamera.cpp
 
