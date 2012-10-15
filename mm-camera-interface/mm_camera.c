@@ -547,6 +547,9 @@ int32_t mm_camera_get_parm(mm_camera_obj_t * my_obj,
     case MM_CAMERA_PARM_HFR_SIZES_CNT:
         *((int *)parm->p_value) = my_obj->properties.hfr_sizes_cnt;
         break;
+    case MM_CAMERA_PARM_EFFECT_CNT:
+        *((int *)parm->p_value) = my_obj->properties.effects_cnt;
+        break;
     case MM_CAMERA_PARM_HFR_FRAME_SKIP:
         *((int *)parm->p_value) = my_obj->properties.hfr_frame_skip;
         break;
@@ -628,6 +631,11 @@ int32_t mm_camera_get_parm(mm_camera_obj_t * my_obj,
         default_sizes_tbl_t *tbl = (default_sizes_tbl_t*)parm->p_value;
         return mm_camera_send_native_ctrl_cmd(my_obj, CAMERA_GET_PARM_DEF_HFR_SIZES,
                      sizeof(struct camera_size_type)*tbl->tbl_size, tbl->sizes_tbl);
+    }
+    case MM_CAMERA_PARM_DEF_EFFECTS: {
+        default_str_map_tbl_t *tbl = (default_str_map_tbl_t*)parm->p_value;
+        return mm_camera_send_native_ctrl_cmd(my_obj, CAMERA_GET_PARM_DEF_EFFECTS,
+                     sizeof(struct camera_str_map_type)*tbl->tbl_size, tbl->str_map_tbl);
     }
     case MM_CAMERA_PARM_OP_MODE:
         *((mm_camera_op_mode_type_t *)parm->p_value) = my_obj->op_mode;

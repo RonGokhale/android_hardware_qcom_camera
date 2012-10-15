@@ -444,6 +444,12 @@ typedef struct
     uint32_t tbl_size;
 }default_sizes_tbl_t;
 
+typedef struct
+{
+    struct camera_str_map_type *str_map_tbl;
+    uint32_t tbl_size;
+}default_str_map_tbl_t;
+
 /*configure methods*/
 uint8_t cam_config_is_parm_supported(
   int cam_id,

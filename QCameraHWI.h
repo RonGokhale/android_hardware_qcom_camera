@@ -60,6 +60,7 @@ extern "C" {
 #define VIDEO_TBL_MAX_SIZE    14
 #define THUMB_TBL_MAX_SIZE    16
 #define HFR_TBL_MAX_SIZE      2
+#define EFFECT_TABLE_MAX_SIZE 12
 
 struct str_map {
     const char *const desc;
@@ -496,10 +497,12 @@ private:
     struct camera_size_type default_video_sizes[VIDEO_TBL_MAX_SIZE];
     struct camera_size_type default_hfr_sizes[HFR_TBL_MAX_SIZE];
     struct camera_size_type default_thumbnail_sizes[THUMB_TBL_MAX_SIZE];
+    struct camera_str_map_type default_effects[EFFECT_TABLE_MAX_SIZE];
     unsigned int preview_sizes_count;
     unsigned int video_sizes_count;
     unsigned int thumbnail_sizes_count;
     unsigned int hfr_sizes_count;
+    unsigned int effects_count;
 
 
     bool mUseOverlay;
@@ -626,6 +629,8 @@ private:
     bool isValidDimension(int w, int h);
 
     String8 create_values_str(const str_map *values, int len);
+    String8 create_filter_values_str(const str_map *values, int len,
+        struct camera_str_map_type* supported_values, int supported_len);
 
     void setMyMode(int mode);
     bool isZSLMode();
