@@ -267,15 +267,7 @@ end:
 
     /* Before leaving check the jpeg queue. If it's not empty give the available
        frame for encoding*/
-    if (!mSnapshotQueue.isEmpty()) {
-        ALOGI("%s: JPEG Queue not empty. Dequeue and encode.", __func__);
-        mm_camera_ch_data_buf_t* buf =
-            (mm_camera_ch_data_buf_t *)mSnapshotQueue.dequeue();
-        //encodeDisplayAndSave(buf, 1);
-        if ( NO_ERROR != encodeDisplayAndSave(buf, 1)){
-          fail_cb_flag = true;
-        }
-    }  else if (mNumOfSnapshot == mNumOfRecievedJPEG )  { /* finished */
+    if (mNumOfSnapshot == mNumOfRecievedJPEG )  { /* finished */
       ALOGD("%s: Before omxJpegFinish", __func__);
       omxJpegFinish();
       ALOGD("%s: After omxJpegFinish", __func__);
@@ -334,7 +326,15 @@ end:
         deInitBuffer();
     }
     mHalCamCtrl->mStateLiveshot = false;
-
+    if (!mSnapshotQueue.isEmpty()) {
+        ALOGI("%s: JPEG Queue not empty. Dequeue and encode.", __func__);
+        mm_camera_ch_data_buf_t* buf =
+            (mm_camera_ch_data_buf_t *)mSnapshotQueue.dequeue();
+        //encodeDisplayAndSave(buf, 1);
+        if ( NO_ERROR != encodeDisplayAndSave(buf, 1)){
+          fail_cb_flag = true;
+        }
+    }
     ALOGD("%s: X", __func__);
 }
 
