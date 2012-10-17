@@ -2316,9 +2316,12 @@ void QCameraStream_Snapshot::stop(void)
                                             NULL,
                                             NULL);
     } else {
-        ret= QCameraStream::deinitChannel(mCameraId, MM_CAMERA_CH_SNAPSHOT);
-        if(ret != MM_CAMERA_OK) {
-          ALOGE("%s:Deinit Snapshot channel failed=%d\n", __func__, ret);
+        // Channel will be freed during release if buffers are not freed yet.
+        if(!mFreeSnapshotBufAfterDataCb) {
+          ret= QCameraStream::deinitChannel(mCameraId, MM_CAMERA_CH_SNAPSHOT);
+          if(ret != MM_CAMERA_OK) {
+            ALOGE("%s:Deinit Snapshot channel failed=%d\n", __func__, ret);
+          }
         }
         (void)cam_evt_register_buf_notify(mCameraId, MM_CAMERA_CH_SNAPSHOT,
                                             NULL,
