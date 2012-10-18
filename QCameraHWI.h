@@ -36,7 +36,7 @@
 
 extern "C" {
 #include <linux/android_pmem.h>
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
 #include <mm_camera_interface2.h>
 #include "mm_omx_jpeg_encoder.h"
 } //extern C
@@ -45,6 +45,7 @@ extern "C" {
 #include "QCameraStream.h"
 #include "QCamera_Intf.h"
 
+#include "hdr/include/morpho_noise_reduction_ext.h"
 //Error codes
 #define  NOT_FOUND -1
 #define MAX_ZOOM_RATIOS 62
@@ -529,7 +530,6 @@ private:
     void processInfoEvent(mm_camera_info_event_t *event, app_notify_cb_t *);
     void processprepareSnapshotEvent(cam_ctrl_status_t *);
     void roiEvent(fd_roi_t roi, app_notify_cb_t *);
-    void zslFlashEvent(struct zsl_flash_t evt, app_notify_cb_t *);
     void zoomEvent(cam_ctrl_status_t *status, app_notify_cb_t *);
     void autofocusevent(cam_ctrl_status_t *status, app_notify_cb_t *);
     void handleZoomEventForPreview(app_notify_cb_t *);
@@ -552,12 +552,15 @@ private:
     void pausePreviewForSnapshot();
     void pausePreviewForZSL();
     void pausePreviewForVideo();
+    void prepareVideoPicture(bool disable);
     status_t resumePreviewAfterSnapshot();
 
     status_t runFaceDetection();
 
     status_t           setParameters(const QCameraParameters& params);
     QCameraParameters&  getParameters() ;
+
+    bool getFlashCondition(void);
 
     status_t setCameraMode(const QCameraParameters& params);
     status_t setPictureSizeTable(void);
@@ -575,7 +578,6 @@ private:
     status_t setJpegRotation(int isZSL);
     int getJpegRotation(void);
     int getISOSpeedValue();
-    int getFlashMode();
     status_t setAntibanding(const QCameraParameters& params);
     status_t setEffect(const QCameraParameters& params);
     status_t setExposureCompensation(const QCameraParameters &params);
@@ -657,6 +659,7 @@ private:
 
     int           mCameraId;
     camera_mode_t myMode;
+    bool mPauseFramedispatch;
 
     QCameraParameters    mParameters;
     //sp<Overlay>         mOverlay;
@@ -739,10 +742,14 @@ private:
     bool mAppRecordingHint;
     bool mStartRecording;
     bool mReleasedRecordingFrame;
+    bool mStateLiveshot;
     int mHdrMode;
     int mSnapshotFormat;
     int mZslInterval;
     bool mRestartPreview;
+
+    led_mode_t mLedStatusForZsl;
+    bool mFlashCond;
 
 /*for histogram*/
     int            mStatsOn;
@@ -800,6 +807,8 @@ private:
     camera_size_type* mVideoSizes;
     const camera_size_type * mPictureSizesPtr;
     HAL_camera_state_type_t mCameraState;
+    void *libdnr;
+    int (*LINK_morpho_DNR_ProcessFrame)(unsigned char* yuvImage, int width, int height, int y_level, int c_level);
 
      /* Temporary - can be removed after Honeycomb*/
 #ifdef USE_ION

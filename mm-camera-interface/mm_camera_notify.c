@@ -36,14 +36,13 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <fcntl.h>
 #include <poll.h>
 #include <linux/ion.h>
-#include <camera.h>
 #include "mm_camera_interface2.h"
 #include "mm_camera.h"
 
 #if 0
 #undef CDBG
 #undef LOG_TAG
-#define CDBG ALOGE
+#define CDBG ALOGV
 #define LOG_TAG "NotifyLogs"
 #endif
 
@@ -397,7 +396,7 @@ static void mm_camera_read_preview_frame(mm_camera_obj_t * my_obj)
     mm_camera_ch_data_buf_t data[MM_CAMERA_BUF_CB_MAX];
 
     if (!my_obj->ch[MM_CAMERA_CH_PREVIEW].acquired) {
-        ALOGE("Preview channel is not in acquired state \n");
+        ALOGV("Preview channel is not in acquired state \n");
         return;
     }
     stream = &my_obj->ch[MM_CAMERA_CH_PREVIEW].preview.stream;
@@ -431,12 +430,6 @@ static void mm_camera_read_preview_frame(mm_camera_obj_t * my_obj)
     }
     pthread_mutex_unlock(&my_obj->ch[MM_CAMERA_CH_PREVIEW].mutex);
 
-    for( i=0;i<cnt;i++) {
-        if(buf_cb[i].cb != NULL && my_obj->poll_threads[MM_CAMERA_CH_PREVIEW].data.used == 1) {
-            buf_cb[i].cb(&data[i],buf_cb[i].user_data);
-        }
-    }
-
     if(my_obj->op_mode == MM_CAMERA_OP_MODE_ZSL) {
         /* Reset match to 0. */
         stream->frame.frame[idx].match = 0;
@@ -444,6 +437,12 @@ static void mm_camera_read_preview_frame(mm_camera_obj_t * my_obj)
         mm_camera_zsl_frame_cmp_and_enq(my_obj,
           &my_obj->ch[MM_CAMERA_CH_PREVIEW].preview.stream.frame.frame[idx],
           stream);
+    }
+
+    for( i=0;i<cnt;i++) {
+        if(buf_cb[i].cb != NULL && my_obj->poll_threads[MM_CAMERA_CH_PREVIEW].data.used == 1) {
+            buf_cb[i].cb(&data[i],buf_cb[i].user_data);
+        }
     }
 }
 
@@ -573,7 +572,7 @@ static void mm_camera_read_snapshot_main_frame(mm_camera_obj_t * my_obj)
     mm_camera_stream_t *stream;
     mm_camera_frame_queue_t *q;
     if (!my_obj->ch[MM_CAMERA_CH_SNAPSHOT].acquired) {
-        ALOGE("Snapshot channel is not in acquired state \n");
+        ALOGV("Snapshot channel is not in acquired state \n");
         return;
     }
     q = &my_obj->ch[MM_CAMERA_CH_SNAPSHOT].snapshot.main.frame.readyq;
@@ -606,7 +605,7 @@ static void mm_camera_read_snapshot_thumbnail_frame(mm_camera_obj_t * my_obj)
     mm_camera_frame_queue_t *q;
 
     if (!my_obj->ch[MM_CAMERA_CH_SNAPSHOT].acquired) {
-        ALOGE("Snapshot channel is not in acquired state \n");
+        ALOGV("Snapshot channel is not in acquired state \n");
         return;
     }
     q = &my_obj->ch[MM_CAMERA_CH_SNAPSHOT].snapshot.thumbnail.frame.readyq;
@@ -635,7 +634,7 @@ static void mm_camera_read_video_frame(mm_camera_obj_t * my_obj)
     mm_camera_ch_data_buf_t data[MM_CAMERA_BUF_CB_MAX];
 
     if (!my_obj->ch[MM_CAMERA_CH_VIDEO].acquired) {
-        ALOGE("Snapshot channel is not in acquired state \n");
+        ALOGV("Snapshot channel is not in acquired state \n");
         return;
     }
     stream = &my_obj->ch[MM_CAMERA_CH_VIDEO].video.video;
@@ -664,7 +663,7 @@ static void mm_camera_read_video_frame(mm_camera_obj_t * my_obj)
 
             ALOGV("Video thread callback returned");
             if( my_obj->ch[MM_CAMERA_CH_VIDEO].buf_cb[i].cb_type==MM_CAMERA_BUF_CB_COUNT ) {
-                ALOGE("<DEBUG>:%s: Additional cb called for buffer %p:%d",__func__,stream,idx);
+                ALOGV("<DEBUG>:%s: Additional cb called for buffer %p:%d",__func__,stream,idx);
                 if(--(my_obj->ch[MM_CAMERA_CH_VIDEO].buf_cb[i].cb_count) == 0 )
                     my_obj->ch[MM_CAMERA_CH_VIDEO].buf_cb[i].cb=NULL;
             }
@@ -677,7 +676,7 @@ static void mm_camera_read_video_frame(mm_camera_obj_t * my_obj)
             buf_cb[i].cb(&data[i],buf_cb[i].user_data);
         }
         /*if( buf_cb[i].cb_type==MM_CAMERA_BUF_CB_COUNT ) {
-                ALOGE("<DEBUG>:%s: Additional cb called for buffer %p:%d",__func__,stream,idx);
+                ALOGV("<DEBUG>:%s: Additional cb called for buffer %p:%d",__func__,stream,idx);
                 if(--(buf_cb[i].cb_count) == 0 )
                     buf_cb[i].cb=NULL;
         }*/

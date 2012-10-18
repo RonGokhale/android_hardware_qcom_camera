@@ -22,12 +22,7 @@ LOCAL_COPY_HEADERS += mm_camera_interface2.h
 LOCAL_COPY_HEADERS += mm_omx_jpeg_encoder.h
 
 LOCAL_C_INCLUDES+= $(LOCAL_PATH)/..
-LOCAL_C_INCLUDES+= \
-    $(TARGET_OUT_HEADERS)/mm-camera \
-    $(TARGET_OUT_HEADERS)/mm-camera/common \
-    $(TARGET_OUT_HEADERS)/mm-still \
-    $(TARGET_OUT_HEADERS)/mm-still/jpeg \
-    $(TARGET_OUT_HEADERS)/mm-still/mm-omx
+LOCAL_C_INCLUDES+= $(LOCAL_PATH)/../inc
 
 LOCAL_C_INCLUDES+= hardware/qcom/media/mm-core/inc
 LOCAL_CFLAGS += -include bionic/libc/include/sys/socket.h
@@ -37,7 +32,7 @@ LOCAL_SRC_FILES := $(MM_CAM_FILES)
 
 LOCAL_MODULE           := libmmcamera_interface2
 LOCAL_PRELINK_MODULE   := false
-LOCAL_SHARED_LIBRARIES := libdl libcutils liblog libmmstillomx libimage-jpeg-enc-omx-comp
+LOCAL_SHARED_LIBRARIES := libdl libcutils liblog
 LOCAL_MODULE_TAGS := optional
 
 include $(BUILD_SHARED_LIBRARY)

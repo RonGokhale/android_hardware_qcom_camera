@@ -362,10 +362,6 @@ int32_t mm_camera_set_general_parm(mm_camera_obj_t * my_obj, mm_camera_parm_t *p
         mm_jpeg_encoder_setRotation(*((int *)parm->p_value),isZSL);
         return MM_CAMERA_OK;
 
-    case MM_CAMERA_PARM_ZSL_FLASH:
-      return mm_camera_send_native_ctrl_cmd(my_obj,
-                  CAMERA_SET_ZSL_FLASH, sizeof(uint32_t), (void *)parm->p_value);
-
     case MM_CAMERA_PARM_ASD_ENABLE:
       return mm_camera_send_native_ctrl_cmd(my_obj,
                   CAMERA_SET_ASD_ENABLE, sizeof(uint32_t), (void *)parm->p_value);
@@ -498,6 +494,9 @@ int32_t mm_camera_set_parm(mm_camera_obj_t * my_obj,
                             MM_CAMERA_STATE_EVT_SET_FMT, fmt);
         }
         break;
+    case MM_CAMERA_PARM_CHECK_AF_RETRY:
+        return mm_camera_send_native_ctrl_cmd(my_obj,   CAMERA_CHECK_AF_RETRY,
+                 0, (void *)NULL);
     default:
         rc = mm_camera_set_general_parm(my_obj, parm);
         break;
@@ -600,7 +599,7 @@ int32_t mm_camera_get_parm(mm_camera_obj_t * my_obj,
     case MM_CAMERA_PARM_FOCUS_DISTANCES:
         return mm_camera_send_native_ctrl_cmd(my_obj,   CAMERA_GET_PARM_FOCUS_DISTANCES,
                      sizeof(focus_distances_info_t), (void *)parm->p_value);
-  case MM_CAMERA_PARM_QUERY_FLASH4SNAP:
+  case MM_CAMERA_PARM_QUERY_FALSH4SNAP:
         return mm_camera_send_native_ctrl_cmd(my_obj,   CAMERA_QUERY_FLASH_FOR_SNAPSHOT,
                      sizeof(int), (void *)parm->p_value);
   case MM_CAMERA_PARM_3D_FRAME_FORMAT:
@@ -643,6 +642,10 @@ int32_t mm_camera_get_parm(mm_camera_obj_t * my_obj,
     case MM_CAMERA_PARM_VFE_OUTPUT_ENABLE:
         *((int *)parm->p_value) = my_obj->properties.vfe_output_enable;
         break;
+    case MM_CAMERA_PARM_LUX_IDX:
+        CDBG("%s: MM_CAMERA_PARM_LUX_IDX\n", __func__);
+        return mm_camera_send_native_ctrl_cmd(my_obj, CAMERA_GET_PARM_LUX_IDX,
+                     sizeof(int), (void *)parm->p_value);
     case MM_CAMERA_PARM_MAX_NUM_FACES_DECT:
         return mm_camera_send_native_ctrl_cmd(my_obj, CAMERA_GET_MAX_NUM_FACES_DECT,
                      sizeof(int), (void *)parm->p_value);
@@ -654,6 +657,13 @@ int32_t mm_camera_get_parm(mm_camera_obj_t * my_obj,
                   CAMERA_GET_PARM_HDR, sizeof(exp_bracketing_t), (void *)parm->p_value);
         //my_obj->channel_interface_mask = *((exp_bracketing_t *)(parm->p_value));
         break;
+    case MM_CAMERA_GET_PARM_LOW_LIGHT_FOR_ZSL:
+        return mm_camera_send_native_ctrl_cmd(my_obj,   CAMERA_GET_PARM_LOW_LIGHT_FOR_ZSL,
+                     sizeof(aec_info_for_flash_t), (void *)parm->p_value);
+
+    case MM_CAMERA_PARM_GET_AF_STATUS:
+        return mm_camera_send_native_ctrl_cmd(my_obj,   CAMERA_GET_PARM_AF_STATUS,
+                     sizeof(af_actuator_status_t), (void *)parm->p_value);
     default:
         /* needs to add more implementation */
         rc = -1;
@@ -843,11 +853,6 @@ int32_t mm_camera_action_start(mm_camera_obj_t *my_obj,
             rc = mm_camera_ch_fn(my_obj, ch_type,
                     MM_CAMERA_STATE_EVT_STREAM_ON, NULL);
             break;
-        case MM_CAMERA_OPS_PREPARE_SNAPSHOT:
-            rc = mm_camera_send_native_ctrl_timeout_cmd(my_obj,CAMERA_PREPARE_SNAPSHOT, 0, NULL, 2000);
-            CDBG("%s: prepare snapshot done opcode = %d, rc= %d\n", __func__, opcode, rc);
-            break;
-
         default:
             break;
         }
@@ -973,10 +978,10 @@ int32_t mm_camera_open(mm_camera_obj_t *my_obj,
     do{
         n_try--;
         my_obj->ctrl_fd = open(dev_name,O_RDWR | O_NONBLOCK);
-		ALOGE("%s:  ctrl_fd = %d", __func__, my_obj->ctrl_fd);
-        ALOGE("Errno:%d",errno);
+		ALOGV("%s:  ctrl_fd = %d", __func__, my_obj->ctrl_fd);
+        ALOGV("Errno:%d",errno);
         if((my_obj->ctrl_fd > 0) || (errno != EIO) || (n_try <= 0 )) {
-			ALOGE("%s:  opened, break out while loop", __func__);
+			ALOGV("%s:  opened, break out while loop", __func__);
 
             break;
 		}
@@ -985,23 +990,23 @@ int32_t mm_camera_open(mm_camera_obj_t *my_obj,
         usleep(sleep_msec*1000);
     }while(n_try>0);
 
-	ALOGE("%s:  after while loop", __func__);
+	ALOGV("%s:  after while loop", __func__);
     if (my_obj->ctrl_fd <= 0) {
         CDBG("%s: cannot open control fd of '%s' Errno = %d\n",
                  __func__, mm_camera_util_get_dev_name(my_obj),errno);
         return -MM_CAMERA_E_GENERAL;
     }
-	ALOGE("%s:  2\n", __func__);
+	ALOGV("%s:  2\n", __func__);
 
     /* open domain socket*/
     n_try=MM_CAMERA_DEV_OPEN_TRIES;
     do{
         n_try--;
         my_obj->ds_fd = mm_camera_socket_create(my_obj->my_id, MM_CAMERA_SOCK_TYPE_UDP); // TODO: UDP for now, change to TCP
-        ALOGE("%s:  ds_fd = %d", __func__, my_obj->ds_fd);
-        ALOGE("Errno:%d",errno);
+        ALOGV("%s:  ds_fd = %d", __func__, my_obj->ds_fd);
+        ALOGV("Errno:%d",errno);
         if((my_obj->ds_fd > 0) || (n_try <= 0 )) {
-            ALOGE("%s:  opened, break out while loop", __func__);
+            ALOGV("%s:  opened, break out while loop", __func__);
             break;
         }
         CDBG("%s:failed with I/O error retrying after %d milli-seconds",
@@ -1009,7 +1014,7 @@ int32_t mm_camera_open(mm_camera_obj_t *my_obj,
         usleep(sleep_msec*1000);
     }while(n_try>0);
 
-    ALOGE("%s:  after while loop for domain socket open", __func__);
+    ALOGV("%s:  after while loop for domain socket open", __func__);
     if (my_obj->ds_fd <= 0) {
         CDBG_ERROR("%s: cannot open domain socket fd of '%s' Errno = %d\n",
                  __func__, mm_camera_util_get_dev_name(my_obj),errno);

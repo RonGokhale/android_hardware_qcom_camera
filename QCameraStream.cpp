@@ -18,6 +18,7 @@
 
 #define ALOG_NDEBUG 0
 #define ALOG_NIDEBUG 0
+
 #define LOG_TAG __FILE__
 #include <utils/Log.h>
 #include <utils/threads.h>
@@ -195,7 +196,7 @@ status_t QCameraStream::initChannel(int cameraId,
         ALOGV("%s:ch_acquire MM_CAMERA_CH_PREVIEW, rc=%d\n",__func__, rc);
         if(MM_CAMERA_OK != rc) {
                 ALOGE("%s: preview channel acquir error =%d\n", __func__, rc);
-                ALOGE("%s: X", __func__);
+                ALOGV("%s: X", __func__);
                 return BAD_VALUE;
         }
         /*Callback register*/
@@ -209,7 +210,7 @@ status_t QCameraStream::initChannel(int cameraId,
         ALOGV("%s:ch_acquire MM_CAMERA_CH_VIDEO, rc=%d\n",__func__, rc);
         if(MM_CAMERA_OK != rc) {
                 ALOGE("%s: preview channel acquir error =%d\n", __func__, rc);
-                ALOGE("%s: X", __func__);
+                ALOGV("%s: X", __func__);
                 return BAD_VALUE;
         }
         /*Callback register*/
@@ -245,7 +246,7 @@ status_t QCameraStream::deinitChannel(int cameraId,
 }
 
 status_t QCameraStream::setMode(int enable) {
-  ALOGE("%s :myMode %x ", __func__, myMode);
+  ALOGV("%s :myMode %x ", __func__, myMode);
   if (enable) {
       myMode = (camera_mode_t)(myMode | CAMERA_ZSL_MODE);
   } else {
@@ -262,13 +263,13 @@ status_t QCameraStream::setFormat(uint8_t ch_type_mask, cam_format_t previewFmt)
     int height = 0; /* height of channel */
     cam_ctrl_dimension_t dim;
     mm_camera_ch_image_fmt_parm_t fmt;
-    ALOGE("%s: E",__func__);
+    ALOGV("%s: E",__func__);
 
     memset(&dim, 0, sizeof(cam_ctrl_dimension_t));
     rc = cam_config_get_parm(mCameraId, MM_CAMERA_PARM_DIMENSION, &dim);
     if (MM_CAMERA_OK != rc) {
       ALOGE("%s: error - can't get camera dimension!", __func__);
-      ALOGE("%s: X", __func__);
+      ALOGV("%s: X", __func__);
       return BAD_VALUE;
     }
     char mDeviceName[PROPERTY_VALUE_MAX];
@@ -307,10 +308,10 @@ status_t QCameraStream::setFormat(uint8_t ch_type_mask, cam_format_t previewFmt)
     ALOGV("%s: Stream MM_CAMERA_PARM_CH_IMAGE_FMT rc = %d\n", __func__, rc);
     if(MM_CAMERA_OK != rc) {
         ALOGE("%s:set stream channel format err=%d\n", __func__, ret);
-        ALOGE("%s: X", __func__);
+        ALOGV("%s: X", __func__);
         ret = BAD_VALUE;
     }
-    ALOGE("%s: X",__func__);
+    ALOGV("%s: X",__func__);
     return ret;
 }
 
