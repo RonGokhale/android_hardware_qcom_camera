@@ -441,7 +441,7 @@ status_t QCameraStream_Rdi::start()
     //QCameraStream::start ();
     stream_info = mHalCamCtrl->getChannelInterface();
 
-    setFormat(MM_CAMERA_CH_RDI_MASK);
+    setFormat(MM_CAMERA_CH_RDI_MASK, (cam_format_t)0);
 
     initRdiBuffers();
     ret = cam_config_prepare_buf(mCameraId, &mRdiBuf);
