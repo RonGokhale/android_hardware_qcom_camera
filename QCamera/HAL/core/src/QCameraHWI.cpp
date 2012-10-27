@@ -2068,7 +2068,7 @@ status_t QCameraHardwareInterface::startRecording()
         ret = UNKNOWN_ERROR;
         break;
     case QCAMERA_HAL_PREVIEW_STARTED:
-        if (mRecordingHint == FALSE || mRestartPreview) {
+        if (mRecordingHint == FALSE) {
             ALOGE("%s: start recording when hint is false, stop preview first", __func__);
             stopPreviewInternal();
             mPreviewState = QCAMERA_HAL_PREVIEW_STOPPED;
@@ -2081,7 +2081,6 @@ status_t QCameraHardwareInterface::startRecording()
             mPreviewState = QCAMERA_HAL_PREVIEW_START;
             if (startPreview2() == NO_ERROR)
                 mPreviewState = QCAMERA_HAL_PREVIEW_STARTED;
-            mRestartPreview = false;
         }
         ret =  mStreams[MM_CAMERA_VIDEO]->streamOn();
         if (MM_CAMERA_OK != ret){
@@ -2326,13 +2325,6 @@ status_t QCameraHardwareInterface::cancelPictureInternal()
     return ret;
 }
 
-void QCameraHardwareInterface::pausePreviewForSnapshot()
-{
-    ALOGE("%s : E", __func__);
-    stopPreviewInternal( );
-    ALOGE("%s : X", __func__);
-}
-
 status_t  QCameraHardwareInterface::takePicture()
 {
     ALOGV("takePicture: E");
@@ -2369,7 +2361,7 @@ status_t  QCameraHardwareInterface::takePicture()
             takePicturePrepareHardware( );
 
             /* stop preview */
-            pausePreviewForSnapshot();
+            stopPreviewInternal();
             /*Currently concurrent streaming is not enabled for snapshot
             So in snapshot mode, we turn of the RDI channel and configure backend
             for only pixel stream*/
@@ -3030,15 +3022,14 @@ bool QCameraHardwareInterface::isNoDisplayMode()
   return (mNoDisplayMode != 0);
 }
 
-void QCameraHardwareInterface::pausePreviewForZSL()
+void QCameraHardwareInterface::restartPreview()
 {
-    if(mRestartPreview) {
+    if (QCAMERA_HAL_PREVIEW_STARTED == mPreviewState) {
         stopPreviewInternal();
         mPreviewState = QCAMERA_HAL_PREVIEW_STOPPED;
-        startPreview2();
-        mPreviewState = QCAMERA_HAL_PREVIEW_STARTED;
-        mRestartPreview = false;
     }
+    startPreview2();
+    mPreviewState = QCAMERA_HAL_PREVIEW_STARTED;
 }
 
 // added to support hdr
