@@ -67,6 +67,12 @@ const char QCameraParameters::KEY_QC_POWER_MODE[] = "power-mode";
 const char QCameraParameters::EFFECT_EMBOSS[] = "emboss";
 const char QCameraParameters::EFFECT_SKETCH[] = "sketch";
 const char QCameraParameters::EFFECT_NEON[] = "neon";
+const char QCameraParameters::EFFECT_FADED[] = "faded";
+const char QCameraParameters::EFFECT_VINTAGECOOL[] = "vintagecool";
+const char QCameraParameters::EFFECT_VINTAGEWARM[] = "vintagewarm";
+const char QCameraParameters::EFFECT_ACCENT_BLUE[] = "accentblue";
+const char QCameraParameters::EFFECT_ACCENT_GREEN[] = "accentgreen";
+const char QCameraParameters::EFFECT_ACCENT_ORANGE[] = "accentorange";
 
 // Values for auto exposure settings.
 const char QCameraParameters::TOUCH_AF_AEC_OFF[] = "touch-off";
