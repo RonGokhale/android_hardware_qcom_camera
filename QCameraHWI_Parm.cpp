@@ -2574,6 +2574,11 @@ status_t QCameraHardwareInterface::setPowerMode(const QCameraParameters& params)
     if (powermode != NULL) {
         value = attr_lookup(power_modes,
                 sizeof(power_modes) / sizeof(str_map), powermode);
+
+#ifdef TARGET_7x30_LOWPOWER
+        ALOGI("Making Low Power Mode for 7x30/8x55 target");
+        value = LOW_POWER;
+#endif
         if((value == LOW_POWER) || mHFRLevel > 1) {
             ALOGI("Enable Low Power Mode");
             value = LOW_POWER;
