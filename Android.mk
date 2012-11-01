@@ -29,10 +29,6 @@ ifneq ($(USE_CAMERA_STUB),true)
         LOCAL_CFLAGS+= -DVFE_7X27A
       endif
 
-      ifeq ($(call is-board-platform,msm7630_surf),true)
-        LOCAL_CFLAGS+= -DTARGET_7x30_LOWPOWER
-      endif
-
       ifeq ($(strip $(TARGET_USES_ION)),true)
         LOCAL_CFLAGS += -DUSE_ION
       endif
