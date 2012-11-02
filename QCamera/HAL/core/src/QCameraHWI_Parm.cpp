@@ -1475,6 +1475,8 @@ status_t QCameraHardwareInterface::setParameters(const QCameraParameters& params
 
     //Update Exiftag values.
     setExifTags();
+    initExifData();
+
 
     if (mRestartPreview) {
         ALOGI("%s: need to restart preview", __func__);
