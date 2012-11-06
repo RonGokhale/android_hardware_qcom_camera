@@ -1,4 +1,3 @@
-
 #ifeq ($(call is-board-platform,msm8960),true)
 OLD_LOCAL_PATH := $(LOCAL_PATH)
 LOCAL_PATH := $(call my-dir)
@@ -57,14 +56,18 @@ LOCAL_HAL_FILES := \
         src/QCameraHWI_Still.cpp \
         src/QCameraHWI_Rdi.cpp \
         src/QCameraHWI_Mem.cpp \
-        src/QCameraParameters.cpp\
-        src/QCameraStream.cpp
+        src/QCameraParameters.cpp \
+        src/QCameraStream.cpp \
+        ../usbcamcore/src/QualcommUsbCamera.cpp \
+        ../usbcamcore/src/QCameraMjpegDecode.cpp \
+        ../usbcamcore/src/QCameraUsbParm.cpp
 
 LOCAL_HAL_WRAPPER_FILES := ../wrapper/QualcommCamera.cpp
 
 LOCAL_C_INCLUDES := \
         $(LOCAL_PATH)/../wrapper \
         $(LOCAL_PATH)/inc \
+        $(LOCAL_PATH)/../usbcamcore/inc \
         $(LOCAL_PATH)/../../stack/mm-camera-interface/inc \
         $(LOCAL_PATH)/../../stack/mm-jpeg-interface/inc \
         $(LOCAL_PATH)/../../../ \
@@ -75,6 +78,7 @@ LOCAL_C_INCLUDES := \
 LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/mm-camera
 LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/mm-still
 LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/mm-still/jpeg
+LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/mm-still/mercury
 #end
 
 LOCAL_C_INCLUDES += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include
@@ -92,7 +96,7 @@ LOCAL_SRC_FILES := \
         $(LOCAL_HAL_WRAPPER_FILES) \
         $(LOCAL_HAL_FILES)
 
-LOCAL_SHARED_LIBRARIES := libutils libui libcamera_client liblog libcutils
+LOCAL_SHARED_LIBRARIES := libutils libui libcamera_client liblog libcutils libmmjpeg
 LOCAL_SHARED_LIBRARIES += libmmcamera_interface
 LOCAL_SHARED_LIBRARIES+= libbinder libmmjpeg_interface libhardware
 
