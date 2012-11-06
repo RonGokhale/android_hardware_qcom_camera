@@ -2054,7 +2054,9 @@ QCameraStream_Snapshot(int cameraId, camera_mode_t mode)
     mCurrentFrameEncoded(NULL),
     mJpegSessionId(0),
     mFullLiveshot(false),
-    mDropThumbnail(false)
+    mDropThumbnail(false),
+    mIsRawChAcquired(false),
+    mIsJpegChAcquired(false)
   {
     ALOGV("%s: E", __func__);
 
@@ -2100,6 +2102,22 @@ QCameraStream_Snapshot::~QCameraStream_Snapshot() {
     if(mInit) {
         release();
     }
+
+    int ret = 0;
+    if(mIsRawChAcquired) {
+        ret= QCameraStream::deinitChannel(mCameraId, MM_CAMERA_CH_RAW);
+        if(ret != MM_CAMERA_OK) {
+          ALOGE("%s:Deinit RAW channel failed=%d\n", __func__, ret);
+        }
+        mIsRawChAcquired = false;
+    } else if (mIsJpegChAcquired) {
+        ret= QCameraStream::deinitChannel(mCameraId, MM_CAMERA_CH_SNAPSHOT);
+        if(ret != MM_CAMERA_OK) {
+          ALOGE("%s:Deinit Snapshot channel failed=%d\n", __func__, ret);
+        }
+        mIsJpegChAcquired = false;
+    }
+
     mInit = false;
     mActive = false;
     if (mJpegSessionId > 0) {
@@ -2145,6 +2163,20 @@ status_t QCameraStream_Snapshot::start(void) {
     Mutex::Autolock lock(mStopCallbackLock);
     mSnapshotDataCallingBack = 0;
     mFreeSnapshotBufAfterDataCb = 0;
+    // already acquired channel before, need to release it
+    if(mIsRawChAcquired) {
+        ret= QCameraStream::deinitChannel(mCameraId, MM_CAMERA_CH_RAW);
+        if(ret != MM_CAMERA_OK) {
+          ALOGE("%s:Deinit RAW channel failed=%d\n", __func__, ret);
+        }
+        mIsRawChAcquired = false;
+    } else if (mIsJpegChAcquired) {
+        ret= QCameraStream::deinitChannel(mCameraId, MM_CAMERA_CH_SNAPSHOT);
+        if(ret != MM_CAMERA_OK) {
+          ALOGE("%s:Deinit Snapshot channel failed=%d\n", __func__, ret);
+        }
+        mIsJpegChAcquired = false;
+    }
 
     /* Keep track of number of snapshots to take - in case of
        multiple snapshot/burst mode */
@@ -2158,6 +2190,7 @@ status_t QCameraStream_Snapshot::start(void) {
             ret = FAILED_TRANSACTION;
             goto end;
         }
+        mIsRawChAcquired = true;
         /* Snapshot channel is acquired */
         setSnapshotState(SNAPSHOT_STATE_CH_ACQUIRED);
         ALOGD("%s: Register buffer notification. My object: %x",
@@ -2177,6 +2210,7 @@ status_t QCameraStream_Snapshot::start(void) {
             ret = FAILED_TRANSACTION;
             goto end;
         }
+        mIsJpegChAcquired = true;
         /* Snapshot channel is acquired */
         setSnapshotState(SNAPSHOT_STATE_CH_ACQUIRED);
         ALOGD("%s: Register buffer notification. My object: %x",
@@ -2304,20 +2338,12 @@ void QCameraStream_Snapshot::stop(void)
     }
 
     if(mSnapshotFormat == PICTURE_FORMAT_RAW) {
-        ret= QCameraStream::deinitChannel(mCameraId, MM_CAMERA_CH_RAW);
-        if(ret != MM_CAMERA_OK) {
-          ALOGE("%s:Deinit RAW channel failed=%d\n", __func__, ret);
-        }
         (void)cam_evt_register_buf_notify(mCameraId, MM_CAMERA_CH_RAW,
                                             NULL,
                                             (mm_camera_register_buf_cb_type_t)NULL,
                                             NULL,
                                             NULL);
     } else {
-        ret= QCameraStream::deinitChannel(mCameraId, MM_CAMERA_CH_SNAPSHOT);
-        if(ret != MM_CAMERA_OK) {
-          ALOGE("%s:Deinit Snapshot channel failed=%d\n", __func__, ret);
-        }
         (void)cam_evt_register_buf_notify(mCameraId, MM_CAMERA_CH_SNAPSHOT,
                                             NULL,
                                             (mm_camera_register_buf_cb_type_t)NULL,
