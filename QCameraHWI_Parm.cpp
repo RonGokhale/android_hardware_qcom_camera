@@ -123,7 +123,7 @@ static android::FPSRange allFpsRanges[] = {
             android::FPSRange(7500, 30000),
             android::FPSRange(10000, 30000),
             android::FPSRange(15000, 30000),
-            android::FPSRange(30000, 30000)
+            android::FPSRange(7500, 30000)
 };
 #define ALL_FPS_RANGES_COUNT (sizeof(allFpsRanges)/sizeof(android::FPSRange))
 
