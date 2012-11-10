@@ -1757,6 +1757,10 @@ encodeData(mm_camera_ch_data_buf_t* recvd_frame,
         thumb_crop_offset.x=mCrop.snapshot.thumbnail_crop.left;
         thumb_crop_offset.y=mCrop.snapshot.thumbnail_crop.top;
 
+        if (crop.out1_w > crop.out2_w || crop.out1_h > crop.out2_h) {
+            crop.out1_w = crop.out2_w;
+            crop.out1_h = crop.out2_h;
+        }
         //update exif parameters in HAL
         mHalCamCtrl->initExifData();
 
@@ -2103,6 +2107,15 @@ status_t QCameraStream_Snapshot::receiveRawPicture(mm_camera_ch_data_buf_t* recv
           }
           if (notifyCb) {
             notifyCb(CAMERA_MSG_RAW_IMAGE_NOTIFY, 0, 0, mHalCamCtrl->mCallbackCookie);
+          }
+
+          if (!isZSLMode() &&
+                  (!isLiveSnapshot() && !isFullSizeLiveshot())) {
+              if(mHalCamCtrl->mDataCb &&
+                 (mHalCamCtrl->mMsgEnabled & CAMERA_MSG_POSTVIEW_FRAME)) {
+                  mHalCamCtrl->mDataCb(CAMERA_MSG_POSTVIEW_FRAME,mHalCamCtrl->mThumbnailMemory.camera_memory[0],
+                                     0, NULL, mHalCamCtrl->mCallbackCookie);
+              }
           }
         }
     }

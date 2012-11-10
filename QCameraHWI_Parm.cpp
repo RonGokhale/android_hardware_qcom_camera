@@ -63,6 +63,7 @@ extern "C" {
 } // extern "C"
 
 #include "QCameraHWI.h"
+#include "QCameraStream.h"
 
 /* QCameraHardwareInterface class implementation goes here*/
 /* following code implements the parameter logic of this class*/
@@ -142,12 +143,15 @@ static struct camera_size_type zsl_picture_sizes[] = {
 static camera_size_type default_picture_sizes[] = {
   { 4000, 3000}, // 12MP
   { 3264, 2448}, // 8MP
+  { 3264, 1836}, // Picture Size to match 1080p,720p AR
+  { 3264, 2176}, // Picture Size to match 480p AR
   { 2592, 1944}, // 5MP
   { 2048, 1536}, // 3MP QXGA
   { 1920, 1080}, // HD1080
   { 1600, 1200}, // 2MP UXGA
   { 1280, 960}, // 1.3MP
-  { 800, 600}, // SVGA
+  { 1280, 720},
+  { 720, 480},
   { 800, 480}, // WVGA
   { 640, 480}, // VGA
   { 352, 288}, // CIF
@@ -567,6 +571,7 @@ bool QCameraHardwareInterface::supportsSceneDetection() {
 
 bool QCameraHardwareInterface::supportsFaceDetection() {
     bool rc;
+
     status_t ret = NO_ERROR;
     mm_camera_op_mode_type_t op_mode;
 
@@ -575,8 +580,8 @@ bool QCameraHardwareInterface::supportsFaceDetection() {
         ALOGE("%s: Failed to get Op Mode", __func__);
     }
 
-    ALOGV("%s: OP_Mode is %d, ret=%d",__func__,op_mode,ret);
-    if ((ret == NO_ERROR) && (op_mode == MM_CAMERA_OP_MODE_VIDEO))
+    ALOGV("%s: OP_Mode is %d, ret=%d, mHdrMode=%d",__func__,op_mode,ret,mHdrMode);
+    if ((ret == NO_ERROR) && (op_mode == MM_CAMERA_OP_MODE_VIDEO) && (mHdrMode != HDR_MODE))
     {
         ALOGV("%s: Video mode : FD not supported",__func__);
         return false;
@@ -1206,7 +1211,7 @@ void QCameraHardwareInterface::initDefaultParameters()
     //Set Face Detection
     if(supportsFaceDetection()){
         mParameters.set(QCameraParameters::KEY_FACE_DETECTION,
-                        QCameraParameters::FACE_DETECTION_ON);
+                        QCameraParameters::FACE_DETECTION_OFF);
         mParameters.set(QCameraParameters::KEY_SUPPORTED_FACE_DETECTION,
                         mFaceDetectionValues);
     }
@@ -1368,7 +1373,7 @@ status_t QCameraHardwareInterface::setParameters(const QCameraParameters& params
     if ((rc = setSaturation(params)))                   final_rc = rc;
     if ((rc = setSceneMode(params)))                    final_rc = rc;
     if ((rc = setContrast(params)))                     final_rc = rc;
-    if ((rc = setFaceDetect(params)))                   final_rc = rc;
+//    if ((rc = setFaceDetect(params)))                   final_rc = rc;
     if ((rc = setStrTextures(params)))                  final_rc = rc;
     if ((rc = setPreviewFormat(params)))                final_rc = rc;
     if ((rc = setSkinToneEnhancement(params)))          final_rc = rc;
@@ -1397,23 +1402,22 @@ status_t QCameraHardwareInterface::setParameters(const QCameraParameters& params
     if((rc = setRecordingHint(params)))                 final_rc = rc;
     if ((rc = setNumOfSnapshot(params)))                final_rc = rc;
     if ((rc = setAecAwbLock(params)))                   final_rc = rc;
-    if ((rc = setWhiteBalance(params)))             final_rc = rc;
+    if ((rc = setWhiteBalance(params)))                 final_rc = rc;
     const char *str = params.get(QCameraParameters::KEY_SCENE_MODE);
     int32_t value = attr_lookup(scenemode, sizeof(scenemode) / sizeof(str_map), str);
 
     if((value != NOT_FOUND) && (value == CAMERA_BESTSHOT_OFF )) {
         //if ((rc = setPreviewFrameRateMode(params)))     final_rc = rc;
         if ((rc = setPreviewFrameRate(params)))         final_rc = rc;
-        if ((rc = setAutoExposure(params)))             final_rc = rc;
-        if ((rc = setExposureCompensation(params)))     final_rc = rc;
-        if ((rc = setWhiteBalance(params)))             final_rc = rc;
         if ((rc = setBrightness(params)))               final_rc = rc;
         if ((rc = setISOValue(params)))                 final_rc = rc;
         if ((rc = setFocusAreas(params)))               final_rc = rc;
         if ((rc = setMeteringAreas(params)))            final_rc = rc;
     }
-    if ((rc = setFlash(params)))                    final_rc = rc;
-    if ((rc = setFocusMode(params)))                final_rc = rc;
+    if ((rc = setFocusMode(params)))                    final_rc = rc;
+    if ((rc = setAutoExposure(params)))                 final_rc = rc;
+    if ((rc = setExposureCompensation(params)))         final_rc = rc;
+    if ((rc = setFlash(params)))                        final_rc = rc;
     //selectableZoneAF needs to be invoked after continuous AF
     if ((rc = setSelectableZoneAf(params)))             final_rc = rc;
     // setHighFrameRate needs to be done at end, as there can
@@ -1422,7 +1426,6 @@ status_t QCameraHardwareInterface::setParameters(const QCameraParameters& params
     if ((rc = setZSLBurstLookBack(params))) final_rc = rc;
     if ((rc = setZSLBurstInterval(params))) final_rc = rc;
     if ((rc = setNoDisplayMode(params))) final_rc = rc;
-    if ((rc = setCAFLockCancel())) final_rc = rc;
 
     //Update Exiftag values.
     setExifTags();
@@ -1467,6 +1470,11 @@ QCameraParameters& QCameraHardwareInterface::getParameters()
 {
     Mutex::Autolock lock(mLock);
     mParameters.set(QCameraParameters::KEY_FOCUS_DISTANCES, mFocusDistance.string());
+    const char *str = mParameters.get(QCameraParameters::KEY_SCENE_MODE);
+    if (mHasAutoFocusSupport && strcmp(str, "auto")) {
+        mParameters.set(QCameraParameters::KEY_FOCUS_MODE,
+                                        QCameraParameters::FOCUS_MODE_CONTINUOUS_PICTURE);
+    }
     return mParameters;
 }
 
@@ -2062,6 +2070,7 @@ status_t QCameraHardwareInterface::setFocusMode(const QCameraParameters& params)
 
                 int cafSupport = false;
                 int caf_type=0;
+                const char *str_hdr = mParameters.get(QCameraParameters::KEY_SCENE_MODE);
                 if(!strcmp(str, QCameraParameters::FOCUS_MODE_CONTINUOUS_VIDEO) ||
                    !strcmp(str, QCameraParameters::FOCUS_MODE_CONTINUOUS_PICTURE)){
                     cafSupport = true;
@@ -2079,12 +2088,14 @@ status_t QCameraHardwareInterface::setFocusMode(const QCameraParameters& params)
                     }
                     ALOGV("caf_type %d rc %d", caf_type, rc);
 #endif
-                } else if(myMode & CAMERA_ZSL_MODE){
-                    cafSupport = true;
-                    caf_type = 2;
-                    native_set_parms(MM_CAMERA_PARM_CAF_TYPE, sizeof(caf_type), (void *)&caf_type);
                 }
                 ALOGV("Continuous Auto Focus %d", cafSupport);
+                if(mAutoFocusRunning && cafSupport){
+                  mAutoFocusRunning = false;
+                  if(MM_CAMERA_OK!=cam_ops_action(mCameraId,false,MM_CAMERA_OPS_FOCUS,NULL )) {
+                    ALOGE("%s: AF command failed err:%d error %s",__func__, errno,strerror(errno));
+                  }
+                }
                 ret = native_set_parms(MM_CAMERA_PARM_CONTINUOUS_AF, sizeof(cafSupport),
                                        (void *)&cafSupport);
             }
@@ -2110,12 +2121,9 @@ status_t QCameraHardwareInterface::setSceneMode(const QCameraParameters& params)
     const char *str = params.get(QCameraParameters::KEY_SCENE_MODE);
     const char *oldstr = mParameters.get(QCameraParameters::KEY_SCENE_MODE);
 
-    ALOGV("Scene Mode string : %s",str);
-
     if (str != NULL && oldstr != NULL) {
         int32_t value = attr_lookup(scenemode, sizeof(scenemode) / sizeof(str_map), str);
         if (value != NOT_FOUND) {
-
             /* Check to see if there was a change of scene mode */
             if(strcmp(str,oldstr)) {
                 ALOGV("%s: valued changed from %s to %s",__func__,oldstr, str);
@@ -2291,9 +2299,22 @@ status_t QCameraHardwareInterface::setExposureCompensation(
         uint32_t  value = 0;
         value = numerator16 << 16 | denominator16;
 
-        mParameters.set(QCameraParameters::KEY_EXPOSURE_COMPENSATION,
+        const char *sce_str = params.get(QCameraParameters::KEY_SCENE_MODE);
+        if (sce_str != NULL) {
+            if(!strcmp(sce_str, "sunset")){
+                //Exposure comp value in sunset scene mode
+                mParameters.set(QCameraParameters::KEY_EXPOSURE_COMPENSATION,
+                            -6);
+            }else{
+                //Exposure comp value for other
+                mParameters.set(QCameraParameters::KEY_EXPOSURE_COMPENSATION,
                             numerator);
-       bool ret = native_set_parms(MM_CAMERA_PARM_EXPOSURE_COMPENSATION,
+            }
+        }else {
+            mParameters.set(QCameraParameters::KEY_EXPOSURE_COMPENSATION,
+                            numerator);
+        }
+        bool ret = native_set_parms(MM_CAMERA_PARM_EXPOSURE_COMPENSATION,
                                     sizeof(value), (void *)&value);
         return ret ? NO_ERROR : UNKNOWN_ERROR;
     }
@@ -2306,14 +2327,31 @@ status_t QCameraHardwareInterface::setWhiteBalance(const QCameraParameters& para
 
     ALOGV("%s",__func__);
     status_t rc = NO_ERROR;
+    int result;
+    const char *str = NULL;
     rc = cam_config_is_parm_supported(mCameraId, MM_CAMERA_PARM_WHITE_BALANCE);
     if(!rc) {
        ALOGV("MM_CAMERA_PARM_WHITE_BALANCE mode is not supported for this sensor");
        return NO_ERROR;
     }
-     int result;
 
-    const char *str = params.get(QCameraParameters::KEY_WHITE_BALANCE);
+    const char *sce_str = params.get(QCameraParameters::KEY_SCENE_MODE);
+    if (sce_str != NULL) {
+        if(!strcmp(sce_str, "sunset")){
+            //AWB value in sunset scene mode
+            str = QCameraParameters::WHITE_BALANCE_DAYLIGHT;
+            mParameters.set(QCameraParameters::KEY_WHITE_BALANCE, str);
+        }else if(!strcmp(sce_str, "auto")){
+            str = params.get(QCameraParameters::KEY_WHITE_BALANCE);
+        }else{
+            //AWB in  other scene Mode
+            str = QCameraParameters::WHITE_BALANCE_AUTO;
+            mParameters.set(QCameraParameters::KEY_WHITE_BALANCE, str);
+        }
+    }else {
+        str = params.get(QCameraParameters::KEY_WHITE_BALANCE);
+    }
+
     if (str != NULL) {
         int32_t value = attr_lookup(whitebalance, sizeof(whitebalance) / sizeof(str_map), str);
         if (value != NOT_FOUND) {
@@ -2329,6 +2367,7 @@ status_t QCameraHardwareInterface::setWhiteBalance(const QCameraParameters& para
     ALOGE("Invalid whitebalance value: %s", (str == NULL) ? "NULL" : str);
     return BAD_VALUE;
 }
+
 status_t QCameraHardwareInterface::setAntibanding(const QCameraParameters& params)
 {
     int result;
@@ -2856,6 +2895,8 @@ status_t QCameraHardwareInterface::setStrTextures(const QCameraParameters& param
 
 status_t QCameraHardwareInterface::setFlash(const QCameraParameters& params)
 {
+    const char *str = NULL;
+
     ALOGV("%s: E",__func__);
     int rc = cam_config_is_parm_supported(mCameraId, MM_CAMERA_PARM_LED_MODE);
     if(!rc) {
@@ -2863,7 +2904,24 @@ status_t QCameraHardwareInterface::setFlash(const QCameraParameters& params)
         return NO_ERROR;
     }
 
-    const char *str = params.get(QCameraParameters::KEY_FLASH_MODE);
+    const char *sce_str = params.get(QCameraParameters::KEY_SCENE_MODE);
+    if (sce_str != NULL) {
+        if (!strcmp(sce_str, "hdr")) {
+            //Flash In HDR
+            str = QCameraParameters::FLASH_MODE_OFF;
+            mParameters.set(QCameraParameters::KEY_FLASH_MODE, str);
+        }else if(!strcmp(sce_str, "auto")){
+            //Flash Mode in auto scene mode
+            str = params.get(QCameraParameters::KEY_FLASH_MODE);
+        }else{
+            //FLASH in  scene Mode except auto, hdr
+            str = QCameraParameters::FLASH_MODE_AUTO;
+            mParameters.set(QCameraParameters::KEY_FLASH_MODE, str);
+        }
+    }else {
+        str = params.get(QCameraParameters::KEY_FLASH_MODE);
+    }
+
     if (str != NULL) {
         int32_t value = attr_lookup(flash, sizeof(flash) / sizeof(str_map), str);
         if (value != NOT_FOUND) {
