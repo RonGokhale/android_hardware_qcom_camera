@@ -133,7 +133,13 @@ void mm_app_set_dim_def(cam_ctrl_dimension_t *dim)
     dim->thumb_format = CAMERA_YUV_420_NV21;
     dim->main_img_format = CAMERA_YUV_420_NV21;
     dim->raw_img_format = CAMERA_BAYER_SBGGR10;
-    dim->rdi0_format = CAMERA_YUV_422_YUYV;
+
+    if(my_cam_app.cam_info->main_sensor_type == BAYER) {
+        dim->rdi0_format = CAMERA_BAYER_SBGGR10;
+    } else {
+        dim->rdi0_format = CAMERA_YUV_422_YUYV;
+    }
+
     dim->prev_padding_format = CAMERA_PAD_TO_4K;
     dim->display_luma_width = dim->display_width;
     dim->display_luma_height = dim->display_height;
