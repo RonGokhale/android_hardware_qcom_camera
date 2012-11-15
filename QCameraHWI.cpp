@@ -1257,7 +1257,7 @@ void QCameraHardwareInterface::stopPreview()
             break;
     }
      const char * str_fd = mParameters.get(QCameraParameters::KEY_FACE_DETECTION);
-     if((str != NULL) && !strcmp(str_fd, "on")){
+     if((str_fd != NULL) && !strcmp(str_fd, "on")){
        if(supportsFaceDetection() == false){
          ALOGE("Face detection support is not available");
        }
