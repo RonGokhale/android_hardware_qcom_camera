@@ -408,6 +408,9 @@ private:
 	bool                    mDropThumbnail;
 	int                     mJpegQuality;
     int hdrRawCount;
+
+    bool                    mIsRawChAcquired;
+    bool                    mIsJpegChAcquired;
 }; // QCameraStream_Snapshot
 
 
