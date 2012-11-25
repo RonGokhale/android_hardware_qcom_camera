@@ -40,6 +40,9 @@ namespace android {
 /* Number of V4L2 capture  buffers. */
 #define PRVW_CAP_BUF_CNT    4
 
+/* Video recording buffer count */
+#define VIDREC_BUF_CNT      4
+
 /* Maximum buffer size for JPEG output in number of bytes */
 #define MAX_JPEG_BUFFER_SIZE    (1024 * 1024)
 
@@ -47,6 +50,10 @@ namespace android {
 #define USB_CAM_PREVIEW_EXIT    (0x100)
 #define USB_CAM_PREVIEW_PAUSE   (0x101)
 #define USB_CAM_PREVIEW_TAKEPIC (0x200)
+
+/* Buffer states */
+#define BUFFER_FREE         0
+#define BUFFER_IN_USE       1
 
 /******************************************************************************
  * Macro function to input validate device handle
@@ -87,7 +94,7 @@ namespace android {
         char temp[1001] = {0};\
         int n=0;\
         while(1) {\
-            strlcpy(temp,parms+n,1000);\
+            strncpy(temp,parms+n,1000);\
             ALOGD("parms = %s", temp);\
             if (strlen(temp) < 1000) break;\
             n += 1000;\
@@ -108,19 +115,23 @@ namespace android {
 /******************************************************************************
  * Macro function to close camera
  *****************************************************************************/
-#define USB_CAM_CLOSE(camHal) {\
+#define USB_CAM_CLOSE(camHal)   {\
         int rc;\
-        if(camHal->fd){\
-            rc = close(camHal->fd);\
-            if(0 > rc){\
+        if(camHal->fd)\
+            if(0 > (rc = close(camHal->fd)))\
                 ALOGE("%s: close failed ", __func__);\
-            }\
             else{\
                 camHal->fd = 0;\
                 ALOGD("%s: close successful", __func__);\
             }\
         }\
-    }\
+
+/******************************************************************************
+ * Macro function to align a number to the given alignment
+ *****************************************************************************/
+#define ALIGN(number, alignment)  {\
+    (number) = ((number) + ((alignment) - 1)) & (~((alignment) - 1));\
+};
 
 struct bufObj {
     void    *data;
@@ -132,11 +143,15 @@ typedef struct {
     Mutex                               lock;
     int                                 previewEnabledFlag;
     int                                 prvwStoppedForPicture;
+    int                                 vidStoppedForPicture;
+    int                                 prvwDimensionsChanged;
+    int                                 vidDimensionsChanged;
     int                                 msgEnabledFlag;
     volatile int                        prvwCmdPending;
     volatile int                        prvwCmd;
     pthread_t                           previewThread;
     pthread_t                           takePictureThread;
+    int                                 startPrvwCmdRecvd;
 
     camera_notify_callback              notify_cb;
     camera_data_callback                data_cb;
@@ -150,8 +165,14 @@ typedef struct {
     int                                 prevFps;
     int                                 prevWidth;
     int                                 prevHeight;
+
     /* captureFormat is internal setting for USB camera buffers */
     int                                 captureFormat;
+
+    /* capture width and height is what the camera capture is set to */
+    /* capture dimensions is based on preview and/or video record dimension */
+    int                                 capWidth;
+    int                                 capHeight;
     char                                dev_name[FILENAME_LENGTH];
     int                                 fd;
     unsigned int                        n_buffers;
@@ -184,6 +205,15 @@ typedef struct {
     pthread_mutex_t                     jpegEncMutex;
     pthread_cond_t                      jpegEncCond;
 
+    /* Video recording related members */
+    int                                 vidFormat;
+    int                                 vidWidth;
+    int                                 vidHeight;
+    int                                 storeMetadata;
+    int                                 recordingEnabledFlag;
+    QCameraHalHeap_t                    vidMem;
+    int                                 freeVidBufIndx;
+
     /* */
     QCameraParameters                   qCamParams;
     String8                             prevSizeValues;
@@ -193,6 +223,8 @@ typedef struct {
     String8                             pictFormatValues;
     String8                             prevFormatValues;
     String8                             prevFpsRangesValues;
+    String8                             focusModeValues;
+    char                                recordingHint[16];
 
 } camera_hardware_t;
 

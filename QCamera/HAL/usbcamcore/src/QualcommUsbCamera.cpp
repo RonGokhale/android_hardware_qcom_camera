@@ -88,7 +88,10 @@ camera_device_ops_t usbcam_camera_ops = {
 #define CAPTURE                 1
 #define DISPLAY                 1
 #define CALL_BACK               1
+#define PRVWLOOP_REC_CB         1
 #define MEMSET                  0
+#define REC_MEMSET              0
+#define REC_MEMCPY              0
 #define FREAD_JPEG_PICTURE      0
 #define JPEG_ON_USB_CAMERA      1
 #define FILE_DUMP_CAMERA        0
@@ -107,7 +110,12 @@ static int launch_preview_thread(       camera_hardware_t *camHal);
 static int launchTakePictureThread(     camera_hardware_t *camHal);
 static int initDisplayBuffers(          camera_hardware_t *camHal);
 static int deInitDisplayBuffers(        camera_hardware_t *camHal);
+static int deInitRecordBuffers(         camera_hardware_t *camHal);
+static int startPreviewInternal(        camera_hardware_t *camHal,
+                                        int withRecordDimensions);
 static int stopPreviewInternal(         camera_hardware_t *camHal);
+static int restartPreviewInternal(      camera_hardware_t *camHal,
+                                        int withRecordDimensions);
 static int get_buf_from_cam(            camera_hardware_t *camHal);
 static int put_buf_to_cam(              camera_hardware_t *camHal);
 static int prvwThreadTakePictureInternal(camera_hardware_t *camHal);
@@ -116,7 +124,9 @@ static int put_buf_to_display(   camera_hardware_t *camHal, int buffer_id);
 static int convert_data_frm_cam_to_disp(camera_hardware_t *camHal, int buffer_id);
 static void * previewloop(void *);
 static void * takePictureThread(void *);
-static int convert_YUYV_to_420_NV12(char *in_buf, char *out_buf, int wd, int ht);
+static int convert_YUYV_to_420Y_UV_NV12(char *in_buf, char *out_buf, int wd, int ht);
+static int convert_YUYV_to_420Y_VU_NV21(char *in_buf, char *out_buf, int wd, int ht);
+static int convert_NV21_to_NV12(        char *in_buf, char *out_buf, int wd, int ht);
 static int get_uvc_device(char *devname);
 static int getPreviewCaptureFmt(camera_hardware_t *camHal);
 static int allocate_ion_memory(QCameraHalMemInfo_t *mem_info, int ion_type);
@@ -132,6 +142,11 @@ void jpegEncodeCb   (jpeg_job_status_t status,
                        uint8_t* out_data,
                        uint32_t data_size,
                        void *userData);
+static int initRecordBuffers(camera_hardware_t *camHal);
+static int callVideoRecCb(camera_hardware_t* camHal, int buffer_id);
+static int getEmptyRecBuf(camera_hardware_t *camHal, int* vidBufferId);
+static int fillRecBuf(camera_hardware_t *camHal, int dispBufferId,
+                        int vidBufferId);
 
 /* HAL function implementation goes here*/
 
@@ -228,7 +243,7 @@ extern "C" int  usbcam_camera_device_open(
     device->priv            = (void *)camHal;
     *hw_device              = &(device->common);
 
-    ALOGD("%s: camHal: %p", __func__, camHal);
+    ALOGD("%s: camHal: %p, rc = %d", __func__, camHal, rc);
     ALOGI("%s: X %d", __func__, rc);
 
     return rc;
@@ -267,21 +282,20 @@ int usbcam_set_preview_window(struct camera_device * device,
     VALIDATE_DEVICE_HDL(camHal, device, -1);
     Mutex::Autolock autoLock(camHal->lock);
 
-    /* if window is already set, then de-init previous buffers */
-    if(camHal->window){
-        rc = deInitDisplayBuffers(camHal);
-        if(rc < 0) {
-            ALOGE("%s: deInitDisplayBuffers returned error", __func__);
-        }
-    }
+    /* Window update is not allowed while preview is in progress */
+    if(camHal->previewEnabledFlag)
+        return -1;
+
     camHal->window = window;
 
-    if(camHal->window){
-        rc = initDisplayBuffers(camHal);
-        if(rc < 0) {
-            ALOGE("%s: initDisplayBuffers returned error", __func__);
-        }
+    if(window && camHal->startPrvwCmdRecvd){
+        rc = startPreviewInternal(camHal, 0);
+        ERROR_CHECK_EXIT(rc, "startPreviewInternal");
+
+        /* once serviced, reset this flag */
+        camHal->startPrvwCmdRecvd = false;
     }
+
     ALOGI("%s: X. rc = %d", __func__, rc);
     return rc;
 }
@@ -383,37 +397,13 @@ int usbcam_start_preview(struct camera_device * device)
     VALIDATE_DEVICE_HDL(camHal, device, -1);
     Mutex::Autolock autoLock(camHal->lock);
 
-    /* If preivew is already running, nothing to be done */
-    if(camHal->previewEnabledFlag){
-        ALOGI("%s: Preview is already running", __func__);
-        return 0;
-    }
-
-#if CAPTURE
-    rc = initUsbCamera(camHal, camHal->prevWidth,
-                        camHal->prevHeight, getPreviewCaptureFmt(camHal));
-    if(rc < 0) {
-        ALOGE("%s: Failed to intialize the device", __func__);
+    if(camHal->window){
+        rc = startPreviewInternal(camHal, 0);
+        if(rc)
+            ALOGE("%s: startPreviewInternal returned error", __func__);
     }else{
-        rc = startUsbCamCapture(camHal);
-        if(rc < 0) {
-            ALOGE("%s: Failed to startUsbCamCapture", __func__);
-        }else{
-            rc = launch_preview_thread(camHal);
-            if(rc < 0) {
-                ALOGE("%s: Failed to launch_preview_thread", __func__);
-            }
-        }
+        camHal->startPrvwCmdRecvd = true;
     }
-#else /* CAPTURE */
-    rc = launch_preview_thread(camHal);
-    if(rc < 0) {
-        ALOGE("%s: Failed to launch_preview_thread", __func__);
-    }
-#endif /* CAPTURE */
-    /* if no errors, then set the flag */
-    if(!rc)
-        camHal->previewEnabledFlag = 1;
 
     ALOGD("%s: X", __func__);
     return rc;
@@ -461,52 +451,125 @@ int usbcam_preview_enabled(struct camera_device * device)
     return camHal->previewEnabledFlag;
 }
 
-/* TBD */
 int usbcam_store_meta_data_in_buffers(struct camera_device * device, int enable)
 {
-    ALOGI("%s: E", __func__);
     int rc = 0;
+    camera_hardware_t *camHal = NULL;
+    ALOGI("%s: E enable: %d", __func__, enable);
 
-    ALOGI("%s: X", __func__);
+    VALIDATE_DEVICE_HDL(camHal, device, -1);
+    Mutex::Autolock autoLock(camHal->lock);
+
+    camHal->storeMetadata = enable;
+
+    ALOGI("%s: X, rc = %d", __func__, rc);
     return rc;
 }
 
-/* TBD */
 int usbcam_start_recording(struct camera_device * device)
 {
-    int rc = 0;
-    ALOGD("%s: E", __func__);
+    int rc = -1;
+    camera_hardware_t *camHal = NULL;
+    ALOGI("%s: E ", __func__);
 
-    ALOGD("%s: X", __func__);
+    VALIDATE_DEVICE_HDL(camHal, device, -1);
+    Mutex::Autolock autoLock(camHal->lock);
 
+    /* If recording is already started, nothing to be done */
+    if(camHal->recordingEnabledFlag){
+        ALOGI("%s: Recording is already in progress", __func__);
+        return 0;
+    }
+
+    /* If only preview is enabled and if preview dimensions are different
+        from recording dimensions, restart preview with recording dimensions */
+    if(camHal->previewEnabledFlag){
+        if((camHal->vidWidth  !=  camHal->prevWidth) ||
+            (camHal->vidHeight != camHal->prevHeight)){
+                rc = restartPreviewInternal(camHal, 1);
+                ERROR_CHECK_EXIT(rc, "Cannot restart preview with vid dim");
+            }
+    }
+
+    rc = 0;
+    camHal->recordingEnabledFlag = 1;
+
+    ALOGI("%s: X rc: %d", __func__, rc);
     return rc;
 }
 
-/* TBD */
 void usbcam_stop_recording(struct camera_device * device)
 {
-    ALOGD("%s: E", __func__);
+    camera_hardware_t *camHal = NULL;
+    ALOGI("%s: E ", __func__);
 
-    ALOGD("%s: X", __func__);
+    if(device && device->priv){
+        camHal = (camera_hardware_t *)device->priv;
+    }else{
+        ALOGE("%s: Null device or device->priv", __func__);
+        return;
+    }
+    Mutex::Autolock autoLock(camHal->lock);
+
+    /* If recording is started, stop it */
+    if(camHal->recordingEnabledFlag){
+        camHal->recordingEnabledFlag = 0;
+    }
+
+    ALOGI("%s: X", __func__);
 }
 
-/* TBD */
+/* This function is equivalent to is_recording_enabled */
 int usbcam_recording_enabled(struct camera_device * device)
 {
     int rc = 0;
-    ALOGD("%s: E", __func__);
+    ALOGI("%s: E", __func__);
+    camera_hardware_t *camHal;
 
-    ALOGD("%s: X", __func__);
-    return rc;
+    VALIDATE_DEVICE_HDL(camHal, device, -1);
+    Mutex::Autolock autoLock(camHal->lock);
+
+    ALOGI("%s: X", __func__);
+    return camHal->recordingEnabledFlag;
 }
 
-/* TBD */
 void usbcam_release_recording_frame(struct camera_device * device,
                 const void *opaque)
 {
-    ALOGV("%s: E", __func__);
+    int i = 0;
+    camera_hardware_t *camHal;
+    QCameraHalHeap_t *vidMem = &camHal->vidMem;
+
+    ALOGD("%s: E opaque=%p", __func__, opaque);
+
+    if(device && device->priv){
+        camHal = (camera_hardware_t *)device->priv;
+    }else{
+        ALOGE("%s: Null device or device->priv", __func__);
+        return;
+    }
+    Mutex::Autolock autoLock(camHal->lock);
+
+    if(camHal->storeMetadata){
+        for(i = 0; i < vidMem->buffer_count; i ++){
+            if(vidMem->metadata_memory[i] &&
+                (vidMem->metadata_memory[i]->data == opaque)){
+                vidMem->local_flag[i] = BUFFER_FREE;
+                break;
+            }
+        }
+    }else{
+        for(i = 0; i < vidMem->buffer_count; i ++){
+            if(vidMem->camera_memory[i] &&
+                (vidMem->camera_memory[i]->data == opaque)){
+                vidMem->local_flag[i] = BUFFER_FREE;
+                break;
+            }
+        }
+    }
 
     ALOGD("%s: X", __func__);
+    return;
 }
 
 /* TBD */
@@ -545,22 +608,25 @@ int usbcam_take_picture(struct camera_device * device)
         return 0;
     }
 
-    if(camHal->previewEnabledFlag)
+    /* Back up the flags */
+    camHal->prvwStoppedForPicture = camHal->previewEnabledFlag;
+    camHal->vidStoppedForPicture = camHal->recordingEnabledFlag;
+    if(camHal->previewEnabledFlag || camHal->recordingEnabledFlag)
     {
         rc = stopPreviewInternal(camHal);
         if(rc){
             ALOGE("%s: stopPreviewInternal returned error", __func__);
         }
         USB_CAM_CLOSE(camHal);
-        camHal->prvwStoppedForPicture = 1;
     }
+
     /* TBD: Need to handle any dependencies on video recording state */
     rc = launchTakePictureThread(camHal);
     if(rc)
         ALOGE("%s: launchTakePictureThread error", __func__);
 
 #if 0
-    /* This implementation requests preview thread to take picture */
+    /* TBD: This implementation requests preview thread to take picture */
     if(camHal->previewEnabledFlag)
     {
         camHal->prvwCmdPending++;
@@ -591,7 +657,6 @@ int usbcam_cancel_picture(struct camera_device * device)
 }
 
 int usbcam_set_parameters(struct camera_device * device, const char *params)
-
 {
     ALOGI("%s: E", __func__);
     int rc = 0;
@@ -602,6 +667,22 @@ int usbcam_set_parameters(struct camera_device * device, const char *params)
     Mutex::Autolock autoLock(camHal->lock);
 
     rc = usbCamSetParameters(camHal, params);
+    ERROR_CHECK_EXIT(rc, "usbCamSetParameters");
+
+    /* during recording only video dimensions affect the preview */
+    if(camHal->recordingEnabledFlag){
+        if(true == camHal->vidDimensionsChanged){
+            restartPreviewInternal(camHal, 1);
+        }
+    }else{
+        if(camHal->prvwDimensionsChanged && camHal->previewEnabledFlag ){
+            restartPreviewInternal(camHal, 0);
+        }
+    }
+
+    /* reset the flags */
+    camHal->vidDimensionsChanged    = false;
+    camHal->prvwDimensionsChanged   = false;
 
     ALOGI("%s: X", __func__);
     return rc;
@@ -636,6 +717,7 @@ void usbcam_put_parameters(struct camera_device * device, char *parm)
         ALOGE("%s: Null device or device->priv", __func__);
         return;
     }
+    Mutex::Autolock autoLock(camHal->lock);
 
     usbCamPutParameters(camHal, parm);
 
@@ -643,7 +725,6 @@ void usbcam_put_parameters(struct camera_device * device, char *parm)
     return;
 }
 
-/* TBD */
 int usbcam_send_command(struct camera_device * device,
             int32_t cmd, int32_t arg1, int32_t arg2)
 {
@@ -655,33 +736,37 @@ int usbcam_send_command(struct camera_device * device,
     return rc;
 }
 
-/* TBD */
 void usbcam_release(struct camera_device * device)
 {
+    int rc = 0;
+    camera_hardware_t *camHal;
     ALOGI("%s: E", __func__);
-#if 0
-    Mutex::Autolock l(&mLock);
 
-    switch(mPreviewState) {
-    case QCAMERA_HAL_PREVIEW_STOPPED:
-        break;
-    case QCAMERA_HAL_PREVIEW_START:
-        break;
-    case QCAMERA_HAL_PREVIEW_STARTED:
-        stopPreviewInternal();
-    break;
-    case QCAMERA_HAL_RECORDING_STARTED:
-        stopRecordingInternal();
-        stopPreviewInternal();
-        break;
-    case QCAMERA_HAL_TAKE_PICTURE:
-        cancelPictureInternal();
-        break;
-    default:
-        break;
+    if(device && device->priv){
+        camHal = (camera_hardware_t *)device->priv;
+    }else{
+        ALOGE("%s: Null device or device->priv", __func__);
+        return;
     }
-    mPreviewState = QCAMERA_HAL_PREVIEW_STOPPED;
-#endif
+    Mutex::Autolock autoLock(camHal->lock);
+
+    if(camHal->previewEnabledFlag || camHal->recordingEnabledFlag){
+        stopPreviewInternal(camHal);
+    }
+
+    rc = deInitDisplayBuffers(camHal);
+    if(rc < 0) {
+        ALOGE("%s: deInitDisplayBuffers returned error", __func__);
+    }
+
+    rc = deInitRecordBuffers(camHal);
+    if(rc < 0) {
+        ALOGE("%s: deInitRecordBuffers returned error", __func__);
+    }
+
+    camHal->previewEnabledFlag = 0;
+    camHal->recordingEnabledFlag = 0;
+
     ALOGI("%s: X", __func__);
 }
 
@@ -715,7 +800,8 @@ int usbcam_dump(struct camera_device * device, int fd)
 /************************** VUVU            19 17 23 21            ************/
 /******************************************************************************/
 
-static int convert_YUYV_to_420_NV12(char *in_buf, char *out_buf, int wd, int ht)
+static int convert_YUYV_to_420Y_VU_NV21(char *in_buf, char *out_buf,
+                                        int wd, int ht)
 {
     int rc =0;
     int row, col, uv_row;
@@ -740,6 +826,90 @@ static int convert_YUYV_to_420_NV12(char *in_buf, char *out_buf, int wd, int ht)
     return rc;
 }
 
+/******************************************************************************/
+/* No in place conversion supported. Output buffer and input MUST should be   */
+/* different input buffer for a 4x4 pixel video                             ***/
+/******                  YUYVYUYV          00 01 02 03 04 05 06 07 ************/
+/******                  YUYVYUYV          08 09 10 11 12 13 14 15 ************/
+/******                  YUYVYUYV          16 17 18 19 20 21 22 23 ************/
+/******                  YUYVYUYV          24 25 26 27 28 29 30 31 ************/
+/******************************************************************************/
+/* output generated by this function ******************************************/
+/************************** YYYY            00 02 04 06            ************/
+/************************** YYYY            08 10 12 14            ************/
+/************************** YYYY            16 18 20 22            ************/
+/************************** YYYY            24 26 28 30            ************/
+/************************** UVUV            01 03 05 07            ************/
+/************************** UVUV            17 19 21 23            ************/
+/******************************************************************************/
+
+static int convert_YUYV_to_420Y_UV_NV12(char *in_buf, char *out_buf,
+                                        int wd, int ht)
+{
+    int rc =0;
+    int row, col, uv_row;
+
+    ALOGD("%s: E", __func__);
+    /* Arrange Y */
+    for(row = 0; row < ht; row++)
+        for(col = 0; col < wd * 2; col += 2)
+        {
+            out_buf[row * wd + col / 2] = in_buf[row * wd * 2 + col];
+        }
+
+    /* Arrange UV */
+    for(row = 0, uv_row = ht; row < ht; row += 2, uv_row++)
+        for(col = 1; col < wd * 2; col += 4)
+        {
+            out_buf[uv_row * wd + col / 2] = in_buf[row * wd * 2 + col];
+            out_buf[uv_row * wd + col / 2 + 1]  = in_buf[row * wd * 2 + col + 2];
+        }
+
+    ALOGD("%s: X", __func__);
+    return rc;
+}
+
+/******************************************************************************
+ * Function: convert_NV21_to_NV12
+ * Description: This function converts the input buffer from NV21 to NV12
+ *
+ * Input parameters:
+ *   camHal              - camera HAL handle
+ *
+ * Return values:
+ *      0   Success
+ *      -1  Error
+ * Notes: none
+ *****************************************************************************/
+static int convert_NV21_to_NV12(char *in_buf, char *out_buf, int wd, int ht)
+{
+    int rc =0, i = 0;
+
+    int ySize           = wd * ht;
+    int chromaSize      = ySize >> 1;
+    int chromaSrcOffset = ySize;
+    int chromaDestOffset= ySize;
+
+    ALIGN(chromaDestOffset, 2048);
+
+    ALOGD("%s: E", __func__);
+
+    /* luma copy */
+    memcpy(out_buf, in_buf, ySize);
+
+    in_buf  += chromaSrcOffset;
+    out_buf += chromaDestOffset;
+
+    /* Arrange UV */
+    for(i = 0 ; i < chromaSize; i += 2)
+    {
+        out_buf[i]      = in_buf[i + 1];
+        out_buf[i + 1]  = in_buf[i];
+    }
+
+    ALOGD("%s: X", __func__);
+    return rc;
+}
 /******************************************************************************
  * Function: initDisplayBuffers
  * Description: This function initializes the preview buffers
@@ -963,6 +1133,85 @@ static int initDisplayBuffers(camera_hardware_t *camHal)
     ALOGD("%s: X", __func__);
     return rc;
 }
+/******************************************************************************
+ * Function: initRecordBuffers
+ * Description: This function initializes the video record buffers
+ *
+ * Input parameters:
+ *   camHal              - camera HAL handle
+ *
+ * Return values:
+ *      0   Success
+ *      -1  Error
+ * Notes: none
+ *****************************************************************************/
+static int initRecordBuffers(camera_hardware_t *camHal)
+{
+    int rc = 0;
+    int i;
+    QCameraHalHeap_t* heap;
+    int buf_len, ySize, uvSize;
+
+    ALOGI("%s, E", __func__);
+
+    heap = &camHal->vidMem;
+    memset(heap, 0, sizeof(QCameraHalHeap_t));
+
+    heap->buffer_count = VIDREC_BUF_CNT;
+    /* This depends on video recording format. For 420sp (NV12) */
+    ySize = camHal->vidWidth * camHal->vidHeight;
+    ALIGN(ySize, 2048);
+    uvSize = camHal->vidWidth * camHal->vidHeight / 2;
+
+    buf_len = ySize + uvSize;
+    ALOGI("%s: Record buf length: %d", __func__, buf_len);
+
+    for(i = 0; i < heap->buffer_count; i++) {
+        heap->mem_info[i].size = buf_len;
+        rc = allocate_ion_memory(&heap->mem_info[i],
+                                 ((0x1 << CAMERA_ION_HEAP_ID) | (0x1 << CAMERA_ION_FALLBACK_HEAP_ID)));
+        if (rc < 0) {
+            ALOGE("%s: ION allocation failed\n", __func__);
+            break;
+        }
+        heap->camera_memory[i] = camHal->get_memory(heap->mem_info[i].fd,
+                                            heap->mem_info[i].size,
+                                            1,
+                                            camHal->cb_ctxt);
+
+        if (heap->camera_memory[i] == NULL ) {
+            ALOGE("get_memory fail %d: ", i);
+            rc = -1;
+            break;
+        }
+        ALOGE("heap->fd[%d] =%d, camera_memory=%p", i,
+              heap->mem_info[i].fd, heap->camera_memory[i]);
+        heap->local_flag[i] = 1;
+    }
+
+    for (int cnt = 0; cnt < camHal->vidMem.buffer_count; cnt++) {
+        camHal->vidMem.metadata_memory[cnt] =
+            camHal->get_memory(-1,
+                                sizeof(struct encoder_media_buffer_type),
+                                1,
+                                camHal->cb_ctxt);
+        struct encoder_media_buffer_type * packet =
+            (struct encoder_media_buffer_type *)camHal->vidMem.metadata_memory[cnt]->data;
+        packet->meta_handle = native_handle_create(1, 2); //1 fd, 1 offset and 1 size
+        packet->buffer_type = kMetadataBufferTypeCameraSource;
+        native_handle_t * nh = const_cast<native_handle_t *>(packet->meta_handle);
+        nh->data[0] = camHal->vidMem.mem_info[cnt].fd;
+        nh->data[1] = 0;
+        nh->data[2] = camHal->vidMem.mem_info[cnt].size;
+    }
+
+    for (int cnt = 0; cnt < camHal->vidMem.buffer_count; cnt++) {
+        camHal->vidMem.local_flag[cnt] = BUFFER_FREE;
+    }
+    ALOGI("%s: X, rc = %d", __func__, rc);
+
+    return rc;
+}
 
 /******************************************************************************
  * Function: deInitDisplayBuffers
@@ -1047,6 +1296,58 @@ static int deInitDisplayBuffers(camera_hardware_t *camHal)
 }
 
 /******************************************************************************
+ * Function: deInitRecordBuffers
+ * Description: This function de-initializes all the recording buffers allocated
+ *              in initRecordBuffers
+ *
+ * Input parameters:
+ *   camHal              - camera HAL handle
+ *
+ * Return values:
+ *      0   Success
+ *      -1  Error
+ * Notes: none
+ *****************************************************************************/
+static int deInitRecordBuffers(camera_hardware_t *camHal)
+{
+    int rc = 0;
+    ALOGI("%s: E", __func__);
+    /************************************************************************/
+    /* - Release all buffers that were acquired using get_memory            */
+    /* - If using ION memory, free ION related resources                    */
+    /************************************************************************/
+
+    /* - Release all buffers that were acquired using get_memory            */
+    for (int cnt = 0; cnt < camHal->vidMem.buffer_count; cnt++) {
+        if(camHal->vidMem.metadata_memory[cnt]){
+            camHal->vidMem.metadata_memory[cnt]->release(
+                                camHal->vidMem.metadata_memory[cnt]);
+        }
+    }
+
+    for (int cnt = 0; cnt < camHal->vidMem.buffer_count; cnt++) {
+        if(camHal->vidMem.camera_memory[cnt]){
+            camHal->vidMem.camera_memory[cnt]->release(
+                                camHal->vidMem.camera_memory[cnt]);
+        }
+    }
+
+    /* - If using ION memory, free ION related resources                    */
+   for(int cnt = 0; cnt < camHal->vidMem.buffer_count; cnt++) {
+        rc = deallocate_ion_memory(&camHal->vidMem.mem_info[cnt]);
+        if (rc < 0) {
+            ALOGE("%s: ION allocation failed\n", __func__);
+            break;
+        }
+    }
+
+    memset(&camHal->vidMem, 0, sizeof(camHal->vidMem));
+
+    ALOGI("%s: X, rc = %d", __func__, rc);
+    return rc;
+} /* deInitRecordBuffers */
+
+/******************************************************************************
  * Function: getPreviewCaptureFmt
  * Description: This function implements the logic to decide appropriate
  *              capture format from the USB camera
@@ -1062,9 +1363,7 @@ static int deInitDisplayBuffers(camera_hardware_t *camHal)
 static int getPreviewCaptureFmt(camera_hardware_t *camHal)
 {
     int     i = 0, mjpegSupported = 0, h264Supported = 0;
-    struct v4l2_fmtdesc fmtdesc;
-
-    memset(&fmtdesc, 0, sizeof(v4l2_fmtdesc));
+    struct v4l2_fmtdesc fmtdesc = {0};
 
     /************************************************************************/
     /* - Query the camera for all supported formats                         */
@@ -1079,7 +1378,7 @@ static int getPreviewCaptureFmt(camera_hardware_t *camHal)
         fmtdesc.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
         if (-1 == ioctlLoop(camHal->fd, VIDIOC_ENUM_FMT, &fmtdesc)) {
             if (EINVAL == errno) {
-                ALOGI("%s: Queried all formats till index %d\n", __func__, i);
+                ALOGD("%s: Queried all formats till index %d\n", __func__, i);
                 break;
             } else {
                 ALOGE("%s: VIDIOC_ENUM_FMT failed", __func__);
@@ -1101,7 +1400,7 @@ static int getPreviewCaptureFmt(camera_hardware_t *camHal)
     /************************************************************************/
     //V4L2_PIX_FMT_MJPEG; V4L2_PIX_FMT_YUYV; V4L2_PIX_FMT_H264 = 0x34363248;
     camHal->captureFormat = V4L2_PIX_FMT_YUYV;
-    if(camHal->prevWidth > 640){
+    if(camHal->capWidth > 640){
         if(1 == mjpegSupported)
             camHal->captureFormat = V4L2_PIX_FMT_MJPEG;
         else if(1 == h264Supported)
@@ -1506,6 +1805,126 @@ static int stopPreviewInternal(camera_hardware_t *camHal)
     ALOGD("%s: X, rc: %d", __func__, rc);
     return rc;
 }
+
+/******************************************************************************
+ * Function: startPreviewInternal
+ * Description: This function starts preview by calling launch preview thread
+ *
+ * Input parameters:
+ *   camHal              - camera HAL handle
+ *   withRecordDimensions - Start preview with record dimensions flag
+ *
+ * Return values:
+ *   0      No error
+ *   -1     Error
+ *
+ * Notes: none
+ *****************************************************************************/
+static int startPreviewInternal(camera_hardware_t *camHal,
+                                int withRecordDimensions)
+{
+    int rc = 0;
+    ALOGD("%s: E", __func__);
+
+    /* If preview is already running, nothing to be done */
+    if(camHal->previewEnabledFlag){
+        ALOGI("%s: Preview is already running", __func__);
+        return 0;
+    }
+
+    /* If preview is to be started with recording dimensions, */
+    /* set both display and capture buffers to recording dimensions */
+    if(withRecordDimensions){
+        camHal->dispWidth   = camHal->vidWidth;
+        camHal->dispHeight  = camHal->vidHeight;
+        camHal->capWidth    = camHal->vidWidth;
+        camHal->capHeight   = camHal->vidHeight;
+    }else{
+        camHal->dispWidth   = camHal->prevWidth;
+        camHal->dispHeight  = camHal->prevHeight;
+        camHal->capWidth    = camHal->prevWidth;
+        camHal->capHeight   = camHal->prevHeight;
+    }
+
+    if(camHal->window){
+
+        rc = initDisplayBuffers(camHal);
+        if(rc < 0) {
+            ALOGE("%s: initDisplayBuffers returned error", __func__);
+        }
+        rc = initRecordBuffers(camHal);
+        if(rc < 0) {
+            ALOGE("%s: initRecordBuffers returned error", __func__);
+        }
+    }
+
+#if CAPTURE
+    rc = initUsbCamera(camHal, camHal->capWidth,
+                        camHal->capHeight, getPreviewCaptureFmt(camHal));
+    if(rc < 0) {
+        ALOGE("%s: Failed to intialize the device", __func__);
+    }else{
+        rc = startUsbCamCapture(camHal);
+        if(rc < 0) {
+            ALOGE("%s: Failed to startUsbCamCapture", __func__);
+        }else{
+            rc = launch_preview_thread(camHal);
+            if(rc < 0) {
+                ALOGE("%s: Failed to launch_preview_thread", __func__);
+            }
+        }
+    }
+#else /* CAPTURE */
+    rc = launch_preview_thread(camHal);
+    if(rc < 0) {
+        ALOGE("%s: Failed to launch_preview_thread", __func__);
+    }
+#endif /* CAPTURE */
+
+    /* if no errors, then set the flag */
+    if(!rc)
+        camHal->previewEnabledFlag = 1;
+
+    ALOGD("%s: X, rc = %d", __func__, rc);
+    return rc;
+}
+
+
+/******************************************************************************
+ * Function: restartPreviewInternal
+ * Description: This function stops and starts preview by calling
+ *
+ * Input parameters:
+ *   camHal              - camera HAL handle
+ *   withRecordDimensions - Start preview with record dimensions flag
+ *
+ * Return values:
+ *   0      No error
+ *   -1     Error
+ *
+ * Notes: none
+ *****************************************************************************/
+static int restartPreviewInternal(camera_hardware_t *camHal,
+                                int withRecordDimensions)
+{
+    int rc = 0;
+    ALOGI("%s: E", __func__);
+
+    rc = stopPreviewInternal(camHal);
+    if(rc){
+        ALOGE("%s: stopPreviewInternal returned error", __func__);
+    }
+    USB_CAM_CLOSE(camHal);
+
+    USB_CAM_OPEN(camHal);
+    rc = startPreviewInternal(camHal, withRecordDimensions);
+    if(rc)
+        ALOGE("%s: start_preview error after take picture", __func__);
+
+    ALOGI("%s: X, rc = %d", __func__, rc);
+    return rc;
+}
+
 #if 1
 /******************************************************************************
  * Function: prvwThreadTakePictureInternal
@@ -1716,6 +2135,9 @@ static int get_buf_from_cam(camera_hardware_t *camHal)
             ALOGD("%s: VIDIOC_DQBUF: %d successful, %d bytes",
                  __func__, camHal->curCaptureBuf.index,
                  camHal->curCaptureBuf.bytesused);
+            ALOGD("%s: Timestamp sec: %d msec: %d", __func__,
+                camHal->curCaptureBuf.timestamp.tv_sec,
+                camHal->curCaptureBuf.timestamp.tv_usec);
         }
     }
     ALOGD("%s: X", __func__);
@@ -1930,11 +2352,11 @@ static int convert_data_frm_cam_to_disp(camera_hardware_t *camHal, int buffer_id
     if( (V4L2_PIX_FMT_YUYV == camHal->captureFormat) &&
         (HAL_PIXEL_FORMAT_YCrCb_420_SP == camHal->dispFormat))
     {
-        convert_YUYV_to_420_NV12(
+        convert_YUYV_to_420Y_VU_NV21(
             (char *)camHal->buffers[camHal->curCaptureBuf.index].data,
             (char *)camHal->previewMem.camera_memory[buffer_id]->data,
-            camHal->prevWidth,
-            camHal->prevHeight);
+            camHal->capWidth,
+            camHal->capHeight);
         ALOGD("%s: Copied %d bytes from camera buffer %d to display buffer: %d",
              __func__, camHal->curCaptureBuf.bytesused,
              camHal->curCaptureBuf.index, buffer_id);
@@ -1958,7 +2380,7 @@ static int convert_data_frm_cam_to_disp(camera_hardware_t *camHal, int buffer_id
                 camHal->curCaptureBuf.bytesused,
                 (char *)camHal->previewMem.camera_memory[buffer_id]->data,
                 (char *)camHal->previewMem.camera_memory[buffer_id]->data +
-                    camHal->prevWidth * camHal->prevHeight,
+                    camHal->dispWidth * camHal->dispHeight,
                 getMjpegdOutputFormat(camHal->dispFormat));
             if(rc < 0)
                 ALOGE("%s: mjpegDecode Error: %d", __func__, rc);
@@ -2143,7 +2565,7 @@ static void * previewloop(void *hcamHal)
             /* currently hardcoded for Bytes-Per-Pixel = 1.5 */
             fileDump("/data/USBcam.yuv",
             (char*)camHal->buffers[camHal->curCaptureBuf.index].data,
-            camHal->prevWidth * camHal->prevHeight * 1.5,
+            camHal->capWidth * camHal->capHeight * 1.5,
             &frame_cnt);
         }
 #endif
@@ -2176,6 +2598,17 @@ static void * previewloop(void *hcamHal)
         }
 #endif
 
+#if PRVWLOOP_REC_CB
+
+        if( camHal->recordingEnabledFlag &&
+            (camHal->msgEnabledFlag & CAMERA_MSG_VIDEO_FRAME) &&
+            camHal->data_cb_timestamp){
+            rc = callVideoRecCb(camHal, buffer_id);
+            if(rc < 0)
+                ALOGE("%s: Error in video record callback", __func__);
+        }
+#endif //PRVWLOOP_REC_CB
+
 #if DISPLAY
     /************************************************************************/
     /* - Enqueue display buffer back to surface                             */
@@ -2203,7 +2636,7 @@ static void * previewloop(void *hcamHal)
     /* - If preview frames callback is requested, callback with prvw buffers*/
     /************************************************************************/
         /* TBD: change the 1.5 hardcoding to Bytes Per Pixel */
-        int previewBufSize = camHal->prevWidth * camHal->prevHeight * 1.5;
+        int previewBufSize = camHal->dispWidth * camHal->dispHeight * 1.5;
 
         msgType |=  CAMERA_MSG_PREVIEW_FRAME;
 
@@ -2244,8 +2677,11 @@ static void * previewloop(void *hcamHal)
             ALOGD("%s: after data callback: %p", __func__, camHal->data_cb);
         }
         camHal->lock.lock();
+
         if (previewMem)
             previewMem->release(previewMem);
+
+
 #endif
 
     }//while(1)
@@ -2630,20 +3066,27 @@ static void * takePictureThread(void *hcamHal)
     /************************************************************************/
     /* - If preview was stopped for taking picture, restart the preview     */
     /************************************************************************/
-    if(camHal->prvwStoppedForPicture)
+    if(camHal->vidStoppedForPicture)
     {
-        struct camera_device    device;
-        device.priv = (void *)camHal;
-
         USB_CAM_OPEN(camHal);
-        /* Unlock temporarily coz usbcam_start_preview has a lock */
-        camHal->lock.unlock();
-        rc = usbcam_start_preview(&device);
+        rc = startPreviewInternal(camHal, 1);
         if(rc)
-            ALOGE("%s: start_preview error after take picture", __func__);
-        camHal->lock.lock();
-        camHal->prvwStoppedForPicture = 0;
+            ALOGE("%s: startPreviewInternal error after take pic", __func__);
     }
+    else if(camHal->prvwStoppedForPicture)
+    {
+        USB_CAM_OPEN(camHal);
+        rc = startPreviewInternal(camHal, 0);
+        if(rc)
+            ALOGE("%s: startPreviewInternal error after take pic", __func__);
+    }
+    else
+    {
+        ALOGD("%s: Neither preview nor recording has to be started", __func__);
+    }
+    /* Restore the flags */
+    camHal->previewEnabledFlag = camHal->prvwStoppedForPicture;
+    camHal->recordingEnabledFlag = camHal->vidStoppedForPicture;
 
     /* take picture activity is done */
     camHal->takePictInProgress = 0;
@@ -2827,10 +3270,10 @@ int encodeJpeg(camera_hardware_t *camHal)
         return -1;
     }
 
-    rc = convert_YUYV_to_420_NV12(
+    rc = convert_YUYV_to_420Y_VU_NV21(
         (char *)camHal->buffers[camHal->curCaptureBuf.index].data,
         (char *)jpegInMem->data, camHal->pictWidth, camHal->pictHeight);
-    ERROR_CHECK_EXIT(rc, "convert_YUYV_to_420_NV12");
+    ERROR_CHECK_EXIT(rc, "convert_YUYV_to_420Y_VU_NV21");
     /************************************************************************/
     /* - Populate JPEG encoding parameters from the camHal context          */
     /************************************************************************/
@@ -2959,5 +3402,177 @@ void jpegEncodeCb   (jpeg_job_status_t status,
     return;
 }
 
+/******************************************************************************
+ * Function: callVideoRecCb
+ * Description: This is a call back function registered with JPEG encoder.
+ *              Jpeg encoder calls this function on completion of encoding
+ *
+ * Input parameters:
+ *  camHal                  - camera HAL handle
+ *  dispBufferId            - corresponding display buffer ID
+ *
+ * Return values:
+ *   0  No Error
+ *  -1  Error
+ *
+ * Notes: none
+ *****************************************************************************/
+static int callVideoRecCb(camera_hardware_t* camHal, int dispBufferId)
+{
+    int rc = 0;
+    nsecs_t timeStamp;
+    int vidBufferId = dispBufferId;
+
+    /* Get the timestamp from the captured buffer */
+    timeStamp = (nsecs_t)(
+        camHal->curCaptureBuf.timestamp.tv_sec *1000000000LL +
+        camHal->curCaptureBuf.timestamp.tv_usec*1000);
+
+    rc = getEmptyRecBuf(camHal, &vidBufferId);
+    ERROR_CHECK_EXIT(rc, "no empty video buffer");
+
+
+    rc = fillRecBuf(camHal, dispBufferId, vidBufferId);
+
+    if(camHal->storeMetadata){
+        ALOGD("%s: before metadata data_cb_timestamp callback, recMetaMem = %p, dataptr = %p",
+            __func__, camHal->vidMem.metadata_memory[vidBufferId],
+            camHal->vidMem.camera_memory[vidBufferId]->data);
+
+        camHal->lock.unlock();
+        camHal->data_cb_timestamp(timeStamp, CAMERA_MSG_VIDEO_FRAME,
+                                    camHal->vidMem.metadata_memory[vidBufferId],
+                                    0, camHal->cb_ctxt);
+        camHal->lock.lock();
+    }else{
+        ALOGD("%s: before data_cb_timestamp callback. recMem: %p",
+                __func__, camHal->vidMem.camera_memory[vidBufferId]);
+        camHal->lock.unlock();
+        camHal->data_cb_timestamp(timeStamp, CAMERA_MSG_VIDEO_FRAME,
+                                    camHal->vidMem.camera_memory[vidBufferId],
+                                    0, camHal->cb_ctxt);
+        camHal->lock.lock();
+    }
+    ALOGD("%s: after data_cb_timestamp callback ts:%lld", __func__, timeStamp);
+
+    return rc;
+}
+
+/******************************************************************************
+ * Function: getEmptyRecBuf
+ * Description: This function loops through the video record buffers and returns
+ *              the free buffer
+ *
+ * Input parameters:
+ *  camHal                  - camera HAL handle
+ *  vidBufferId             - pointer to the empty buffer id
+ *
+ * Return values:
+ *   0  No Error
+ *  -1  Error
+ *
+ * Notes: none
+ *****************************************************************************/
+static int getEmptyRecBuf(camera_hardware_t *camHal, int* vidBufferId)
+ {
+    int rc = 0, i = 0;
+
+    QCameraHalHeap_t *vidMem = &camHal->vidMem;
+    *vidBufferId = -1;
+
+    ALOGD("%s: E", __func__);
+
+    for(i = 0; i < vidMem->buffer_count; i++){
+        if(vidMem->local_flag[camHal->freeVidBufIndx] == BUFFER_FREE)
+        {
+            *vidBufferId = camHal->freeVidBufIndx;
+            vidMem->local_flag[camHal->freeVidBufIndx] == BUFFER_IN_USE;
+            /* increment the buffer index for the next getEmptyBuf call */
+            camHal->freeVidBufIndx++;
+            if(camHal->freeVidBufIndx >= vidMem->buffer_count)
+                camHal->freeVidBufIndx = 0;
+            break;
+        }
+        /* increment the buffer index for the next iteration */
+        camHal->freeVidBufIndx++;
+        if(camHal->freeVidBufIndx >= vidMem->buffer_count)
+            camHal->freeVidBufIndx = 0;
+    }
+
+    rc = (*vidBufferId == -1)? -1: 0;
+
+    ALOGD("%s: X, rc = %d, buffer id: %d", __func__, rc, *vidBufferId);
+    return rc;
+ }
+
+/******************************************************************************
+ * Function: fillRecBuf
+ * Description: This function fills the record buffer with appropriate content
+ *              based on display buffer
+ *
+ * Input parameters:
+ *  camHal                  - camera HAL handle
+ *  vidBufferId             - Video buffer id to be filled
+ *  dispBufferId            - Display buffer id with corresponding content
+ *
+ * Return values:
+ *   0  No Error
+ *  -1  Error
+ *
+ * Notes: none
+ *****************************************************************************/
+static int fillRecBuf(camera_hardware_t *camHal, int dispBufferId,
+                        int vidBufferId)
+{
+    int rc = 0;
+    ALOGD("%s: E", __func__);
+
+#if REC_MEMSET
+    static int recColor = 30;
+    recColor = (recColor > 200) ? 30 : recColor + 50;
+
+    memset(camHal->vidMem.camera_memory[vidBufferId]->data,
+               recColor,
+               camHal->vidMem.mem_info[vidBufferId].size);
+
+#elif REC_MEMCPY
+    /* dest buffer (for videnc) has 2k alignment for chroma offset */
+    /* source buffer does not have 2k alignment for chroma offset */
+    int ySize           = camHal->capWidth * camHal->capHeight;
+    int chromaSize      = ySize >> 1;
+    int chromaSrcOffset = ySize;
+    int chromaDestOffset= ySize;
+
+    ALIGN(chromaDestOffset, 2048);
+
+    /* luma copy */
+    memcpy(camHal->vidMem.camera_memory[vidBufferId]->data,
+            (char *)camHal->previewMem.camera_memory[dispBufferId]->data,
+            ySize);
+
+    /* chroma copy */
+    memcpy(
+    (char *)camHal->vidMem.camera_memory[vidBufferId]->data + chromaDestOffset,
+    (char *)camHal->previewMem.camera_memory[dispBufferId]->data + chromaSrcOffset,
+    chromaSize);
+
+#else
+    rc = convert_NV21_to_NV12(
+            (char *)camHal->previewMem.camera_memory[dispBufferId]->data,
+            (char *)camHal->vidMem.camera_memory[vidBufferId]->data,
+            camHal->vidWidth, camHal->vidHeight);
+
+#endif //REC_MEMSET
+
+    /* Cache clean the output buffer so that cache is written back */
+    cache_ops(&camHal->vidMem.mem_info[vidBufferId],
+                (void *)camHal->vidMem.camera_memory[vidBufferId]->data,
+                ION_IOC_CLEAN_CACHES);
+
+
+
+    ALOGD("%s: X, rc = %d", __func__, rc);
+    return rc;
+}
 /******************************************************************************/
 }; // namespace android
