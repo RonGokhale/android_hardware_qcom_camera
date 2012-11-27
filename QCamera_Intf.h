@@ -449,6 +449,7 @@ typedef enum {
     MM_CAMERA_PARM_FRAME_RESOLUTION,
     MM_CAMERA_PARM_RAW_SNAPSHOT_FMT,
     MM_CAMERA_PARM_FACIAL_FEATURE_INFO,
+    MM_CAMERA_PARM_FD_INFO,
     MM_CAMERA_PARM_MAX
 } mm_camera_parm_type_t;
 
@@ -597,6 +598,7 @@ typedef enum {
   CAMERA_GET_PARM_HDR,
   CAMERA_SEND_PP_PIPELINE_CMD, /* send offline pp cmd */
   CAMERA_SET_BUNDLE, /* set stream bundle */
+  CAMERA_SET_PARM_FD_INFO,
   CAMERA_CTRL_PARM_MAX
 } cam_ctrl_type;
 
@@ -786,6 +788,7 @@ typedef struct {
   uint32_t total_hal_frames;
   char values[MAX_EXP_BRACKETING_LENGTH];  /* user defined values */
 } exp_bracketing_t;
+
 typedef struct {
   roi_t      mtr_area[MAX_ROI];
   uint32_t   num_area;
@@ -924,12 +927,22 @@ typedef struct {
   int16_t num_face_detected;
 } fd_roi_header_type;
 
-struct fd_rect_t {
+typedef struct fd_rect_t {
   uint16_t x;
   uint16_t y;
   uint16_t dx;
   uint16_t dy;
-};
+}fd_rect;
+
+typedef struct fd_info{
+  int8_t face_id;
+  int8_t zoom_enabled;
+  int8_t display_mode;
+  cam_point_t fd_pos;
+  fd_rect face_rect;
+  int display_width;
+  int display_height;
+}fd_info_t;
 
 typedef struct {
   struct fd_rect_t face_boundary;

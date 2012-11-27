@@ -374,6 +374,18 @@ void QCameraStream_preview::notifyROIEvent(fd_roi_t roi)
             mHalCamCtrl->mFace[idx].rect[3] = mHalCamCtrl->mFace[idx].rect[1] +
                roi.d.data.face.face_boundary.dy*2000/mHalCamCtrl->mDimension.display_height;
 
+            mHalCamCtrl->mFace_info[idx].face_id = roi.d.data.face.id;
+            mHalCamCtrl->mFace_info[idx].face_rect.x = roi.d.data.face.face_boundary.x;
+            mHalCamCtrl->mFace_info[idx].face_rect.y = roi.d.data.face.face_boundary.y;
+            mHalCamCtrl->mFace_info[idx].face_rect.dx = roi.d.data.face.face_boundary.dx;
+            mHalCamCtrl->mFace_info[idx].face_rect.dy = roi.d.data.face.face_boundary.dy;
+            mHalCamCtrl->mFace_info[idx].fd_pos.x = mHalCamCtrl->mFace_info[idx].face_rect.x +
+                                                        (mHalCamCtrl->mFace_info[idx].face_rect.dx/2);
+            mHalCamCtrl->mFace_info[idx].fd_pos.y = mHalCamCtrl->mFace_info[idx].face_rect.y +
+                                                        (mHalCamCtrl->mFace_info[idx].face_rect.dy/2);
+            mHalCamCtrl->mFace_info[idx].display_width = mHalCamCtrl->mDimension.display_width;
+            mHalCamCtrl->mFace_info[idx].display_height = mHalCamCtrl->mDimension.display_height;
+
             // Center of left eye
             mHalCamCtrl->mFace[idx].left_eye[0] =
               roi.d.data.face.left_eye_center[0]*2000/mHalCamCtrl->mDimension.display_width - 1000;
