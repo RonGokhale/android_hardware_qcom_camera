@@ -809,8 +809,14 @@ static int32_t mm_camera_stream_fsm_reg(mm_camera_obj_t * my_obj,
             if (rc < 0) {
                     CDBG_ERROR("%s: ioctl VIDIOC_STREAMON failed: rc=%d\n",
                         __func__, rc);
-            }
-            else
+	      if((stream->stream_type == MM_CAMERA_STREAM_SNAPSHOT) || (stream->stream_type == MM_CAMERA_STREAM_THUMBNAIL))
+              {
+                ioctl(my_obj->ch[MM_CAMERA_CH_SNAPSHOT].snapshot.main.fd, VIDIOC_STREAMOFF, &buf_type);
+                mm_camera_stream_util_set_state(&my_obj->ch[MM_CAMERA_CH_SNAPSHOT].snapshot.main,MM_CAMERA_STREAM_STATE_REG);
+                ioctl(stream->fd, VIDIOC_STREAMOFF, &buf_type);
+              }
+           }
+           else
                 mm_camera_stream_util_set_state(stream, MM_CAMERA_STREAM_STATE_ACTIVE);
         }
         break;
