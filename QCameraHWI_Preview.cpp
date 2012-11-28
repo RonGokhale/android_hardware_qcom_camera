@@ -825,12 +825,12 @@ status_t QCameraStream_preview::processPreviewFrameWithDisplay(
   camera_memory_t *data = NULL;
   camera_frame_metadata_t *metadata = NULL;
 
-  Mutex::Autolock lock(mStopCallbackLock);
+  Mutex::Autolock plock(mPreviewFrameLock);
   if(!mActive) {
     ALOGE("Preview Stopped. Returning callback");
     return NO_ERROR;
   }
-
+  Mutex::Autolock lock(mStopCallbackLock);
   if(mHalCamCtrl==NULL) {
     ALOGE("%s: X: HAL control object not set",__func__);
     /*Call buf done*/
@@ -1328,8 +1328,10 @@ end:
     if(!mActive) {
       return;
     }
-    Mutex::Autolock lock(mStopCallbackLock);
-    mActive =  false;
+	Mutex::Autolock plock(mPreviewFrameLock);
+	mActive =  false;
+    mPreviewFrameLock.unlock();
+	Mutex::Autolock lock(mStopCallbackLock);
     /* unregister the notify fn from the mmmm_camera_t object*/
 
     ALOGI("%s: Stop the thread \n", __func__);
