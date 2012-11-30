@@ -27,7 +27,7 @@
 #include <utils/threads.h>
 #include <cutils/properties.h>
 #include <camera/Camera.h>
-#include <camera/QCameraParameters.h>
+#include "QCameraParameters.h"
 #include <system/window.h>
 #include <system/camera.h>
 #include <hardware/camera.h>
@@ -37,8 +37,6 @@
 extern "C" {
 #include <linux/android_pmem.h>
 #include <linux/ion.h>
-#include <camera.h>
-#include <camera_defs_i.h>
 #include <mm_camera_interface2.h>
 
 #include "mm_omx_jpeg_encoder.h"
@@ -47,6 +45,7 @@ extern "C" {
 
 #include "QCameraHWI_Mem.h"
 #include "QCameraStream.h"
+#include "QCamera_Intf.h"
 
 //Error codes
 #define  NOT_FOUND -1

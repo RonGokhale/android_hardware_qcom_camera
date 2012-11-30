@@ -33,7 +33,7 @@
 #include <linux/android_pmem.h>
 #endif
 #include <linux/ioctl.h>
-#include <camera/QCameraParameters.h>
+#include "QCameraParameters.h"
 #include <media/mediarecorder.h>
 #include <gralloc_priv.h>
 
@@ -1227,6 +1227,7 @@ void QCameraHardwareInterface::initDefaultParameters()
 
 int QCameraHardwareInterface::setParameters(const char *parms)
 {
+    ALOGE("<DDD> Setting Params");
     QCameraParameters param;
     String8 str = String8(parms);
     param.unflatten(str);

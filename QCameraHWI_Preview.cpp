@@ -913,8 +913,10 @@ status_t QCameraStream_preview::processPreviewFrameWithDisplay(
               }
           } else
               data = mHalCamCtrl->mPreviewMemory.camera_memory[frame->def.idx];
+          mPreviewCbDisabled = FALSE;
       } else {
-          data = NULL;
+          data = mHalCamCtrl->mGetMemory(-1, 1, 1, NULL);
+          mPreviewCbDisabled = TRUE;
       }
 
       if(mHalCamCtrl->mMsgEnabled & CAMERA_MSG_PREVIEW_METADATA){
@@ -932,6 +934,7 @@ status_t QCameraStream_preview::processPreviewFrameWithDisplay(
 	  ALOGE("after pcb");
           if (previewMem)
               previewMem->release(previewMem);
+          if(NULL != data && mPreviewCbDisabled) data->release(data);
       }else{
           mStopCallbackLock.unlock();
       }

@@ -253,6 +253,7 @@ private:
     mm_camera_ch_data_buf_t mNotifyBuffer[16];
     bool                    mbPausedBySnapshot; /*TRUE: paused due to snapshot; FALSE: stopped normally*/
     int                     previewBufSize;
+    bool                    mPreviewCbDisabled;
 };
 
 /* Snapshot Class - handle data flow*/

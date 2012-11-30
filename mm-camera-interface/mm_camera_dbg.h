@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+Copyright (c) 2011, The Linux Foundation. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are
@@ -10,7 +10,7 @@ met:
       copyright notice, this list of conditions and the following
       disclaimer in the documentation and/or other materials provided
       with the distribution.
-    * Neither the name of Code Aurora Forum, Inc. nor the names of its
+    * Neither the name of The Linux Foundation nor the names of its
       contributors may be used to endorse or promote products derived
       from this software without specific prior written permission.
 
@@ -27,29 +27,42 @@ OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#ifndef __MM_CAMERA_SOCKET_H__
-#define __MM_CAMERA_SOCKET_H__
+#ifndef __MM_CAMERA_DBG_H__
+#define __MM_CAMERA_DBG_H__
 
-typedef enum {
-    MM_CAMERA_SOCK_TYPE_UDP,
-    MM_CAMERA_SOCK_TYPE_TCP,
-} mm_camera_sock_type_t;
+//#define LOG_DEBUG 1
 
-int mm_camera_socket_create(int cam_id, mm_camera_sock_type_t sock_type);
+#undef CDBG
+#ifndef ALOG_DEBUG
+  #ifdef _ANDROID_
+    #undef ALOG_NIDEBUG
+    #undef ALOG_TAG
+    #define ALOG_NIDEBUG 0
+    #define ALOG_TAG "mm-camera"
+    #include <utils/Log.h>
+  #else
+    #include <stdio.h>
+  #endif
+  #define CDBG(fmt, args...) do{}while(0)
+#else
+  #ifdef _ANDROID_
+    #undef ALOG_NIDEBUG
+    #undef ALOG_TAG
+    #define ALOG_NIDEBUG 0
+    #define ALOG_TAG "mm-camera"
+    #include <utils/Log.h>
+    #define CDBG(fmt, args...) ALOGE(fmt, ##args)
+  #else
+    #include <stdio.h>
+    #define CDBG(fmt, args...) fprintf(stderr, fmt, ##args)
+  #endif
+#endif
 
-int mm_camera_socket_sendmsg(
-  int fd,
-  void *msg,
-  uint32_t buf_size,
-  int sendfd);
-
-int mm_camera_socket_recvmsg(
-  int fd,
-  void *msg,
-  uint32_t buf_size,
-  int *rcvdfd);
-
-void mm_camera_socket_close(int fd);
-
-#endif /*__MM_CAMERA_SOCKET_H__*/
-
+#ifdef _ANDROID_
+  #define CDBG_HIGH(fmt, args...)  ALOGE(fmt, ##args)
+  #define CDBG_ERROR(fmt, args...)  ALOGE(fmt, ##args)
+#else
+  #define CDBG_HIGH(fmt, args...) fprintf(stderr, fmt, ##args)
+  #define CDBG_ERROR(fmt, args...) fprintf(stderr, fmt, ##args)
+#endif
+#endif /* __MM_CAMERA_DBG_H__ */

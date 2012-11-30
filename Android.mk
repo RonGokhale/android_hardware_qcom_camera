@@ -17,17 +17,6 @@ LOCAL_CFLAGS:= -DDLOPEN_LIBMMCAMERA=$(DLOPEN_LIBMMCAMERA)
 ifeq ($(strip $(TARGET_USES_ION)),true)
 LOCAL_CFLAGS += -DUSE_ION
 endif
-ifeq ($(call is-board-platform,msm8960),true)
-MM_CAM_FILES:= \
-        mm_camera_interface2.c \
-        mm_camera_stream.c \
-        mm_camera_channel.c \
-        mm_camera.c \
-        mm_camera_poll_thread.c \
-        mm_camera_notify.c mm_camera_helper.c \
-        mm_omx_jpeg_encoder.c \
-        mm_camera_sock.c
-endif
 
 LOCAL_CFLAGS+= -DHW_ENCODE
 
@@ -40,6 +29,7 @@ LOCAL_HAL_FILES := QCameraHAL.cpp QCameraHWI_Parm.cpp\
                    QCameraHWI_Record.cpp QCameraHWI_Still.cpp \
                    QCameraHWI_Mem.cpp QCameraHWI_Display.cpp \
                    QCameraStream.cpp QualcommCamera2.cpp QCameraParameters.cpp
+MM_CAM_FILES:=
 else
 LOCAL_HAL_FILES := QualcommCamera.cpp QualcommCameraHardware.cpp QCameraParameters.cpp
 MM_CAM_FILES:=
@@ -76,6 +66,7 @@ LOCAL_C_INCLUDES+= $(TARGET_OUT_HEADERS)/mm-core/omxcore
 LOCAL_C_INCLUDES+= $(TARGET_OUT_HEADERS)/mm-still/mm-omx
 endif
 
+LOCAL_C_INCLUDES+= $(LOCAL_PATH)/mm-camera-interface
 LOCAL_C_INCLUDES+= $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include/media
 LOCAL_C_INCLUDES+= $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include
 LOCAL_ADDITIONAL_DEPENDENCIES := $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr
@@ -86,11 +77,12 @@ LOCAL_C_INCLUDES += hardware/qcom/display/libgralloc \
 LOCAL_ADDITIONAL_DEPENDENCIES := $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr
 
 ifeq ($(call is-board-platform,msm8960),true)
-LOCAL_SHARED_LIBRARIES:= libutils libui libcamera_client liblog libcutils libmmjpeg libmmstillomx libimage-jpeg-enc-omx-comp
+LOCAL_SHARED_LIBRARIES:= libutils libui libcamera_client liblog libcutils libmmjpeg
 else
 LOCAL_SHARED_LIBRARIES:= libutils libui libcamera_client liblog libcutils libmmjpeg
 endif
 
+LOCAL_SHARED_LIBRARIES += libmmcamera_interface2
 LOCAL_SHARED_LIBRARIES+= libgenlock libbinder
 ifneq ($(DLOPEN_LIBMMCAMERA),1)
 LOCAL_SHARED_LIBRARIES+= liboemcamera
@@ -109,3 +101,4 @@ endif # BUILD_TINY_ANDROID
 endif # BUILD_LIBCAMERA
 endif # BOARD_USES_QCOM_HARDWARE
 endif # USE_CAMERA_STUB
+include $(LOCAL_PATH)/mm-camera-interface/Android.mk

@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2011-2012, Code Aurora Forum. All rights reserved.
+Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are
@@ -10,7 +10,7 @@ met:
       copyright notice, this list of conditions and the following
       disclaimer in the documentation and/or other materials provided
       with the distribution.
-    * Neither the name of Code Aurora Forum, Inc. nor the names of its
+    * Neither the name of The Linux Foundation nor the names of its
       contributors may be used to endorse or promote products derived
       from this software without specific prior written permission.
 
@@ -30,7 +30,9 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef __MM_CAMERA_INTERFACE2_H__
 #define __MM_CAMERA_INTERFACE2_H__
 #include <linux/ion.h>
-#include <camera.h>
+#include <linux/videodev2.h>
+#include <media/msm_camera.h>
+#include "QCamera_Intf.h"
 #include "mm_omx_jpeg_encoder.h"
 
 #define MM_CAMERA_MAX_NUM_FRAMES        16
