@@ -2549,19 +2549,24 @@ int QCameraHardwareInterface::initHeapMem( QCameraHalHeap_t *heap,
 
     for(i = 0; i < num_of_buf; i++) {
 #ifdef USE_ION
-      if (isZSLMode())
-        rc = allocate_ion_memory(heap, i, ((0x1 << CAMERA_ZSL_ION_HEAP_ID) |
-         (0x1 << CAMERA_ZSL_ION_FALLBACK_HEAP_ID)), CACHED);
-      else
-        rc = allocate_ion_memory(heap, i, ((0x1 << CAMERA_ION_HEAP_ID) |
-         (0x1 << CAMERA_ION_FALLBACK_HEAP_ID)), CACHED);
-
-      if (rc < 0) {
-        ALOGE("%sION allocation failed..fallback to ashmem\n", __func__);
-        if ( pmem_type == MSM_PMEM_MAX ) {
+      if ( pmem_type == MSM_PMEM_MAX ) {
                 heap->fd[i] = -1;
                 rc = 1;
-        }
+      } else {
+         if (isZSLMode())
+           rc = allocate_ion_memory(heap, i, ((0x1 << CAMERA_ZSL_ION_HEAP_ID) |
+           (0x1 << CAMERA_ZSL_ION_FALLBACK_HEAP_ID)), CACHED);
+         else
+           rc = allocate_ion_memory(heap, i, ((0x1 << CAMERA_ION_HEAP_ID) |
+          (0x1 << CAMERA_ION_FALLBACK_HEAP_ID)), CACHED);
+
+         if (rc < 0) {
+           ALOGE("%sION allocation failed..fallback to ashmem\n", __func__);
+           if ( pmem_type == MSM_PMEM_MAX ) {
+                  heap->fd[i] = -1;
+                  rc = 1;
+           }
+         }
       }
 #else
         if (pmem_type == MSM_PMEM_MAX)
