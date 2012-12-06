@@ -109,7 +109,6 @@ extern "C" {
 
 // Conversion routines from YV420sp to YV12 format
 int (*LINK_yuv_convert_ycrcb420sp_to_yv12_inplace) (yuv_image_type* yuvStructPtr);
-int (*LINK_yuv_convert_ycrcb420sp_to_yv12) (yuv_image_type* yuvStructPtrin, yuv_image_type* yuvStructPtrout);
 #define NUM_YV12_FRAMES 1
 #define FOCUS_AREA_INIT "(-1000,-1000,1000,1000,1000)"
 
@@ -2213,9 +2212,6 @@ bool QualcommCameraHardware::startCamera()
     *(void **)&LINK_yuv_convert_ycrcb420sp_to_yv12_inplace =
         ::dlsym(libmmcamera, "yuv_convert_ycrcb420sp_to_yv12");
 
-    *(void **)&LINK_yuv_convert_ycrcb420sp_to_yv12 =
-        ::dlsym(libmmcamera, "yuv_convert_ycrcb420sp_to_yv12_ver2");
-
     /* Disabling until support is available.*/
     *(void **)&LINK_zoom_crop_upscale =
         ::dlsym(libmmcamera, "zoom_crop_upscale");
@@ -3051,24 +3047,13 @@ void QualcommCameraHardware::runPreviewThread(void *data)
          int conversion_result = 0;
 
          if(( mPreviewFormat == CAMERA_YUV_420_YV12 ) &&
-           ( mCurrentTarget == TARGET_MSM7627A || mCurrentTarget == TARGET_MSM7627 )){
-            // if the width is not multiple of 32,
-            //we cannot do inplace conversion as sizes of 420sp and YV12 frames differ
-            if(previewWidth%32){
-#if 0 //TODO :
-               ALOGE("YV12::Doing not inplace conversion from 420sp to yv12");
-               in_buf.imgPtr = (unsigned char*)mPreviewMapped[bufferIndex]->data;
-               in_buf.dx = out_buf.dx = previewWidth;
-               in_buf.dy = in_buf.dy = previewHeight;
-               conversion_result = LINK_yuv_convert_ycrcb420sp_to_yv12(&in_buf, &out_buf);
-#endif
-            } else {
+           ( mCurrentTarget == TARGET_MSM7627A || mCurrentTarget == TARGET_MSM7627 ||
+             mCurrentTarget == TARGET_MSM8660)){
                ALOGE("Doing inplace conversion from 420sp to yv12");
                in_buf.imgPtr = (unsigned char *)mPreviewMapped[bufferIndex]->data;
                in_buf.dx  = previewWidth;
                in_buf.dy  = previewHeight;
                conversion_result = LINK_yuv_convert_ycrcb420sp_to_yv12_inplace(&in_buf);
-            }
          }
 
          if(bufferIndex >= 0) {
@@ -3080,6 +3065,11 @@ void QualcommCameraHardware::runPreviewThread(void *data)
                           'previewWidth * previewHeight * 3/2'. Needed when gralloc allocated extra memory.*/
              if( mPreviewFormat == CAMERA_YUV_420_NV21 || mPreviewFormat == CAMERA_YUV_420_YV12) {
                previewBufSize = previewWidth * previewHeight * 3/2;
+
+               if( mPreviewFormat == CAMERA_YUV_420_YV12 )
+                 previewBufSize = ((previewWidth + 15)/16) * previewHeight * 16 +
+                  ((previewWidth/2 +15)/16) * previewHeight * 16;
+
                camera_memory_t *previewMem = mGetMemory(frames[bufferIndex].fd, previewBufSize,
                                                         1, mCallbackCookie);
                if (!previewMem || !previewMem->data) {
@@ -3784,7 +3774,7 @@ ALOGE("%s Got preview dimension as %d x %d ", __func__, previewWidth, previewHei
     memset(&myv12_params, 0, sizeof(yv12_format_parms_t));
     mPreviewFrameSize = previewWidth * previewHeight * 3/2;
     ALOGE("Width = %d Height = %d \n", previewWidth, previewHeight);
-    if(mPreviewFormat == CAMERA_YUV_420_YV12) {
+    if(mPreviewFormat == CAMERA_YUV_420_YV12 && mCurrentTarget != TARGET_MSM8660) {
        myv12_params.CbOffset = PAD_TO_WORD(previewWidth * previewHeight);
        myv12_params.CrOffset = myv12_params.CbOffset + PAD_TO_WORD((previewWidth * previewHeight)/4);
        mDimension.prev_format = CAMERA_YUV_420_YV12;
@@ -4943,7 +4933,8 @@ status_t QualcommCameraHardware::getBuffersAndStartPreview() {
                       return UNKNOWN_ERROR;
                   }
 
-                  if(mPreviewFormat == CAMERA_YUV_420_YV12 && mCurrentTarget != TARGET_MSM7627A) {
+                  if(mPreviewFormat == CAMERA_YUV_420_YV12 && mCurrentTarget != TARGET_MSM7627A
+                      && mCurrentTarget != TARGET_MSM8660) {
                     myv12_params.CbOffset = PAD_TO_WORD(previewWidth * previewHeight);
                     myv12_params.CrOffset = myv12_params.CbOffset + PAD_TO_WORD((previewWidth * previewHeight)/4);
                     ALOGE("CbOffset = 0x%x CrOffset = 0x%x \n",myv12_params.CbOffset, myv12_params.CrOffset);
@@ -8198,8 +8189,17 @@ status_t QualcommCameraHardware::setPreviewFormat(const QCameraParameters& param
         mPreviewFormat = previewFormat;
         if(HAL_currentCameraMode != CAMERA_MODE_3D) {
             ALOGI("Setting preview format to native");
-            bool ret = native_set_parms(CAMERA_PARM_PREVIEW_FORMAT, sizeof(previewFormat),
-                                       (void *)&previewFormat);
+            if( mPreviewFormat == CAMERA_YUV_420_YV12  ) {
+                 previewFormat = CAMERA_YUV_420_NV21;
+                 bool ret = native_set_parms(CAMERA_PARM_PREVIEW_FORMAT, sizeof(previewFormat),
+                                            (void *)&previewFormat);
+                 ALOGE("%s : setting CAMERA_YUV_420_NV21 for YV21 = %d", __func__, previewFormat);
+            }
+            else{
+                 bool ret = native_set_parms(CAMERA_PARM_PREVIEW_FORMAT, sizeof(previewFormat),
+                                            (void *)&previewFormat);
+                 ALOGE("%s : setting preview format to set parms = %d", __func__, previewFormat);
+            }
         }else{
             ALOGI("Skipping set preview format call to native");
         }
