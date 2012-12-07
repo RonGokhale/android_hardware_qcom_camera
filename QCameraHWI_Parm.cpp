@@ -200,7 +200,13 @@ static const str_map effects[] = {
     { QCameraParameters::EFFECT_AQUA,       CAMERA_EFFECT_AQUA },
     { QCameraParameters::EFFECT_EMBOSS,     CAMERA_EFFECT_EMBOSS },
     { QCameraParameters::EFFECT_SKETCH,     CAMERA_EFFECT_SKETCH },
-    { QCameraParameters::EFFECT_NEON,       CAMERA_EFFECT_NEON }
+    { QCameraParameters::EFFECT_NEON,       CAMERA_EFFECT_NEON },
+    { QCameraParameters::EFFECT_FADED,      	CAMERA_EFFECT_FADED },
+    { QCameraParameters::EFFECT_VINTAGECOOL,	CAMERA_EFFECT_VINTAGECOOL},
+    { QCameraParameters::EFFECT_VINTAGEWARM,	CAMERA_EFFECT_VINTAGEWARM },
+    { QCameraParameters::EFFECT_ACCENT_BLUE,    CAMERA_EFFECT_ACCENT_BLUE },
+    { QCameraParameters::EFFECT_ACCENT_GREEN,   CAMERA_EFFECT_ACCENT_GREEN },
+    { QCameraParameters::EFFECT_ACCENT_ORANGE,  CAMERA_EFFECT_ACCENT_ORANGE },
 };
 
 static const str_map iso[] = {
