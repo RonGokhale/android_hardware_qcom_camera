@@ -32,6 +32,7 @@
 /* following code implement the contol logic of this class*/
 
 namespace android {
+static const int CAMERA_ERROR_PREVIEWFRAME_TIMEOUT = 1001;
 static void HAL_event_cb(mm_camera_event_t *evt, void *user_data)
 {
   QCameraHardwareInterface *obj = (QCameraHardwareInterface *)user_data;
@@ -706,6 +707,8 @@ void QCameraHardwareInterface::debugShowPreviewFPS() const
 void QCameraHardwareInterface::
 processPreviewChannelEvent(mm_camera_ch_event_type_t channelEvent, app_notify_cb_t *app_cb) {
     ALOGI("processPreviewChannelEvent: E");
+    int stream_error;
+    bool ret;
     switch(channelEvent) {
         case MM_CAMERA_CH_EVT_STREAMING_ON:
             mCameraState =
@@ -715,6 +718,47 @@ processPreviewChannelEvent(mm_camera_ch_event_type_t channelEvent, app_notify_cb
             mCameraState = CAMERA_STATE_READY;
             break;
         case MM_CAMERA_CH_EVT_DATA_DELIVERY_DONE:
+            break;
+        /* For_VFE_TIMEOUT*/
+        case MM_CAMERA_CH_EVT_STREAMING_ERR:
+            /*if (mCheckFreePreviewBufferStatus == true && pErrorPointer != NULL) {
+            ALOGE("Check whether preview buffer is locked : %s\n", pErrorPointer);
+            }*/
+
+            /* Driver is in bad state. Recover the driver by restarting
+            * preview.*/
+            ALOGE("%s : MM_CAMERA_CH_EVT_STREAMING_ERR (isRecordingRunning = %d)\n", __func__,isRecordingRunning());
+
+            if(isRecordingRunning()) {
+                camera_memory_t *TempHeap =
+                    mGetMemory(-1, strlen(TempBuffer), 1, (void *)this);
+
+                if (!TempHeap || TempHeap->data == MAP_FAILED) {
+                    ALOGE("ERR(%s): heap creation fail", __func__);
+                    mNotifyCb(CAMERA_MSG_ERROR, -1, 0, mCallbackCookie);
+                }
+
+                memcpy(TempHeap->data, TempBuffer, strlen(TempBuffer));
+
+                ALOGE("[%s:%d] ERROR : notify error to encoder!!", __func__, __LINE__);
+                mDataCbTimestamp(0, CAMERA_MSG_ERROR | CAMERA_MSG_VIDEO_FRAME, TempHeap, 0, mCallbackCookie);
+
+                if (TempHeap) {
+                    TempHeap->release(TempHeap);
+                    TempHeap = 0;
+                }
+            }
+            //notify stream error to back end
+            stream_error = 1;
+            ret = native_set_parms(MM_CAMERA_PARM_STREAM_ERROR, sizeof(stream_error),(void *)&stream_error);
+            if(ret != true) {
+               ALOGE("%s X: Failed to notify back end. Camera might crash",__func__);
+            }
+            // notify stream error to framework
+            app_cb->notifyCb = mNotifyCb;
+            app_cb->argm_notify.msg_type = CAMERA_MSG_ERROR;
+            app_cb->argm_notify.ext1 = CAMERA_ERROR_PREVIEWFRAME_TIMEOUT;
+            app_cb->argm_notify.cookie = mCallbackCookie;
             break;
         default:
             break;
