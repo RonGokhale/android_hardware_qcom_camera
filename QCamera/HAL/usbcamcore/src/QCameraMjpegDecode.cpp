@@ -156,7 +156,7 @@ MJPEGD_ERR mjpegDecoderInit(void** mjpegd_obj)
     mjpegd->hw_rotation         = 0;
     mjpegd->scale_factor        = (jpegd_scale_type_t)1;
 
-    /* TBDJ: can be removed */
+    /* Init defaults  */
     mjpegd->width                 = 640;
     mjpegd->height                = 480;
     mjpegd->abort_time            = 0;
