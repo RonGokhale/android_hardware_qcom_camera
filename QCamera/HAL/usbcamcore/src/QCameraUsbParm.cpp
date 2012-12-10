@@ -87,29 +87,29 @@ namespace android {
 /********************************************************************/
 static const str_map preview_formats[] = {
     {QCameraParameters::PIXEL_FORMAT_YUV420SP, HAL_PIXEL_FORMAT_YCrCb_420_SP},
+    /* YV12 format is not supported.Listed here for CTS */
+    {QCameraParameters::PIXEL_FORMAT_YV12, HAL_PIXEL_FORMAT_YV12},
 };
 
 static const preview_format_info_t preview_format_info_list[] = {
     {HAL_PIXEL_FORMAT_YV12, CAMERA_YUV_420_YV12, CAMERA_PAD_TO_WORD, 3}
 };
 
+/* Not all resolutions are supported by all USB cameras */
 static struct camera_size_type previewSizes[] = {
-    { 1920, 1088}, //1080p
+    { 1920, 1080}, //1080p
     { 1280, 720}, // 720P,
     { 640, 480}, // VGA
-    { 512, 384},
-    { 480, 320},
     { 352, 288}, //CIF
     { 320, 240}, // QVGA
     { 176, 144}, //QCIF
 };
 
-// All fps ranges which can be supported. This list will be filtered according
-// to the min and max fps supported by hardware
+// All fps ranges which can be supported.
 // this list must be sorted first by max_fps and then min_fps
 // fps values are multiplied by 1000
 static android::FPSRange prevFpsRanges[] = {
-    android::FPSRange(5000, 121000),
+    android::FPSRange(MIN_PREV_FPS, MAX_PREV_FPS),
 };
 
 /* TBR: Is frame rate mode mandatory */
@@ -123,33 +123,27 @@ static const str_map picture_formats[] = {
     //{QCameraParameters::PIXEL_FORMAT_RAW, PICTURE_FORMAT_RAW}
 };
 
+/* Ensure that heights are multiple of 16 for jpeg encoder */
+/* Hence 800x600 is not listed. Also 1080p is not supported*/
+/* Not all resolutions are supported by all USB cameras */
 static camera_size_type picture_sizes[] = {
-//    { 4000, 3000}, //HD1080
-    { 1920, 1088}, //HD1080
-    { 1280, 720}, //HD720
+    { 1280, 720}, // 720P,
     { 640, 480}, // VGA
     { 352, 288}, //CIF
     { 320, 240}, // QVGA
 };
 
-/* aspect ratio removed */
+/* thumbnail is downscaled from the main image with w/8 and h/8 limit */
 static camera_size_type thumbnail_sizes[] = {
-    { 512, 288 }, //1.777778
-    { 480, 288 }, //1.666667
-    { 256, 154 }, //1.66233
-    { 432, 288 }, //1.5
-    { 512, 384 }, //1.333333
-    { 352, 288 }, //1.222222
-    { 320, 240 }, //1.33333
-    { 176, 144 }, //1.222222
+    { 352, 288 },
+    { 0, 0},
 };
 
+/* Not all resolutions are supported by all USB cameras */
 static struct camera_size_type video_sizes[] = {
-    { 1920, 1088}, //1080p
+    { 1920, 1080}, //1080p
     { 1280, 720}, // 720P,
     { 640, 480}, // VGA
-    { 512, 384},
-    { 480, 320},
     { 352, 288}, //CIF
     { 320, 240}, // QVGA
     { 176, 144}, //QCIF
@@ -161,7 +155,7 @@ static const str_map recording_Hints[] = {
 };
 
 static const str_map focus_modes[] = {
-    { QCameraParameters::FOCUS_MODE_INFINITY, AF_MODE_INFINITY },
+    { QCameraParameters::FOCUS_MODE_NORMAL,   AF_MODE_NORMAL },
 };
 
 /* Static functions list */
@@ -181,6 +175,16 @@ static int usbCamSetJpegQlty(   camera_hardware_t           *camHal,
                                 const QCameraParameters&    params);
 static int setRecordingHint(camera_hardware_t           *camHal,
                             const QCameraParameters&    params);
+static int setPreviewFpsRange(camera_hardware_t           *camHal,
+                            const QCameraParameters&    params);
+static int setFocusMode(    camera_hardware_t           *camHal,
+                            const QCameraParameters&    params);
+static int updateExifData(      camera_hardware_t           *camHal);
+
+static void addExifTag(         camera_hardware_t           *camHal,
+                                exif_tag_id_t               tagid,
+                                exif_tag_type_t type, uint32_t count,
+                                uint8_t copy,           void *data);
 
 /******************************************************************************
  * Function: usbCamInitDefaultParameters
@@ -229,6 +233,7 @@ int usbCamInitDefaultParameters(camera_hardware_t *camHal)
     camHal->vidDimensionsChanged = 0;
     camHal->startPrvwCmdRecvd   = 0;
     camHal->freeVidBufIndx      = 0;
+    camHal->numExifTableEntries = 0;
     strcpy(camHal->recordingHint, "true");
 
     //Set picture size values
@@ -305,7 +310,7 @@ int usbCamInitDefaultParameters(camera_hardware_t *camHal)
                     camHal->vidSizeValues.string());
 
     //set preferred preview size for video to preview size
-    sprintf(tempStr, "%dx%d", camHal->prevWidth, camHal->prevHeight);
+    sprintf(tempStr, "%dx%d", camHal->vidWidth, camHal->vidHeight);
     camHal->qCamParams.set(QCameraParameters::KEY_PREFERRED_PREVIEW_SIZE_FOR_VIDEO, tempStr);
     ALOGD("KEY_PREFERRED_PREVIEW_SIZE_FOR_VIDEO = %s", tempStr);
 
@@ -321,22 +326,9 @@ int usbCamInitDefaultParameters(camera_hardware_t *camHal)
     //Set Video Format
     camHal->qCamParams.set(QCameraParameters::KEY_VIDEO_FRAME_FORMAT, "yuv420sp");
 
-    //Set Overlay Format
-    camHal->qCamParams.set("overlay-format", HAL_PIXEL_FORMAT_YCbCr_420_SP);
-
-	camHal->qCamParams.set(CameraParameters::KEY_MAX_NUM_DETECTED_FACES_HW, 0);
-
-	camHal->qCamParams.set(QCameraParameters::KEY_SMOOTH_ZOOM_SUPPORTED, "false");
-	camHal->qCamParams.set(QCameraParameters::KEY_ZOOM_SUPPORTED, "false");
-	camHal->qCamParams.set(CameraParameters::KEY_VIDEO_SNAPSHOT_SUPPORTED, "false");
-
-	//Set AEC_LOCK
-    camHal->qCamParams.set(CameraParameters::KEY_AUTO_EXPOSURE_LOCK, "false");
-
-	camHal->qCamParams.set(QCameraParameters::KEY_AUTO_EXPOSURE_LOCK_SUPPORTED, "false");
-
-	//Set AWB_LOCK
-    camHal->qCamParams.set(CameraParameters::KEY_AUTO_WHITEBALANCE_LOCK, "false");
+    //Set recording hint
+    strlcpy(camHal->recordingHint, "false", 16);
+    camHal->qCamParams.set(QCameraParameters::KEY_RECORDING_HINT, camHal->recordingHint);
 
     //Set Auto focus modes
     camHal->focusModeValues = create_values_str(
@@ -344,7 +336,45 @@ int usbCamInitDefaultParameters(camera_hardware_t *camHal)
     camHal->qCamParams.set(QCameraParameters::KEY_SUPPORTED_FOCUS_MODES,
                           camHal->focusModeValues);
     camHal->qCamParams.set(QCameraParameters::KEY_FOCUS_MODE,
-                      QCameraParameters::FOCUS_MODE_INFINITY);
+                      QCameraParameters::FOCUS_MODE_NORMAL);
+
+    //Set Overlay Format
+    camHal->qCamParams.set("overlay-format", HAL_PIXEL_FORMAT_YCbCr_420_SP);
+
+    camHal->qCamParams.set(CameraParameters::KEY_MAX_NUM_DETECTED_FACES_HW, 0);
+    camHal->qCamParams.set(QCameraParameters::KEY_SMOOTH_ZOOM_SUPPORTED, "false");
+    camHal->qCamParams.set(QCameraParameters::KEY_ZOOM_SUPPORTED, "false");
+    camHal->qCamParams.set(CameraParameters::KEY_VIDEO_SNAPSHOT_SUPPORTED, "false");
+
+    //Set AEC_LOCK
+    camHal->qCamParams.set(CameraParameters::KEY_AUTO_EXPOSURE_LOCK, "false");
+    camHal->qCamParams.set(QCameraParameters::KEY_AUTO_EXPOSURE_LOCK_SUPPORTED, "false");
+
+    //Set AWB_LOCK
+    camHal->qCamParams.set(CameraParameters::KEY_AUTO_WHITEBALANCE_LOCK, "false");
+
+    //Set dummy Focal length, horizontal and vertical view angles
+    float focalLength = 4.6f;
+    float horizontalViewAngle = 45.0f;
+    float verticalViewAngle = 45.0f;
+    camHal->qCamParams.setFloat(QCameraParameters::KEY_FOCAL_LENGTH,
+                    focalLength);
+    camHal->qCamParams.setFloat(QCameraParameters::KEY_HORIZONTAL_VIEW_ANGLE,
+                    horizontalViewAngle);
+    camHal->qCamParams.setFloat(QCameraParameters::KEY_VERTICAL_VIEW_ANGLE,
+                    verticalViewAngle);
+
+    //Set dummy exposure compensation values
+    camHal->qCamParams.set( QCameraParameters::KEY_EXPOSURE_COMPENSATION, 0);
+    camHal->qCamParams.setFloat(
+        QCameraParameters::KEY_EXPOSURE_COMPENSATION_STEP, 0.0f);
+
+    //Set dummy focus distances
+    camHal->qCamParams.set(QCameraParameters::KEY_FOCUS_DISTANCES,
+                            "1.1,2.2,3.3");
+
+    //Populate Exif data
+    updateExifData(camHal);
 
     ALOGD("%s: X", __func__);
 
@@ -389,6 +419,10 @@ int usbCamSetParameters(camera_hardware_t *camHal, const char *params)
     if(usbCamSetJpegQlty(camHal, qParam))
         rc = -1;
     if(setRecordingHint(camHal, qParam))
+        rc = -1;
+    if(setPreviewFpsRange(camHal, qParam))
+        rc = -1;
+    if(setFocusMode(camHal, qParam))
         rc = -1;
 
     ALOGD("%s: X", __func__);
@@ -454,19 +488,7 @@ void usbCamPutParameters(camera_hardware_t *camHal, char *parms)
     ALOGD("%s: X", __func__);
 } /* usbCamPutParameters */
 
-/******************************************************************************
- * Function: create_sizes_str
- * Description: This function loops through /dev/video entries and probes with
- *              UVCIOC query. If the device responds to the query, then it is
- *              detected as UVC webcam
- * Input parameters:
- *   devname             - String pointer. The function return dev entry
- *                          name in this string
- * Return values:
- *      0   Success
- *      -1  Error
- * Notes: none
- *****************************************************************************/
+/****************************************************************************/
 static String8 create_sizes_str(const camera_size_type *sizes, int len) {
     String8 str;
     char buffer[32];
@@ -482,19 +504,6 @@ static String8 create_sizes_str(const camera_size_type *sizes, int len) {
     return str;
 }
 
-/******************************************************************************
- * Function: create_values_str
- * Description: This function loops through /dev/video entries and probes with
- *              UVCIOC query. If the device responds to the query, then it is
- *              detected as UVC webcam
- * Input parameters:
- *   devname             - String pointer. The function return dev entry
- *                          name in this string
- * Return values:
- *      0   Success
- *      -1  Error
- * Notes: none
- *****************************************************************************/
 static String8 create_values_str(const str_map *values, int len) {
     String8 str;
 
@@ -508,19 +517,6 @@ static String8 create_values_str(const str_map *values, int len) {
     return str;
 }
 
-/******************************************************************************
- * Function: create_fps_str
- * Description: This function loops through /dev/video entries and probes with
- *              UVCIOC query. If the device responds to the query, then it is
- *              detected as UVC webcam
- * Input parameters:
- *   devname             - String pointer. The function return dev entry
- *                          name in this string
- * Return values:
- *      0   Success
- *      -1  Error
- * Notes: none
- *****************************************************************************/
 static String8 create_fps_str(const android:: FPSRange* fps, int len) {
     String8 str;
     char buffer[32];
@@ -536,19 +532,6 @@ static String8 create_fps_str(const android:: FPSRange* fps, int len) {
     return str;
 }
 
-/******************************************************************************
- * Function: create_values_range_str
- * Description: This function loops through /dev/video entries and probes with
- *              UVCIOC query. If the device responds to the query, then it is
- *              detected as UVC webcam
- * Input parameters:
- *   devname             - String pointer. The function return dev entry
- *                          name in this string
- * Return values:
- *      0   Success
- *      -1  Error
- * Notes: none
- *****************************************************************************/
 static String8 create_values_range_str(int min, int max){
     String8 str;
     char buffer[32];
@@ -563,6 +546,17 @@ static String8 create_values_range_str(int min, int max){
         }
     }
     return str;
+}
+
+static int attr_lookup(const str_map arr[], int len, const char *name)
+{
+    if (name) {
+        for (int i = 0; i < len; i++) {
+            if (!strcmp(arr[i].desc, name))
+                return arr[i].val;
+        }
+    }
+    return NOT_FOUND;
 }
 
 /******************************************************************************
@@ -847,11 +841,210 @@ static int setRecordingHint(camera_hardware_t           *camHal,
 
     if(str != NULL){
         strlcpy(camHal->recordingHint, str, 16);
-        camHal->qCamParams.set(QCameraParameters::KEY_RECORDING_HINT, str);
-        ALOGI("%s: recording hint: %s", __func__, str);
-
+        camHal->qCamParams.set(QCameraParameters::KEY_RECORDING_HINT,
+                                camHal->recordingHint);
+        ALOGI("%s: recording hint: %s", __func__, camHal->recordingHint);
     }
     return rc;
+}
+
+/******************************************************************************
+ * Function: setPreviewFpsRange
+ * Description: This function parses preview fps range and validates the
+ *              values
+ *
+ * Input parameters:
+ *  camHal              - camera HAL handle
+ *  params              - QCameraParameters reference
+ *
+ * Return values:
+ *      0   If parameters are valid
+ *      -1  If parameters are invalid
+ *
+ * Notes: none
+ *****************************************************************************/
+static int setPreviewFpsRange(camera_hardware_t           *camHal,
+                            const QCameraParameters&    params)
+{
+    ALOGD("%s: E", __func__);
+    int rc, i, minFps, maxFps, prevMinFps, prevMaxFps, supportedFpsRangesCount;
+    bool found = false;
+
+    camHal->qCamParams.getPreviewFpsRange(&prevMinFps, &prevMaxFps);
+    params.getPreviewFpsRange(&minFps,&maxFps);
+    ALOGI("%s: Requested FpsRange Values:(%d, %d)", __func__, minFps, maxFps);
+
+    supportedFpsRangesCount = sizeof(prevFpsRanges) / sizeof(android::FPSRange);
+    for(i = 0; i < supportedFpsRangesCount ; i++) {
+        if(minFps == prevFpsRanges[i].minFPS &&
+            maxFps == prevFpsRanges[i].maxFPS) {
+            found = true;
+            break;
+        }
+    }
+
+    if(found){
+        camHal->qCamParams.setPreviewFpsRange(minFps,maxFps);
+        rc = 0;
+        if((minFps != prevMinFps) || (maxFps != prevMaxFps)){
+            /* Change in settings detected. Can process here */
+        }
+    }else {
+        ALOGE("%s: Invalid FPS range values:(%d, %d)", __func__, minFps, maxFps);
+        rc = -1;
+    }
+
+    ALOGD("%s: X rc: %d", __func__, rc);
+    return rc;
+}
+
+/******************************************************************************
+ * Function: setFocusMode
+ * Description: This function parses and validates the focus mode parameter
+ *
+ * Input parameters:
+ *  camHal              - camera HAL handle
+ *  params              - QCameraParameters reference
+ *
+ * Return values:
+ *      0   If parameters are valid
+ *      -1  If parameters are invalid
+ *
+ * Notes: none
+ *****************************************************************************/
+static int setFocusMode(camera_hardware_t           *camHal,
+                            const QCameraParameters&    params)
+{
+    int rc = 0;
+    const char *new_str = params.get(QCameraParameters::KEY_FOCUS_MODE);
+    const char *cur_str = camHal->qCamParams.get(QCameraParameters::KEY_FOCUS_MODE);
+
+    ALOGD("%s",__func__);
+
+    if (new_str != NULL) {
+        ALOGI("%s: Requested Focus mode: %s", __func__, new_str);
+
+        int32_t value = attr_lookup(focus_modes,
+                            sizeof(focus_modes) / sizeof(str_map), new_str);
+        if (value == NOT_FOUND) {
+            ALOGE("%s: Invalid focus mode: %s", __func__, new_str);
+            rc = -1;
+        }else{
+            camHal->qCamParams.set(QCameraParameters::KEY_FOCUS_MODE, new_str);
+            rc =0;
+        }
+    }
+
+    ALOGD("%s: X rc = %d", __func__, rc);
+    return rc;
+}
+
+/******************************************************************************
+ * Function: updateExifData
+ * Description: This function updates the exif data in the members exifData
+ *
+ * Input parameters:
+ *  camHal                  - camera HAL handle
+ *
+ * Return values:
+ *   0  No Error
+ *  -1  Error
+ *
+ * Notes: none
+ *****************************************************************************/
+static int updateExifData(camera_hardware_t *camHal)
+{
+    int rc = 0;
+    ALOGD("%s: E", __func__);
+
+    /************************************************************************/
+    /* Update current local time in exif tags                               */
+    /************************************************************************/
+    time_t      rawtime;
+    struct tm*  timeinfo;
+    time(&rawtime);
+    timeinfo    = localtime(&rawtime);
+
+    //Write datetime according to EXIF Spec
+    //"YYYY:MM:DD HH:MM:SS" (20 chars including \0)
+    snprintf(camHal->exifValues.dateTime, 20,
+                "%04d:%02d:%02d %02d:%02d:%02d",
+                timeinfo->tm_year + 1900,
+                timeinfo->tm_mon + 1,
+                timeinfo->tm_mday,
+                timeinfo->tm_hour,
+                timeinfo->tm_min,
+                timeinfo->tm_sec);
+    ALOGD("%s: Exif dateTime: %s", __func__, camHal->exifValues.dateTime);
+
+    addExifTag(camHal, EXIFTAGID_EXIF_DATE_TIME_ORIGINAL, EXIF_ASCII, 20, 1,
+                (void *)camHal->exifValues.dateTime);
+
+    /************************************************************************/
+    /* Update focal length in exif tags                                     */
+    /************************************************************************/
+    int focalLengthValue = (int) (camHal->qCamParams.getFloat(
+                QCameraParameters::KEY_FOCAL_LENGTH) * FOCAL_LENGTH_DECIMAL_PRECISION);
+
+    camHal->exifValues.focalLength = {focalLengthValue, FOCAL_LENGTH_DECIMAL_PRECISION};
+
+    addExifTag(camHal, EXIFTAGID_FOCAL_LENGTH, EXIF_RATIONAL, 1, 1,
+                (void *)&(camHal->exifValues.focalLength));
+
+    /* Update GPS parameters if enabled */
+
+    ALOGD("%s: X rc = %d", __func__, rc);
+    return rc;
+}
+
+/******************************************************************************
+ * Function: addExifTag
+ * Description: This function updates adds one exif tag entry to the exif data
+ *              array
+ *
+ * Input parameters:
+ *  camHal                  - camera HAL handle
+ *
+ * Return values:
+ *   0  No Error
+ *  -1  Error
+ *
+ * Notes: none
+ *****************************************************************************/
+static void addExifTag(camera_hardware_t *camHal, exif_tag_id_t tagid,
+                exif_tag_type_t type, uint32_t count, uint8_t copy, void *data)
+{
+    int rc = 0;
+    ALOGD("%s: E", __func__);
+
+    if(camHal->numExifTableEntries >= MAX_EXIF_TABLE_ENTRIES) {
+        ALOGE("%s: Number of entries exceeded limit", __func__);
+        return;
+    }
+
+    exif_tags_info_t *exifData = &camHal->exifData[camHal->numExifTableEntries];
+
+    exifData->tag_id            = tagid;
+    exifData->tag_entry.type    = type;
+    exifData->tag_entry.count   = count;
+    exifData->tag_entry.copy    = copy;
+    if((type == EXIF_RATIONAL) && (count > 1))
+        exifData->tag_entry.data._rats = (rat_t *)data;
+    if((type == EXIF_RATIONAL) && (count == 1))
+        exifData->tag_entry.data._rat = *(rat_t *)data;
+    else if(type == EXIF_ASCII)
+        exifData->tag_entry.data._ascii = (char *)data;
+    else if(type == EXIF_BYTE)
+        exifData->tag_entry.data._byte = *(uint8_t *)data;
+    else if((type == EXIF_SHORT) && (count > 1))
+        exifData->tag_entry.data._shorts = (uint16_t *)data;
+    else if((type == EXIF_SHORT) && (count == 1))
+        exifData->tag_entry.data._short = *(uint16_t *)data;
+
+    camHal->numExifTableEntries++;
+
+    ALOGD("%s: X rc = %d", __func__, rc);
+    return;
 }
 
 }; /*namespace android */
