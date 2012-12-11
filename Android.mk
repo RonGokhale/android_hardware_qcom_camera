@@ -101,4 +101,6 @@ endif # BUILD_TINY_ANDROID
 endif # BUILD_LIBCAMERA
 endif # BOARD_USES_QCOM_HARDWARE
 endif # USE_CAMERA_STUB
+ifeq ($(call is-board-platform,msm8960),true)
 include $(LOCAL_PATH)/mm-camera-interface/Android.mk
+endif
