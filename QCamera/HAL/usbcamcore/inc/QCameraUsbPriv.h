@@ -151,6 +151,7 @@ typedef struct {
     volatile int                        prvwCmd;
     pthread_t                           previewThread;
     pthread_t                           takePictureThread;
+    pthread_t                           autoFocusThread;
     int                                 startPrvwCmdRecvd;
 
     camera_notify_callback              notify_cb;
@@ -214,7 +215,7 @@ typedef struct {
     QCameraHalHeap_t                    vidMem;
     int                                 freeVidBufIndx;
 
-    /* */
+    /* Parameter strings for get_params call */
     QCameraParameters                   qCamParams;
     String8                             prevSizeValues;
     String8                             pictSizeValues;
@@ -226,6 +227,13 @@ typedef struct {
     String8                             focusModeValues;
     char                                recordingHint[16];
 
+    /* Exif data */
+    //Exif tags for JPEG encoder
+    exif_tags_info_t                    exifData[MAX_EXIF_TABLE_ENTRIES];
+    //Exif values in usable format
+    exif_values_t                       exifValues;
+    //NUmber of entries in mExifData
+    int                                 numExifTableEntries;
 } camera_hardware_t;
 
 
