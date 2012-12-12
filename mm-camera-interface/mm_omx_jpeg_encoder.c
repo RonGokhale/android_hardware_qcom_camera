@@ -507,14 +507,6 @@ int8_t omxJpegEncode(omx_jpeg_encode_params *encode_params)
     ALOGI("%s:%d/n",__func__,__LINE__);
 
 
-    if (encode_params->scaling_params->in2_w &&
-        encode_params->scaling_params->in2_h) {
-        if (jpegRotation) {
-            userpreferences.preference = OMX_JPEG_PREF_SOFTWARE_ONLY;
-            OMX_DBG_INFO("%s:Scaling and roation true: setting pref to sw\n",
-              __func__);
-        }
-
       /* Scaler information  for main image */
         recttype.nWidth = CEILING2(encode_params->scaling_params->in2_w);
         recttype.nHeight = CEILING2(encode_params->scaling_params->in2_h);
@@ -550,7 +542,7 @@ int8_t omxJpegEncode(omx_jpeg_encode_params *encode_params)
 
         }
 
-    } else {
+     else {
         ALOGI("%s: There is no main image scaling information",
           __func__);
     }
