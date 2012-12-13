@@ -1003,6 +1003,10 @@ void QCameraHardwareInterface::initDefaultParameters()
 
     //Set Picture Format
     mParameters.setPictureFormat("jpeg"); // informative
+    uint8_t rawFormatSupport =
+        cam_config_is_parm_supported(mCameraId, MM_CAMERA_PARM_SNAPSHOT_RAW);
+    mParameters.set("raw-format-supported", rawFormatSupport);
+
     mParameters.set(QCameraParameters::KEY_SUPPORTED_PICTURE_FORMATS,
                     mPictureFormatValues);
 
@@ -3349,6 +3353,13 @@ status_t QCameraHardwareInterface::setPictureFormat(const QCameraParameters& par
 {
     const char * str = params.get(QCameraParameters::KEY_PICTURE_FORMAT);
 
+   if( str!= NULL &&
+       !strcmp(str, QCameraParameters::PIXEL_FORMAT_RAW) &&
+        !cam_config_is_parm_supported(mCameraId, MM_CAMERA_PARM_SNAPSHOT_RAW))
+    {
+       // if picture format is RAW and Sensor is YUV, dont set the picture format.
+       return BAD_VALUE;
+    }
     if(str != NULL){
         int32_t value = attr_lookup(picture_formats,
                                     sizeof(picture_formats) / sizeof(str_map), str);
