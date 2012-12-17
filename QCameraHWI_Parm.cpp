@@ -1570,7 +1570,8 @@ status_t QCameraHardwareInterface::setSaturation(const QCameraParameters& params
     if((saturation < CAMERA_MIN_SATURATION)
         || (saturation > CAMERA_MAX_SATURATION))
     return UNKNOWN_ERROR;
-
+    if(saturation !=0)
+       mEffects = 0;
     ALOGV("Setting saturation %d", saturation);
     mParameters.set(QCameraParameters::KEY_QC_SATURATION, saturation);
     ret = native_set_parms(MM_CAMERA_PARM_SATURATION, sizeof(saturation),
@@ -1601,6 +1602,8 @@ status_t QCameraHardwareInterface::setContrast(const QCameraParameters& params)
             return UNKNOWN_ERROR;
         }
         ALOGV("setting contrast %d", contrast);
+        if(value !=0)
+          mEffects = 0;
         mParameters.set(QCameraParameters::KEY_QC_CONTRAST, contrast);
         ALOGE("Calling Contrast set on Lower layer");
         bool ret = native_set_parms(MM_CAMERA_PARM_CONTRAST, sizeof(contrast),
