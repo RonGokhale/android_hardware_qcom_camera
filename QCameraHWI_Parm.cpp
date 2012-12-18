@@ -2126,6 +2126,7 @@ status_t QCameraHardwareInterface::setSceneMode(const QCameraParameters& params)
     ALOGE("%s",__func__);
 
     rc = cam_config_is_parm_supported(mCameraId, MM_CAMERA_PARM_BESTSHOT_MODE);
+    mParameters.set("Scenemode-supported", rc);
     if(!rc) {
         ALOGE("%s:Parameter Scenemode is not supported for this sensor", __func__);
         return NO_ERROR;
