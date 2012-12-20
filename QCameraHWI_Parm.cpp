@@ -1451,13 +1451,13 @@ status_t QCameraHardwareInterface::setParameters(const QCameraParameters& params
         if ((rc = setAutoExposure(params)))             final_rc = rc;
         if ((rc = setExposureCompensation(params)))     final_rc = rc;
         if ((rc = setWhiteBalance(params)))             final_rc = rc;
-        if ((rc = setFlash(params)))                    final_rc = rc;
         if ((rc = setFocusMode(params)))                final_rc = rc;
         if ((rc = setBrightness(params)))               final_rc = rc;
         if ((rc = setISOValue(params)))                 final_rc = rc;
         if ((rc = setFocusAreas(params)))               final_rc = rc;
         if ((rc = setMeteringAreas(params)))            final_rc = rc;
     }
+    if ((rc = setFlash(params)))                        final_rc = rc;
     //selectableZoneAF needs to be invoked after continuous AF
     if ((rc = setSelectableZoneAf(params)))             final_rc = rc;
     // setHighFrameRate needs to be done at end, as there can
@@ -2195,18 +2195,26 @@ status_t QCameraHardwareInterface::setEffect(const QCameraParameters& params)
 {
     ALOGE("%s",__func__);
     status_t rc = NO_ERROR;
+    const char *SCNstr = params.get(QCameraParameters::KEY_SCENE_MODE);
     const char *str = params.get(QCameraParameters::KEY_EFFECT);
     int result;
     if (str != NULL) {
         ALOGE("Setting effect %s",str);
-        int32_t value = attr_lookup(effects, sizeof(effects) / sizeof(str_map), str);
+        int32_t value;
+        if(!strcmp(SCNstr, QCameraParameters::SCENE_MODE_AUTO))
+            value = attr_lookup(effects, sizeof(effects) / sizeof(str_map), str);
+        else
+            value = attr_lookup(effects, sizeof(effects) / sizeof(str_map), QCameraParameters::EFFECT_NONE);
         if (value != NOT_FOUND) {
            rc = cam_config_is_parm_supported(mCameraId, MM_CAMERA_PARM_EFFECT);
            if(!rc) {
                ALOGE("Camera Effect - %s mode is not supported for this sensor",str);
                return NO_ERROR;
            }else {
-               mParameters.set(QCameraParameters::KEY_EFFECT, str);
+               if(!strcmp(SCNstr, QCameraParameters::SCENE_MODE_AUTO))
+                   mParameters.set(QCameraParameters::KEY_EFFECT, str);
+               else
+                   mParameters.set(QCameraParameters::KEY_EFFECT, QCameraParameters::EFFECT_NONE);
                ALOGE("Setting effect to lower HAL : %d",value);
                bool ret = native_set_parms(MM_CAMERA_PARM_EFFECT, sizeof(value),
                                            (void *)&value,(int *)&result);
@@ -2909,10 +2917,22 @@ status_t QCameraHardwareInterface::setFlash(const QCameraParameters& params)
     }
 
     const char *str = params.get(QCameraParameters::KEY_FLASH_MODE);
+    const char *strSCN = params.get(QCameraParameters::KEY_SCENE_MODE);
+    ALOGE("Flash mode:%s, SCN mode:%s", str, strSCN);
     if (str != NULL) {
-        int32_t value = attr_lookup(flash, sizeof(flash) / sizeof(str_map), str);
+        int32_t value;
+        if(strcmp(strSCN, QCameraParameters::SCENE_MODE_AUTO)) {
+            ALOGE("SCN mode isn't auto, set Flash mode to off!");
+            value = attr_lookup(flash, sizeof(flash) / sizeof(str_map), QCameraParameters::FLASH_MODE_OFF);
+        }
+        else {
+            value = attr_lookup(flash, sizeof(flash) / sizeof(str_map), str);
+        }
         if (value != NOT_FOUND) {
-            mParameters.set(QCameraParameters::KEY_FLASH_MODE, str);
+            if(strcmp(strSCN, QCameraParameters::SCENE_MODE_AUTO))
+                mParameters.set(QCameraParameters::KEY_FLASH_MODE, QCameraParameters::FLASH_MODE_OFF);
+            else
+                mParameters.set(QCameraParameters::KEY_FLASH_MODE, str);
             bool ret = native_set_parms(MM_CAMERA_PARM_LED_MODE,
                                        sizeof(value), (void *)&value);
             return ret ? NO_ERROR : UNKNOWN_ERROR;
