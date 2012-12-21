@@ -1,4 +1,4 @@
-ifneq ($(USE_CAMERA_STUB),true)
+ifneq ($(USE_CAMERA_STUB),false)
     # When zero we link against libmmcamera; when 1, we dlopen libmmcamera.
     DLOPEN_LIBMMCAMERA:=1
     ifneq ($(BUILD_TINY_ANDROID),true)
@@ -139,8 +139,8 @@ ifneq ($(USE_CAMERA_STUB),true)
       include $(BUILD_SHARED_LIBRARY)
 
     endif # BUILD_TINY_ANDROID
-endif # USE_CAMERA_STUB
 
 ifeq ($(V4L2_BASED_LIBCAM),true)
 include $(LOCAL_PATH)/mm-camera-interface/Android.mk
 endif
+endif # USE_CAMERA_STUB
