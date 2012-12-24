@@ -481,6 +481,37 @@ String8 QCameraHardwareInterface::create_values_str(const str_map *values, int l
     return str;
 }
 
+String8 QCameraHardwareInterface::create_filter_values_str(const str_map *values, int len,
+	struct camera_str_map_type* supported_values, int supported_len) {
+    String8 str;
+    int i = 0; //pos for values
+    int j = 0; //pos for supported_values
+
+    if(supported_len <= 0 || len <= 0)
+		return str;
+
+    //get the first value
+    for(i = 0; i < len; i++){
+        if(values[i].val == supported_values[0].value){
+            str.append(values[i].desc);
+            break;
+        }
+    }
+
+    for(j = 1; j < supported_len; j++){
+        for(; i < len; i++){
+            if(values[i].val == supported_values[j].value){
+                str.append(",");
+                str.append(values[i].desc);
+                break;
+            }
+        }
+    }
+
+    return str;
+}
+
+
 static String8 create_fps_str(const android:: FPSRange* fps, int len) {
     String8 str;
     char buffer[32];
@@ -826,7 +857,40 @@ void QCameraHardwareInterface::initDefaultParameters()
             lensshade,sizeof(lensshade)/sizeof(str_map));
         mMceValues = create_values_str(
             mce,sizeof(mce)/sizeof(str_map));
-        mEffectValues = create_values_str(effects, sizeof(effects) / sizeof(str_map));
+
+        ret = cam_config_get_parm(mCameraId,
+            MM_CAMERA_PARM_EFFECT_CNT, &effects_count);
+        default_str_map_tbl_t effect_str_map_tbl;
+        effect_str_map_tbl.tbl_size = effects_count;
+        effect_str_map_tbl.str_map_tbl= &default_effects[0];
+
+        bool effects_ok = FALSE;
+        if(MM_CAMERA_OK != cam_config_get_parm(mCameraId,
+                            MM_CAMERA_PARM_DEF_EFFECTS, &effect_str_map_tbl)){
+            ALOGE("%s:Failed to get default effects ",__func__);
+
+           //If sensor did not define color effects, set default effects here
+           if(!effect_str_map_tbl.tbl_size)
+           {
+              int effects_size = sizeof(effects) / sizeof(str_map);
+              int default_size = MIN(EFFECT_TABLE_MAX_SIZE,effects_size);
+
+              for(int i = 0; i < default_size ; i++)
+                default_effects[i].value = effects[i].val;
+
+              effect_str_map_tbl.tbl_size = effects_count = default_size;
+              effects_ok = TRUE;
+           }
+        }
+        else
+            effects_ok = TRUE;
+
+        if(effects_ok) {
+            mEffectValues = create_filter_values_str(effects, sizeof(effects) / sizeof(str_map),
+				default_effects, effects_count);
+            ALOGV("%s, mEffectValues =%s ",__func__, mEffectValues.string());
+        }
+
         mAntibandingValues = create_values_str(
             antibanding, sizeof(antibanding) / sizeof(str_map));
         mIsoValues = create_values_str(iso,sizeof(iso)/sizeof(str_map));

@@ -208,6 +208,7 @@ typedef struct {
   uint32_t default_preview_width;
   uint32_t default_preview_height;
   uint32_t bestshot_reconfigure;
+  uint32_t effects_cnt;
 }cam_prop_t;
 
 typedef struct {
@@ -359,6 +360,7 @@ typedef enum {
     MM_CAMERA_PARM_MAX_HFR_MODE, /* 80 */
     MM_CAMERA_PARM_MAX_VIDEO_SIZE,
     MM_CAMERA_PARM_DEF_PREVIEW_SIZES,
+    MM_CAMERA_PARM_DEF_EFFECTS,
     MM_CAMERA_PARM_DEF_VIDEO_SIZES,
     MM_CAMERA_PARM_DEF_THUMB_SIZES,
     MM_CAMERA_PARM_DEF_HFR_SIZES,
@@ -366,6 +368,7 @@ typedef enum {
     MM_CAMERA_PARM_VIDEO_SIZES_CNT,
     MM_CAMERA_PARM_THUMB_SIZES_CNT,
     MM_CAMERA_PARM_HFR_SIZES_CNT,
+    MM_CAMERA_PARM_EFFECT_CNT,
     MM_CAMERA_PARM_GRALLOC_USAGE,
     MM_CAMERA_PARM_VFE_OUTPUT_ENABLE, //to check whether both oputputs are
     MM_CAMERA_PARM_DEFAULT_PREVIEW_WIDTH,
@@ -520,6 +523,7 @@ typedef enum {
   CAMERA_SET_CHANNEL_STREAM,
   CAMERA_GET_CHANNEL_STREAM,
   CAMERA_GET_FACIAL_FEATURE_INFO,
+  CAMERA_GET_PARM_DEF_EFFECTS,
   CAMERA_CTRL_PARM_MAX
 } cam_ctrl_type;
 
@@ -723,6 +727,10 @@ struct camera_size_type {
   int height;
 };
 #endif
+
+struct camera_str_map_type{
+  int value;
+};
 
 typedef struct {
   uint32_t yoffset;
