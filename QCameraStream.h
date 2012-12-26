@@ -133,8 +133,9 @@ public:
     camera_mode_t myMode;
 
     mutable Mutex mStopCallbackLock;
+
     mutable Mutex mPreviewFrameLock;
-	int     mSnapshotDataCallingBack;
+    int     mSnapshotDataCallingBack;
     int     mFreeSnapshotBufAfterDataCb;
 private:
    StreamQueue mBusyQueue;
@@ -355,6 +356,7 @@ private:
     void setModeLiveSnapshot(bool);
     bool isLiveSnapshot(void);
     void stopPolling(void);
+    void stopCapture(void);
     bool isFullSizeLiveshot(void);
     status_t doWaveletDenoise(mm_camera_ch_data_buf_t* frame);
     status_t sendWDenoiseStartMsg(mm_camera_ch_data_buf_t * frame);
@@ -408,6 +410,13 @@ private:
     bool                    mIsDoingWDN; // flag to indicate if WDN is going on (one frame is sent out for WDN)
 	bool                    mDropThumbnail;
 	int                     mJpegQuality;
+
+    int hdrRawCount;
+
+    bool                    mIsRawChAcquired;
+    bool                    mIsJpegChAcquired;
+    mutable Mutex           mSnapLock;
+
 }; // QCameraStream_Snapshot
 
 

@@ -1572,14 +1572,11 @@ status_t QCameraHardwareInterface::cancelPictureInternal()
 {
     ALOGI("cancelPictureInternal: E");
     status_t ret = MM_CAMERA_OK;
-    if(mCameraState != CAMERA_STATE_READY) {
-        if(mStreamSnap) {
-            mStreamSnap->stop();
-            mCameraState = CAMERA_STATE_SNAP_STOP_CMD_SENT;
-        }
-    } else {
-        ALOGE("%s: Cannot process cancel picture as snapshot is already done",__func__);
+    if(mStreamSnap) {
+        mStreamSnap->stop();
+        mCameraState = CAMERA_STATE_SNAP_STOP_CMD_SENT;
     }
+
     ALOGI("cancelPictureInternal: X");
     return ret;
 }
@@ -1718,6 +1715,14 @@ status_t  QCameraHardwareInterface::takePicture()
     uint32_t stream_info;
     int mNuberOfVFEOutputs = 0;
     Mutex::Autolock lock(mLock);
+
+    // if we have liveSnapshot instance,
+    // we need to delete it here to release teh channel it acquires
+    if (mStreamLiveSnap){
+        ALOGE("%s:Deleting old Snapshot stream instance",__func__);
+        QCameraStream_Snapshot::deleteInstance (mStreamLiveSnap);
+        mStreamLiveSnap = NULL;
+    }
 
     mStreamSnap->resetSnapshotCounters( );
     switch(mPreviewState) {
