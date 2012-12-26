@@ -580,6 +580,7 @@ private:
     status_t setEffect(const QCameraParameters& params);
     status_t setExposureCompensation(const QCameraParameters &params);
     status_t setAutoExposure(const QCameraParameters& params);
+	status_t setAutoContrast(const QCameraParameters& params);
     status_t setWhiteBalance(const QCameraParameters& params);
     status_t setFlash(const QCameraParameters& params);
     status_t setGpsLocation(const QCameraParameters& params);

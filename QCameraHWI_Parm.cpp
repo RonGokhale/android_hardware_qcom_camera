@@ -1368,6 +1368,8 @@ void QCameraHardwareInterface::initDefaultParameters()
        mParameters.set(QCameraParameters::KEY_QC_SINGLE_ISP_OUTPUT_ENABLED, "false");
     }
 
+	mParameters.set(QCameraParameters::KEY_QC_AUTO_CONTRAST, "0"); /// JIT
+
     mFaceZoomEnabled = FALSE;
     mParameters.set("display_mode","portrait");
     mParameters.set("face_position","(-1,-1)");
@@ -1486,6 +1488,8 @@ status_t QCameraHardwareInterface::setParameters(const QCameraParameters& params
     if ((rc = setZSLBurstLookBack(params))) final_rc = rc;
     if ((rc = setZSLBurstInterval(params))) final_rc = rc;
     if ((rc = setNoDisplayMode(params))) final_rc = rc;
+	if ((rc = setAutoContrast(params))) final_rc = rc;
+	if (rc) ALOGE("[%d][setAutoContrast rc::%d]", __LINE__, rc);
 
     //Update Exiftag values.
     setExifTags();
@@ -2431,6 +2435,16 @@ status_t QCameraHardwareInterface::setBrightness(const QCameraParameters& params
     return NO_ERROR;
 }
 
+status_t QCameraHardwareInterface::setAutoContrast(const QCameraParameters& params)
+{
+    int autoContrast = params.getInt(QCameraParameters::KEY_QC_AUTO_CONTRAST);
+    ALOGE("********JIT*********** autoContrast = %d ",autoContrast);
+    mParameters.set(QCameraParameters::KEY_QC_AUTO_CONTRAST, autoContrast);
+    bool ret = native_set_parms(MM_CAMERA_PARM_AUTO_CONTRAST, sizeof(autoContrast),(void *)&autoContrast);
+    ALOGI("@@@ auto contrast :: %d]", autoContrast);
+
+    return ret ? NO_ERROR : UNKNOWN_ERROR;
+}
 status_t QCameraHardwareInterface::setAutoExposure(const QCameraParameters& params)
 {
 
