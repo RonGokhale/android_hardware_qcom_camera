@@ -201,9 +201,9 @@ static const str_map effects[] = {
     { QCameraParameters::EFFECT_EMBOSS,     CAMERA_EFFECT_EMBOSS },
     { QCameraParameters::EFFECT_SKETCH,     CAMERA_EFFECT_SKETCH },
     { QCameraParameters::EFFECT_NEON,       CAMERA_EFFECT_NEON },
-    { QCameraParameters::EFFECT_FADED,      	CAMERA_EFFECT_FADED },
-    { QCameraParameters::EFFECT_VINTAGECOOL,	CAMERA_EFFECT_VINTAGECOOL},
-    { QCameraParameters::EFFECT_VINTAGEWARM,	CAMERA_EFFECT_VINTAGEWARM },
+    { QCameraParameters::EFFECT_FADED,          CAMERA_EFFECT_FADED },
+    { QCameraParameters::EFFECT_VINTAGECOOL,    CAMERA_EFFECT_VINTAGECOOL},
+    { QCameraParameters::EFFECT_VINTAGEWARM,    CAMERA_EFFECT_VINTAGEWARM },
     { QCameraParameters::EFFECT_ACCENT_BLUE,    CAMERA_EFFECT_ACCENT_BLUE },
     { QCameraParameters::EFFECT_ACCENT_GREEN,   CAMERA_EFFECT_ACCENT_GREEN },
     { QCameraParameters::EFFECT_ACCENT_ORANGE,  CAMERA_EFFECT_ACCENT_ORANGE },
@@ -1409,6 +1409,9 @@ status_t QCameraHardwareInterface::setParameters(const QCameraParameters& params
     ALOGI("%s: E", __func__);
 //    Mutex::Autolock l(&mLock);
     status_t rc, final_rc = NO_ERROR;
+#if defined(SAMSUNG_CAMERA)
+    if ((rc = setIntelligentMode(params)))          final_rc = rc;
+#endif
 
     if ((rc = setCameraMode(params)))                   final_rc = rc;
     if ((rc = setPowerMode(params)))                    final_rc = rc;
@@ -1542,6 +1545,7 @@ status_t QCameraHardwareInterface::runFaceDetection()
         int requested_faces = mParameters.getInt(QCameraParameters::KEY_QC_MAX_NUM_REQUESTED_FACES);
         fd_set_parm.fd_mode = value;
         fd_set_parm.num_fd = requested_faces;
+        fd_set_parm.fd_roi_en = 0;  // MAK
         ret = native_set_parms(MM_CAMERA_PARM_FD, sizeof(fd_set_parm_t), (void *)&fd_set_parm);
         return ret ? NO_ERROR : UNKNOWN_ERROR;
     }
@@ -1549,6 +1553,163 @@ status_t QCameraHardwareInterface::runFaceDetection()
     return BAD_VALUE;
 }
 
+#if defined(SAMSUNG_CAMERA)
+status_t QCameraHardwareInterface::setIntelligentMode(const CameraParameters& params)
+{
+    int val = params.getInt("intelligent-mode");
+    //int old_val = mParameters.getInt("intelligent-mode");
+
+    if (val == NOT_FOUND) {
+        ALOGE("%s: not used setting : %d", __func__, val);
+        return NO_ERROR;
+    }
+
+    if (mInitialized && (mIntelligentMode == val)) {
+        ALOGE("%s: intelligent mode same as previous mode %d", __func__, mIntelligentMode);
+        return NO_ERROR;
+    }
+    ALOGW("@@@ mIntelligentMode = %d, new val = %d",mIntelligentMode,val);
+    ALOGV("%s: %d -> %d", __func__, mIntelligentMode, val);
+/*
+    if (val == 1)
+        mSmartstay = true;
+    else
+        mSmartstay = false;
+*/
+    //mParameters.set("intelligent-mode", val);
+    mIntelligentMode = val;
+
+    return NO_ERROR;
+}
+
+/*
+  * set detected face(s) information.
+  */
+void QCameraHardwareInterface::setFacesInfo(camera_frame_metadata_t *facesInfo)
+{
+    ALOGD("setFacesInfo : number_of_faces = %d",facesInfo->number_of_faces);
+    if (facesInfo->number_of_faces > MAX_FD_NUM)
+    ALOGW("setFacesInfo : faces are detected more than max FD");
+    mSecFaceData.number_of_faces = facesInfo->number_of_faces;
+    //mSecFaceData.faces = facesInfo->faces;
+    /* we have to copy face data to avoid invalid data access */
+    for(int i=0 ; i < facesInfo->number_of_faces ; i++) {
+    mSecFaceData.faces[i].id = facesInfo->faces[i].id;
+    mSecFaceData.faces[i].rect[0] = facesInfo->faces[i].rect[0];
+    mSecFaceData.faces[i].rect[1] = facesInfo->faces[i].rect[1];
+    mSecFaceData.faces[i].rect[2] = facesInfo->faces[i].rect[2];
+    mSecFaceData.faces[i].rect[3] = facesInfo->faces[i].rect[3];
+    }
+// MAK Start
+    // AF ROI
+    roi_info_t af_roi_value;
+    uint16_t x1, x2, y1, y2, dx, dy;
+    int previewWidth, previewHeight;
+
+    memset(&af_roi_value, 0, sizeof(roi_info_t));
+    this->getPreviewSize(&previewWidth, &previewHeight);
+
+    //transform the coords from (-1000, 1000) to (0, previewWidth or previewHeight)
+    x1 = (uint16_t)((mSecFaceData.faces[0].rect[0] + 1000.0f)*(previewWidth/2000.0f));
+    y1 = (uint16_t)((mSecFaceData.faces[0].rect[1] + 1000.0f)*(previewHeight/2000.0f));
+    x2 = (uint16_t)((mSecFaceData.faces[0].rect[2] + 1000.0f)*(previewWidth/2000.0f));
+    y2 = (uint16_t)((mSecFaceData.faces[0].rect[3] + 1000.0f)*(previewHeight/2000.0f));
+    dx = x2 - x1;
+    dy = y2 - y1;
+
+    ALOGD("AF ROI (%d, %d, %d, %d)", x1, y1, dx, dy);
+
+    af_roi_value.num_roi = facesInfo->number_of_faces;
+    af_roi_value.roi[0].x = x1;
+    af_roi_value.roi[0].y = y1;
+    af_roi_value.roi[0].dx = dx;
+    af_roi_value.roi[0].dy = dy;
+    af_roi_value.is_multiwindow = 0;
+
+    if (!native_set_parms(MM_CAMERA_PARM_AF_ROI, sizeof(roi_info_t), (void*)&af_roi_value)) {
+        ALOGE("AF ROI failed");
+    }
+
+    // AEC ROI
+    cam_set_aec_roi_t aec_roi_value;
+
+    const int FILTER_SIZE=20;
+    static cam_coordinate_type_t xy[FILTER_SIZE]={0,0}, xy_old = {0,0};
+    static int rIdx=0, fIdx=1, roi_en[FILTER_SIZE];
+    int tmp_en=0;
+    uint16_t tmp_x=0,tmp_y=0;
+
+    tmp_x = (x1+x2)/2;
+    tmp_y = (y1+y2)/2;
+
+    if(facesInfo->number_of_faces > 0)
+    {
+        if(((tmp_x - xy_old.x)*(tmp_x - xy_old.x)) + ((tmp_y - xy_old.y)*(tmp_y - xy_old.y)) > 5625)    //(75^2)
+        {
+            rIdx = 0;
+            fIdx = 1;
+            memset(xy, 0, FILTER_SIZE*sizeof(cam_coordinate_type_t));
+            memset(roi_en, 0, FILTER_SIZE*sizeof(int));
+            xy_old.x=0;
+            xy_old.y=0;
+        }
+        else if(fIdx < FILTER_SIZE)
+        {
+            fIdx++;
+        }
+        xy[rIdx].x = tmp_x;
+        xy[rIdx].y = tmp_y;
+        roi_en[rIdx] = 1;
+    }
+    else
+    {
+        roi_en[rIdx] = 0;
+    }
+
+    tmp_x = tmp_y = 0;
+    for(int i=0; i<fIdx; i++)
+    {
+        tmp_x += xy[i].x;
+        tmp_y += xy[i].y;
+        tmp_en += roi_en[i];
+    }
+
+    xy_old.x = tmp_x/fIdx;
+    xy_old.y = tmp_y/fIdx;
+
+    aec_roi_value.aec_roi_position.coordinate.x = xy_old.x;
+    aec_roi_value.aec_roi_position.coordinate.y = xy_old.y;
+    aec_roi_value.aec_roi_type = AEC_ROI_BY_COORDINATE;
+
+    if((tmp_en/fIdx)>0.1)
+        aec_roi_value.aec_roi_enable = AEC_ROI_ON;
+    else
+        aec_roi_value.aec_roi_enable = AEC_ROI_OFF;
+
+    rIdx++;
+    if(rIdx == FILTER_SIZE)
+        rIdx = 0;
+
+    fd_set_parm_t fd_set_parm;
+    int value = attr_lookup(facedetection, sizeof(facedetection) / sizeof(str_map), "on");
+    fd_set_parm.fd_mode = value;
+    fd_set_parm.num_fd = 1;
+    fd_set_parm.x = x1;
+    fd_set_parm.y = y1;
+    fd_set_parm.dx = dx;
+    fd_set_parm.dy = dy;
+
+    if((tmp_en/fIdx)>0.1)
+        fd_set_parm.fd_roi_en = 1;
+    else
+        fd_set_parm.fd_roi_en = 0;
+
+    if(!native_set_parms(MM_CAMERA_PARM_FD, sizeof(fd_set_parm_t), (void *)&fd_set_parm))
+        ALOGE(" %s Set Param FD failed ", __func__);
+
+// MAK End
+}
+#endif
 status_t QCameraHardwareInterface::setSharpness(const QCameraParameters& params)
 {
     bool ret = false;
@@ -3092,6 +3253,7 @@ status_t QCameraHardwareInterface::setFaceDetect(const QCameraParameters& params
         mFaceDetectOn = value;
         fd_set_parm.fd_mode = value;
         fd_set_parm.num_fd = requested_faces;
+        fd_set_parm.fd_roi_en = 0;  //MAK
         ALOGE("%s Face detection value = %d, num_fd = %d",__func__, value, requested_faces);
         native_set_parms(MM_CAMERA_PARM_FD, sizeof(fd_set_parm_t), (void *)&fd_set_parm);
         mParameters.set(QCameraParameters::KEY_QC_FACE_DETECTION, str);
@@ -3117,6 +3279,7 @@ status_t QCameraHardwareInterface::setFaceDetection(const char *str)
             mMetaDataWaitLock.unlock();
             fd_set_parm.fd_mode = value;
             fd_set_parm.num_fd = requested_faces;
+            fd_set_parm.fd_roi_en = 0;  //MAK
             ALOGE("%s Face detection value = %d, num_fd = %d",__func__, value, requested_faces);
             native_set_parms(MM_CAMERA_PARM_FD, sizeof(fd_set_parm_t), (void *)&fd_set_parm);
             mParameters.set(QCameraParameters::KEY_QC_FACE_DETECTION, str);

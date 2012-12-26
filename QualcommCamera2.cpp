@@ -99,6 +99,10 @@ camera_device_ops_t camera_ops = {
   take_picture:               android::take_picture,
   cancel_picture:             android::cancel_picture,
 
+#if defined (SEC_PRODUCT_FEATURE_CAMERA_SHOOTINGMODE_SW_FACEDETECT)
+  send_face_data:             android::send_face_data,
+#endif
+
   set_parameters:             android::set_parameters,
   get_parameters:             android::get_parameters,
   put_parameters:             android::put_parameters,
@@ -428,6 +432,18 @@ int cancel_picture(struct camera_device * device)
     }
     return rc;
 }
+
+#if defined (SEC_PRODUCT_FEATURE_CAMERA_SHOOTINGMODE_SW_FACEDETECT)
+void send_face_data(struct camera_device * device,
+            camera_frame_metadata_t *facesInfo)
+{
+    ALOGE("Q%s: E", __func__);
+    QCameraHardwareInterface *hardware = util_get_Hal_obj(device);
+    if(hardware != NULL){
+        hardware->setFacesInfo(facesInfo);
+    }
+}
+#endif
 
 int set_parameters(struct camera_device * device, const char *parms)
 

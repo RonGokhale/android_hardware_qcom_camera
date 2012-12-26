@@ -421,6 +421,9 @@ public:
      */
     void release();
 
+#if defined(SAMSUNG_CAMERA)
+    void setFacesInfo(camera_frame_metadata_t *facesInfo);
+#endif
     /**
      * Dump state of the camera hardware
      */
@@ -620,6 +623,7 @@ private:
     status_t setPowerMode(const QCameraParameters& params);
     void takePicturePrepareHardware( );
     status_t setNoDisplayMode(const QCameraParameters& params);
+    status_t setIntelligentMode(const CameraParameters& params);
 
     isp3a_af_mode_t getAutoFocusMode(const QCameraParameters& params);
     bool isValidDimension(int w, int h);
