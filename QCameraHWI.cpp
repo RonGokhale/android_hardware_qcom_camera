@@ -2395,7 +2395,7 @@ int QCameraHardwareInterface::allocate_ion_memory(
   int rc = 0;
   struct ion_handle_data handle_data;
 
-  if (caching_type == CACHED) {
+  if (caching_type == ION_FLAG_CACHED) {
       p_camera_memory->main_ion_fd[cnt] = open("/dev/ion", O_RDONLY);
   } else {
       p_camera_memory->main_ion_fd[cnt] = open("/dev/ion", O_RDONLY | O_DSYNC);
@@ -2578,10 +2578,10 @@ int QCameraHardwareInterface::initHeapMem( QCameraHalHeap_t *heap,
 #ifdef USE_ION
       if (isZSLMode())
         rc = allocate_ion_memory(heap, i, ((0x1 << CAMERA_ZSL_ION_HEAP_ID) |
-         (0x1 << CAMERA_ZSL_ION_FALLBACK_HEAP_ID)), CACHED);
+         (0x1 << CAMERA_ZSL_ION_FALLBACK_HEAP_ID)), ION_FLAG_CACHED);
       else
         rc = allocate_ion_memory(heap, i, ((0x1 << CAMERA_ION_HEAP_ID) |
-         (0x1 << CAMERA_ION_FALLBACK_HEAP_ID)), CACHED);
+         (0x1 << CAMERA_ION_FALLBACK_HEAP_ID)), ION_FLAG_CACHED);
 
       if (rc < 0) {
         ALOGE("%sION allocation failed..fallback to ashmem\n", __func__);
