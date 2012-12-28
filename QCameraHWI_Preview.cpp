@@ -383,7 +383,7 @@ status_t   QCameraStream_preview::freeBufferNoDisplay()
   ALOGI(" %s : X ",__FUNCTION__);
   return NO_ERROR;
 }
-
+#if 0 //comented for MR1 bringup
 void QCameraStream_preview::notifyROIEvent(fd_roi_t roi)
 {
     switch (roi.type) {
@@ -503,6 +503,12 @@ void QCameraStream_preview::notifyROIEvent(fd_roi_t roi)
         break;
     }
 }
+#endif
+void QCameraStream_preview::notifyROIEvent(fd_roi_t roi) {
+  ALOGI("%s Dummy function implementation ", __func__);
+  return;
+}
+
 
 status_t QCameraStream_preview::initDisplayBuffers()
 {
