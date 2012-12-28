@@ -457,7 +457,6 @@ status_t QCameraHardwareInterface::sendCommand(int32_t command, int32_t arg1,
     status_t rc = NO_ERROR;
     Mutex::Autolock l(&mLock);
     switch (command) {
-#if 0
         case CAMERA_CMD_HISTOGRAM_ON:
             rc = setHistogram(1);
             break;
@@ -468,6 +467,7 @@ status_t QCameraHardwareInterface::sendCommand(int32_t command, int32_t arg1,
             mSendData = true;
             rc = NO_ERROR;
             break;
+#if 0
         case CAMERA_CMD_START_FACE_DETECTION:
            // maximum number of detected faces > 0 to process this command
            if(strcmp(mParameters.get(CameraParameters::KEY_MAX_NUM_DETECTED_FACES_HW), "0") == 0)
@@ -822,7 +822,6 @@ void  QCameraHardwareInterface::processStatsEvent(
     switch (event->event_id) {
         case MM_CAMERA_STATS_EVT_HISTO:
         {
-        #if 0
             ALOGE("HAL process Histo: mMsgEnabled=0x%x, mStatsOn=%d, mSendData=%d, mDataCb=%p ",
             (mMsgEnabled & CAMERA_MSG_STATS_DATA), mStatsOn, mSendData, mDataCb);
             int msgEnabled = mMsgEnabled;
@@ -847,7 +846,6 @@ void  QCameraHardwareInterface::processStatsEvent(
                 app_cb->argm_data_cb.metadata = NULL;
                 app_cb->argm_data_cb.cookie =  mCallbackCookie;
             }
-         #endif
             break;
         }
         default:
