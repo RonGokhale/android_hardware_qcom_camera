@@ -815,6 +815,63 @@ void QCameraStream_preview::dumpFrameToFile(struct msm_frame* newFrame)
   }
 }
 
+status_t  QCameraStream_preview::convert_ycrcb420_to_yv12(mm_camera_ch_data_buf_t *frame)
+{
+  unsigned int dy = mHalCamCtrl->mPreviewHeight;
+  unsigned int dx = mHalCamCtrl->mPreviewWidth;
+  unsigned int y_size = dx*dy;
+  unsigned int c_size = (dx/2)*(dy/2);
+  unsigned long buffer = frame->def.frame->buffer;
+  unsigned int y_off = frame->def.frame->y_off;
+  unsigned int cbcr_off = frame->def.frame->cbcr_off;
+
+  unsigned char* chroma = (unsigned char*) (buffer+y_off+cbcr_off);
+  unsigned int tempbufsize = c_size*2;
+  unsigned char* tempbuf = (unsigned char*)malloc(tempbufsize);
+  unsigned int i = 0;
+  unsigned int j = 0;
+  unsigned int k = 0;
+
+  unsigned int   stride = mHalCamCtrl->mPreviewWidth;
+  unsigned int   c_width = ((stride/2 + 15)/16) * 16;
+  unsigned int   c_height = mHalCamCtrl->mPreviewHeight;
+  unsigned int   c_size_rounded = c_width * (c_height/2);
+
+  ALOGI("%s, width=%d, height=%d", __func__, mHalCamCtrl->mPreviewWidth, mHalCamCtrl->mPreviewHeight);
+  ALOGI("%s, y_size=%d, c_size=%d, buffer=%d, y_off=%d, cbcr_off=%d, tempbufsize=%d", __func__, y_size, c_size, buffer, y_off, cbcr_off, tempbufsize);
+  memcpy(tempbuf,chroma,tempbufsize);
+
+  if(mHalCamCtrl->mPreviewWidth%32==0)
+  {
+    for(i=0;i<tempbufsize/2;i++)
+    {
+      chroma[i] = tempbuf[2*i];
+      chroma[i+tempbufsize/2] = tempbuf[2*i+1];
+    }
+  }
+  else
+  {
+    for(i=0;i<c_height/2;i++)
+    {
+        for(j=0;j<stride/2;j++)
+        {
+           chroma[i*c_width+j] = tempbuf[i*stride + 2*j];
+           chroma[i*c_width+c_size_rounded+j] = tempbuf[i*stride + 2*j + 1];
+        }
+        for(k=stride/2;k<c_width;k++) // Padding the remaining (c_width - stride/2) with zero
+        {
+           chroma[i*c_width+k] = 0;
+           chroma[i*c_width+c_size_rounded+k] = 0;
+        }
+    }
+  }
+
+  if(tempbuf)
+     free(tempbuf);
+
+  return NO_ERROR;
+}
+
 status_t QCameraStream_preview::processPreviewFrameWithDisplay(
   mm_camera_ch_data_buf_t *frame)
 {
@@ -890,6 +947,11 @@ status_t QCameraStream_preview::processPreviewFrameWithDisplay(
     ALOGE("%s: Cache clean for Preview buffer %p fd = %d failed", __func__,
       cache_inv_data.vaddr, cache_inv_data.fd);
 #endif
+
+  if(mHalCamCtrl->mPreviewFormat == CAMERA_YUV_420_YV12) {
+    convert_ycrcb420_to_yv12(frame);
+   }
+
 
   if(mHFRFrameSkip == 1)
   {
