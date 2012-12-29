@@ -1805,14 +1805,6 @@ status_t QCameraStream_Snapshot::receiveRawPicture(mm_camera_ch_data_buf_t* recv
         /* TBD: Temp: To be removed once event handling is enabled */
         mm_app_snapshot_done();
     } else {
-        if(mHalCamCtrl->mHdrMode == HDR_MODE) {
-            hdrRawCount++;
-            if ((hdrRawCount % 2) != 0) {
-                cam_evt_buf_done(mCameraId, recvd_frame);
-                return NO_ERROR;
-            }
-        }
-
 
         /*TBD: v4l2 doesn't have support to provide cropinfo along with
           frame. We'll need to query.*/
