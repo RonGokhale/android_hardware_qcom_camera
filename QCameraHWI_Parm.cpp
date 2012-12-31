@@ -1669,8 +1669,10 @@ status_t QCameraHardwareInterface::setContrast(const QCameraParameters& params)
             return UNKNOWN_ERROR;
         }
         ALOGV("setting contrast %d", contrast);
-        if(value !=0)
-          mEffects = 0;
+        if(strcmp(str, QCameraParameters::SCENE_MODE_AUTO))
+        {
+          contrast = CAMERA_DEF_CONTRAST;
+        }
         mParameters.set(QCameraParameters::KEY_QC_CONTRAST, contrast);
         ALOGE("Calling Contrast set on Lower layer");
         bool ret = native_set_parms(MM_CAMERA_PARM_CONTRAST, sizeof(contrast),
