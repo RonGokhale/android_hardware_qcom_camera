@@ -223,7 +223,6 @@ receiveCompleteJpegPicture(jpeg_event_t event)
     camera_memory_t *encodedMem = NULL;
     camera_data_callback jpg_data_cb = NULL;
     bool fail_cb_flag = false;
-    Mutex::Autolock lock(mSnapLock);
 
     if(!mActive && !isLiveSnapshot()) {
         ALOGE("%s : Cancel Picture",__func__);
@@ -231,6 +230,7 @@ receiveCompleteJpegPicture(jpeg_event_t event)
         goto end;
     }
 
+    mSnapLock.lock();
     if(mCurrentFrameEncoded!=NULL /*&& !isLiveSnapshot()*/){
         ALOGV("<DEBUG>: Calling buf done for snapshot buffer");
         cam_evt_buf_done(mCameraId, mCurrentFrameEncoded);
@@ -335,6 +335,7 @@ end:
            stopCapture();
        }
     }
+    mSnapLock.unlock();
     ALOGD("%s: X", __func__);
 }
 
