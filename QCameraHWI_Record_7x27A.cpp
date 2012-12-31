@@ -157,6 +157,7 @@ void QCameraStream_record::stop()
   ALOGE("%s: BEGIN", __func__);
   mHalCamCtrl->mStartRecording  = false;
   Mutex::Autolock l(&mHalCamCtrl->mRecordLock);
+  Mutex::Autolock lock(mStopCallbackLock);
   {
         mHalCamCtrl->mRecordFrameLock.lock();
         mHalCamCtrl->mReleasedRecordingFrame = true;
