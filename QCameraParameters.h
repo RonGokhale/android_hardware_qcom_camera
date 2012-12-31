@@ -1,4 +1,7 @@
 /*
+** Copyright (c) 2012, The Linux Foundation. All rights reserved.
+** Not a Contribution, Apache license notifications and license are retained
+** for attribution purposes only.
 **
 ** Copyright 2008, The Android Open Source Project
 **
