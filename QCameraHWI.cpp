@@ -215,7 +215,9 @@ QCameraHardwareInterface(int cameraId, int mode)
                     mStateLiveshot(false),
 		    mSupportedFpsRanges(NULL),
                     mSupportedFpsRangesCount(0),
-                    mChannelInterfaceMask(STREAM_IMAGE)
+                    mChannelInterfaceMask(STREAM_IMAGE),
+                    mSnapJpegCbRunning(false),
+                    mSnapCbDisabled(false)
 {
     ALOGI("QCameraHardwareInterface: E");
     int32_t result = MM_CAMERA_E_GENERAL;
@@ -1572,11 +1574,26 @@ status_t QCameraHardwareInterface::cancelPictureInternal()
 {
     ALOGI("cancelPictureInternal: E");
     status_t ret = MM_CAMERA_OK;
-    if(mStreamSnap) {
-        mStreamSnap->stop();
-        mCameraState = CAMERA_STATE_SNAP_STOP_CMD_SENT;
+    // Do not need Snapshot callback to up layer any more
+    mSnapCbDisabled = true;
+    //we should make sure that snap_jpeg_cb has finished
+    if(mStreamSnap){
+        Mutex::Autolock rLock(mSnapJpegCbLock);
+        if(mSnapJpegCbRunning != false){
+            ALOGE("%s: wait snapshot_jpeg_cb() to finish.", __func__);
+            mSnapJpegCbWait.wait(mSnapJpegCbLock);
+            ALOGE("%s: finish waiting snapshot_jpeg_cb(). ", __func__);
+        }
     }
-
+    ALOGI("%s: mCameraState=%d.", __func__, mCameraState);
+    if(mCameraState != CAMERA_STATE_READY) {
+        if(mStreamSnap) {
+            mStreamSnap->stop();
+            mCameraState = CAMERA_STATE_SNAP_STOP_CMD_SENT;
+        }
+    } else {
+        ALOGE("%s: Cannot process cancel picture as snapshot is already done",__func__);
+    }
     ALOGI("cancelPictureInternal: X");
     return ret;
 }
@@ -1715,14 +1732,6 @@ status_t  QCameraHardwareInterface::takePicture()
     uint32_t stream_info;
     int mNuberOfVFEOutputs = 0;
     Mutex::Autolock lock(mLock);
-
-    // if we have liveSnapshot instance,
-    // we need to delete it here to release teh channel it acquires
-    if (mStreamLiveSnap){
-        ALOGE("%s:Deleting old Snapshot stream instance",__func__);
-        QCameraStream_Snapshot::deleteInstance (mStreamLiveSnap);
-        mStreamLiveSnap = NULL;
-    }
 
     mStreamSnap->resetSnapshotCounters( );
     switch(mPreviewState) {
