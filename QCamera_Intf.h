@@ -920,6 +920,11 @@ typedef enum {
 typedef struct {
   int fd_mode;
   int num_fd;
+  int fd_roi_en;	//MAK
+  uint16_t x;
+  uint16_t y;
+  uint16_t dx;
+  uint16_t dy;
 } fd_set_parm_t;
 
 typedef struct {
