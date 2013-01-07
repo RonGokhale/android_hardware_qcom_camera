@@ -23,6 +23,7 @@
 
 namespace android {
 // Parameter keys to communicate between camera application and driver.
+const char QCameraParameters::KEY_QC_AUTO_CONTRAST[] = "autocontrast";
 const char QCameraParameters::KEY_QC_SUPPORTED_HFR_SIZES[] = "hfr-size-values";
 const char QCameraParameters::KEY_QC_PREVIEW_FRAME_RATE_MODE[] = "preview-frame-rate-mode";
 const char QCameraParameters::KEY_QC_SUPPORTED_PREVIEW_FRAME_RATE_MODES[] = "preview-frame-rate-modes";

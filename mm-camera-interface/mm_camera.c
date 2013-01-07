@@ -397,6 +397,9 @@ int32_t mm_camera_set_general_parm(mm_camera_obj_t * my_obj, mm_camera_parm_t *p
                         CAMERA_SET_PARM_FD_INFO, sizeof(fd_info_t), (void *)parm->p_value);
         }
         break;
+	 case MM_CAMERA_PARM_AUTO_CONTRAST:
+	 	CDBG("VJ# send native ctrl cmd type : %d , value =%d",CAMERA_SET_PARM_AUTO_CONTRAST, *(((int *)parm->p_value) ));
+		return mm_camera_send_native_ctrl_cmd(my_obj,CAMERA_SET_PARM_AUTO_CONTRAST, sizeof(uint32_t), (void *)parm->p_value);
     default:
         CDBG("%s: default: parm %d not supported\n", __func__, parm->parm_type);
         break;
