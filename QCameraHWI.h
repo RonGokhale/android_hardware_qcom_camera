@@ -849,6 +849,12 @@ private:
      int                    mExifTableNumEntries;            //NUmber of entries in mExifData
      int                 mNoDisplayMode;
      uint32_t            mChannelInterfaceMask;
+
+     /* Used to show the process state of snapshot_jpeg_cb*/
+     Mutex                  mSnapJpegCbLock;
+     Condition              mSnapJpegCbWait;
+     bool                   mSnapJpegCbRunning;
+     bool                   mSnapCbDisabled;
 };
 
 }; // namespace android
