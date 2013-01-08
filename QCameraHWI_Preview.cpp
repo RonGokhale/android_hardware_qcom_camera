@@ -824,16 +824,22 @@ status_t QCameraStream_preview::processPreviewFrameWithDisplay(
   int i;
   camera_memory_t *data = NULL;
   camera_frame_metadata_t *metadata = NULL;
+  bool rcb1 = false;
+  bool rcb2 = false;
+  bool pcb1 = false;
+  bool previewMem1 = false;
 
+  mStopCallbackLock.lock();
   Mutex::Autolock plock(mPreviewFrameLock);
   if(!mActive) {
     ALOGE("Preview Stopped. Returning callback");
+    mStopCallbackLock.unlock();
     return NO_ERROR;
   }
-  Mutex::Autolock lock(mStopCallbackLock);
   if(mHalCamCtrl==NULL) {
     ALOGE("%s: X: HAL control object not set",__func__);
     /*Call buf done*/
+    mStopCallbackLock.unlock();
     return BAD_VALUE;
   }
   mHalCamCtrl->mCallbackLock.lock();
@@ -1003,19 +1009,18 @@ status_t QCameraStream_preview::processPreviewFrameWithDisplay(
           data = NULL;
       }
       if(msgType) {
-          mStopCallbackLock.unlock();
           if(mActive)
-            pcb(msgType, data, 0, metadata, mHalCamCtrl->mCallbackCookie);
+              pcb1 = true;
           if (previewMem)
-              previewMem->release(previewMem);
+              previewMem1 = true;
       }
 	  ALOGD("end of cb");
   } else {
     ALOGD("%s PCB is not enabled", __func__);
   }
+  int flagwait = 0;
   if(rcb != NULL && mVFEOutputs == 1)
   {
-      int flagwait = 1;
       if(mHalCamCtrl->mStartRecording == true &&
               ( mHalCamCtrl->mMsgEnabled & CAMERA_MSG_VIDEO_FRAME))
       {
@@ -1024,30 +1029,43 @@ status_t QCameraStream_preview::processPreviewFrameWithDisplay(
           if(mHalCamCtrl->mRecordingMemory.metadata_memory[frame->def.idx])
           {
               flagwait = 1;
-              mStopCallbackLock.unlock();
-              rcb(timeStamp, CAMERA_MSG_VIDEO_FRAME,
-                      mHalCamCtrl->mRecordingMemory.metadata_memory[frame->def.idx],
-                      0, mHalCamCtrl->mCallbackCookie);
+              rcb1=true;
           }else
               flagwait = 0;
-      }
-      else
-      {
-              mStopCallbackLock.unlock();
-              rcb(timeStamp, CAMERA_MSG_VIDEO_FRAME,
-                      mHalCamCtrl->mPreviewMemory.camera_memory[frame->def.idx],
-                      0, mHalCamCtrl->mCallbackCookie);
-      }
-
-      if(flagwait){
-          Mutex::Autolock rLock(&mHalCamCtrl->mRecordFrameLock);
-          if (mHalCamCtrl->mReleasedRecordingFrame != true) {
-              mHalCamCtrl->mRecordWait.wait(mHalCamCtrl->mRecordFrameLock);
-          }
-          mHalCamCtrl->mReleasedRecordingFrame = false;
+      }else{
+              rcb2=true;
+              flagwait = 1;
       }
       }
   }
+
+    mStopCallbackLock.unlock();
+    if(pcb1 == true) {
+        pcb(msgType, data, 0, metadata, mHalCamCtrl->mCallbackCookie);
+    }
+    if(previewMem1 == true) {
+        previewMem->release(previewMem);
+    }
+    if(rcb1 == true) {
+        rcb(timeStamp, CAMERA_MSG_VIDEO_FRAME,
+            mHalCamCtrl->mRecordingMemory.metadata_memory[frame->def.idx],
+            0, mHalCamCtrl->mCallbackCookie);
+        ALOGD("calling rcb metadata");
+    }
+    if(rcb2 == true) {
+        rcb(timeStamp, CAMERA_MSG_VIDEO_FRAME,
+            mHalCamCtrl->mPreviewMemory.camera_memory[frame->def.idx],
+            0, mHalCamCtrl->mCallbackCookie);
+    }
+
+    if(flagwait){
+        Mutex::Autolock rLock(&mHalCamCtrl->mRecordFrameLock);
+        if(mHalCamCtrl->mReleasedRecordingFrame != true) {
+            mHalCamCtrl->mRecordWait.wait(mHalCamCtrl->mRecordFrameLock);
+        }
+        mHalCamCtrl->mReleasedRecordingFrame = false;
+    }
+
   /* Save the last displayed frame. We'll be using it to fill the gap between
      when preview stops and postview start during snapshot.*/
   //mLastQueuedFrame = frame->def.frame;
@@ -1328,10 +1346,11 @@ end:
     if(!mActive) {
       return;
     }
-	Mutex::Autolock plock(mPreviewFrameLock);
-	mActive =  false;
+
+    mStopCallbackLock.lock();
+    mPreviewFrameLock.lock();
+    mActive =  false;
     mPreviewFrameLock.unlock();
-	Mutex::Autolock lock(mStopCallbackLock);
     /* unregister the notify fn from the mmmm_camera_t object*/
 
     ALOGI("%s: Stop the thread \n", __func__);
@@ -1356,7 +1375,7 @@ end:
     }
 
     ALOGE("%s: X", __func__);
-
+    mStopCallbackLock.unlock();
   }
 // ---------------------------------------------------------------------------
 // QCameraStream_preview
