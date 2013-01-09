@@ -739,6 +739,7 @@ private:
     bool mSendMetaData;
     bool mFullLiveshotEnabled;
     bool mRecordingHint;
+    bool mAppRecordingHint;
     bool mStartRecording;
     bool mReleasedRecordingFrame;
     bool mStateLiveshot;
