@@ -879,7 +879,11 @@ void QCameraHardwareInterface::processCtrlEvent(mm_camera_ctrl_event_t *event, a
             app_cb->argm_notify.ext1 = CAMERA_ERROR_UNKNOWN;
             app_cb->argm_notify.cookie =  mCallbackCookie;
             break;
-       default:
+	case MM_CAMERA_CTRL_EVT_WDN_HDR_START:
+            mLock.unlock();
+            wdnHdrStartEvent();
+            break;
+      default:
             break;
     }
     ALOGI("processCtrlEvent: X");
@@ -2694,6 +2698,13 @@ void QCameraHardwareInterface::wdenoiseEvent(cam_ctrl_status_t status, void *coo
     }
 }
 
+void QCameraHardwareInterface::wdnHdrStartEvent()
+{
+    if (mStreamSnap != NULL) {
+        ALOGE("notifyWdnHdrStartEvent to snapshot stream");
+        mStreamSnap->notifyWdnHdrStartEvent();
+    }
+}
 bool QCameraHardwareInterface::isWDenoiseEnabled()
 {
     return mDenoiseValue;

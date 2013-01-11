@@ -636,6 +636,7 @@ private:
     bool isZSLMode();
     bool isWDenoiseEnabled();
     void wdenoiseEvent(cam_ctrl_status_t status, void *cookie);
+    void wdnHdrStartEvent();
     bool isLowPowerCamcorder();
     void freePictureTable(void);
     void freeVideoSizeTable(void);
