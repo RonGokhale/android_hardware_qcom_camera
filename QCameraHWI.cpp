@@ -18,7 +18,7 @@
 
 #define ALOG_NIDEBUG 0
 
-#define ALOG_TAG "QCameraHWI"
+#define LOG_TAG "QCameraHWI"
 #include <utils/Log.h>
 #include <utils/threads.h>
 #include <cutils/properties.h>
@@ -955,7 +955,7 @@ void  QCameraHardwareInterface::processInfoEvent(
 void  QCameraHardwareInterface::processEvent(mm_camera_event_t *event)
 {
     app_notify_cb_t app_cb;
-    ALOGE("processEvent: type :%d E",event->event_type);
+    ALOGI("processEvent: type :%d E",event->event_type);
     if(mPreviewState == QCAMERA_HAL_PREVIEW_STOPPED){
     ALOGE("Stop recording issued. Return from process Event");
         return;
@@ -978,7 +978,7 @@ void  QCameraHardwareInterface::processEvent(mm_camera_event_t *event)
         default:
             break;
     }
-    ALOGE(" App_cb Notify %p, datacb=%p", app_cb.notifyCb, app_cb.dataCb);
+    ALOGI(" App_cb Notify %p, datacb=%p", app_cb.notifyCb, app_cb.dataCb);
     if (app_cb.notifyCb) {
       app_cb.notifyCb(app_cb.argm_notify.msg_type,
         app_cb.argm_notify.ext1, app_cb.argm_notify.ext2,
@@ -2054,7 +2054,7 @@ void QCameraHardwareInterface::processprepareSnapshotEvent(cam_ctrl_status_t *st
 
 void QCameraHardwareInterface::roiEvent(fd_roi_t roi,app_notify_cb_t *app_cb)
 {
-    ALOGE("roiEvent: E");
+    ALOGI("roiEvent: E");
 
     if(mStreamDisplay) mStreamDisplay->notifyROIEvent(roi);
 #if 0 //TODO: move to preview obj
@@ -2101,7 +2101,7 @@ void QCameraHardwareInterface::roiEvent(fd_roi_t roi,app_notify_cb_t *app_cb)
         mMetaDataWaitLock.unlock();
     }
 #endif // mzhu
-    ALOGE("roiEvent: X");
+    ALOGI("roiEvent: X");
 }
 
 
