@@ -46,6 +46,8 @@ extern "C" {
 #include "QCameraStream.h"
 #include "QCamera_Intf.h"
 
+static const char TempBuffer[] = "This is temp buffer";
+
 //Error codes
 #define  NOT_FOUND -1
 #define MAX_ZOOM_RATIOS 62

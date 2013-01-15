@@ -449,6 +449,7 @@ typedef enum {
     MM_CAMERA_PARM_FRAME_RESOLUTION,
     MM_CAMERA_PARM_RAW_SNAPSHOT_FMT,
     MM_CAMERA_PARM_FACIAL_FEATURE_INFO,
+    MM_CAMERA_PARM_STREAM_ERROR,
     MM_CAMERA_PARM_MAX
 } mm_camera_parm_type_t;
 
@@ -597,6 +598,7 @@ typedef enum {
   CAMERA_GET_PARM_HDR,
   CAMERA_SEND_PP_PIPELINE_CMD, /* send offline pp cmd */
   CAMERA_SET_BUNDLE, /* set stream bundle */
+  CAMERA_SET_PARM_STREAM_ERROR,
   CAMERA_CTRL_PARM_MAX
 } cam_ctrl_type;
 
