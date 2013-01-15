@@ -3213,6 +3213,32 @@ status_t QCameraHardwareInterface::setAEBracket(const QCameraParameters& params)
         }
         return NO_ERROR;
     }
+
+    const char *strtmp = params.get(QCameraParameters::KEY_EFFECT);
+    int result;
+    int rc;
+    if (strtmp != NULL) {
+        ALOGI("in AE-bracket setting, effect is %s",strtmp);
+        int32_t value;
+        value = attr_lookup(effects, sizeof(effects) / sizeof(str_map), strtmp);
+        if (value != NOT_FOUND) {
+            rc = cam_config_is_parm_supported(mCameraId, MM_CAMERA_PARM_EFFECT);
+            if(rc) {
+                ALOGI("color effect supported");
+                if (strcmp(strtmp, QCameraParameters::EFFECT_NONE)) {
+                    ALOGE("color effect enabled, reset HDR to off");
+                    exp_bracketing_t temp;
+                    memset(&temp, 0, sizeof(temp));
+                    mHdrMode = HDR_BRACKETING_OFF;
+                    temp.hdr_enable= FALSE;
+                    temp.mode = HDR_BRACKETING_OFF;
+                    native_set_parms(MM_CAMERA_PARM_HDR, sizeof(exp_bracketing_t), (void *)&temp);
+                    return NO_ERROR;
+                }
+            }
+        }
+    }
+
     const char *str = params.get(QCameraParameters::KEY_QC_AE_BRACKET_HDR);
 
     if (str != NULL) {
