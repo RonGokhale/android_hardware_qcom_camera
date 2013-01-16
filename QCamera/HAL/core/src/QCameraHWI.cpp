@@ -720,12 +720,6 @@ void QCameraHardwareInterface::receiveCompleteJpegPicture(jpeg_job_status_t stat
         return;
     }
 
-    pme->dumpFrameToFile(out_data,
-                         data_size,
-                         (char *)"debug",
-                         (char *)"jpg",
-                         jobId);
-
     ALOGE("%s: jpeg_size=%d", __func__, data_size);
 
     if(pme->mDataCb && (pme->mMsgEnabled & CAMERA_MSG_COMPRESSED_IMAGE)){
@@ -2633,20 +2627,6 @@ void QCameraHardwareInterface::zoomEvent(cam_ctrl_status_t *status, app_notify_c
         break;
     }
     ALOGI("zoomEvent: X");
-}
-
-void QCameraHardwareInterface::dumpFrameToFile(const void * data, uint32_t size, char* name, char* ext, int index)
-{
-    char buf[32];
-    int file_fd;
-    if ( data != NULL) {
-        char * str;
-        snprintf(buf, sizeof(buf), "/data/%s_%d.%s", name, index, ext);
-        ALOGE("marvin, %s size =%d", buf, size);
-        file_fd = open(buf, O_RDWR | O_CREAT, 0777);
-        write(file_fd, data, size);
-        close(file_fd);
-    }
 }
 
 void QCameraHardwareInterface::dumpFrameToFile(mm_camera_buf_def_t* newFrame,
