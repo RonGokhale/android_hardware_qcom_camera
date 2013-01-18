@@ -146,10 +146,11 @@ public:
     static const char SCENE_MODE_BACKLIGHT[];
     static const char SCENE_MODE_FLOWERS[];
     static const char SCENE_MODE_AR[];
-	static const char SCENE_DETECT_OFF[];
+    static const char SCENE_MODE_HDR[];
+    static const char SCENE_DETECT_OFF[];
     static const char SCENE_DETECT_ON[];
     static const char PIXEL_FORMAT_YUV420SP_ADRENO[]; // ADRENO
-	static const char PIXEL_FORMAT_RAW[];
+    static const char PIXEL_FORMAT_RAW[];
     static const char PIXEL_FORMAT_YV12[]; // NV12
     static const char PIXEL_FORMAT_NV12[]; //NV12
     // Normal focus mode. Applications should call
