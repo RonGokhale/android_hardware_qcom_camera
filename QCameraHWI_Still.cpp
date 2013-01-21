@@ -2212,6 +2212,10 @@ status_t QCameraStream_Snapshot::start(void) {
            continuously queue the frames in a queue. When user clicks
            shutter we'll call get buffer from the queue and pass it on */
         ret = startStreamZSL();
+        if(mHalCamCtrl->isRawSnapshot())
+           mSnapshotFormat = PICTURE_FORMAT_RAW;
+        else
+           mSnapshotFormat = PICTURE_FORMAT_JPEG;
         goto end;
     }
 
