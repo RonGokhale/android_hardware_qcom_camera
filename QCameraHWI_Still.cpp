@@ -323,11 +323,13 @@ end:
         }
     }
     //reset jpeg_offset
+
     mJpegOffset = 0;
     if(isLiveSnapshot() && mHalCamCtrl->mStateLiveshot) {
         deInitBuffer();
     }
     mHalCamCtrl->mStateLiveshot = false;
+    mStopCallbackLock.lock();
     if (!mSnapshotQueue.isEmpty()) {
         ALOGI("%s: JPEG Queue not empty. Dequeue and encode.", __func__);
         mm_camera_ch_data_buf_t* buf =
@@ -337,6 +339,7 @@ end:
           fail_cb_flag = true;
         }
     }
+    mStopCallbackLock.unlock( );
     ALOGD("%s: X", __func__);
 }
 
