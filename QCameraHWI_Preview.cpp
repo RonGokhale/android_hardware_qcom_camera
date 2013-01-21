@@ -1047,9 +1047,15 @@ status_t QCameraStream_preview::processPreviewFrameWithDisplay(
         previewMem->release(previewMem);
     }
     if(rcb1 == true) {
-        rcb(timeStamp, CAMERA_MSG_VIDEO_FRAME,
-            mHalCamCtrl->mRecordingMemory.metadata_memory[frame->def.idx],
-            0, mHalCamCtrl->mCallbackCookie);
+        mHalCamCtrl->mRecordLock.lock();
+        if(mHalCamCtrl->mStartRecording == true && mHalCamCtrl->mRecordingMemory.metadata_memory[frame->def.idx]) {
+          rcb(timeStamp, CAMERA_MSG_VIDEO_FRAME,
+              mHalCamCtrl->mRecordingMemory.metadata_memory[frame->def.idx],
+              0, mHalCamCtrl->mCallbackCookie);
+        }
+        else
+          flagwait = 0;
+        mHalCamCtrl->mRecordLock.unlock();
         ALOGD("calling rcb metadata");
     }
     if(rcb2 == true) {
