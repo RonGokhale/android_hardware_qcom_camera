@@ -36,9 +36,9 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef ALOG_DEBUG
   #ifdef _ANDROID_
     #undef ALOG_NIDEBUG
-    #undef ALOG_TAG
+    #undef LOG_TAG
     #define ALOG_NIDEBUG 0
-    #define ALOG_TAG "mm-camera"
+    #define LOG_TAG "mm-camera"
     #include <utils/Log.h>
   #else
     #include <stdio.h>
@@ -47,9 +47,9 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #else
   #ifdef _ANDROID_
     #undef ALOG_NIDEBUG
-    #undef ALOG_TAG
+    #undef LOG_TAG
     #define ALOG_NIDEBUG 0
-    #define ALOG_TAG "mm-camera"
+    #define LOG_TAG "mm-camera"
     #include <utils/Log.h>
     #define CDBG(fmt, args...) ALOGE(fmt, ##args)
   #else

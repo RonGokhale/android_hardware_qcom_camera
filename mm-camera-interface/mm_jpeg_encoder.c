@@ -40,9 +40,9 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #undef CDBG
   #ifdef _ANDROID_
     #undef ALOG_NIDEBUG
-    #undef ALOG_TAG
+    #undef LOG_TAG
     #define ALOG_NIDEBUG 0
-    #define ALOG_TAG "mm-camera jpeg"
+    #define LOG_TAG "mm-camera jpeg"
     #include <utils/Log.h>
     #define CDBG(fmt, args...) ALOGE(fmt, ##args)
     #endif

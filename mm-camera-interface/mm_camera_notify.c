@@ -41,9 +41,9 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #if 0
 #undef CDBG
-#undef ALOG_TAG
+#undef LOG_TAG
 #define CDBG ALOGE
-#define ALOG_TAG "NotifyLogs"
+#define LOG_TAG "NotifyLogs"
 #endif
 
 static void mm_camera_read_raw_frame(mm_camera_obj_t * my_obj)
@@ -382,7 +382,6 @@ end:
 
 static void mm_camera_read_preview_frame(mm_camera_obj_t * my_obj)
 {
-    ALOGE("<DDD> Reading preview frame");
     int rc = 0;
     int idx;
     int i;
