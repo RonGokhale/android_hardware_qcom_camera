@@ -3276,7 +3276,6 @@ int QCameraHardwareInterface::cache_ops(QCameraHalMemInfo_t *mem_info,
 {
     struct ion_flush_data cache_inv_data;
     int ret = MM_CAMERA_OK;
-    struct ion_custom_data data;
 
 #ifdef USE_ION
     if (NULL == mem_info) {
@@ -3290,15 +3289,12 @@ int QCameraHardwareInterface::cache_ops(QCameraHalMemInfo_t *mem_info,
     cache_inv_data.handle = mem_info->handle;
     cache_inv_data.length = mem_info->size;
 
-    data.cmd = cmd;
-    data.arg = (unsigned long)&cache_inv_data;
-
     ALOGD("addr = %p, fd = %d, handle = %p length = %d, ION Fd = %d",
          cache_inv_data.vaddr, cache_inv_data.fd,
          cache_inv_data.handle, cache_inv_data.length,
          mem_info->main_ion_fd);
     if(mem_info->main_ion_fd > 0) {
-        if(ioctl(mem_info->main_ion_fd, ION_IOC_CUSTOM, &data) < 0) {
+        if(ioctl(mem_info->main_ion_fd,cmd,&cache_inv_data) < 0) {
             ALOGE("%s: Cache Invalidate failed\n", __func__);
             ret = -1;
         }
