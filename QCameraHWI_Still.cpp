@@ -1,5 +1,5 @@
 /*
-** Copyright (c) 2011-2012 Code Aurora Forum. All rights reserved.
+** Copyright (c) 2011-2012 The Linux Foundation. All rights reserved.
 **
 ** Licensed under the Apache License, Version 2.0 (the "License");
 ** you may not use this file except in compliance with the License.
@@ -289,7 +289,6 @@ receiveCompleteJpegPicture(jpeg_event_t event)
         ALOGV("<DEBUG>: Calling buf done for snapshot buffer");
         cam_evt_buf_done(mCameraId, mCurrentFrameEncoded);
     }
-    mHalCamCtrl->dumpFrameToFile(mHalCamCtrl->mJpegMemory.camera_memory[0]->data, mJpegOffset, (char *)"debug", (char *)"jpg", 0);
 
 end:
     msg_type = CAMERA_MSG_COMPRESSED_IMAGE;
@@ -1254,6 +1253,21 @@ status_t QCameraStream_Snapshot::initZSLSnapshot(void)
     if ( NO_ERROR != ret ){
         ALOGE("%s: Failure allocating memory for Snapshot buffers", __func__);
         goto end;
+    }
+    {
+        /*register main and thumbnail buffers at back-end for frameproc*/
+        for (int i = 0; i < mHalCamCtrl->getZSLQueueDepth() + 3; i++) {
+            if (NO_ERROR != mHalCamCtrl->sendMappingBuf(MSM_V4L2_EXT_CAPTURE_MODE_MAIN, i,
+                mSnapshotStreamBuf.frame[i].fd, mHalCamCtrl->mSnapshotMemory.size, mCameraId,
+                CAM_SOCK_MSG_TYPE_FD_MAPPING)) {
+                ALOGE("%s: sending mapping data Msg Failed", __func__);
+            }
+            if (NO_ERROR != mHalCamCtrl->sendMappingBuf(MSM_V4L2_EXT_CAPTURE_MODE_THUMBNAIL, i,
+                mPostviewStreamBuf.frame[i].fd, mHalCamCtrl->mThumbnailMemory.size, mCameraId,
+                CAM_SOCK_MSG_TYPE_FD_MAPPING)) {
+                ALOGE("%s: sending mapping data Msg Failed", __func__);
+            }
+        }
     }
 
 end:

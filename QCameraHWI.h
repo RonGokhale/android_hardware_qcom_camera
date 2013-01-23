@@ -1,5 +1,5 @@
 /*
-** Copyright (c) 2011-2012 Code Aurora Forum. All rights reserved.
+** Copyright (c) 2011-2012 The Linux Foundation. All rights reserved.
 **
 ** Licensed under the Apache License, Version 2.0 (the "License");
 ** you may not use this file except in compliance with the License.
@@ -571,6 +571,7 @@ private:
     status_t setJpegRotation(int isZSL);
     int getJpegRotation(void);
     int getISOSpeedValue();
+    int getAutoFlickerMode();
     status_t setAntibanding(const QCameraParameters& params);
     status_t setEffect(const QCameraParameters& params);
     status_t setExposureCompensation(const QCameraParameters &params);

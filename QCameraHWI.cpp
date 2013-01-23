@@ -1,5 +1,5 @@
 /*
-** Copyright (c) 2011-2012 Code Aurora Forum. All rights reserved.
+** Copyright (c) 2011-2012 The Linux Foundation. All rights reserved.
 **
 ** Licensed under the Apache License, Version 2.0 (the "License");
 ** you may not use this file except in compliance with the License.
@@ -2097,22 +2097,6 @@ void QCameraHardwareInterface::zoomEvent(cam_ctrl_status_t *status, app_notify_c
         break;
     }
     ALOGI("zoomEvent: X");
-}
-
-void QCameraHardwareInterface::dumpFrameToFile(const void * data, uint32_t size, char* name, char* ext, int index)
-{
-    char buf[32];
-    int file_fd;
-    static int i = 0 ;
-    if ( data != NULL) {
-        char * str;
-        snprintf(buf, sizeof(buf), "/data/%s_%d.%s", name, index + i, ext);
-        ALOGE("marvin, %s size =%d", buf, size);
-        file_fd = open(buf, O_RDWR | O_CREAT, 0777);
-        write(file_fd, data, size);
-        close(file_fd);
-        i++;
-    }
 }
 
 void QCameraHardwareInterface::dumpFrameToFile(struct msm_frame* newFrame,

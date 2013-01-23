@@ -1,5 +1,5 @@
 /*
-** Copyright (c) 2011-2012 Code Aurora Forum. All rights reserved.
+** Copyright (c) 2011-2012 The Linux Foundation. All rights reserved.
 **
 ** Licensed under the Apache License, Version 2.0 (the "License");
 ** you may not use this file except in compliance with the License.
@@ -168,8 +168,11 @@ static camera_size_type default_picture_sizes[] = {
   { 800, 600}, //SVGA
   { 800, 480}, // WVGA
   { 640, 480}, // VGA
+  { 352, 288}, //CIF
   { 320, 240}, // QVGA
+  { 176, 144} // QCIF
 };
+
 
 static int iso_speed_values[] = {
     0, 1, 100, 200, 400, 800, 1600
@@ -2342,6 +2345,21 @@ status_t QCameraHardwareInterface::setWhiteBalance(const QCameraParameters& para
     ALOGE("Invalid whitebalance value: %s", (str == NULL) ? "NULL" : str);
     return BAD_VALUE;
 }
+
+int QCameraHardwareInterface::getAutoFlickerMode()
+{
+     /* Enable Advanced Auto Antibanding where we can set
+        any of the following option
+        ie. CAMERA_ANTIBANDING_AUTO = 3
+            CAMERA_ANTIBANDING_AUTO_50HZ = 4
+            CAMERA_ANTIBANDING_AUTO_60HZ = 5
+        Currently setting it to default    */
+    char prop[PROPERTY_VALUE_MAX];
+    memset(prop, 0, sizeof(prop));
+    property_get("persist.camera.set.afd", prop, "3");
+    return atoi(prop);
+}
+
 status_t QCameraHardwareInterface::setAntibanding(const QCameraParameters& params)
 {
     int result;
@@ -2361,6 +2379,9 @@ status_t QCameraHardwareInterface::setAntibanding(const QCameraParameters& param
             camera_antibanding_type temp = (camera_antibanding_type) value;
             ALOGE("Antibanding Value : %d",value);
             mParameters.set(QCameraParameters::KEY_ANTIBANDING, str);
+            if(value == CAMERA_ANTIBANDING_AUTO) {
+            value = getAutoFlickerMode();
+            }
             bool ret = native_set_parms(MM_CAMERA_PARM_ANTIBANDING,
                        sizeof(camera_antibanding_type), (void *)&value ,(int *)&result);
             if(result != MM_CAMERA_OK) {
@@ -2481,7 +2502,23 @@ status_t QCameraHardwareInterface::setWaveletDenoise(const QCameraParameters& pa
             denoise_param_t temp;
             memset(&temp, 0, sizeof(denoise_param_t));
             temp.denoise_enable = value;
-            temp.process_plates = atoi(prop);
+            switch(atoi(prop)) {
+                case 0:
+                    temp.process_plates = WAVELET_DENOISE_YCBCR_PLANE;
+                    break;
+                case 1:
+                    temp.process_plates = WAVELET_DENOISE_CBCR_ONLY;
+                    break;
+                case 2:
+                    temp.process_plates = WAVELET_DENOISE_STREAMLINE_YCBCR;
+                    break;
+                case 3:
+                    temp.process_plates = WAVELET_DENOISE_STREAMLINED_CBCR;
+                    break;
+                default:
+                    temp.process_plates = WAVELET_DENOISE_STREAMLINE_YCBCR;
+                    break;
+            }
             ALOGE("Denoise enable=%d, plates=%d", temp.denoise_enable, temp.process_plates);
             bool ret = native_set_parms(MM_CAMERA_PARM_WAVELET_DENOISE, sizeof(temp),
                     (void *)&temp);

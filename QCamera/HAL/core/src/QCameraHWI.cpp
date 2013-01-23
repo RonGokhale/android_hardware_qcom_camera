@@ -268,6 +268,15 @@ void *QCameraHardwareInterface::dataNotifyRoutine(void *data)
                         }
                         free(jpeg_data);
                     }
+                    else
+                    {
+                      if (pme->mSuperBufQueue.getSize() > 0) {
+                         ALOGE("%s: Super Buffer Queue is not Empty", __func__);
+                         isEncoding = FALSE;
+                      } else {
+                          ALOGD("%s: JEPG Data is NULL", __func__);
+                      }
+                    }
 
                     if (FALSE == isEncoding) {
                         isEncoding = TRUE;
@@ -612,6 +621,9 @@ status_t QCameraHardwareInterface::encodeData(mm_camera_super_buf_t* recvd_frame
         dumpFrameToFile(thumb_frame, HAL_DUMP_FRM_THUMBNAIL);
     }
 
+    //Intialize the Exif data to be passed to the encoder.
+    initExifData();
+
     int jpeg_quality = getJpegQuality();
     if (jpeg_quality <= 0) {
         jpeg_quality = 85;
@@ -871,13 +883,6 @@ void QCameraHardwareInterface::receiveCompleteJpegPicture(camera_jpeg_data_t *jp
    }
 
    pme->deinitExifData();
-#if 0 //debugging
-   pme->dumpFrameToFile(jpeg_data->out_data,
-                        jpeg_data->data_size,
-                        (char *)"debug",
-                        (char *)"jpg",
-                        jpeg_data->jobId);
-#endif
 
    ALOGE("%s: jpeg_size=%d", __func__, jpeg_data->data_size);
    if (pme->initHeapMem(&pme->mJpegMemory,
@@ -1081,13 +1086,14 @@ int32_t get_buffer_hook(uint32_t camera_handle,
                         uint8_t *initial_reg_flag,
                         mm_camera_buf_def_t  *bufs)
 {
+    int ret = MM_CAMERA_OK;
     QCameraHardwareInterface *pme=(QCameraHardwareInterface *)user_data;
-    pme->getBuf(camera_handle, ch_id, stream_id,
+    ret = pme->getBuf(camera_handle, ch_id, stream_id,
                 user_data, frame_offset_info,
                 num_bufs,initial_reg_flag,
                 bufs);
 
-    return 0;
+    return ret;
 }
 
 
@@ -1098,11 +1104,12 @@ int32_t put_buffer_hook(uint32_t camera_handle,
                         void *user_data, uint8_t num_bufs,
                         mm_camera_buf_def_t *bufs)
 {
+    int ret = MM_CAMERA_OK;
     QCameraHardwareInterface *pme=(QCameraHardwareInterface *)user_data;
-    pme->putBuf(camera_handle, ch_id, stream_id,
+    ret = pme->putBuf(camera_handle, ch_id, stream_id,
                 user_data, num_bufs, bufs);
 
-    return 0;
+    return ret;
 }
 
 
@@ -3147,20 +3154,6 @@ void QCameraHardwareInterface::zoomEvent(cam_ctrl_status_t *status, app_notify_c
     ALOGI("zoomEvent: X");
 }
 
-void QCameraHardwareInterface::dumpFrameToFile(const void * data, uint32_t size, char* name, char* ext, int index)
-{
-    char buf[32];
-    int file_fd;
-    if ( data != NULL) {
-        char * str;
-        snprintf(buf, sizeof(buf), "/data/%s_%d.%s", name, index, ext);
-        ALOGE("marvin, %s size =%d", buf, size);
-        file_fd = open(buf, O_RDWR | O_CREAT, 0777);
-        write(file_fd, data, size);
-        close(file_fd);
-    }
-}
-
 void QCameraHardwareInterface::dumpFrameToFile(mm_camera_buf_def_t* newFrame,
   HAL_cam_dump_frm_type_t frm_type)
 {
@@ -4238,6 +4231,15 @@ void* QCameraQueue::dequeue()
     }
 
     return data;
+}
+
+int QCameraQueue::getSize()
+{
+    int size = 0;
+    pthread_mutex_lock(&mlock);
+    size = msize;
+    pthread_mutex_unlock(&mlock);
+    return size;
 }
 
 void QCameraQueue::flush(){

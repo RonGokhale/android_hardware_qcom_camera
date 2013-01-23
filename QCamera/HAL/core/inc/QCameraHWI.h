@@ -1,5 +1,5 @@
 /*
-** Copyright (c) 2012 Code Aurora Forum. All rights reserved.
+** Copyright (c) 2012 The Linux Foundation. All rights reserved.
 **
 ** Not a Contribution, Apache license notifications and license are retained
 ** for attribution purposes only.
@@ -226,6 +226,7 @@ static const char ExifUndefinedPrefix[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
 #define GPS_PROCESSING_METHOD_SIZE       101
 #define FOCAL_LENGTH_DECIMAL_PRECISION   100
 #define EXIF_ASCII_PREFIX_SIZE           8   //(sizeof(ExifAsciiPrefix))
+#define SHUTTER_SPEED_PRECISION          1000
 
 typedef struct{
     //GPS tags
@@ -242,6 +243,7 @@ typedef struct{
     rat_t       focalLength;
     uint16_t    flashMode;
     uint16_t    isoSpeed;
+    rat_t    shutterSpeed;
 
     bool        mAltitude;
     bool        mLongitude;
@@ -283,6 +285,7 @@ public:
     bool enqueue(void *data);
     void flush();
     void* dequeue();
+    int getSize();
 private:
     void init();
     void deinit();
@@ -677,6 +680,8 @@ private:
     status_t setJpegRotation(int isZSL);
     int getJpegRotation(void);
     int getISOSpeedValue();
+    float getExposureTime();
+    int getAutoFlickerMode();
     status_t setAntibanding(const QCameraParameters& params);
     status_t setEffect(const QCameraParameters& params);
     status_t setExposureCompensation(const QCameraParameters &params);

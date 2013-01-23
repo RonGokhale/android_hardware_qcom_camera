@@ -1,5 +1,5 @@
 /*
-** Copyright (c) 2012 Code Aurora Forum. All rights reserved.
+** Copyright (c) 2012 The Linux Foundation. All rights reserved.
 **
 ** Not a Contribution, Apache license notifications and license are retained
 ** for attribution purposes only.
@@ -176,8 +176,10 @@ static camera_size_type default_picture_sizes[] = {
   { 800, 480}, // WVGA
   { 720, 480}, //D1
   { 640, 480}, // VGA
+  { 352, 288}, //CIF
   { 320, 240}, // QVGA
   { 192, 112}, //LP
+  { 176, 144} // QCIF
 };
 
 static int iso_speed_values[] = {
@@ -2316,6 +2318,21 @@ status_t QCameraHardwareInterface::setWhiteBalance(const QCameraParameters& para
     ALOGE("Invalid whitebalance value: %s", (str == NULL) ? "NULL" : str);
     return BAD_VALUE;
 }
+
+int QCameraHardwareInterface::getAutoFlickerMode()
+{
+    /* Enable Advanced Auto Antibanding where we can set
+       any of the following option
+       ie. CAMERA_ANTIBANDING_AUTO
+           CAMERA_ANTIBANDING_AUTO_50HZ
+           CAMERA_ANTIBANDING_AUTO_60HZ
+      Currently setting it to default    */
+    char prop[PROPERTY_VALUE_MAX];
+    memset(prop, 0, sizeof(prop));
+    property_get("persist.camera.set.afd", prop, "3");
+    return atoi(prop);
+}
+
 status_t QCameraHardwareInterface::setAntibanding(const QCameraParameters& params)
 {
     int result;
@@ -2337,6 +2354,9 @@ status_t QCameraHardwareInterface::setAntibanding(const QCameraParameters& param
             camera_antibanding_type temp = (camera_antibanding_type) value;
             ALOGE("Antibanding Value : %d",value);
             mParameters.set(QCameraParameters::KEY_ANTIBANDING, str);
+            if(value == CAMERA_ANTIBANDING_AUTO) {
+                 value = getAutoFlickerMode();
+            }
             bool ret = native_set_parms(MM_CAMERA_PARM_ANTIBANDING,
                        sizeof(camera_antibanding_type), (void *)&value ,(int *)&result);
             if(result != MM_CAMERA_OK) {
@@ -2461,7 +2481,23 @@ status_t QCameraHardwareInterface::setWaveletDenoise(const QCameraParameters& pa
             denoise_param_t temp;
             memset(&temp, 0, sizeof(denoise_param_t));
             temp.denoise_enable = value;
-            temp.process_plates = atoi(prop);
+            switch(atoi(prop)) {
+                case 0:
+                    temp.process_plates = WAVELET_DENOISE_YCBCR_PLANE;
+                    break;
+                case 1:
+                    temp.process_plates = WAVELET_DENOISE_CBCR_ONLY;
+                    break;
+                case 2:
+                    temp.process_plates = WAVELET_DENOISE_STREAMLINE_YCBCR;
+                    break;
+                case 3:
+                    temp.process_plates = WAVELET_DENOISE_STREAMLINED_CBCR;
+                    break;
+                default:
+                    temp.process_plates = WAVELET_DENOISE_STREAMLINE_YCBCR;
+                    break;
+                }
             ALOGE("Denoise enable=%d, plates=%d", temp.denoise_enable, temp.process_plates);
             bool ret = native_set_parms(MM_CAMERA_PARM_WAVELET_DENOISE, sizeof(temp),
                     (void *)&temp);
@@ -2722,6 +2758,18 @@ int QCameraHardwareInterface::getISOSpeedValue()
     return iso_value;
 }
 
+float QCameraHardwareInterface::getExposureTime()
+{
+    float expTime = 0;
+    int rc = 0;
+
+    rc = mCameraHandle->ops->get_parm(mCameraHandle->camera_handle,
+      MM_CAMERA_PARAM_EXPOSURE_TIME, &expTime);
+    if (rc != NO_ERROR) {
+       ALOGE("%s %d: Error getting AEC Exposure Time", __func__, __LINE__);
+    }
+    return expTime;
+}
 
 status_t QCameraHardwareInterface::setJpegQuality(const QCameraParameters& params) {
     status_t rc = NO_ERROR;
@@ -3807,6 +3855,10 @@ void QCameraHardwareInterface::addExifTag(exif_tag_id_t tagid, exif_tag_type_t t
         mExifData[index].tag_entry.data._rats = (rat_t *)data;
     if((type == EXIF_RATIONAL) && (count == 1))
         mExifData[index].tag_entry.data._rat = *(rat_t *)data;
+    else if((type == EXIF_SRATIONAL) && (count > 1))
+        mExifData[index].tag_entry.data._rats = (rat_t *)data;
+    else if((type == EXIF_SRATIONAL) && (count == 1))
+        mExifData[index].tag_entry.data._rat = *(rat_t *)data;
     else if(type == EXIF_ASCII)
         mExifData[index].tag_entry.data._ascii = (char *)data;
     else if(type == EXIF_BYTE)
@@ -3832,6 +3884,7 @@ void QCameraHardwareInterface::initExifData(){
     }
     addExifTag(EXIFTAGID_FOCAL_LENGTH, EXIF_RATIONAL, 1, 1, (void *)&(mExifValues.focalLength));
     addExifTag(EXIFTAGID_ISO_SPEED_RATING,EXIF_SHORT,1,1,(void *)&(mExifValues.isoSpeed));
+    addExifTag(EXIFTAGID_SHUTTER_SPEED, EXIF_SRATIONAL, 1, 1, (void *)&(mExifValues.shutterSpeed));
 
     if(mExifValues.mGpsProcess) {
         addExifTag(EXIFTAGID_GPS_PROCESSINGMETHOD, EXIF_ASCII,
@@ -3906,6 +3959,16 @@ void QCameraHardwareInterface::setExifTags()
 
     //Set ISO Speed
     mExifValues.isoSpeed = getISOSpeedValue();
+
+    //Set Shutter Speed
+    float exposureTime = getExposureTime();
+    if (exposureTime > 0) {
+        float fShutterSpeed =  -1 * ((float)log10(exposureTime)/(float)log10(2));
+        int iShutterSpeed = (int)fShutterSpeed;
+        mExifValues.shutterSpeed = getRational(iShutterSpeed, SHUTTER_SPEED_PRECISION);
+    } else {
+      mExifValues.shutterSpeed =  getRational(0, SHUTTER_SPEED_PRECISION);
+    }
 
     //set gps tags
     setExifTagsGPS();
