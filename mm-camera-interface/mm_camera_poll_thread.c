@@ -265,13 +265,6 @@ static void *mm_camera_poll_fn(mm_camera_poll_thread_t *poll_cb)
         } else {
             /* in error case sleep 10 us and then continue. hard coded here */
             usleep(10);
-            CDBG_ERROR("poll type %d returns %d\n", poll_cb->data.poll_type, rc);
-            CDBG("MM_CAMERA_CH_EVT_STREAMING_ERR");
-            mm_camera_event_t data;
-            data.event_type = MM_CAMERA_EVT_TYPE_CH;
-            data.e.ch.evt = MM_CAMERA_CH_EVT_STREAMING_ERR;
-            data.e.ch.ch = poll_cb->data.ch_type;
-            mm_camera_poll_send_ch_event(poll_cb->data.my_obj, &data);
             continue;
         }
     } while (poll_cb->data.state == MM_CAMERA_POLL_TASK_STATE_POLL);
@@ -387,8 +380,7 @@ int mm_camera_poll_thread_launch(mm_camera_obj_t * my_obj, int ch_type)
         poll_cb->data.pfds[0], poll_cb->data.pfds[1]);
     poll_cb->data.my_obj = my_obj;
     poll_cb->data.used = 0;
-    //poll_cb->data.timeoutms = -1;  /* Infinite seconds */
-    poll_cb->data.timeoutms = 1000; /* 1 seconds */
+    poll_cb->data.timeoutms = -1;  /* Infinite seconds */
 
     if(ch_type < MM_CAMERA_CH_MAX) {
         poll_cb->data.poll_type = MM_CAMERA_POLL_TYPE_CH;
