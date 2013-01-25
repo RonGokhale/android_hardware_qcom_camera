@@ -1772,6 +1772,7 @@ status_t QCameraStream_Snapshot::receiveRawPicture(mm_camera_ch_data_buf_t* recv
 
     ALOGD("%s: E ", __func__);
     mStopCallbackLock.lock( );
+    ALOGI("%s after mStopCallbackLock.lock()", __func__);
     if(!mActive) {
         mStopCallbackLock.unlock();
         ALOGD("%s: Stop receiving raw pic ", __func__);
@@ -1841,8 +1842,6 @@ status_t QCameraStream_Snapshot::receiveRawPicture(mm_camera_ch_data_buf_t* recv
         }
         memcpy(frame, recvd_frame, sizeof(mm_camera_ch_data_buf_t));
 
-        //mStopCallbackLock.lock();
-
         // only in ZSL mode and Wavelet Denoise is enabled, we will send frame to deamon to do WDN
         if (isZSLMode() && mHalCamCtrl->isWDenoiseEnabled()) {
             if(mIsDoingWDN){
@@ -1884,13 +1883,12 @@ status_t QCameraStream_Snapshot::receiveRawPicture(mm_camera_ch_data_buf_t* recv
             ALOGE("%s Snapshot thread is stoped, deinit buffer and exit", __func__);
             goto end;
         }
-        mStopCallbackLock.unlock();
+
         if(!mHalCamCtrl->mShutterSoundPlayed) {
             notifyShutter(&crop, TRUE);
         }
         notifyShutter(&crop, FALSE);
         mHalCamCtrl->mShutterSoundPlayed = FALSE;
-
 
         if (rc != NO_ERROR)
         {
@@ -1907,7 +1905,6 @@ status_t QCameraStream_Snapshot::receiveRawPicture(mm_camera_ch_data_buf_t* recv
               jpgDataCb = NULL;
            	}
             ALOGE("%s: encode err so data cb", __func__);
-            //mStopCallbackLock.unlock();
             if (mActive && dataCb && !mHalCamCtrl->mSnapCbDisabled) {
               dataCb(CAMERA_MSG_RAW_IMAGE, mHalCamCtrl->mSnapshotMemory.camera_memory[0],
                                    1, NULL, mHalCamCtrl->mCallbackCookie);
@@ -1925,8 +1922,7 @@ status_t QCameraStream_Snapshot::receiveRawPicture(mm_camera_ch_data_buf_t* recv
                 free(frame);
             }
         } else {
-
-          //mStopCallbackLock.unlock();
+          ALOGI("%s: NO Error while encoding/displaying/saving image", __func__);
           if (mActive && dataCb && !mHalCamCtrl->mSnapCbDisabled) {
             dataCb(CAMERA_MSG_RAW_IMAGE, mHalCamCtrl->mSnapshotMemory.camera_memory[0],
                                  1, NULL, mHalCamCtrl->mCallbackCookie);
@@ -1935,12 +1931,12 @@ status_t QCameraStream_Snapshot::receiveRawPicture(mm_camera_ch_data_buf_t* recv
             notifyCb(CAMERA_MSG_RAW_IMAGE_NOTIFY, 0, 0, mHalCamCtrl->mCallbackCookie);
           }
         }
-        mStopCallbackLock.lock();
 end:    mSnapshotDataCallingBack = 0;
         if (mFreeSnapshotBufAfterDataCb) {
           deInitBuffer();
           mFreeSnapshotBufAfterDataCb = 0;
         }
+	ALOGI("%s before mStopCallbackLock.unlock()", __func__);
         mStopCallbackLock.unlock();
     }
 
