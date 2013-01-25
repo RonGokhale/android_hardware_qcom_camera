@@ -1,5 +1,5 @@
 /*
-** Copyright (c) 2011-2012 The Linux Foundation. All rights reserved.
+** Copyright (c) 2011-2013 The Linux Foundation. All rights reserved.
 **
 ** Licensed under the Apache License, Version 2.0 (the "License");
 ** you may not use this file except in compliance with the License.
@@ -847,6 +847,12 @@ private:
      int                    mExifTableNumEntries;            //NUmber of entries in mExifData
      int                 mNoDisplayMode;
      uint32_t            mChannelInterfaceMask;
+
+     /* Used to show the process state of snapshot_jpeg_cb*/
+     Mutex                  mSnapJpegCbLock;
+     Condition              mSnapJpegCbWait;
+     bool                   mSnapJpegCbRunning;
+     bool                   mSnapCbDisabled;
 
      power_module_t*   mPowerModule;
 };

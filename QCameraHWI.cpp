@@ -1,5 +1,5 @@
 /*
-** Copyright (c) 2011-2012 The Linux Foundation. All rights reserved.
+** Copyright (c) 2011-2013 The Linux Foundation. All rights reserved.
 **
 ** Licensed under the Apache License, Version 2.0 (the "License");
 ** you may not use this file except in compliance with the License.
@@ -16,7 +16,9 @@
 
 /*#error uncomment this for compiler test!*/
 
-#define ALOG_NIDEBUG 0
+#define LOG_NDEBUG 0
+#define LOG_NDDEBUG 0
+#define LOG_NIDEBUG 0
 
 #define LOG_TAG "QCameraHWI"
 #include <utils/Log.h>
@@ -213,11 +215,13 @@ QCameraHardwareInterface(int cameraId, int mode)
                     mRestartPreview(false),
                     mReleasedRecordingFrame(false),
                     mStateLiveshot(false),
-		    mSupportedFpsRanges(NULL),
+                    mSupportedFpsRanges(NULL),
                     mSupportedFpsRangesCount(0),
                     mPowerModule(0),
                     mChannelInterfaceMask(STREAM_IMAGE),
-                    mNeedToUnlockCaf(false)
+                    mNeedToUnlockCaf(false),
+                    mSnapJpegCbRunning(false),
+                    mSnapCbDisabled(false)
 {
     ALOGI("QCameraHardwareInterface: E");
     int32_t result = MM_CAMERA_E_GENERAL;
@@ -363,6 +367,11 @@ QCameraHardwareInterface::~QCameraHardwareInterface()
       mStatHeap.clear( );
       mStatHeap = NULL;
     }
+
+    /*First stop the polling threads*/
+    ALOGI("%s First stop the polling threads before deleting instances", __func__);
+    cam_ops_stop(mCameraId);
+
     /* Join the threads, complete operations and then delete
        the instances. */
     if(mStreamDisplay){
@@ -1598,6 +1607,19 @@ status_t QCameraHardwareInterface::cancelPictureInternal()
 {
     ALOGI("cancelPictureInternal: E");
     status_t ret = MM_CAMERA_OK;
+    // Do not need Snapshot callback to up layer any more
+    mSnapCbDisabled = true;
+    //we should make sure that snap_jpeg_cb has finished
+    if(mStreamSnap){
+        mSnapJpegCbLock.lock();
+        if(mSnapJpegCbRunning != false){
+            ALOGE("%s: wait snapshot_jpeg_cb() to finish.", __func__);
+            mSnapJpegCbWait.wait(mSnapJpegCbLock);
+            ALOGE("%s: finish waiting snapshot_jpeg_cb(). ", __func__);
+        }
+        mSnapJpegCbLock.unlock();
+    }
+    ALOGI("%s: mCameraState=%d.", __func__, mCameraState);
     if(mCameraState != CAMERA_STATE_READY) {
         if(mStreamSnap) {
             mStreamSnap->stop();
@@ -1744,6 +1766,24 @@ status_t  QCameraHardwareInterface::takePicture()
     uint32_t stream_info;
     int mNuberOfVFEOutputs = 0;
     Mutex::Autolock lock(mLock);
+
+    mSnapJpegCbLock.lock();
+    if(mSnapJpegCbRunning==true){ // This flag is set true in snapshot_jpeg_cb
+       ALOGE("%s: wait snapshot_jpeg_cb() to finish to proceed with the next take picture", __func__);
+       mSnapJpegCbWait.wait(mSnapJpegCbLock);
+       ALOGE("%s: finish waiting snapshot_jpeg_cb() ", __func__);
+    }
+    mSnapJpegCbLock.unlock();
+
+
+    // if we have liveSnapshot instance,
+    // we need to delete it here to release teh channel it acquires
+    if (NULL != mStreamLiveSnap) {
+        delete(mStreamLiveSnap);
+        mStreamLiveSnap = NULL;
+    }
+
+    mSnapCbDisabled = false;
 
     mStreamSnap->resetSnapshotCounters( );
     switch(mPreviewState) {
