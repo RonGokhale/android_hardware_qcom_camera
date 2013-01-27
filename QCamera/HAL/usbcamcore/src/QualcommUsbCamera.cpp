@@ -3453,6 +3453,17 @@ static int callVideoRecCb(camera_hardware_t* camHal, int dispBufferId)
         camHal->curCaptureBuf.timestamp.tv_sec *1000000000LL +
         camHal->curCaptureBuf.timestamp.tv_usec*1000);
 
+    /* Temporary fix to handle error in UVC driver's time stamp estimation */
+    /* If current time stamp is less than the previous time stamp due to */
+    /* driver's error, add 10 usecond = 10000 nano seconds */
+    if (camHal->timeStampLastFrame > timeStamp)
+    {
+        ALOGE("%s: Correcting TS: timeStamp: %lld, timeStampLastFrame: %lld",
+            __func__, timeStamp, camHal->timeStampLastFrame);
+        timeStamp = camHal->timeStampLastFrame + 10000;
+    }
+    camHal->timeStampLastFrame = timeStamp;
+
     rc = getEmptyRecBuf(camHal, &vidBufferId);
     ERROR_CHECK_EXIT(rc, "no empty video buffer");
 
