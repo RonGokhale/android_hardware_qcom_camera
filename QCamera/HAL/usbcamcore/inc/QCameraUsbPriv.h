@@ -214,6 +214,7 @@ typedef struct {
     int                                 recordingEnabledFlag;
     QCameraHalHeap_t                    vidMem;
     int                                 freeVidBufIndx;
+    nsecs_t 				timeStampLastFrame;
 
     /* Parameter strings for get_params call */
     QCameraParameters                   qCamParams;
