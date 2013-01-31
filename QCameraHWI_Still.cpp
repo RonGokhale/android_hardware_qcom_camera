@@ -312,7 +312,6 @@ end:
     }else{
         ALOGE("%s: JPEG callback was cancelled--not delivering image.", __func__);
     }
-    setSnapshotState(SNAPSHOT_STATE_JPEG_ENCODE_DONE);
     mNumOfRecievedJPEG++;
     mHalCamCtrl->deinitExifData();
 
@@ -356,6 +355,7 @@ end:
 
     } else {
         ALOGD("%s: mNumOfRecievedJPEG(%d), mNumOfSnapshot(%d)", __func__, mNumOfRecievedJPEG, mNumOfSnapshot);
+        setSnapshotState(SNAPSHOT_STATE_JPEG_ENCODE_DONE);
     }
     if(fail_cb_flag && mHalCamCtrl->mDataCb &&
         (mHalCamCtrl->mMsgEnabled & CAMERA_MSG_COMPRESSED_IMAGE)) {
@@ -1561,7 +1561,7 @@ encodeData(mm_camera_ch_data_buf_t* recvd_frame,
        queued up there)*/
     ALOGD("%s: getSnapshotState()=%d, enqueued =%d, Q empty=%d", __func__, getSnapshotState(), enqueued, mSnapshotQueue.isEmpty());
     ALOGD("%s: mNumOfRecievedJPEG=%d, mNumOfSnapshot =%d", __func__, mNumOfRecievedJPEG, mNumOfSnapshot);
-    if((getSnapshotState() == SNAPSHOT_STATE_JPEG_ENCODING) ||
+    if((getSnapshotState() == SNAPSHOT_STATE_JPEG_ENCODING  && !enqueued) ||
        (!mSnapshotQueue.isEmpty() && !enqueued)){ /*busy and new buffer*/
         /* encoding is going on. Just queue the frame for now.*/
         ALOGD("%s: JPEG encoding in progress."
