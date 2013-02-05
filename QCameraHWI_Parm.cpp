@@ -2987,11 +2987,17 @@ status_t QCameraHardwareInterface::setFlash(const QCameraParameters& params)
 
     const char *str = params.get(QCameraParameters::KEY_FLASH_MODE);
     const char *strSCN = params.get(QCameraParameters::KEY_SCENE_MODE);
-    ALOGE("Flash mode:%s, SCN mode:%s", str, strSCN);
+    const char *strHDR = params.get(QCameraParameters::KEY_QC_AE_BRACKET_HDR);
+
+    ALOGE("Flash mode:%s, SCN mode:%s, HDR mode: %s", str, strSCN, strHDR);
     if (str != NULL) {
         int32_t value;
         if(strcmp(strSCN, QCameraParameters::SCENE_MODE_AUTO)) {
             ALOGE("SCN mode isn't auto, set Flash mode to off!");
+            value = attr_lookup(flash, sizeof(flash) / sizeof(str_map), QCameraParameters::FLASH_MODE_OFF);
+        }
+        else if(strcmp(strHDR, "Off")){
+            ALOGE("HDR is enabled, set Flash mode to off!");
             value = attr_lookup(flash, sizeof(flash) / sizeof(str_map), QCameraParameters::FLASH_MODE_OFF);
         }
         else {
