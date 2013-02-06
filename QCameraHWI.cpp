@@ -1,5 +1,5 @@
 /*
-** Copyright (c) 2011-2012 Code Aurora Forum. All rights reserved.
+** Copyright (c) 2011-2013 The Linux Foundation. All rights reserved.
 **
 ** Licensed under the Apache License, Version 2.0 (the "License");
 ** you may not use this file except in compliance with the License.
@@ -32,7 +32,6 @@
 /* following code implement the contol logic of this class*/
 
 namespace android {
-static const int CAMERA_ERROR_PREVIEWFRAME_TIMEOUT = 1001;
 static void HAL_event_cb(mm_camera_event_t *evt, void *user_data)
 {
   QCameraHardwareInterface *obj = (QCameraHardwareInterface *)user_data;
@@ -707,8 +706,6 @@ void QCameraHardwareInterface::debugShowPreviewFPS() const
 void QCameraHardwareInterface::
 processPreviewChannelEvent(mm_camera_ch_event_type_t channelEvent, app_notify_cb_t *app_cb) {
     ALOGI("processPreviewChannelEvent: E");
-    int stream_error;
-    bool ret;
     switch(channelEvent) {
         case MM_CAMERA_CH_EVT_STREAMING_ON:
             mCameraState =
@@ -718,47 +715,6 @@ processPreviewChannelEvent(mm_camera_ch_event_type_t channelEvent, app_notify_cb
             mCameraState = CAMERA_STATE_READY;
             break;
         case MM_CAMERA_CH_EVT_DATA_DELIVERY_DONE:
-            break;
-        /* For_VFE_TIMEOUT*/
-        case MM_CAMERA_CH_EVT_STREAMING_ERR:
-            /*if (mCheckFreePreviewBufferStatus == true && pErrorPointer != NULL) {
-            ALOGE("Check whether preview buffer is locked : %s\n", pErrorPointer);
-            }*/
-
-            /* Driver is in bad state. Recover the driver by restarting
-            * preview.*/
-            ALOGE("%s : MM_CAMERA_CH_EVT_STREAMING_ERR (isRecordingRunning = %d)\n", __func__,isRecordingRunning());
-
-            if(isRecordingRunning()) {
-                camera_memory_t *TempHeap =
-                    mGetMemory(-1, strlen(TempBuffer), 1, (void *)this);
-
-                if (!TempHeap || TempHeap->data == MAP_FAILED) {
-                    ALOGE("ERR(%s): heap creation fail", __func__);
-                    mNotifyCb(CAMERA_MSG_ERROR, -1, 0, mCallbackCookie);
-                }
-
-                memcpy(TempHeap->data, TempBuffer, strlen(TempBuffer));
-
-                ALOGE("[%s:%d] ERROR : notify error to encoder!!", __func__, __LINE__);
-                mDataCbTimestamp(0, CAMERA_MSG_ERROR | CAMERA_MSG_VIDEO_FRAME, TempHeap, 0, mCallbackCookie);
-
-                if (TempHeap) {
-                    TempHeap->release(TempHeap);
-                    TempHeap = 0;
-                }
-            }
-            //notify stream error to back end
-            stream_error = 1;
-            ret = native_set_parms(MM_CAMERA_PARM_STREAM_ERROR, sizeof(stream_error),(void *)&stream_error);
-            if(ret != true) {
-               ALOGE("%s X: Failed to notify back end. Camera might crash",__func__);
-            }
-            // notify stream error to framework
-            app_cb->notifyCb = mNotifyCb;
-            app_cb->argm_notify.msg_type = CAMERA_MSG_ERROR;
-            app_cb->argm_notify.ext1 = CAMERA_ERROR_PREVIEWFRAME_TIMEOUT;
-            app_cb->argm_notify.cookie = mCallbackCookie;
             break;
         default:
             break;
@@ -2141,22 +2097,6 @@ void QCameraHardwareInterface::zoomEvent(cam_ctrl_status_t *status, app_notify_c
         break;
     }
     ALOGI("zoomEvent: X");
-}
-
-void QCameraHardwareInterface::dumpFrameToFile(const void * data, uint32_t size, char* name, char* ext, int index)
-{
-    char buf[32];
-    int file_fd;
-    static int i = 0 ;
-    if ( data != NULL) {
-        char * str;
-        snprintf(buf, sizeof(buf), "/data/%s_%d.%s", name, index + i, ext);
-        ALOGE("marvin, %s size =%d", buf, size);
-        file_fd = open(buf, O_RDWR | O_CREAT, 0777);
-        write(file_fd, data, size);
-        close(file_fd);
-        i++;
-    }
 }
 
 void QCameraHardwareInterface::dumpFrameToFile(struct msm_frame* newFrame,
