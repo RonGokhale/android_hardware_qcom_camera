@@ -1550,6 +1550,7 @@ status_t QCameraHardwareInterface::setSaturation(const QCameraParameters& params
     bool ret = false;
     int rc = MM_CAMERA_OK;
     ALOGV("%s",__func__);
+    const char *str = params.get(QCameraParameters::KEY_SCENE_MODE);
     rc = cam_config_is_parm_supported(mCameraId, MM_CAMERA_PARM_SATURATION);
     if(!rc) {
         ALOGE("%s:MM_CAMERA_PARM_SATURATION not supported", __func__);
@@ -1561,7 +1562,10 @@ status_t QCameraHardwareInterface::setSaturation(const QCameraParameters& params
     if((saturation < CAMERA_MIN_SATURATION)
         || (saturation > CAMERA_MAX_SATURATION))
     return UNKNOWN_ERROR;
-
+    if(strcmp(str, QCameraParameters::SCENE_MODE_AUTO))
+    {
+      saturation = CAMERA_DEF_SATURATION;
+    }
     ALOGV("Setting saturation %d", saturation);
     mParameters.set(QCameraParameters::KEY_QC_SATURATION, saturation);
     ret = native_set_parms(MM_CAMERA_PARM_SATURATION, sizeof(saturation),
@@ -1592,6 +1596,10 @@ status_t QCameraHardwareInterface::setContrast(const QCameraParameters& params)
             return UNKNOWN_ERROR;
         }
         ALOGV("setting contrast %d", contrast);
+    if(strcmp(str, QCameraParameters::SCENE_MODE_AUTO))
+    {
+      contrast = CAMERA_DEF_CONTRAST;
+    }
         mParameters.set(QCameraParameters::KEY_QC_CONTRAST, contrast);
         ALOGV("Calling Contrast set on Lower layer");
         bool ret = native_set_parms(MM_CAMERA_PARM_CONTRAST, sizeof(contrast),
