@@ -2414,6 +2414,14 @@ void QCameraStream_Snapshot::deleteInstance(QCameraStream *p)
   }
 }
 
+void QCameraStream_Snapshot::notifyWdnHdrStartEvent()
+{
+  common_crop_t crop;
+  if(!mHalCamCtrl->mShutterSoundPlayed){
+     notifyShutter(&crop, TRUE);
+  }
+  mHalCamCtrl->mShutterSoundPlayed = TRUE;
+}
 void QCameraStream_Snapshot::notifyWDenoiseEvent(cam_ctrl_status_t status, void * cookie)
 {
     camera_notify_callback         notifyCb;

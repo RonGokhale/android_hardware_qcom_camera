@@ -121,6 +121,7 @@ public:
     virtual int setPreviewWindow(preview_stream_ops_t* window) {return NO_ERROR;}
     virtual void notifyROIEvent(fd_roi_t roi) {;}
     virtual void notifyWDenoiseEvent(cam_ctrl_status_t status, void * cookie) {;}
+    virtual void notifyWdnHdrStartEvent() {;}
     virtual void resetSnapshotCounters(void ){};
 
     QCameraStream();
@@ -316,6 +317,7 @@ public:
     void notifyWDenoiseEvent(cam_ctrl_status_t status, void * cookie);
     friend void liveshot_callback(mm_camera_ch_data_buf_t *frame,void *user_data);
     void resetSnapshotCounters(void );
+    void notifyWdnHdrStartEvent();
     bool getSnapJpegCbState(void);
     void setSnapJpegCbState(bool state);
 

@@ -800,6 +800,7 @@ typedef enum {
   MM_CAMERA_CTRL_EVT_SNAPSHOT_CONFIG_DONE,
   MM_CAMERA_CTRL_EVT_WDN_DONE, // wavelet denoise done
   MM_CAMERA_CTRL_EVT_ERROR,
+  MM_CAMERA_CTRL_EVT_WDN_HDR_START,
   MM_CAMERA_CTRL_EVT_MAX
 }mm_camera_ctrl_event_type_t;
 
