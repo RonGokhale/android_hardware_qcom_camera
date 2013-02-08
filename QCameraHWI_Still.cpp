@@ -895,7 +895,7 @@ void QCameraStream_Snapshot::deInitBuffer(void)
     else
     {
       if (!isZSLMode() &&
-      ((mHalCamCtrl->getHDRMode() == HDR_MODE) || (mHalCamCtrl->isWDenoiseEnabled()))) {
+      ((mHalCamCtrl->getHDRMode() == HDR_MODE) || (mHalCamCtrl->isWDenoiseEnabled())) && (!isLiveSnapshot())) {
         /*register main and thumbnail buffers at back-end for frameproc*/
         for (int i = 0; i < mHalCamCtrl->mSnapshotMemory.buffer_count; i++) {
           if (NO_ERROR != mHalCamCtrl->sendUnMappingBuf(MSM_V4L2_EXT_CAPTURE_MODE_MAIN, i, mCameraId,
