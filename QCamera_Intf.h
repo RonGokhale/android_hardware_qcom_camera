@@ -268,6 +268,7 @@ typedef struct {
   cam_frame_len_offset_t picture_frame_offset;
   cam_frame_len_offset_t thumb_frame_offset;
   uint32_t channel_interface_mask;
+  int enable_zoom;
 } cam_ctrl_dimension_t;
 
 /* Add enumenrations at the bottom but before MM_CAMERA_PARM_MAX */

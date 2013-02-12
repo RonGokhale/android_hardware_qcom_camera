@@ -410,7 +410,7 @@ configSnapshotDimension(cam_ctrl_dimension_t* dim)
         }
     }
     #endif
-    if (!matching) {
+    if (/*!matching*/1) {
          ALOGD("%s: Image Sizes before set parm call: main: %dx%d thumbnail: %dx%d",
               __func__,
               dim->picture_width, dim->picture_height,
@@ -425,8 +425,6 @@ configSnapshotDimension(cam_ctrl_dimension_t* dim)
     }
     /* set_parm will return corrected dimension based on aspect ratio and
        ceiling size */
-    mPictureWidth = dim->picture_width;
-    mPictureHeight = dim->picture_height;
     mPostviewHeight = mThumbnailHeight = dim->ui_thumbnail_height;
     mPostviewWidth = mThumbnailWidth = dim->ui_thumbnail_width;
     mPictureFormat= dim->main_img_format;
@@ -990,8 +988,9 @@ status_t QCameraStream_Snapshot::initJPEGSnapshot(int num_of_snapshots)
         ret = FAILED_TRANSACTION;
         goto end;
     }
-
     /* config the parmeters and see if we need to re-init the stream*/
+    if(mEnableZoom)
+    dim.enable_zoom = mEnableZoom;
     ALOGI("%s: Configure Snapshot Dimension", __func__);
     ret = configSnapshotDimension(&dim);
     if (ret != NO_ERROR) {
@@ -1035,6 +1034,8 @@ end:
     if (ret != NO_ERROR) {
         handleError();
     }
+    mEnableZoom = false;
+    dim.enable_zoom = false;
     ALOGV("%s: X", __func__);
     return ret;
 
@@ -1174,7 +1175,8 @@ status_t QCameraStream_Snapshot::initZSLSnapshot(void)
         ret = FAILED_TRANSACTION;
         goto end;
     }
-
+    if(mEnableZoom)
+      dim.enable_zoom = mEnableZoom;
     /* config the parmeters and see if we need to re-init the stream*/
     ALOGD("%s: Configure Snapshot Dimension", __func__);
     ret = configSnapshotDimension(&dim);
@@ -1206,6 +1208,8 @@ end:
     if (ret != NO_ERROR) {
         handleError();
     }
+    mEnableZoom = false;
+    dim.enable_zoom = false;
     ALOGV("%s: X", __func__);
     return ret;
 
@@ -1520,8 +1524,8 @@ encodeData(mm_camera_ch_data_buf_t* recvd_frame,
         cam_config_get_parm(mHalCamCtrl->mCameraId, MM_CAMERA_PARM_DIMENSION, &dimension);
         ALOGD("%s: main_fmt =%d, tb_fmt =%d", __func__, dimension.main_img_format, dimension.thumb_format);
 
-        dimension.orig_picture_dx = mPictureWidth;
-        dimension.orig_picture_dy = mPictureHeight;
+        dimension.orig_picture_dx = dimension.picture_width;//mPictureWidth;
+        dimension.orig_picture_dy = dimension.picture_height; //mPictureHeight;
 
         if(!mDropThumbnail) {
             if(isZSLMode()) {
@@ -2027,6 +2031,10 @@ void QCameraStream_Snapshot::resetSnapshotCounters(void )
   mNumOfRecievedJPEG = 0;
   ALOGD("%s: Number of images to be captured: %d", __func__, mNumOfSnapshot);
 }
+void QCameraStream_Snapshot::enableZoom(bool value)
+{
+    mEnableZoom = value;
+}
 
 //------------------------------------------------------------------
 // Constructor and Destructor
@@ -2056,7 +2064,8 @@ QCameraStream_Snapshot(int cameraId, camera_mode_t mode)
     mFullLiveshot(false),
     mDropThumbnail(false),
     mIsRawChAcquired(false),
-    mIsJpegChAcquired(false)
+    mIsJpegChAcquired(false),
+    mEnableZoom(false)
   {
     ALOGV("%s: E", __func__);
 

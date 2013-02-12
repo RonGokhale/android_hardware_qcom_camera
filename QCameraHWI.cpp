@@ -1788,6 +1788,9 @@ status_t  QCameraHardwareInterface::takePicture()
         // mzhu storePreviewFrameForPostview();
 
         /* stop preview */
+        if(mStreamSnap->mZoomEnbl)
+	mStreamSnap->enableZoom(true);
+
         pausePreviewForSnapshot();
         if (mChannelInterfaceMask != STREAM_IMAGE) {
           stream_info = STREAM_IMAGE;
@@ -2118,7 +2121,6 @@ void QCameraHardwareInterface::handleZoomEventForSnapshot(void)
 
 
     ALOGI("%s: E", __func__);
-
     memset(&v4l2_crop,0,sizeof(v4l2_crop));
     v4l2_crop.ch_type=MM_CAMERA_CH_SNAPSHOT;
 
@@ -2135,7 +2137,18 @@ void QCameraHardwareInterface::handleZoomEventForSnapshot(void)
          v4l2_crop.snapshot.thumbnail_crop.top,
          v4l2_crop.snapshot.thumbnail_crop.width,
          v4l2_crop.snapshot.thumbnail_crop.height);
-
+  if(isZSLMode()){
+     if(v4l2_crop.snapshot.main_crop.width && v4l2_crop.snapshot.main_crop.height) {
+        if(!(mStreamSnap->mZoomEnbl)){
+            mRestartPreview =1;
+	    mStreamSnap->mZoomEnbl = 1;
+            mStreamSnap->enableZoom(true);
+            pausePreviewForZSL();   
+         }
+     }else {	
+	    mStreamSnap->mZoomEnbl = 0;
+	 }
+   }
     if(mStreamSnap) {
         ALOGD("%s: Setting crop info for snapshot", __func__);
         memcpy(&(mStreamSnap->mCrop), &v4l2_crop, sizeof(v4l2_crop));
@@ -2152,7 +2165,8 @@ void QCameraHardwareInterface::handleZoomEventForPreview(app_notify_cb_t *app_cb
     mm_camera_ch_crop_t v4l2_crop;
 
     ALOGI("%s: E", __func__);
-
+      if(!(isZSLMode()))
+         mStreamSnap->mZoomEnbl = 0;
     /*regular zooming or smooth zoom stopped*/
     if (!mSmoothZoomRunning && mPreviewWindow) {
         memset(&v4l2_crop, 0, sizeof(v4l2_crop));
@@ -2175,7 +2189,10 @@ void QCameraHardwareInterface::handleZoomEventForPreview(app_notify_cb_t *app_cb
         ALOGI("%s: Done setting crop", __func__);
         ALOGI("%s: Currrent zoom :%d",__func__, mCurrentZoom);
     }
-
+    if(!(isZSLMode())){
+    if(v4l2_crop.crop.height && v4l2_crop.crop.width) 
+      mStreamSnap->mZoomEnbl = 1;
+    }
     ALOGI("%s: X", __func__);
 }
 
