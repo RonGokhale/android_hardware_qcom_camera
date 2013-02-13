@@ -94,7 +94,8 @@ typedef enum {
   CAMERA_PAD_TO_1K, /*1k bytes*/
   CAMERA_PAD_TO_2K, /*2k bytes*/
   CAMERA_PAD_TO_4K,
-  CAMERA_PAD_TO_8K
+  CAMERA_PAD_TO_8K,
+  CAMERA_PAD_TO_4K_32
 } cam_pad_format_t;
 
 typedef struct {
