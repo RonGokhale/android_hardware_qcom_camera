@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are
@@ -1065,11 +1065,11 @@ int32_t mm_camera_close(mm_camera_obj_t *my_obj)
 {
     int i, rc = 0;
 
-    CDBG("%s : Close Threads in Cam Close",__func__);
-    for(i = 0; i < MM_CAMERA_CH_MAX; i++) {
-        mm_camera_poll_thread_release(my_obj,(mm_camera_channel_type_t)i);
-    }
-    mm_camera_poll_threads_deinit(my_obj);
+    //CDBG("%s : Close Threads in Cam Close",__func__);
+    //for(i = 0; i < MM_CAMERA_CH_MAX; i++) {
+       // mm_camera_poll_thread_release(my_obj,(mm_camera_channel_type_t)i);
+    //}
+    //mm_camera_poll_threads_deinit(my_obj);
     for(i = 0; i < MM_CAMERA_CH_MAX; i++){
         mm_camera_ch_fn(my_obj, (mm_camera_channel_type_t)i,
                                 MM_CAMERA_STATE_EVT_RELEASE, NULL);

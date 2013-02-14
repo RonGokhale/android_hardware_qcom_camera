@@ -315,6 +315,8 @@ public:
     void notifyWDenoiseEvent(cam_ctrl_status_t status, void * cookie);
     friend void liveshot_callback(mm_camera_ch_data_buf_t *frame,void *user_data);
     void resetSnapshotCounters(void );
+    bool getSnapJpegCbState(void);
+    void setSnapJpegCbState(bool state);
 
 private:
     QCameraStream_Snapshot(int, camera_mode_t);
