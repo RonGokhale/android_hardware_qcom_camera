@@ -604,6 +604,7 @@ private:
     status_t setSceneDetect(const QCameraParameters& params);
     status_t setStrTextures(const QCameraParameters& params);
     status_t setPreviewFormat(const QCameraParameters& params);
+    status_t setVideoFrameFormat(const QCameraParameters& params);
     status_t setSelectableZoneAf(const QCameraParameters& params);
     status_t setOverlayFormats(const QCameraParameters& params);
     status_t setHighFrameRate(const QCameraParameters& params);

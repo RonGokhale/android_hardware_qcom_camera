@@ -1479,6 +1479,7 @@ status_t QCameraHardwareInterface::setParameters(const QCameraParameters& params
     if ((rc = setFaceDetect(params)))                   final_rc = rc;
     if ((rc = setStrTextures(params)))                  final_rc = rc;
     if ((rc = setPreviewFormat(params)))                final_rc = rc;
+    if ((rc = setVideoFrameFormat(params)))             final_rc = rc;
     if ((rc = setSkinToneEnhancement(params)))          final_rc = rc;
     if ((rc = setWaveletDenoise(params)))               final_rc = rc;
     if ((rc = setAntibanding(params)))                  final_rc = rc;
@@ -2948,6 +2949,16 @@ status_t QCameraHardwareInterface::setPreviewFormat(const QCameraParameters& par
     ALOGE("Invalid preview format value: %s", (str == NULL) ? "NULL" : str);
     return BAD_VALUE;
 }
+
+status_t QCameraHardwareInterface::setVideoFrameFormat(const QCameraParameters& params) {
+    const char *str = params.get(CameraParameters::KEY_VIDEO_FRAME_FORMAT);
+    if(str != NULL){
+        mParameters.set(QCameraParameters::KEY_VIDEO_FRAME_FORMAT, str);
+        ALOGI("Setting video format to %s",str);
+    }
+    return NO_ERROR;
+}
+
 
 status_t QCameraHardwareInterface::setStrTextures(const QCameraParameters& params) {
     const char *str = params.get("strtextures");
