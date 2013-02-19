@@ -85,7 +85,7 @@ status_t  QCameraStream_Rdi::getBufferRdi( )
   y_off = 0;
   cbcr_off = planes[0];
 
-  ALOGE("%s: main image: rotation = %d, yoff = %d, cbcroff = %d, size = %d, width = %d, height = %d",
+  ALOGI("%s: main image: rotation = %d, yoff = %d, cbcroff = %d, size = %d, width = %d, height = %d",
        __func__, dim.rotation, y_off, cbcr_off, frame_len,
        dim.rdi0_width, dim.rdi0_height);
   if (mHalCamCtrl->initHeapMem(&mHalCamCtrl->mRdiMemory,
@@ -109,7 +109,7 @@ status_t   QCameraStream_Rdi::freeBufferRdi()
   int err = 0;
   status_t ret = NO_ERROR;
 
-  ALOGE(" %s : E ", __FUNCTION__);
+  ALOGD(" %s : E ", __FUNCTION__);
 
   mHalCamCtrl->mRdiMemoryLock.lock();
   for (int cnt = 0; cnt < mHalCamCtrl->mRdiMemory.buffer_count; cnt++) {
@@ -145,7 +145,7 @@ status_t QCameraStream_Rdi::initRdiBuffers()
 
   cam_ctrl_dimension_t dim;
 
-  ALOGE("%s:BEGIN",__func__);
+  ALOGD("%s:BEGIN",__func__);
   mHalCamCtrl->mRdiMemoryLock.lock();
   memset(&mHalCamCtrl->mRdiMemory, 0, sizeof(mHalCamCtrl->mRdiMemory));
   mHalCamCtrl->mRdiMemoryLock.unlock();
@@ -204,7 +204,7 @@ status_t QCameraStream_Rdi::initRdiBuffers()
         (long unsigned int)mHalCamCtrl->mRdiMemory.camera_memory[i]->data;
     mRdiStreamBuf.frame[i].ion_alloc.len = mHalCamCtrl->mRdiMemory.alloc[i].len;
 
-    ALOGE("%s: idx = %d, fd = %d, size = %d, cbcr_offset = %d, y_offset = %d, "
+    ALOGI("%s: idx = %d, fd = %d, size = %d, cbcr_offset = %d, y_offset = %d, "
       "vaddr = 0x%x", __func__, i, mRdiStreamBuf.frame[i].fd,
       frame_len,
     mRdiStreamBuf.frame[i].cbcr_off, mRdiStreamBuf.frame[i].y_off,
@@ -241,7 +241,7 @@ status_t QCameraStream_Rdi::initRdiBuffers()
     }
 
     for (int j = 0; j < num_planes; j++)
-      ALOGE("Planes: %d length: %d userptr: %lu offset: %d\n", j,
+      ALOGI("Planes: %d length: %d userptr: %lu offset: %d\n", j,
         mRdiBuf.def.buf.mp[i].planes[j].length,
         mRdiBuf.def.buf.mp[i].planes[j].m.userptr,
         mRdiBuf.def.buf.mp[i].planes[j].reserved[0]);
@@ -251,7 +251,7 @@ status_t QCameraStream_Rdi::initRdiBuffers()
   mRdiBuf.ch_type = MM_CAMERA_CH_RDI;
   mRdiBuf.def.num = mRdiStreamBuf.num;
   mHalCamCtrl->mRdiMemoryLock.unlock();
-  ALOGE("%s:END",__func__);
+  ALOGD("%s:END",__func__);
   return NO_ERROR;
 
 end:
@@ -295,10 +295,10 @@ void QCameraStream_Rdi::dumpFrameToFile(struct msm_frame* newFrame)
     file_fd = open(buf, O_RDWR | O_CREAT, 0777);
 
     rc = write(file_fd, (const void *)addr, len);
-    ALOGE("%s: file='%s', vaddr_old=0x%x, addr_map = 0x%p, len = %d, rc = %d",
+    ALOGI("%s: file='%s', vaddr_old=0x%x, addr_map = 0x%p, len = %d, rc = %d",
           __func__, buf, (uint32_t)newFrame->buffer, (void *)addr, len, rc);
     close(file_fd);
-    ALOGE("%s: dump %s, rc = %d, len = %d", __func__, buf, rc, len);
+    ALOGI("%s: dump %s, rc = %d, len = %d", __func__, buf, rc, len);
   }
 }
 
@@ -313,7 +313,7 @@ status_t QCameraStream_Rdi::processRdiFrame(
 
   Mutex::Autolock lock(mStopCallbackLock);
   if(!mActive) {
-    ALOGE("RDI Streaming Stopped. Returning callback");
+    ALOGD("RDI Streaming Stopped. Returning callback");
     return NO_ERROR;
   }
   if(mHalCamCtrl==NULL) {
@@ -381,8 +381,8 @@ QCameraStream_Rdi(int cameraId, camera_mode_t mode)
     mNumFDRcvd(0)
   {
     mHalCamCtrl = NULL;
-    ALOGE("%s: E", __func__);
-    ALOGE("%s: X", __func__);
+    ALOGD("%s: E", __func__);
+    ALOGD("%s: X", __func__);
   }
 // ---------------------------------------------------------------------------
 // QCameraStream_Rdi
@@ -459,11 +459,11 @@ status_t QCameraStream_Rdi::start()
        ZSL we skip setting Mode here */
 
     if (!(myMode & CAMERA_ZSL_MODE)) {
-        ALOGE("Setting OP MODE to MM_CAMERA_OP_MODE_VIDEO");
+        ALOGD("Setting OP MODE to MM_CAMERA_OP_MODE_VIDEO");
         mm_camera_op_mode_type_t op_mode=MM_CAMERA_OP_MODE_VIDEO;
         ret = cam_config_set_parm (mCameraId, MM_CAMERA_PARM_OP_MODE,
                                         &op_mode);
-        ALOGE("OP Mode Set");
+        ALOGD("OP Mode Set");
 
         if(MM_CAMERA_OK != ret) {
           ALOGE("%s: X :set mode MM_CAMERA_OP_MODE_VIDEO err=%d\n", __func__, ret);
@@ -471,7 +471,7 @@ status_t QCameraStream_Rdi::start()
           goto error;
         }
     }else {
-        ALOGE("Setting OP MODE to MM_CAMERA_OP_MODE_ZSL");
+        ALOGD("Setting OP MODE to MM_CAMERA_OP_MODE_ZSL");
         mm_camera_op_mode_type_t op_mode=MM_CAMERA_OP_MODE_ZSL;
         ret = cam_config_set_parm (mCameraId, MM_CAMERA_PARM_OP_MODE,
                                         &op_mode);
@@ -484,7 +484,7 @@ status_t QCameraStream_Rdi::start()
 
     /* call mm_camera action start(...)  */
 
-     ALOGE("Starting RDI Stream. ");
+     ALOGD("Starting RDI Stream. ");
      ret = cam_ops_action(mCameraId, TRUE, MM_CAMERA_OPS_RDI, 0);
      if (MM_CAMERA_OK != ret) {
        ALOGE ("%s: rdi streaming start err=%d\n", __func__, ret);
@@ -501,7 +501,7 @@ status_t QCameraStream_Rdi::start()
 error:
    freeBufferRdi();
 end:
-    ALOGE("%s: X", __func__);
+    ALOGD("%s: X", __func__);
     return ret;
   }
 
@@ -510,7 +510,7 @@ end:
 // QCameraStream_Rdi
 // ---------------------------------------------------------------------------
   void QCameraStream_Rdi::stop() {
-    ALOGE("%s: E", __func__);
+    ALOGD("%s: E", __func__);
     int ret=MM_CAMERA_OK;
     uint32_t stream_info;
 
@@ -538,7 +538,7 @@ end:
     /*free camera_memory handles and return buffer back to surface*/
     freeBufferRdi();
 
-    ALOGE("%s: X", __func__);
+    ALOGD("%s: X", __func__);
 
   }
 // ---------------------------------------------------------------------------
@@ -546,7 +546,7 @@ end:
 // ---------------------------------------------------------------------------
   void QCameraStream_Rdi::release() {
 
-    ALOGE("%s : BEGIN",__func__);
+    ALOGD("%s : BEGIN",__func__);
     int ret=MM_CAMERA_OK,i;
 
     if(!mInit)
@@ -560,7 +560,7 @@ end:
     }
 
     ret= QCameraStream::deinitChannel(mCameraId, MM_CAMERA_CH_RDI);
-    ALOGE(": %s : De init Channel",__func__);
+    ALOGD(": %s : De init Channel",__func__);
     if(ret != MM_CAMERA_OK) {
       ALOGE("%s:Deinit preview channel failed=%d\n", __func__, ret);
       //ret = BAD_VALUE;
@@ -572,7 +572,7 @@ end:
                                       NULL,
                                       NULL);
     mInit = false;
-    ALOGE("%s: END", __func__);
+    ALOGD("%s: END", __func__);
 
   }
 
