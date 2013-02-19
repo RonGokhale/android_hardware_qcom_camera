@@ -74,7 +74,7 @@ class QCameraStream { //: public virtual RefBase{
 public:
     bool mInit;
     bool mActive;
-
+    bool mZoomEnbl;
     virtual status_t    init();
     virtual status_t    start();
     virtual void        stop();
@@ -113,6 +113,7 @@ public:
                                  cam_ctrl_dimension_t *dim,
                                  int frame_len){return NO_ERROR;}
     virtual void setModeLiveSnapshot(bool){;}
+    virtual void enableZoom(bool){;}  //manish
     virtual status_t initSnapshotBuffers(cam_ctrl_dimension_t *dim,
                                  int num_of_buf){return NO_ERROR;}
 
@@ -312,6 +313,7 @@ public:
     void runSnapshotThread(void *data);
     bool isZSLMode();
     void setFullSizeLiveshot(bool);
+    void enableZoom(bool);  //manish
     void notifyWDenoiseEvent(cam_ctrl_status_t status, void * cookie);
     friend void liveshot_callback(mm_camera_ch_data_buf_t *frame,void *user_data);
     void resetSnapshotCounters(void );
@@ -405,6 +407,7 @@ private:
     int                     mJpegSessionId;
 	int                     dump_fd;
     bool mFullLiveshot;
+    bool mEnableZoom;
     StreamQueue             mWDNQueue; // queue to hold frames while one frame is sent out for WDN
     bool                    mIsDoingWDN; // flag to indicate if WDN is going on (one frame is sent out for WDN)
 	bool                    mDropThumbnail;

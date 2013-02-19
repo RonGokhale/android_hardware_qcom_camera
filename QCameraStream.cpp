@@ -333,6 +333,7 @@ status_t QCameraStream::setFormat(uint8_t ch_type_mask, cam_format_t previewFmt 
 QCameraStream::QCameraStream (){
     mInit = false;
     mActive = false;
+    mZoomEnbl  = false;
     /* memset*/
     memset(&mCrop, 0, sizeof(mm_camera_ch_crop_t));
 }
@@ -343,7 +344,7 @@ QCameraStream::QCameraStream (int cameraId, camera_mode_t mode)
 {
     mInit = false;
     mActive = false;
-
+    mZoomEnbl  = false;
     /* memset*/
     memset(&mCrop, 0, sizeof(mm_camera_ch_crop_t));
 }
