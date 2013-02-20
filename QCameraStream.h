@@ -212,6 +212,8 @@ public:
     status_t initPreviewOnlyBuffers();
 
     status_t processPreviewFrame(mm_camera_ch_data_buf_t *frame);
+    /*convert from YCrCb420SP to YV12 inplace*/
+    status_t convert_ycrcb420_to_yv12(mm_camera_ch_data_buf_t *frame);
     /*init preview buffers with display case*/
     status_t processPreviewFrameWithDisplay(mm_camera_ch_data_buf_t *frame);
     /*init preview buffers without display case*/
