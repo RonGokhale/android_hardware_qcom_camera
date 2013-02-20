@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are
@@ -260,7 +260,7 @@ int32_t mm_camera_util_s_ctrl( int32_t fd,  uint32_t id, int32_t value)
     return rc;
 }
 
-int32_t mm_camera_util_private_s_ctrl(int32_t fd,  uint32_t id, void __user *value )
+int32_t mm_camera_util_private_s_ctrl(int32_t fd,  uint32_t id, void *value )
 {
     int rc = MM_CAMERA_OK;
     struct msm_camera_v4l2_ioctl_t v4l2_ioctl;

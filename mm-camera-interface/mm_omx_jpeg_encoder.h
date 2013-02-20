@@ -1,4 +1,4 @@
-/* Copyright (c) 2011, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -30,7 +30,7 @@
 #define MM_OMX_JPEG_ENCODER_H_
 #include <linux/msm_ion.h>
 #include "camera.h"
-
+#include "jpeg_common.h"
 typedef struct omx_jpeg_encode_params_t {
     const cam_ctrl_dimension_t * dimension;
     const uint8_t * thumbnail_buf;

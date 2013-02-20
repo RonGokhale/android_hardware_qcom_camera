@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -35,6 +35,7 @@
 #include "omx_debug.h"
 #include "omx_jpeg_ext.h"
 #include "mm_omx_jpeg_encoder.h"
+#include "mm_camera_dbg.h"
 
 static uint8_t hw_encode = true;
 static int jpegRotation = 0;
