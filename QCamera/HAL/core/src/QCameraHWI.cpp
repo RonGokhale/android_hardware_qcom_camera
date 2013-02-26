@@ -3625,7 +3625,10 @@ int QCameraHardwareInterface::initHeapMem( QCameraHalHeap_t *heap,
                      buf_def[i].planes[j-1].length;
             }
         }
-
+#ifdef USE_ION
+       //Invalidate since the memory allocated is cached
+         flushFrame(&buf_def[i], heap);
+#endif
         ALOGE("heap->fd[%d] =%d, camera_memory=%p", i, heap->fd[i], heap->camera_memory[i]);
         heap->local_flag[i] = 1;
     }
