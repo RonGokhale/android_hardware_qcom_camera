@@ -425,8 +425,6 @@ configSnapshotDimension(cam_ctrl_dimension_t* dim)
     }
     /* set_parm will return corrected dimension based on aspect ratio and
        ceiling size */
-    mPictureWidth = dim->picture_width;
-    mPictureHeight = dim->picture_height;
     mPostviewHeight = mThumbnailHeight = dim->ui_thumbnail_height;
     mPostviewWidth = mThumbnailWidth = dim->ui_thumbnail_width;
     mPictureFormat= dim->main_img_format;
@@ -1522,8 +1520,8 @@ encodeData(mm_camera_ch_data_buf_t* recvd_frame,
         cam_config_get_parm(mHalCamCtrl->mCameraId, MM_CAMERA_PARM_DIMENSION, &dimension);
         ALOGD("%s: main_fmt =%d, tb_fmt =%d", __func__, dimension.main_img_format, dimension.thumb_format);
 
-        dimension.orig_picture_dx = mPictureWidth;
-        dimension.orig_picture_dy = mPictureHeight;
+        dimension.orig_picture_dx = dimension.picture_width;
+        dimension.orig_picture_dy = dimension.picture_height;
 
         if(!mDropThumbnail) {
             if(isZSLMode()) {
