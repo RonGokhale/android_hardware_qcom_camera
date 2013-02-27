@@ -39,6 +39,10 @@ DEBUG_CPPFLAGS=
 DEBUG_CFLAGS=
 DEBUG_LDFLAGS=
 
+AC_ARG_WITH([additional-include-directives],
+        [AS_HELP_STRING([--with-additional-include-directives=DIR],[additional -I include paths for the C pre-processor])],
+        [CPPFLAGS="$CPPFLAGS -I$withval"])
+
 AC_ARG_ENABLE([target],
 	[AS_HELP_STRING([--enable-target=TARGET],[target to build for])],
 	[],

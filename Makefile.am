@@ -26,18 +26,17 @@ libcamera_la_CFLAGS+= -DUSE_NEON_CONVERSION
 # Uncomment below line to enable smooth zoom
 #libcamera_la_CFLAGS+= -DCAMERA_SMOOTH_ZOOM
 
-libcamera_la_SOURCES := mm_camera.c
-libcamera_la_SOURCES += mm_camera_channel.c
-libcamera_la_SOURCES += mm_camera_helper.c
-libcamera_la_SOURCES += mm_camera_interface2.c
-libcamera_la_SOURCES += mm_camera_notify.c
-libcamera_la_SOURCES += mm_camera_poll_thread.c
-libcamera_la_SOURCES += mm_camera_sock.c
-libcamera_la_SOURCES += mm_camera_stream.c
+libcamera_la_SOURCES := mm-camera-interface/mm_camera.c
+libcamera_la_SOURCES += mm-camera-interface/mm_camera_channel.c
+libcamera_la_SOURCES += mm-camera-interface/mm_camera_helper.c
+libcamera_la_SOURCES += mm-camera-interface/mm_camera_interface2.c
+libcamera_la_SOURCES += mm-camera-interface/mm_camera_notify.c
+libcamera_la_SOURCES += mm-camera-interface/mm_camera_poll_thread.c
+libcamera_la_SOURCES += mm-camera-interface/mm_camera_sock.c
+libcamera_la_SOURCES += mm-camera-interface/mm_camera_stream.c
 
 if BUILD_JPEG
-libcamera_la_SOURCES += mm_jpeg_encoder.c
-libcamera_la_SOURCES += mm_omx_jpeg_encoder.c
+libcamera_la_SOURCES += mm-camera-interface/mm_omx_jpeg_encoder.c
 endif
 
 if BUILD_UNIFIED_CODE
@@ -69,6 +68,8 @@ endif
 libcamera_la_LDFLAGS := $(DEBUG_LDFLAGS)
 libcamera_la_LDFLAGS += -shared
 libcamera_la_LIBADD = -ldl
+libcamera_la_LIBADD += -limage_omx_common
+libcamera_la_LIBADD += -lOmxCore
 
 dirs :=
 SUBDIRS = $(dirs)

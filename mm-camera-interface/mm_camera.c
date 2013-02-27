@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are
@@ -418,7 +418,7 @@ static int32_t mm_camera_send_native_ctrl_cmd(mm_camera_obj_t * my_obj,
     ctrl_cmd.value = value;
     ctrl_cmd.status = CAM_CTRL_SUCCESS;
     rc = mm_camera_util_private_s_ctrl(my_obj->ctrl_fd, MSM_V4L2_PID_CTRL_CMD,
-                                                                            (void __user*)&ctrl_cmd);
+                                                                            (void *)&ctrl_cmd);
     CDBG("%s: type=%d, rc = %d, status = %d\n",
                 __func__, type, rc, ctrl_cmd.status);
 
@@ -441,7 +441,7 @@ static int32_t mm_camera_send_native_ctrl_timeout_cmd(mm_camera_obj_t * my_obj,
     ctrl_cmd.value = value;
     ctrl_cmd.status = CAM_CTRL_SUCCESS;
     rc = mm_camera_util_private_s_ctrl(my_obj->ctrl_fd, MSM_V4L2_PID_CTRL_CMD,
-        (void __user*)&ctrl_cmd);
+        (void *)&ctrl_cmd);
     CDBG("%s: type=%d, rc = %d, status = %d\n",
         __func__, type, rc, ctrl_cmd.status);
     if(rc != MM_CAMERA_OK || ((ctrl_cmd.status != CAM_CTRL_ACCEPTED) &&

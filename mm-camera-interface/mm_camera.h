@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are
@@ -260,7 +260,7 @@ typedef struct {
     int snap_burst_num_by_user;
 } mm_camera_obj_t;
 
-#define MM_CAMERA_DEV_NAME_LEN 32
+#define MM_CAMERA_DEV_NAME_LEN 64
 #define MM_CAMERA_DEV_OPEN_TRIES 2
 #define MM_CAMERA_DEV_OPEN_RETRY_SLEEP 20
 
@@ -283,7 +283,7 @@ extern const char *mm_camera_util_get_dev_name(mm_camera_obj_t * my_obj);
 extern int32_t mm_camera_util_s_ctrl( int32_t fd,
                                             uint32_t id, int32_t value);
 extern int32_t mm_camera_util_private_s_ctrl( int32_t fd,
-                                            uint32_t id, void __user *value);
+                                            uint32_t id, void *value);
 extern int32_t mm_camera_util_g_ctrl( int32_t fd,
                                             uint32_t id, int32_t *value);
 extern int32_t mm_camera_ch_fn(mm_camera_obj_t * my_obj,
