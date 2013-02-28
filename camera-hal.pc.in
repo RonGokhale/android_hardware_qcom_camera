@@ -1,0 +1,10 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: mm-camera-interface
+Description: mm-camera-interface library
+Version: @VERSION@
+Libs: -L${libdir} -lcamera
+Cflags: -I${includedir}/mm_camera_interface
