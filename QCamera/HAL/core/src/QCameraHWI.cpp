@@ -1379,6 +1379,7 @@ QCameraHardwareInterface(int cameraId, int mode)
     mVisionModeFlag(0),
     mIsYUVSensor(0),
     mPowerModule(0),
+    mLowLightShot(0),
     mSupportedFpsRanges(NULL),
     mSupportedFpsRangesCount(0),
     rdiMode(STREAM_IMAGE),
@@ -1716,7 +1717,7 @@ int QCameraHardwareInterface::dump(int fd)
 status_t QCameraHardwareInterface::sendCommand(int32_t command, int32_t arg1,
                                          int32_t arg2)
 {
-    ALOGI("sendCommand: E");
+    ALOGI("sendCommand: E, command = %d \n", command);
     status_t rc = NO_ERROR;
     Mutex::Autolock l(&mLock);
 
@@ -1733,6 +1734,43 @@ status_t QCameraHardwareInterface::sendCommand(int32_t command, int32_t arg1,
             ALOGE("histogram send data");
             mSendData = true;
             rc = NO_ERROR;
+            break;
+        case CAMERA_CMD_SET_LOW_LIGHT_MODE:
+            ALOGW("LLS is %s", arg1 ? "enabled" : "disabled");
+            if (arg1 == 1){
+              mLowLightShot = true;
+
+              /* set ZSL Off */
+              mParameters.set(QCameraParameters::KEY_QC_CAMERA_MODE,0);
+              myMode = (camera_mode_t)(myMode & ~CAMERA_ZSL_MODE);
+
+              /* set exposure valuse */
+              mParameters.set("capture-burst-exposures", "0,0,0,0,0,0");
+              ALOGW("setCaptureBurstExp[%d], burst_exp = %s", __LINE__, mParameters.get("capture-burst-exposures"));
+
+              /* set number of frame */
+              mParameters.set("num-snaps-per-shutter", 6);
+              ALOGW("[%d][num-snaps-per-shutter::%s]", __LINE__, mParameters.get("num-snaps-per-shutter"));
+
+              /*set ae braket setting */
+              mParameters.set(QCameraParameters::KEY_QC_AE_BRACKET_HDR,"AE-Bracket");
+            } else {
+              mLowLightShot = false;
+
+              /* set ZSL Off */
+              mParameters.set(QCameraParameters::KEY_QC_CAMERA_MODE,1);
+              myMode = (camera_mode_t)(myMode | CAMERA_ZSL_MODE);
+
+              /* set default exposure valuse */
+              mParameters.set("capture-burst-exposures", "");
+              ALOGW("setCaptureBurstExp[%d], burst_exp = %s", __LINE__, mParameters.get("capture-burst-exposures"));
+              /* set default number of frame */
+              mParameters.set("num-snaps-per-shutter", 1);
+              ALOGW("[%d][num-snaps-per-shutter::%s]",__LINE__, mParameters.get("num-snaps-per-shutter"));
+
+              /*set ae braket off */
+              mParameters.set(QCameraParameters::KEY_QC_AE_BRACKET_HDR, "off");
+            }
             break;
         case CAMERA_CMD_START_FACE_DETECTION:
            if(supportsFaceDetection() == false){
@@ -2748,7 +2786,7 @@ status_t QCameraHardwareInterface::autoFocusEvent(cam_ctrl_status_t *status, app
     * We specifically need to call cancelAutoFocus to unlock CAF.
     * In that sense, AF is still running.*/
     isp3a_af_mode_t afMode = getAutoFocusMode(mParameters);
-    if (afMode == AF_MODE_CAF)
+    if ((afMode == AF_MODE_CAF))
        mNeedToUnlockCaf = true;
     mAutoFocusRunning = false;
     mAutofocusLock.unlock();

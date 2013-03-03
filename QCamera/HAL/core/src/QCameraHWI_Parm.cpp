@@ -1299,6 +1299,7 @@ void QCameraHardwareInterface::initDefaultParameters()
     mParameters.set(QCameraParameters::KEY_QC_SUPPORTED_ZSL_MODES,
                     mZslValues);
 
+    mParameters.set(QCameraParameters::KEY_QC_LLS, "0");
     //Set Focal length, horizontal and vertical view angles
     float focalLength = 0.0f;
     float horizontalViewAngle = 0.0f;
@@ -1500,6 +1501,8 @@ status_t QCameraHardwareInterface::setParameters(const QCameraParameters& params
     // setHighFrameRate needs to be done at end, as there can
     // be a preview restart, and need to use the updated parameters
     if ((rc = setHighFrameRate(params)))  final_rc = rc;
+    if (mCameraId == BACK_CAMERA)
+        if ((rc = setLLSMode(params))) final_rc = rc;
     if ((rc = setZSLBurstLookBack(params))) final_rc = rc;
     if ((rc = setZSLBurstInterval(params))) final_rc = rc;
     if ((rc = setMobiCat(params)))       final_rc = rc;
@@ -2608,6 +2611,27 @@ status_t QCameraHardwareInterface::setCameraMode(const QCameraParameters& params
     return NO_ERROR;
 }
 
+status_t QCameraHardwareInterface::setLLSMode(const QCameraParameters& params)
+{
+    bool ret = NO_ERROR;
+    uint8_t LLS_enable;
+    uint8_t prev_lls = mParameters.getInt(QCameraParameters::KEY_QC_LLS);
+
+    if (mLowLightShot != prev_lls ){
+        mParameters.set(QCameraParameters::KEY_QC_LLS, mLowLightShot);
+        if (mLowLightShot){
+            ALOGE("LowLightShot Enable");
+            LLS_enable = 1;
+        } else {
+            ALOGE("LowLightShot Disable");
+            LLS_enable = 0;
+        }
+        ret = native_set_parms(MM_CAMERA_PARM_LLS, sizeof(LLS_enable),
+                               (void *)&LLS_enable);
+        return ret ? NO_ERROR : UNKNOWN_ERROR;
+    }
+    return NO_ERROR;
+}
 status_t QCameraHardwareInterface::setPowerMode(const QCameraParameters& params) {
     uint32_t value = NORMAL_POWER;
     const char *powermode = NULL;

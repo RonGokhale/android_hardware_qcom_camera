@@ -1836,6 +1836,10 @@ int32_t mm_camera_set_general_parm(mm_camera_obj_t * my_obj,
                                            sizeof(mm_cam_mobicat_info_t),
                                            p_value);
         break;
+	case MM_CAMERA_PARM_LLS:
+	   CDBG("RC# send native ctrl cmd type : %d , value =%d",CAMERA_SET_PARM_LLS, *(((uint8_t *)parm->p_value) ));
+	   return mm_camera_send_native_ctrl_cmd(my_obj,
+						 CAMERA_SET_PARM_LLS, sizeof(uint8_t), p_value);
        break;
     case MM_CAMERA_PARM_ZSL_FLASH:
         rc = mm_camera_send_native_ctrl_cmd(my_obj,
