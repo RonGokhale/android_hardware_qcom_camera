@@ -112,6 +112,7 @@ public:
     static const char KEY_QC_VISION_AE[];
 
     static const char KEY_QC_ZSL[];
+    static const char KEY_QC_LLS[];
     static const char KEY_QC_SUPPORTED_ZSL_MODES[];
 
     static const char KEY_QC_CAMERA_MODE[];
