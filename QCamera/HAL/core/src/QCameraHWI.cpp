@@ -1347,13 +1347,15 @@ QCameraHardwareInterface(int cameraId, int mode)
     mFaceDetectOn(0),
     mDumpFrmCnt(0), mDumpSkipCnt(0),
     mFocusMode(AF_MODE_MAX),
-    mPictureSizeCount(15),
-    mPreviewSizeCount(13),
-    mVideoSizeCount(0),
-    mAutoFocusRunning(false),
-    mPrepareSnapshot(false),
-    mHasAutoFocusSupport(false),
-    mInitialized(false),
+                    mPictureSizeCount(15),
+                    mPreviewSizeCount(13),
+                    mVideoSizeCount(0),
+                    mAutoFocusRunning(false),
+                    mAutoFocusRerun(false),
+	                mPrepareSnapshot(false),
+                    mNeedToUnlockCaf(false),
+                    mHasAutoFocusSupport(false),
+                    mInitialized(false),
     mDisEnabled(0),
     mIs3DModeOn(0),
     mSmoothZoomRunning(false),
@@ -1387,7 +1389,8 @@ QCameraHardwareInterface(int cameraId, int mode)
     mNotifyDataQueue(releaseNofityData, this),
     num_of_snapshot(1),
     num_snapshot_rcvd(0),
-    mSnapshotFlip(FLIP_NONE)
+    mSnapshotFlip(FLIP_NONE),
+    m3AExifInfo(NULL)
 {
     ALOGI("QCameraHardwareInterface: E");
     int32_t result = MM_CAMERA_E_GENERAL;
@@ -1631,7 +1634,8 @@ QCameraHardwareInterface::~QCameraHardwareInterface()
     pthread_mutex_destroy(&mAsyncCmdMutex);
     pthread_cond_destroy(&mAsyncCmdWait);
 
-    ALOGE("~QCameraHardwareInterface: X");
+    free(m3AExifInfo);
+    ALOGI("~QCameraHardwareInterface: X");
 }
 
 bool QCameraHardwareInterface::isCameraReady()
@@ -1786,6 +1790,18 @@ status_t QCameraHardwareInterface::sendCommand(int32_t command, int32_t arg1,
            }
            setFaceDetection("off");
            return runFaceDetection();
+#if 0
+    case  CAMERA_CMD_START_CONTINUOUS_AF:
+       mCAFstop = false;
+    ALOGW("%s: Start Continous AF", __func__);
+    setCafLock(0);
+    break;
+    case CAMERA_CMD_STOP_CONTINUOUS_AF:
+       mCAFstop = true;
+    ALOGW("%s: Stop Continuous AF", __func__);
+    setCafLock(1);
+    break;
+#endif
         default:
             break;
     }
@@ -2061,6 +2077,9 @@ void QCameraHardwareInterface::processCtrlEvent(mm_camera_ctrl_event_t *event, a
             ALOGI("processCtrlEvent:MM_CAMERA_CTRL_EVT_HDR_DONE");
             notifyHdrEvent(event->status, (void*)(event->cookie));
             break;
+        case MM_CAMERA_CTRL_EVT_AF_STATE:
+          afStateEvent(&event->status, app_cb);
+          break;
         case MM_CAMERA_CTRL_EVT_ERROR:
             ALOGI("processCtrlEvent: MM_CAMERA_CTRL_EVT_ERROR");
             app_cb->notifyCb  = mNotifyCb;
@@ -2675,6 +2694,13 @@ status_t QCameraHardwareInterface::startRecording()
        ret = BAD_VALUE;
        break;
     }
+
+    int32_t value;
+    value = AF_MODE_CAF;
+    if(!native_set_parms(MM_CAMERA_PARM_FOCUS_MODE,  sizeof(value),  (void *)&value)) {
+      ALOGE("Error with Setting Focus Mode");
+    }
+
     ALOGI("startRecording: X");
     return ret;
 }
@@ -2764,6 +2790,48 @@ void QCameraHardwareInterface::releaseRecordingFrame(const void *opaque)
     return;
 }
 
+status_t QCameraHardwareInterface::afStateEvent(cam_ctrl_status_t *status, app_notify_cb_t *app_cb)
+{
+    ALOGV("afStateEvent: E");
+    int ret = NO_ERROR;
+    /* If autofocus is already running we don't want to disturb normal chain of event
+     * with this state event. Causes AF hang sometime because of some timing issue.
+     */
+#if 0
+    if ((mAutoFocusRunning == true) &&
+        ((*status == AUTO_FOCUS_SUCCESS) || (*status == AUTO_FOCUS_FAIL))){
+        ALOGV("%s: Ignoring this event - %d", __func__, *status);
+        return NO_ERROR;
+    }
+#endif
+    if (mNotifyCb &&
+        (mMsgEnabled & CAMERA_MSG_FOCUS)) {
+        ALOGI("%s: Issuing Focus Status %d",  __func__, *status);
+
+        /* Update callback function.
+	   * Status can be:
+	   *  AUTO_FOCUS_FAIL = 0x0 - focus fail
+          *  AUTO_FOCUS_SUCCESS = 0x1 -  focus success
+          * AUTO_FOCUS_RECHECK = 0x2 -  scene change but no need to start focusing
+          * AUTO_FOCUS_FOCUSING = 0x3 - start focusing
+          * AUTO_FOCUS_MONITOR = 0x4  - scene change but panning not stable
+          */
+        app_cb->notifyCb = mNotifyCb;
+        app_cb->argm_notify.msg_type = CAMERA_MSG_FOCUS;
+        app_cb->argm_notify.ext1 = *status;
+        app_cb->argm_notify.ext2 = 0;
+        app_cb->argm_notify.cookie = mCallbackCookie;
+
+    }
+    ALOGV("afStateEvent: X *status=%d", *status);
+	if((*status == 1) || (*status == 0))
+		{
+		mAutoFocusRerun = false;
+		ALOGI("Reset the auto flag");
+             mAutoFocusRunning = false;
+		}
+    return ret;
+}
 status_t QCameraHardwareInterface::autoFocusEvent(cam_ctrl_status_t *status, app_notify_cb_t *app_cb)
 {
     ALOGE("autoFocusEvent: E");
@@ -2839,7 +2907,7 @@ status_t QCameraHardwareInterface::autoFocusEvent(cam_ctrl_status_t *status, app
     else{
       ALOGE("%s:Call back not enabled",__func__);
     }
-
+    mAutoFocusRerun = true;
     ALOGE("autoFocusEvent: X");
     return ret;
 
@@ -3018,6 +3086,8 @@ status_t  QCameraHardwareInterface::takePicture()
                         mCameraHandle->camera_handle,
                         mChannelId,
                         num_of_snapshot);
+                    if(mCameraId == BACK_CAMERA)
+                      filllOut3AExifInfoFromDriver( );
                     if (MM_CAMERA_OK != ret){
                         ALOGE("%s: error - can't start Snapshot streams!", __func__);
                         return BAD_VALUE;
@@ -3126,6 +3196,8 @@ status_t  QCameraHardwareInterface::takePicture()
                     return BAD_VALUE;
                 }
             }
+            if(mCameraId == BACK_CAMERA)
+              filllOut3AExifInfoFromDriver( );
             mPreviewState = QCAMERA_HAL_TAKE_PICTURE;
         }
         break;
@@ -3136,6 +3208,9 @@ status_t  QCameraHardwareInterface::takePicture()
         ret = UNKNOWN_ERROR;
         break;
     case QCAMERA_HAL_RECORDING_STARTED:
+        if(mCameraId == BACK_CAMERA)
+          filllOut3AExifInfoFromDriver( );
+
         /* if livesnapshot stream is previous on, need to stream off first */
         if(mIsYUVSensor && !mYUVThruVFE) {
                     ALOGE("Trigger live shot capture cmd: E");
@@ -3231,7 +3306,11 @@ status_t QCameraHardwareInterface::autoFocus()
 
 status_t QCameraHardwareInterface::cancelAutoFocus()
 {
-    ALOGE("cancelAutoFocus: E");
+    ALOGW("cancelAutoFocus: E");
+
+    if (mCAFstop)
+        return NO_ERROR;
+
     status_t ret = NO_ERROR;
     Mutex::Autolock lock(mLock);
 
@@ -4636,6 +4715,79 @@ int32_t QCameraCmdThread::exit()
     }
     cmd_pid = 0;
     return rc;
+}
+
+void QCameraHardwareInterface::filllOut3AExifInfoFromDriver()
+{
+    mm_camera_large_msg_t exif_info;
+
+    ALOGI("%s: Start\n", __func__);
+    ALOGI("%s: m3AExifInfo: %p", __func__, m3AExifInfo);
+    if (m3AExifInfo == NULL)
+    {
+      /* Allocate memory to store 3A Exif Info */
+      ALOGI("%s: Allocating memory to store 3A Exif Info", __func__);
+      m3AExifInfo = (mm_camera_large_msg_t *)
+        malloc(2 * sizeof(mm_camera_large_msg_t));
+      if (m3AExifInfo == NULL)
+      {
+        ALOGE("%s: Error allocating memory to store 3A Exif Data!", __func__);
+        return;
+      }
+      ALOGI("%s: Initialize the 3A exif bin to 0!", __func__);
+	  memset(m3AExifInfo, 0, sizeof(mm_camera_large_msg_t) * 2);
+    }
+
+    /* Get AWB Exif Info */
+    ALOGI("%s: Get AWB Exif Info", __func__);
+    exif_info.msgMaxLen = MAX_LARGE_MSG_SIZE;
+    memset(exif_info.msgData, 0, MAX_LARGE_MSG_SIZE);
+    mCameraHandle->ops->get_parm(mCameraHandle->camera_handle,
+      MM_CAMERA_PARM_GET_AWB_EXIF_INFO, &exif_info);
+    ALOGI("AWBExifInfo size =%d", exif_info.msgDataLen);
+
+    /* Copy the data to the buffer */
+    if (exif_info.msgDataLen <= exif_info.msgMaxLen) {
+        m3AExifInfo->msgDataLen = exif_info.msgDataLen;
+        memcpy(m3AExifInfo->msgData, exif_info.msgData,
+            exif_info.msgDataLen);
+    }
+    else {
+      ALOGE("%s: Invalid AWB Exif Message Len!!!", __func__);
+      m3AExifInfo->msgDataLen = 0;
+    }
+
+    /* Get AF Exif Info */
+    ALOGI("%s: Get AF Exif Info", __func__);
+    exif_info.msgMaxLen = MAX_LARGE_MSG_SIZE;
+    memset(exif_info.msgData, 0, MAX_LARGE_MSG_SIZE);
+    mCameraHandle->ops->get_parm(mCameraHandle->camera_handle,
+      MM_CAMERA_PARM_GET_AF_EXIF_INFO, &exif_info);
+
+    /* Append the data to the buffer */
+    if (exif_info.msgDataLen <= MAX_LARGE_MSG_SIZE) {
+        ALOGI("%s: msgData: %p copyStartIndex: %d copy location: %x", __func__,
+          m3AExifInfo->msgData, m3AExifInfo->msgDataLen,
+          m3AExifInfo->msgData + m3AExifInfo->msgDataLen);
+        memcpy(m3AExifInfo->msgData + m3AExifInfo->msgDataLen,
+            exif_info.msgData,
+            exif_info.msgDataLen);
+        m3AExifInfo->msgDataLen += exif_info.msgDataLen;
+    }
+    ALOGI("%s: total data len: %d", __func__, m3AExifInfo->msgDataLen);
+
+
+    ALOGI("%s: End\n", __func__);
+}
+
+void QCameraHardwareInterface::Add3AExifInfoTag()
+{
+    ALOGI("Add 3A exif tag! m3aExifInfo:%p", m3AExifInfo);
+    if (m3AExifInfo) {
+        addExifTag(EXIFTAGID_EXIF_USER_COMMENT, EXIF_BYTE,
+        m3AExifInfo->msgDataLen,
+        1, m3AExifInfo->msgData);
+    }
 }
 
 }; // namespace android

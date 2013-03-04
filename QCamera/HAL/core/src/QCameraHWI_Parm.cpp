@@ -99,7 +99,7 @@ extern "C" {
 
 //Default Video Width
 #define DEFAULT_VIDEO_WIDTH 1920
-#define DEFAULT_VIDEO_HEIGHT 1080
+#define DEFAULT_VIDEO_HEIGHT 1088
 
 //Low power dimensions
 #define DEFAULT_LP_WIDTH 192
@@ -113,6 +113,9 @@ extern "C" {
 #define THUMBNAIL_SMALL_HEIGHT 144
 
 #define DONT_CARE_COORDINATE -1
+
+//for histogram stats
+#define HISTOGRAM_STATS_SIZE 257
 
 // All fps ranges which can be supported. This list will be filtered according
 // to the min and max fps supported by hardware
@@ -140,7 +143,6 @@ typedef struct {
 
 static thumbnail_size_type thumbnail_sizes[] = {
 { 7281, 512, 288 }, //1.777778
-{ 7022, 192, 112 }, //LP
 { 6826, 480, 288 }, //1.666667
 { 6808, 256, 154 }, //1.66233
 { 6144, 432, 288 }, //1.5
@@ -148,7 +150,40 @@ static thumbnail_size_type thumbnail_sizes[] = {
 { 5006, 352, 288 }, //1.222222
 { 5461, 320, 240 }, //1.33333
 { 5006, 176, 144 }, //1.222222
+{ 4096, 160, 160 }, //1.0
+{ 4096, 64, 64 }, //1.0
+};
 
+static camera_size_type default_back_preview_sizes[] = {
+  { 1920, 1080}, //1080p
+  { 1280, 720}, // 720P, reserved
+  { 960, 720}, // WVGA
+//  { 800, 480}, // WVGA
+  { 720, 480},
+  { 640, 480}, // VGA
+//  { 576, 432},
+//  { 480, 320}, // HVGA
+//  { 352, 288}, // CIF
+  { 320, 240}, // QVGA
+//  { 240, 160}, // SQVGA
+  { 176, 144}, // QCIF
+//  { 144, 176}, // QCIF for VT
+};
+
+static camera_size_type default_front_preview_sizes[] = {
+  { 1280, 720}, // 720P, reserved
+  { 960, 720}, // WVGA
+//  { 800, 480}, // WVGA
+  { 720, 720}, //front camera preview
+  { 720, 480},
+  { 640, 480}, // VGA
+//  { 576, 432},
+//  { 480, 320}, // HVGA
+  { 320, 320}, //D2 intelligent sleep
+//  { 352, 288}, // CIF
+  { 320, 240}, // QVGA
+  { 176, 144}, // QCIF
+//  { 144, 176}, // QCIF for VT
 };
 
 static struct camera_size_type zsl_picture_sizes[] = {
@@ -158,10 +193,9 @@ static struct camera_size_type zsl_picture_sizes[] = {
   { 640, 480}, // VGA
   { 352, 288}, //CIF
   { 320, 240}, // QVGA
-  { 192, 112}, //LP
   { 176, 144} // QCIF
 };
-
+#if 0
 static camera_size_type default_picture_sizes[] = {
   { 4000, 3000}, // 12MP
   { 3200, 2400}, // 8MP
@@ -181,7 +215,18 @@ static camera_size_type default_picture_sizes[] = {
   { 192, 112}, //LP
   { 176, 144} // QCIF
 };
-
+#else
+static camera_size_type default_picture_sizes[] = {
+	{ 3264, 2448}, // 12MP
+	{ 3264, 1836}, // 12MP
+	{ 2048, 1536}, // 12MP
+	{ 2048, 1152}, // 12MP
+	{ 1392, 1392}, // 12MP
+	{ 1280, 960}, // 12MP
+	{ 1280, 720}, // 12MP
+	{ 640, 480}, // 12MP
+};
+#endif
 static int iso_speed_values[] = {
     0, 1, 100, 200, 400, 800, 1600
 };
@@ -249,7 +294,6 @@ static const str_map scenemode[] = {
     { QCameraParameters::SCENE_MODE_BACKLIGHT,      CAMERA_BESTSHOT_BACKLIGHT },
     { QCameraParameters::SCENE_MODE_FLOWERS,        CAMERA_BESTSHOT_FLOWERS },
     { QCameraParameters::SCENE_MODE_AR,             CAMERA_BESTSHOT_AR },
-    { QCameraParameters::SCENE_MODE_HDR,            CAMERA_BESTSHOT_OFF },
 };
 
 static const str_map scenedetect[] = {
@@ -264,7 +308,8 @@ static const str_map focus_modes[] = {
     { QCameraParameters::FOCUS_MODE_NORMAL,   AF_MODE_NORMAL },
     { QCameraParameters::FOCUS_MODE_MACRO,    AF_MODE_MACRO },
     { QCameraParameters::FOCUS_MODE_CONTINUOUS_PICTURE, AF_MODE_CAF},
-    { QCameraParameters::FOCUS_MODE_CONTINUOUS_VIDEO, AF_MODE_CAF }
+    { QCameraParameters::FOCUS_MODE_CONTINUOUS_VIDEO, AF_MODE_CAF },
+    { "continuous-picture-macro", AF_MODE_CAF_MACRO }
 };
 
 static const str_map selectable_zone_af[] = {
@@ -403,6 +448,40 @@ static const str_map power_modes[] = {
     { QCameraParameters::NORMAL_POWER,NORMAL_POWER },
     { QCameraParameters::LOW_POWER,LOW_POWER }
 };
+
+/**************************************************************************/
+/*                    EXIF Global variables                               */
+/**************************************************************************/
+static char exif_model[16];
+static char exif_fw[13];
+static char exif_software[12];
+static rat_t exif_fNumberRational;
+static int exif_ExposureProgram;
+static int exif_ExposureMode;
+static short exif_ColorSpace;
+static rat_t exif_focalLengthRational;
+static rat_t exif_f_mAperture;
+static srat_t exif_f_mExposureBias;
+static rat_t exif_f_mMaxA;
+static int exif_rotation;
+static int exif_wb;
+static char exif_date_time[20];
+static int exif_metering;
+static int exif_scene;
+static int exif_LightSource;
+static int exif_SensingMethod;
+static int exif_SceneType;
+static int exif_Saturation;
+static int exif_Sharpness;
+static rat_t exif_DigitalZoomRational;
+static srat_t exif_shutter_time;
+static srat_t exif_brightness_value;
+static srat_t exif_exposure_time;
+static int exif_Iso;
+static int exif_Flash;
+static int exif_width,exif_height;
+static int exif_tw, exif_th;
+static uint8_t versionID[4];
 
 /**************************************************************************/
 static int attr_lookup(const str_map arr[], int len, const char *name)
@@ -1394,6 +1473,7 @@ void QCameraHardwareInterface::initDefaultParameters()
     }
     mInitialized = true;
     strTexturesOn = false;
+    mCAFstop = false;
 
     ALOGI("%s: X", __func__);
     return;
@@ -1428,38 +1508,70 @@ status_t QCameraHardwareInterface::setParameters(const QCameraParameters& params
     status_t rc, final_rc = NO_ERROR;
 
     if ((rc = setCameraMode(params)))                   final_rc = rc;
+    if (rc) ALOGE("[%d][setCameraMode rc::%d]", __LINE__, rc);
+
     if ((rc = setVisionMode(params)))                   final_rc = rc;
+    if (rc) ALOGE("[%d][setVisionMode rc::%d]", __LINE__, rc);
     if ((rc = setVisionAE(params)))                     final_rc = rc;
 //    if ((rc = setChannelInterfaceMask(params)))         final_rc = rc;
     if ((rc = setPowerMode(params)))                    final_rc = rc;
+    if (rc) ALOGE("[%d][setPowerMode rc::%d]", __LINE__, rc);
+
     if ((rc = setNoDisplayMode(params)))                final_rc = rc;
+    if (rc) ALOGE("[%d][setNoDisplayMode rc::%d]", __LINE__, rc);
     if ((rc = setPreviewSize(params)))                  final_rc = rc;
+    if (rc) ALOGE("[%d][setPreviewSize rc::%d]", __LINE__, rc);
     if ((rc = setVideoSize(params)))                    final_rc = rc;
+    if (rc) ALOGE("[%d][setVideoSize rc::%d]", __LINE__, rc);
     if ((rc = setPictureSize(params)))                  final_rc = rc;
+    if (rc) ALOGE("[%d][setPictureSize rc::%d]", __LINE__, rc);
     if ((rc = setJpegThumbnailSize(params)))            final_rc = rc;
+    if (rc) ALOGE("[%d][setJpegThumbnailSize rc::%d]", __LINE__, rc);
     if ((rc = setJpegQuality(params)))                  final_rc = rc;
+    if (rc) ALOGE("[%d][setJpegQuality rc::%d]", __LINE__, rc);
     if ((rc = setEffect(params)))                       final_rc = rc;
+    if (rc) ALOGE("[%d][setEffect rc::%d]", __LINE__, rc);
     if ((rc = setGpsLocation(params)))                  final_rc = rc;
+    if (rc) ALOGE("[%d][setGpsLocation rc::%d]", __LINE__, rc);
     if ((rc = setRotation(params)))                     final_rc = rc;
+    if (rc) ALOGE("[%d][setRotation rc::%d]", __LINE__, rc);
     if ((rc = setZoom(params)))                         final_rc = rc;
+    if (rc) ALOGE("[%d][setZoom rc::%d]", __LINE__, rc);
     if ((rc = setOrientation(params)))                  final_rc = rc;
+    if (rc) ALOGE("[%d][setOrientation rc::%d]", __LINE__, rc);
     if ((rc = setLensshadeValue(params)))               final_rc = rc;
+    if (rc) ALOGE("[%d][setLensshadeValue rc::%d]", __LINE__, rc);
     if ((rc = setMCEValue(params)))                     final_rc = rc;
+    if (rc) ALOGE("[%d][setMCEValue rc::%d]", __LINE__, rc);
     if ((rc = setPictureFormat(params)))                final_rc = rc;
+    if (rc) ALOGE("[%d][setPictureFormat rc::%d]", __LINE__, rc);
     if ((rc = setSharpness(params)))                    final_rc = rc;
+    if (rc) ALOGE("[%d][setSharpness rc::%d]", __LINE__, rc);
     if ((rc = setSaturation(params)))                   final_rc = rc;
+    if (rc) ALOGE("[%d][setSaturation rc::%d]", __LINE__, rc);
     if ((rc = setSceneMode(params)))                    final_rc = rc;
+    if (rc) ALOGE("[%d][setSceneMode rc::%d]", __LINE__, rc);
     if ((rc = setContrast(params)))                     final_rc = rc;
+    if (rc) ALOGE("[%d][setContrast rc::%d]", __LINE__, rc);
     if ((rc = setFaceDetect(params)))                   final_rc = rc;
+    if (rc) ALOGE("[%d][setFaceDetect rc::%d]", __LINE__, rc);
     if ((rc = setStrTextures(params)))                  final_rc = rc;
+    if (rc) ALOGE("[%d][setStrTextures rc::%d]", __LINE__, rc);
     if ((rc = setPreviewFormat(params)))                final_rc = rc;
+    if (rc) ALOGE("[%d][setPreviewFormat rc::%d]", __LINE__, rc);
     if ((rc = setSkinToneEnhancement(params)))          final_rc = rc;
+    if (rc) ALOGE("[%d][setSkinToneEnhancement rc::%d]", __LINE__, rc);
     if ((rc = setWaveletDenoise(params)))               final_rc = rc;
+    if (rc) ALOGE("[%d][setWaveletDenoise rc::%d]", __LINE__, rc);
     if ((rc = setAntibanding(params)))                  final_rc = rc;
+    if (rc) ALOGE("[%d][setAntibanding rc::%d]", __LINE__, rc);
     //    if ((rc = setOverlayFormats(params)))         final_rc = rc;
     if ((rc = setRedeyeReduction(params)))              final_rc = rc;
+    if (rc) ALOGE("[%d][setRedeyeReduction rc::%d]", __LINE__, rc);
     if ((rc = setCaptureBurstExp()))                    final_rc = rc;
+    if (rc) ALOGE("[%d][setCaptureBurstExp rc::%d]", __LINE__, rc);
     if ((rc = setRDIMode(params)))                      final_rc = rc;
+    if (rc) ALOGE("[%d][setRDIMode rc::%d]", __LINE__, rc);
 
     const char *str_val = params.get("capture-burst-exposures");
     if ( str_val == NULL || strlen(str_val)==0 ) {
@@ -1477,8 +1589,19 @@ status_t QCameraHardwareInterface::setParameters(const QCameraParameters& params
     if ((rc = setAEBracket(params)))                    final_rc = rc;
     //    if ((rc = setDenoise(params)))                final_rc = rc;
     if ((rc = setPreviewFpsRange(params)))              final_rc = rc;
+    if (rc) ALOGE("[%d][setPreviewFpsRange rc::%d]", __LINE__, rc);
     if((rc = setRecordingHint(params)))                 final_rc = rc;
     if ((rc = setAecAwbLock(params)))                   final_rc = rc;
+    if (rc) ALOGE("[%d][setAecAwbLock rc::%d]", __LINE__, rc);
+
+    if ((rc = setFlash(params)))                    final_rc = rc;
+    if (rc) ALOGE("[%d][setFlash rc::%d]", __LINE__, rc);
+    if ((rc = setAutoExposure(params)))             final_rc = rc;
+    if (rc) ALOGE("[%d][setAutoExposure rc::%d]", __LINE__, rc);
+    if ((rc = setFocusMode(params)))                final_rc = rc;
+    if (rc) ALOGE("[%d][setFocusMode rc::%d]", __LINE__, rc);
+    if ((rc = setFocusAreas(params)))               final_rc = rc;
+    if (rc) ALOGE("[%d][setFocusAreas rc::%d]", __LINE__, rc);
 
     const char *str = params.get(QCameraParameters::KEY_SCENE_MODE);
     int32_t value = attr_lookup(scenemode, sizeof(scenemode) / sizeof(str_map), str);
@@ -1486,26 +1609,33 @@ status_t QCameraHardwareInterface::setParameters(const QCameraParameters& params
     if((value != NOT_FOUND) && (value == CAMERA_BESTSHOT_OFF )) {
         //if ((rc = setPreviewFrameRateMode(params)))     final_rc = rc;
         if ((rc = setPreviewFrameRate(params)))         final_rc = rc;
-        if ((rc = setAutoExposure(params)))             final_rc = rc;
+        if (rc) ALOGE("[%d][setPreviewFrameRate rc::%d]", __LINE__, rc);
         if ((rc = setExposureCompensation(params)))     final_rc = rc;
+        if (rc) ALOGE("[%d][setExposureCompensation rc::%d]", __LINE__, rc);
         if ((rc = setWhiteBalance(params)))             final_rc = rc;
-        if ((rc = setFlash(params)))                    final_rc = rc;
-        if ((rc = setFocusMode(params)))                final_rc = rc;
+        if (rc) ALOGE("[%d][setWhiteBalance rc::%d]", __LINE__, rc);
         if ((rc = setBrightness(params)))               final_rc = rc;
+        if (rc) ALOGE("[%d][setBrightness rc::%d]", __LINE__, rc);
         if ((rc = setISOValue(params)))                 final_rc = rc;
-        if ((rc = setFocusAreas(params)))               final_rc = rc;
+        if (rc) ALOGE("[%d][setISOValue rc::%d]", __LINE__, rc);
         if ((rc = setMeteringAreas(params)))            final_rc = rc;
+        if (rc) ALOGE("[%d][setMeteringAreas rc::%d]", __LINE__, rc);
     }
     //selectableZoneAF needs to be invoked after continuous AF
     if ((rc = setSelectableZoneAf(params)))             final_rc = rc;
+    if (rc) ALOGE("[%d][setSelectableZoneAf rc::%d]", __LINE__, rc);
     // setHighFrameRate needs to be done at end, as there can
     // be a preview restart, and need to use the updated parameters
     if ((rc = setHighFrameRate(params)))  final_rc = rc;
+    if (rc) ALOGE("[%d][setHighFrameRate rc::%d]", __LINE__, rc);
     if (mCameraId == BACK_CAMERA)
         if ((rc = setLLSMode(params))) final_rc = rc;
     if ((rc = setZSLBurstLookBack(params))) final_rc = rc;
+    if (rc) ALOGE("[%d][setZSLBurstLookBack rc::%d]", __LINE__, rc);
     if ((rc = setZSLBurstInterval(params))) final_rc = rc;
+    if (rc) ALOGE("[%d][setZSLBurstInterval rc::%d]", __LINE__, rc);
     if ((rc = setMobiCat(params)))       final_rc = rc;
+    if (rc) ALOGE("[%d][setMobiCat rc::%d]", __LINE__, rc);
 
     //Update Exiftag values.
     setExifTags();
@@ -1514,7 +1644,7 @@ status_t QCameraHardwareInterface::setParameters(const QCameraParameters& params
 
    if (mInitSetting == true)
      mInitSetting = false;
-   ALOGI("%s: X", __func__);
+   ALOGI("%s: final_rc: %d X", __func__, final_rc);
    return final_rc;
 }
 
@@ -1980,6 +2110,7 @@ status_t QCameraHardwareInterface::setFocusAreas(const QCameraParameters& params
         af_roi_value.roi[0].dx = dx;
         af_roi_value.roi[0].dy = dy;
         af_roi_value.is_multiwindow = 0;
+	 af_roi_value.roi_type = (num_areas_found > 0) ? CAM_ROI_TYPE_TOUCH : CAM_ROI_TYPE_DEF;
         if (native_set_parms(MM_CAMERA_PARM_AF_ROI, sizeof(roi_info_t), (void*)&af_roi_value))
             rc = NO_ERROR;
         else
@@ -2088,13 +2219,17 @@ status_t QCameraHardwareInterface::setFocusMode(const QCameraParameters& params)
             }
             mParameters.set(QCameraParameters::KEY_FOCUS_DISTANCES, mFocusDistance.string());
             if(mHasAutoFocusSupport){
+                if (mCAFstop)
+                    return NO_ERROR;
+
                 bool ret = native_set_parms(MM_CAMERA_PARM_FOCUS_MODE,
                                       sizeof(value),
                                       (void *)&value);
 
                 int cafSupport = FALSE;
                 if(!strcmp(str, QCameraParameters::FOCUS_MODE_CONTINUOUS_VIDEO) ||
-                   !strcmp(str, QCameraParameters::FOCUS_MODE_CONTINUOUS_PICTURE)){
+                   !strcmp(str, QCameraParameters::FOCUS_MODE_CONTINUOUS_PICTURE) ||
+                   !strcmp(str, "continuous-picture-macro")){
                     cafSupport = TRUE;
                 }
                 ALOGE("Continuous Auto Focus %d", cafSupport);
@@ -3963,22 +4098,37 @@ void QCameraHardwareInterface::addExifTag(exif_tag_id_t tagid, exif_tag_type_t t
     mExifData[index].tag_entry.type = type;
     mExifData[index].tag_entry.count = count;
     mExifData[index].tag_entry.copy = copy;
-    if((type == EXIF_RATIONAL) && (count > 1))
+    if(type == EXIF_ASCII)
+        mExifData[index].tag_entry.data._ascii = (char *)data;
+    else if((type == EXIF_RATIONAL) && (count > 1))
         mExifData[index].tag_entry.data._rats = (rat_t *)data;
-    if((type == EXIF_RATIONAL) && (count == 1))
+    else if((type == EXIF_RATIONAL) && (count == 1))
         mExifData[index].tag_entry.data._rat = *(rat_t *)data;
     else if((type == EXIF_SRATIONAL) && (count > 1))
-        mExifData[index].tag_entry.data._rats = (rat_t *)data;
+        mExifData[index].tag_entry.data._srats = (srat_t *)data;
     else if((type == EXIF_SRATIONAL) && (count == 1))
-        mExifData[index].tag_entry.data._rat = *(rat_t *)data;
-    else if(type == EXIF_ASCII)
-        mExifData[index].tag_entry.data._ascii = (char *)data;
-    else if(type == EXIF_BYTE)
+        mExifData[index].tag_entry.data._srat = *(srat_t *)data;
+    else if((type == EXIF_BYTE) && (count > 1))
+        mExifData[index].tag_entry.data._bytes = (uint8_t *)data;
+    else if((type == EXIF_BYTE) && (count == 1))
         mExifData[index].tag_entry.data._byte = *(uint8_t *)data;
     else if((type == EXIF_SHORT) && (count > 1))
         mExifData[index].tag_entry.data._shorts = (uint16_t *)data;
     else if((type == EXIF_SHORT) && (count == 1))
         mExifData[index].tag_entry.data._short = *(uint16_t *)data;
+    else if((type == EXIF_LONG) && (count > 1))
+        mExifData[index].tag_entry.data._longs = (uint32_t *)data;
+    else if((type == EXIF_LONG) && (count == 1))
+        mExifData[index].tag_entry.data._long = *(uint32_t *)data;
+    else if((type == EXIF_SLONG) && (count > 1))
+        mExifData[index].tag_entry.data._slongs = (int32_t *)data;
+    else if((type == EXIF_SLONG) && (count == 1))
+        mExifData[index].tag_entry.data._slong = *(int32_t *)data;
+    else if(type == EXIF_UNDEFINED)
+        mExifData[index].tag_entry.data._undefined = (uint8_t *)data;
+    else
+        return;
+
     // Increase number of entries
     mExifTableNumEntries++;
 }
@@ -4048,7 +4198,8 @@ void QCameraHardwareInterface::initExifData(){
                   3, 1, (void *)mExifValues.gpsTimeStamp);
         ALOGE("EXIFTAGID_GPS_TIMESTAMP set");
     }
-
+    if(mCameraId == BACK_CAMERA)
+	  Add3AExifInfoTag( );	//Do not remove this for SS AWB
 }
 
 //Add all exif tags in this function
@@ -4642,5 +4793,14 @@ status_t QCameraHardwareInterface::setVdis(const QCameraParameters &params)
     native_set_parms(MM_CAMERA_PARM_EXTERNAL_DIS_ENABLE, sizeof(value),
                                            (void *)&value);
 }
+status_t QCameraHardwareInterface::setCafLock(const uint32_t value)
+{
+    ALOGW("%s: Set CAF Lock. %d", __func__, value);
+    native_set_parms(MM_CAMERA_PARM_SET_CAF_LOCK, sizeof(value),
+        (void *)&value);
+
+    return NO_ERROR;
+}
+
 #endif
 }; /*namespace android */
