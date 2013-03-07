@@ -80,6 +80,7 @@ AM_CONDITIONAL([BUILD_UNIFIED_CODE], [test "x$BUILD_UNIFIED_CODE" = "xtrue"])
 AM_CONDITIONAL([BUILD_JPEG], [test "x$BUILD_JPEG" = "xtrue"])
 
 AC_OUTPUT([ \
-	Makefile
+	Makefile \
+        camera-hal.pc
 ])
 

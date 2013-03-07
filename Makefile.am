@@ -26,6 +26,17 @@ libcamera_la_CFLAGS+= -DUSE_NEON_CONVERSION
 # Uncomment below line to enable smooth zoom
 #libcamera_la_CFLAGS+= -DCAMERA_SMOOTH_ZOOM
 
+h_sources = mm-camera-interface/mm_camera.h \
+            mm-camera-interface/mm_camera_dbg.h \
+            mm-camera-interface/mm_camera_interface2.h \
+            mm-camera-interface/mm_camera_sock.h \
+            mm-camera-interface/mm_jpeg_encoder.h \
+            mm-camera-interface/mm_omx_jpeg_encoder.h
+
+pkgincludedir = $(includedir)/mm_camera_interface
+library_includedir = $(pkgincludedir)
+library_include_HEADERS = $(h_sources)
+
 libcamera_la_SOURCES := mm-camera-interface/mm_camera.c
 libcamera_la_SOURCES += mm-camera-interface/mm_camera_channel.c
 libcamera_la_SOURCES += mm-camera-interface/mm_camera_helper.c
@@ -70,6 +81,10 @@ libcamera_la_LDFLAGS += -shared
 libcamera_la_LIBADD = -ldl
 libcamera_la_LIBADD += -limage_omx_common
 libcamera_la_LIBADD += -lOmxCore
+
+pkgconfigdir = $(libdir)/pkgconfig
+pkgconfig_DATA = camera-hal.pc
+EXTRA_DIST = $(pkgconfig_DATA)
 
 dirs :=
 SUBDIRS = $(dirs)
