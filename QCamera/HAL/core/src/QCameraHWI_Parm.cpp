@@ -1612,16 +1612,15 @@ status_t QCameraHardwareInterface::setParameters(const QCameraParameters& params
       mParameters.set("capture-burst-exposures", str_val);
     }
     mParameters.set("num-snaps-per-shutter", params.get("num-snaps-per-shutter"));
-    if ((rc = setAEBracket(params)))                    final_rc = rc;
-    if (rc) ALOGE("[%d][ rc::%d]", __LINE__, rc);
+
     if ((rc = setNumOfSnapshot(params)))                final_rc = rc;
+    if (rc) ALOGE("[%d][setNumOfSnapshot rc::%d]", __LINE__, rc);
+    if ((rc = setAEBracket(params)))                    final_rc = rc;
     //    if ((rc = setDenoise(params)))                final_rc = rc;
     if ((rc = setPreviewFpsRange(params)))              final_rc = rc;
     if (rc) ALOGE("[%d][setPreviewFpsRange rc::%d]", __LINE__, rc);
-    if((rc = setRecordingHint(params)))                 final_rc = rc;
+    if ((rc = setRecordingHint(params)))                 final_rc = rc;
     if (rc) ALOGE("[%d][setRecordingHint rc::%d]", __LINE__, rc);
-    if ((rc = setNumOfSnapshot(params)))                final_rc = rc;
-    if (rc) ALOGE("[%d][setNumOfSnapshot rc::%d]", __LINE__, rc);
     if ((rc = setAecAwbLock(params)))                   final_rc = rc;
     if (rc) ALOGE("[%d][setAecAwbLock rc::%d]", __LINE__, rc);
     if ((rc = setFlash(params)))                    final_rc = rc;
@@ -1632,7 +1631,6 @@ status_t QCameraHardwareInterface::setParameters(const QCameraParameters& params
     if (rc) ALOGE("[%d][setFocusMode rc::%d]", __LINE__, rc);
     if ((rc = setFocusAreas(params)))               final_rc = rc;
     if (rc) ALOGE("[%d][setFocusAreas rc::%d]", __LINE__, rc);
-
     const char *str = params.get(QCameraParameters::KEY_SCENE_MODE);
     int32_t value = attr_lookup(scenemode, sizeof(scenemode) / sizeof(str_map), str);
 
