@@ -80,7 +80,8 @@ libcamera_la_LDFLAGS := $(DEBUG_LDFLAGS)
 libcamera_la_LDFLAGS += -shared
 libcamera_la_LIBADD = -ldl
 libcamera_la_LIBADD += -limage_omx_common
-libcamera_la_LIBADD += -lOmxCore
+libcamera_la_LIBADD += -limageomxcore
+libcamera_la_LIBADD += -lrt
 
 pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = camera-hal.pc
