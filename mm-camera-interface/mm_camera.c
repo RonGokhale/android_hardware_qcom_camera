@@ -604,6 +604,12 @@ int32_t mm_camera_get_parm(mm_camera_obj_t * my_obj,
     case MM_CAMERA_PARM_MAXZOOM:
         return mm_camera_send_native_ctrl_cmd(my_obj,   CAMERA_GET_PARM_MAXZOOM,
                      sizeof(int), (void *)parm->p_value);
+    case MM_CAMERA_PARM_EXPOSURE_TIME:
+        return mm_camera_send_native_ctrl_cmd(my_obj, CAMERA_GET_PARM_EXPOSURE_TIME,
+                    sizeof(int), (void *)parm->p_value);
+    case MM_CAMERA_PARM_CURR_ISO:
+        return mm_camera_send_native_ctrl_cmd(my_obj, CAMERA_GET_PARM_ISO,
+                    sizeof(int), (void *)parm->p_value);
     case MM_CAMERA_PARM_ZOOM_RATIO: {
         mm_camera_zoom_tbl_t *tbl = (mm_camera_zoom_tbl_t *)parm->p_value;
         return mm_camera_send_native_ctrl_cmd(my_obj,   CAMERA_GET_PARM_ZOOMRATIOS,
