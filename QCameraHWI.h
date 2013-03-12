@@ -451,6 +451,7 @@ public:
     int  getThumbSizesFromAspectRatio(uint32_t aspect_ratio,
                                      int *picture_width,
                                      int *picture_height);
+    status_t setSupportedPreviewSize(int *picture_width, int *picture_height);
     bool isRawSnapshot();
     bool mShutterSoundPlayed;
     void dumpFrameToFile(struct msm_frame*, HAL_cam_dump_frm_type_t);

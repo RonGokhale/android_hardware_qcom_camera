@@ -104,6 +104,9 @@ extern "C" {
 #define THUMBNAIL_HEIGHT_STR "384"
 #define THUMBNAIL_SMALL_HEIGHT 144
 
+#define FWVGA_WIDTH 864
+#define FWVGA_HEIGHT 480
+
 #define DONT_CARE_COORDINATE -1
 
 //for histogram stats
@@ -2700,17 +2703,60 @@ status_t QCameraHardwareInterface::setPowerMode(const QCameraParameters& params)
     return NO_ERROR;
 }
 
+status_t QCameraHardwareInterface::setSupportedPreviewSize(int *previewWidth, int *previewHeight)
+{
+    int pic_width, pic_height;
+    double pictureAspectRatio, previewAspectRatio;
+    double ASPECT_TOLERANCE = 0.001;
+
+    mParameters.getPictureSize(&pic_width, &pic_height);
+    pictureAspectRatio = (double)pic_width/pic_height;
+
+    for (size_t i = 0; i <=  mPreviewSizeCount; ++i) {
+        if ((mPreviewSizes[i].width <= FWVGA_WIDTH)
+           && (mPreviewSizes[i].height <= FWVGA_HEIGHT)) {
+              previewAspectRatio = (double)mPreviewSizes[i].width/mPreviewSizes[i].height;
+              if(fabs(pictureAspectRatio - previewAspectRatio) < ASPECT_TOLERANCE) {
+                *previewWidth = mPreviewSizes[i].width;
+                *previewHeight = mPreviewSizes[i].height;
+                return NO_ERROR;
+              }
+        }
+    }
+    ALOGI("No nearest matching aspect ratio is found, setting preview size to FWVGA");
+    *previewWidth = FWVGA_WIDTH;
+    *previewHeight = FWVGA_HEIGHT;
+
+    return NO_ERROR;
+}
 
 status_t QCameraHardwareInterface::setPreviewSize(const QCameraParameters& params)
 {
-    int width, height;
+    int width, height, mNuberOfVFEOutputs;
+    bool ret;
     params.getPreviewSize(&width, &height);
     ALOGE("################requested preview size %d x %d", width, height);
+
+    ret = cam_config_get_parm(mCameraId, MM_CAMERA_PARM_VFE_OUTPUT_ENABLE, &mNuberOfVFEOutputs);
+    if(ret != MM_CAMERA_OK) {
+        ALOGE("get parm MM_CAMERA_PARM_VFE_OUTPUT_ENABLE  failed");
+        ret = BAD_VALUE;
+    }
 
     // Validate the preview size
     for (size_t i = 0; i <  mPreviewSizeCount; ++i) {
         if (width ==  mPreviewSizes[i].width
            && height ==  mPreviewSizes[i].height) {
+            //We have limitation with VFE_2X hardware which has max supported preview
+            //resolution as FWVGA. So restrict the Preview size in ZSL case to FWVGA or
+            //less than this according to ascept ratio of snapshot resolution selected
+            if(mNuberOfVFEOutputs == 1) {
+              if(isZSLMode()) {
+                if((width > FWVGA_WIDTH) && (height > FWVGA_HEIGHT)) {
+                    setSupportedPreviewSize(&width, &height);
+                }
+              }
+            }
             mParameters.setPreviewSize(width, height);
             ALOGE("setPreviewSize:  width: %d   heigh: %d", width, height);
             mPreviewWidth = width;
