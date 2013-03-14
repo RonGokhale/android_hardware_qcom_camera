@@ -17,6 +17,10 @@
 #ifndef ANDROID_HARDWARE_QCAMERA_HARDWARE_INTERFACE_H
 #define ANDROID_HARDWARE_QCAMERA_HARDWARE_INTERFACE_H
 
+//#define LOG_NDEBUG 0   //To enable verbose logs
+//#define LOG_NDDEBUG 0 // To ebable Debug logs
+//#define LOG_NIDEBUG 0 // To enable Info logs
+
 
 #include <utils/threads.h>
 //#include <camera/CameraHardwareInterface.h>

@@ -253,7 +253,7 @@ status_t QCameraStream::deinitChannel(int cameraId,
 }
 
 status_t QCameraStream::setMode(int enable) {
-  ALOGE("%s :myMode %x ", __func__, myMode);
+  ALOGI("%s :myMode %x ", __func__, myMode);
   if (enable) {
       myMode = (camera_mode_t)(myMode | CAMERA_ZSL_MODE);
   } else {
@@ -271,7 +271,7 @@ status_t QCameraStream::setFormat(uint8_t ch_type_mask, cam_format_t previewFmt 
     cam_ctrl_dimension_t dim;
     mm_camera_ch_image_fmt_parm_t fmt;
     int preview_format, rdi_format;
-    ALOGE("%s: E",__func__);
+    ALOGD("%s: E",__func__);
 
     memset(&dim, 0, sizeof(cam_ctrl_dimension_t));
     rc = cam_config_get_parm(mCameraId, MM_CAMERA_PARM_DIMENSION, &dim);
@@ -326,7 +326,7 @@ status_t QCameraStream::setFormat(uint8_t ch_type_mask, cam_format_t previewFmt 
         ALOGE("%s: X", __func__);
         ret = BAD_VALUE;
     }
-    ALOGE("%s: X",__func__);
+    ALOGD("%s: X",__func__);
     return ret;
 }
 
