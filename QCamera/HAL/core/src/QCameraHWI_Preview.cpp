@@ -373,7 +373,7 @@ void QCameraStream_preview::notifyROIEvent(fd_roi_t roi)
             mHalCamCtrl->mFace[idx].mouth[1] =
               roi.d.data.face.mouth_center[1]*2000/mHalCamCtrl->mDimension.display_height - 1000;
 
-            mHalCamCtrl->mFace[idx].smile_degree = roi.d.data.face.smile_degree;
+            /*mHalCamCtrl->mFace[idx].smile_degree = roi.d.data.face.smile_degree;
             mHalCamCtrl->mFace[idx].smile_score = roi.d.data.face.smile_confidence;
             mHalCamCtrl->mFace[idx].blink_detected = roi.d.data.face.blink_detected;
             mHalCamCtrl->mFace[idx].face_recognised = roi.d.data.face.is_face_recognised;
@@ -399,7 +399,7 @@ void QCameraStream_preview::notifyROIEvent(fd_roi_t roi)
                mHalCamCtrl->mFace[idx].top_bottom_gaze,  mHalCamCtrl->mFace[idx].updown_dir,
                mHalCamCtrl->mFace[idx].leftright_dir, mHalCamCtrl->mFace[idx].roll_dir,
                mHalCamCtrl->mFace[idx].blink_detected,
-               mHalCamCtrl->mFace[idx].leye_blink, mHalCamCtrl->mFace[idx].reye_blink);
+               mHalCamCtrl->mFace[idx].leye_blink, mHalCamCtrl->mFace[idx].reye_blink);*/
 
              mNumFDRcvd++;
              mDisplayLock.unlock();
