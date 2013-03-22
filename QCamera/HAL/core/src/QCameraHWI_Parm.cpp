@@ -199,18 +199,24 @@ static const int PICTURE_FORMAT_RAW = 2;
 
 /********************************************************************/
 static const str_map effects[] = {
-    { QCameraParameters::EFFECT_NONE,       CAMERA_EFFECT_OFF },
-    { QCameraParameters::EFFECT_MONO,       CAMERA_EFFECT_MONO },
-    { QCameraParameters::EFFECT_NEGATIVE,   CAMERA_EFFECT_NEGATIVE },
-    { QCameraParameters::EFFECT_SOLARIZE,   CAMERA_EFFECT_SOLARIZE },
-    { QCameraParameters::EFFECT_SEPIA,      CAMERA_EFFECT_SEPIA },
-    { QCameraParameters::EFFECT_POSTERIZE,  CAMERA_EFFECT_POSTERIZE },
-    { QCameraParameters::EFFECT_WHITEBOARD, CAMERA_EFFECT_WHITEBOARD },
-    { QCameraParameters::EFFECT_BLACKBOARD, CAMERA_EFFECT_BLACKBOARD },
-    { QCameraParameters::EFFECT_AQUA,       CAMERA_EFFECT_AQUA },
-    { QCameraParameters::EFFECT_EMBOSS,     CAMERA_EFFECT_EMBOSS },
-    { QCameraParameters::EFFECT_SKETCH,     CAMERA_EFFECT_SKETCH },
-    { QCameraParameters::EFFECT_NEON,       CAMERA_EFFECT_NEON }
+    { QCameraParameters::EFFECT_NONE,           CAMERA_EFFECT_OFF },
+    { QCameraParameters::EFFECT_MONO,           CAMERA_EFFECT_MONO },
+    { QCameraParameters::EFFECT_NEGATIVE,       CAMERA_EFFECT_NEGATIVE },
+    { QCameraParameters::EFFECT_SOLARIZE,       CAMERA_EFFECT_SOLARIZE },
+    { QCameraParameters::EFFECT_SEPIA,          CAMERA_EFFECT_SEPIA },
+    { QCameraParameters::EFFECT_POSTERIZE,      CAMERA_EFFECT_POSTERIZE },
+    { QCameraParameters::EFFECT_WHITEBOARD,     CAMERA_EFFECT_WHITEBOARD },
+    { QCameraParameters::EFFECT_BLACKBOARD,     CAMERA_EFFECT_BLACKBOARD },
+    { QCameraParameters::EFFECT_AQUA,           CAMERA_EFFECT_AQUA },
+    { QCameraParameters::EFFECT_EMBOSS,         CAMERA_EFFECT_EMBOSS },
+    { QCameraParameters::EFFECT_SKETCH,         CAMERA_EFFECT_SKETCH },
+    { QCameraParameters::EFFECT_NEON,           CAMERA_EFFECT_NEON },
+    { QCameraParameters::EFFECT_USER_DEFINED1,  CAMERA_EFFECT_USER_DEFINED1 },
+    { QCameraParameters::EFFECT_USER_DEFINED2,	CAMERA_EFFECT_USER_DEFINED2 },
+    { QCameraParameters::EFFECT_USER_DEFINED3,	CAMERA_EFFECT_USER_DEFINED3 },
+    { QCameraParameters::EFFECT_USER_DEFINED4,  CAMERA_EFFECT_USER_DEFINED4 },
+    { QCameraParameters::EFFECT_USER_DEFINED5,  CAMERA_EFFECT_USER_DEFINED5 },
+    { QCameraParameters::EFFECT_USER_DEFINED6,  CAMERA_EFFECT_USER_DEFINED6 },
 };
 
 static const str_map iso[] = {
@@ -1466,12 +1472,11 @@ status_t QCameraHardwareInterface::setParameters(const QCameraParameters& params
       mParameters.set("capture-burst-exposures", str_val);
     }
     mParameters.set("num-snaps-per-shutter", params.get("num-snaps-per-shutter"));
-
-    if ((rc = setAEBracket(params)))              final_rc = rc;
+    if ((rc = setNumOfSnapshot(params)))                final_rc = rc;
+    if ((rc = setAEBracket(params)))                    final_rc = rc;
     //    if ((rc = setDenoise(params)))                final_rc = rc;
     if ((rc = setPreviewFpsRange(params)))              final_rc = rc;
     if((rc = setRecordingHint(params)))                 final_rc = rc;
-    if ((rc = setNumOfSnapshot(params)))                final_rc = rc;
     if ((rc = setAecAwbLock(params)))                   final_rc = rc;
 
     const char *str = params.get(QCameraParameters::KEY_SCENE_MODE);
@@ -2854,7 +2859,7 @@ status_t QCameraHardwareInterface::
 setNumOfSnapshot(const QCameraParameters& params) {
     status_t rc = NO_ERROR;
 
-    int num_of_snapshot = getNumOfSnapshots(params);
+    num_of_snapshot = getNumOfSnapshots(params);
 
     if (num_of_snapshot <= 0) {
         num_of_snapshot = 1;
@@ -3201,7 +3206,6 @@ status_t QCameraHardwareInterface::setAEBracket(const QCameraParameters& params)
             case EXP_BRACKETING_MODE:
                 {
                     ALOGE("%s, mHdrMode == EXP_BRACKETING_MODE", __func__);
-                    int numFrames = getNumOfSnapshots();
                     const char *str_val = params.get("capture-burst-exposures");
                     if ((str_val != NULL) && (strlen(str_val)>0)) {
                         ALOGI("%s: capture-burst-exposures %s", __FUNCTION__, str_val);
@@ -3209,7 +3213,7 @@ status_t QCameraHardwareInterface::setAEBracket(const QCameraParameters& params)
                         mHdrMode = EXP_BRACKETING_MODE;
                         temp.hdr_enable = FALSE;
                         temp.mode = EXP_BRACKETING_MODE;
-                        temp.total_frames = (numFrames >  MAX_SNAPSHOT_BUFFERS -2) ? MAX_SNAPSHOT_BUFFERS -2 : numFrames;
+                        temp.total_frames = (num_of_snapshot >  MAX_SNAPSHOT_BUFFERS -2) ? MAX_SNAPSHOT_BUFFERS -2 : num_of_snapshot;
                         temp.total_hal_frames = temp.total_frames;
                         strlcpy(temp.values, str_val, MAX_EXP_BRACKETING_LENGTH);
                         ALOGI("%s: setting Exposure Bracketing value of %s, frame (%d)", __FUNCTION__, temp.values, temp.total_hal_frames);
@@ -3580,28 +3584,13 @@ int QCameraHardwareInterface::getJpegQuality() const
     return mJpegQuality;
 }
 
-int QCameraHardwareInterface::getNumOfSnapshots(void) const
-{
-    char prop[PROPERTY_VALUE_MAX];
-    memset(prop, 0, sizeof(prop));
-    property_get("persist.camera.snapshot.number", prop, "0");
-    ALOGI("%s: prop enable/disable = %d", __func__, atoi(prop));
-    if (atoi(prop)) {
-        ALOGE("%s: Reading maximum no of snapshots = %d"
-             "from properties", __func__, atoi(prop));
-        return atoi(prop);
-    } else {
-        return mParameters.getInt("num-snaps-per-shutter");
-    }
-}
-
 int QCameraHardwareInterface::getNumOfSnapshots(const QCameraParameters& params)
 {
     char prop[PROPERTY_VALUE_MAX];
     memset(prop, 0, sizeof(prop));
     property_get("persist.camera.snapshot.number", prop, "0");
     ALOGI("%s: prop enable/disable = %d", __func__, atoi(prop));
-    if (atoi(prop)) {
+    if (atoi(prop) && ((myMode & CAMERA_ZSL_MODE) || (mHdrMode == EXP_BRACKETING_MODE))) {
         ALOGI("%s: Reading maximum no of snapshots = %d"
              "from properties", __func__, atoi(prop));
         return atoi(prop);
@@ -3920,7 +3909,7 @@ int QCameraHardwareInterface::getZSLBackLookCount(void) const
     int look_back;
     char prop[PROPERTY_VALUE_MAX];
     memset(prop, 0, sizeof(prop));
-    property_get("persist.camera.zsl.backlookcnt", prop, "0");
+    property_get("persist.camera.zsl.backlookcnt", prop, "1");
     ALOGI("%s: prop = %d", __func__, atoi(prop));
     look_back = atoi(prop);
     if (look_back == 0 ) {

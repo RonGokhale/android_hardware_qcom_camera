@@ -544,7 +544,6 @@ public:
     cam_pad_format_t getPreviewPadding() const;
     void processEvent(mm_camera_event_t *);
     int  getJpegQuality() const;
-    int  getNumOfSnapshots(void) const;
     int  getNumOfSnapshots(const QCameraParameters& params);
     int  getThumbSizesFromAspectRatio(uint32_t aspect_ratio,
                                      int *picture_width,
@@ -644,6 +643,7 @@ private:
     void handleZoomEventForSnapshot(void);
     status_t autoFocusEvent(cam_ctrl_status_t *, app_notify_cb_t *);
     void zslFlashEvent(struct zsl_flash_t evt, app_notify_cb_t *);
+    status_t autoFocusMoveEvent(cam_ctrl_status_t *, app_notify_cb_t *);
 
     void filterPictureSizes();
     bool supportsSceneDetection();
@@ -832,6 +832,8 @@ private:
     int  mDumpSkipCnt;
     int  mFocusMode;
     int  rdiMode;
+    int  num_of_snapshot;
+    int  num_snapshot_rcvd;
 
     unsigned int mPictureSizeCount;
     unsigned int mPreviewSizeCount;
