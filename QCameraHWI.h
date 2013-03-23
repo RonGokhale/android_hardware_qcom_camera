@@ -31,6 +31,7 @@
 #include <system/window.h>
 #include <system/camera.h>
 #include <hardware/camera.h>
+#include <hardware/power.h>
 #include <gralloc_priv.h>
 #include <QComOMXMetadata.h>
 
@@ -846,7 +847,7 @@ private:
      int                    mExifTableNumEntries;            //NUmber of entries in mExifData
      int                 mNoDisplayMode;
      int                 mIsoValue;
-
+     power_module_t*   mPowerModule;
 };
 
 }; // namespace android

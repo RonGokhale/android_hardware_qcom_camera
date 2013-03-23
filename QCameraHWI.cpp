@@ -190,7 +190,8 @@ QCameraHardwareInterface(int cameraId, int mode)
                     mReleasedRecordingFrame(false),
                     mStateLiveshot(false),
                     isCameraOpen(false),
-                    mPauseFramedispatch(false)
+                    mPauseFramedispatch(false),
+                    mPowerModule(0)
 {
     ALOGV("QCameraHardwareInterface: E");
     int32_t result = MM_CAMERA_E_GENERAL;
@@ -295,6 +296,11 @@ QCameraHardwareInterface(int cameraId, int mode)
     }
     else
         ALOGE("failed to open libmorpho_noise_reduction");
+
+    if (hw_get_module(POWER_HARDWARE_MODULE_ID,
+                (const hw_module_t **)&mPowerModule)) {
+        ALOGE("%s module not found", POWER_HARDWARE_MODULE_ID);
+    }
 
     ALOGV("QCameraHardwareInterface: X");
 }
@@ -1326,6 +1332,14 @@ status_t QCameraHardwareInterface::startRecording()
         else
             mCameraState = CAMERA_STATE_ERROR;
         mPreviewState = QCAMERA_HAL_RECORDING_STARTED;
+
+        if (mPowerModule) {
+            if (mPowerModule->powerHint) {
+                mPowerModule->powerHint(mPowerModule,
+                        POWER_HINT_VIDEO_ENCODE, (void *)"state=1");
+            }
+        }
+
         break;
     case QCAMERA_HAL_RECORDING_STARTED:
         ALOGV("%s: ", __func__);
@@ -1381,6 +1395,14 @@ void QCameraHardwareInterface::stopRecordingInternal()
     mStreamRecord->stop();
     mCameraState = CAMERA_STATE_PREVIEW;  //TODO : Apurva : Hacked for 2nd time Recording
     mPreviewState = QCAMERA_HAL_PREVIEW_STARTED;
+
+    if (mPowerModule) {
+        if (mPowerModule->powerHint) {
+            mPowerModule->powerHint(mPowerModule,
+                    POWER_HINT_VIDEO_ENCODE, (void *)"state=0");
+        }
+    }
+
     ALOGV("stopRecordingInternal: X");
     return;
 }
