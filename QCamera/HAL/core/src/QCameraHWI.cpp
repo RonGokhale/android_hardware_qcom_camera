@@ -34,6 +34,11 @@
 #define VISION_MODE_IMG_WIDTH   176
 #define VISION_MODE_IMG_HEIGHT  104
 
+
+#define VIDEO_HDR_STATS_WIDTH   2560
+#define VIDEO_HDR_STATS_HEIGHT  1
+
+
 /* QCameraHardwareInterface class implementation goes here*/
 /* following code implement the contol logic of this class*/
 
@@ -293,10 +298,9 @@ void *QCameraHardwareInterface::dataNotifyRoutine(void *data)
                         (app_notify_cb_t *)pme->mNotifyDataQueue.dequeue();
                 if (NULL != app_cb) {
                     if(CAMERA_MSG_COMPRESSED_IMAGE == app_cb->argm_data_cb.msg_type){
-                        ALOGD("Received jpeg callback, reset isEncoding to FALSE");
-                        isEncoding = FALSE;
+                       ALOGD("Received jpeg callback, reset isEncoding to FALSE");
+                       isEncoding = FALSE;
                     }
-
                     /* send notify to upper layer */
                     if (app_cb->notifyCb) {
                         ALOGD("%s: evt notify cb", __func__);
@@ -895,12 +899,6 @@ status_t QCameraHardwareInterface::encodeData(mm_camera_super_buf_t* recvd_frame
             buf_len = len;
         }
     }
-     /*Pass ZSL mode infor to setup software encoder in ZSL mode to avoid bus
-     overflow while using HW encoder*/
-     if (isZSLMode()) {
-        jpg_job.encode_job.encode_parm.isZSLMode = 1;
-     }
-
     //fill in the sink img info
     jpg_job.encode_job.encode_parm.buf_info.sink_img.buf_len = buf_len;
     jpg_job.encode_job.encode_parm.buf_info.sink_img.buf_vaddr =
@@ -1102,7 +1100,12 @@ int32_t QCameraHardwareInterface::createRdi()
 
     ALOGV("%s : E",__FUNCTION__);
 
-    if(mVisionModeFlag == true) {
+    if(mVideoHDRMode == true) {
+        mRdiWidth = VIDEO_HDR_STATS_WIDTH;
+        mRdiHeight = VIDEO_HDR_STATS_HEIGHT;
+        imgFormat = CAMERA_BAYER_SBGGR10;
+        numBuf = 7;
+    } else if(mVisionModeFlag == true) {
         mRdiWidth = VISION_MODE_IMG_WIDTH;
         mRdiHeight = VISION_MODE_IMG_HEIGHT;
         imgFormat = CAMERA_BAYER_SBGGR10;
@@ -1392,6 +1395,8 @@ QCameraHardwareInterface(int cameraId, int mode)
     mNotifyDataQueue(releaseNofityData, this),
     num_of_snapshot(1),
     num_snapshot_rcvd(0),
+    mRDIEnabled(0),
+    mVideoHDRMode(0),
     mSnapshotFlip(FLIP_NONE)
 {
     ALOGI("QCameraHardwareInterface: E");
@@ -1740,6 +1745,16 @@ status_t QCameraHardwareInterface::sendCommand(int32_t command, int32_t arg1,
             mSendData = true;
             rc = NO_ERROR;
             break;
+        case CAMERA_CMD_ENABLE_FOCUS_MOVE_MSG :
+            {
+                bool enable = bool(arg1);
+                if (enable) {
+                    mMsgEnabled |= CAMERA_MSG_FOCUS_MOVE;
+                } else {
+                    mMsgEnabled &= ~CAMERA_MSG_FOCUS_MOVE;
+                }
+            }
+            break;
         case CAMERA_CMD_START_FACE_DETECTION:
            if(supportsFaceDetection() == false){
                 ALOGE("Face detection support is not available");
@@ -2021,6 +2036,10 @@ void QCameraHardwareInterface::processCtrlEvent(mm_camera_ctrl_event_t *event, a
         case MM_CAMERA_CTRL_EVT_PREP_SNAPSHOT:
             ALOGI("processCtrlEvent: MM_CAMERA_CTRL_EVT_PREP_SNAPSHOT");
             break;
+        case MM_CAMERA_CTRL_EVT_AUTO_FOCUS_MOVE:
+            ALOGI("processCtrlEvent: MM_CAMERA_CTRL_EVT_AUTO_FOCUS_MOVE");
+            autoFocusMoveEvent(&event->status, app_cb);
+            break;
         case MM_CAMERA_CTRL_EVT_WDN_DONE:
             ALOGI("processCtrlEvent: MM_CAMERA_CTRL_EVT_WDN_DONE");
             wdenoiseEvent(event->status, (void *)(event->cookie));
@@ -2109,7 +2128,10 @@ void  QCameraHardwareInterface::processInfoEvent(
         case MM_CAMERA_INFO_FLASH_FRAME_IDX:
             zslFlashEvent(event->e.zsl_flash_info, app_cb);
             break;
-        default:
+    case MM_CAMERA_INFO_ZSL_EXP_BKT:
+        zslExpBktEvent(event->e.zsl_exp_bkt, app_cb);
+        break;
+    default:
             break;
     }
     ALOGI("processInfoEvent: X");
@@ -2122,18 +2144,31 @@ void QCameraHardwareInterface::zslFlashEvent(struct zsl_flash_t evt, app_notify_
 
     status_t ret;
     mZsl_match_id = evt.frame_idx[0];
-#if 0
-    ret = mCameraHandle->ops->request_super_buf(
+
+    mm_camera_req_buf_t req_buf;
+
+    req_buf.num_buf_requested = num_of_snapshot;
+    req_buf.yuv_frame_id = evt.frame_idx[0];
+    ret = mCameraHandle->ops->request_super_buf_by_frameId(
          mCameraHandle->camera_handle,
          mChannelId,
-         getNumOfSnapshots());
+         &req_buf);
     if (ret != MM_CAMERA_OK) {
         ALOGE("%s: Error taking ZSL snapshot!", __func__);
     }
-#endif
+
     ALOGI("%s: X", __func__);
 }
 
+void QCameraHardwareInterface::zslExpBktEvent(struct zsl_exp_bracket_t evt,
+  app_notify_cb_t *)
+{
+
+    ALOGI("%s: startframe = %d, endframe= %d", __func__,
+          evt.start_frame, evt.end_frame);
+
+    ALOGI("%s: X", __func__);
+}
 
 void  QCameraHardwareInterface::processEvent(mm_camera_event_t *event)
 {
@@ -2415,6 +2450,71 @@ status_t QCameraHardwareInterface::startPreview2()
                  mStreams[MM_CAMERA_VIDEO]->deinitStream();
                  return BAD_VALUE;
             }
+
+            if (mVideoHDRMode) {
+
+                if(mStreams[MM_CAMERA_RDI] == NULL) {
+                ALOGE("Create RDI Stream.\n");
+                 ret = createRdi();
+                    if (ret != MM_CAMERA_OK) {
+                        ALOGE("%s X: Failed to create Rdi object", __func__);
+                        return BAD_VALUE;
+                    }
+                }
+
+                ret = setDimension();
+                if (MM_CAMERA_OK != ret) {
+                    ALOGE("%s: error - can't Set Dimensions!", __func__);
+                    return BAD_VALUE;
+                }
+                ALOGE("Initing RDI Stream.\n");
+
+                ret =  mStreams[MM_CAMERA_RDI]->initStream(TRUE, TRUE);
+                if (MM_CAMERA_OK != ret){
+                    ALOGE("%s: error - can't init RDI stream!", __func__);
+                    mStreams[MM_CAMERA_SNAPSHOT_MAIN]->deinitStream();
+                    mStreams[MM_CAMERA_VIDEO]->deinitStream();
+                    mStreams[MM_CAMERA_PREVIEW]->deinitStream();
+                    return BAD_VALUE;
+                }
+                stream[1] = mStreams[MM_CAMERA_RDI]->mStreamId;
+                stream[0] = mStreams[MM_CAMERA_PREVIEW]->mStreamId;
+                attr.notify_mode = MM_CAMERA_SUPER_BUF_NOTIFY_BURST;
+                attr.burst_num = 1;
+                attr.look_back = 2;
+                attr.post_frame_skip = 0;
+                attr.water_mark = 2;
+                ALOGE("%s: burst_num=%d, look_back=%d, frame_skip=%d, water_mark=%d",
+                      __func__, attr.burst_num, attr.look_back,
+                      attr.post_frame_skip, attr.water_mark);
+                ret = mCameraHandle->ops->init_stream_bundle(
+                          mCameraHandle->camera_handle,
+                          mChannelId,
+                          superbuf_cb_routine,
+                          this,
+                          &attr,
+                          2,
+                          stream);
+                if (MM_CAMERA_OK != ret){
+                    ALOGE("%s: error - can't init preview streams!", __func__);
+                    mStreams[MM_CAMERA_RDI]->deinitStream();
+                    mStreams[MM_CAMERA_SNAPSHOT_MAIN]->deinitStream();
+                    mStreams[MM_CAMERA_VIDEO]->deinitStream();
+                    mStreams[MM_CAMERA_PREVIEW]->deinitStream();
+                    return BAD_VALUE;
+                }
+                ALOGE("Starting RDI Stream.\n");
+                ret = mStreams[MM_CAMERA_RDI]->streamOn();
+                if (MM_CAMERA_OK != ret){
+                    ALOGE("%s: error - can't start rdi stream!", __func__);
+                    mStreams[MM_CAMERA_RDI]->deinitStream();
+                    mStreams[MM_CAMERA_SNAPSHOT_MAIN]->deinitStream();
+                    mStreams[MM_CAMERA_VIDEO]->deinitStream();
+                    mStreams[MM_CAMERA_PREVIEW]->deinitStream();
+                    return BAD_VALUE;
+                }
+                mRDIEnabled = TRUE;
+            }
         }
     if(mIsYUVSensor && !mYUVThruVFE) {
         /*add bundle*/
@@ -2457,7 +2557,7 @@ status_t QCameraHardwareInterface::startPreview2()
         }
     }
 
-    ALOGE("%s: Starting RDI stream", __func__);
+    ALOGE("%s: Starting PREVIEW stream", __func__);
         ret = mStreams[MM_CAMERA_PREVIEW]->streamOn();
         if (MM_CAMERA_OK != ret){
             ALOGE("%s: error - can't start preview stream!", __func__);
@@ -2545,18 +2645,21 @@ void QCameraHardwareInterface::stopPreviewInternal()
         }
     }else{
         mStreams[MM_CAMERA_PREVIEW]->streamOff(0);
-        if(mIsYUVSensor && !mYUVThruVFE) {
+        if((mIsYUVSensor && !mYUVThruVFE)|| mRDIEnabled) {
             mStreams[MM_CAMERA_RDI]->streamOff(0);
             mStreams[MM_CAMERA_RDI]->deinitStream();
         }
     }
+
     if (mStreams[MM_CAMERA_VIDEO])
         mStreams[MM_CAMERA_VIDEO]->deinitStream();
     if (mStreams[MM_CAMERA_SNAPSHOT_MAIN])
         mStreams[MM_CAMERA_SNAPSHOT_MAIN]->deinitStream();
-    mStreams[MM_CAMERA_PREVIEW]->deinitStream();
-    if(mIsYUVSensor && !mYUVThruVFE) {
+        mStreams[MM_CAMERA_PREVIEW]->deinitStream();
+    if((mIsYUVSensor && !mYUVThruVFE)|| mRDIEnabled) {
         ret = mCameraHandle->ops->destroy_stream_bundle(mCameraHandle->camera_handle, mChannelId);
+        if (mRDIEnabled)
+            mRDIEnabled = FALSE;
         if(ret != MM_CAMERA_OK) {
             ALOGE("%s : destroy_stream_bundle Error",__func__);
         }
@@ -2726,6 +2829,34 @@ void QCameraHardwareInterface::releaseRecordingFrame(const void *opaque)
     mStreams[MM_CAMERA_VIDEO]->releaseRecordingFrame(opaque);
     ALOGV("%s : END",__func__);
     return;
+}
+
+status_t QCameraHardwareInterface::autoFocusMoveEvent(cam_ctrl_status_t *status, app_notify_cb_t *app_cb)
+{
+    ALOGI("autoFocusMoveEvent: E");
+    int ret = NO_ERROR;
+
+    isp3a_af_mode_t afMode = getAutoFocusMode(mParameters);
+    if (afMode == AF_MODE_CAF && mNotifyCb && ( mMsgEnabled & CAMERA_MSG_FOCUS_MOVE)){
+        ALOGV("%s:Issuing AF Move callback to service",__func__);
+
+        app_cb->notifyCb  = mNotifyCb;
+        app_cb->argm_notify.msg_type = CAMERA_MSG_FOCUS_MOVE;
+        app_cb->argm_notify.ext2 = 0;
+        app_cb->argm_notify.cookie =  mCallbackCookie;
+
+        ALOGV("Auto foucs state =%d", *status);
+        if(*status == 1) {
+            app_cb->argm_notify.ext1 = true;
+        }else if(*status == 0){
+            app_cb->argm_notify.ext1 = false;
+        }else{
+            app_cb->notifyCb  = NULL;
+            ALOGE("%s:Unknown AF Move Status received (%d) received",__func__,*status);
+        }
+    }
+    ALOGI("autoFocusMoveEvent: X");
+    return ret;
 }
 
 status_t QCameraHardwareInterface::autoFocusEvent(cam_ctrl_status_t *status, app_notify_cb_t *app_cb)
@@ -2975,14 +3106,7 @@ status_t  QCameraHardwareInterface::takePicture()
                     // zslflash is received
                     mZsl_evt = 1;
                     mZsl_match_id = 0;
-                    ret = mCameraHandle->ops->request_super_buf(
-                      mCameraHandle->camera_handle,
-                      mChannelId,
-                      num_of_snapshot);
-                    if (MM_CAMERA_OK != ret){
-                        ALOGE("%s: error - can't start Snapshot streams!", __func__);
-                        return BAD_VALUE;
-                    }
+
                 } else {
                     //Flash is not used
                     ret = mCameraHandle->ops->request_super_buf(
@@ -3116,27 +3240,32 @@ status_t  QCameraHardwareInterface::takePicture()
         }
         mStreams[MM_CAMERA_SNAPSHOT_MAIN]->streamOff(0);
 
-        stream[0]=mStreams[MM_CAMERA_SNAPSHOT_MAIN]->mStreamId;
-        memset(&attr, 0, sizeof(mm_camera_bundle_attr_t));
-        attr.notify_mode = MM_CAMERA_SUPER_BUF_NOTIFY_CONTINUOUS;
-        ret = mCameraHandle->ops->init_stream_bundle(
-                  mCameraHandle->camera_handle,
-                  mChannelId,
-                  superbuf_cb_routine,
-                  this,
-                  &attr,
-                  1,
-                  stream);
-        if (MM_CAMERA_OK != ret){
-            ALOGE("%s: error - can't init Snapshot streams!", __func__);
-            return BAD_VALUE;
+       if (!mVideoHDRMode) {
+            stream[0]=mStreams[MM_CAMERA_SNAPSHOT_MAIN]->mStreamId;
+            memset(&attr, 0, sizeof(mm_camera_bundle_attr_t));
+            attr.notify_mode = MM_CAMERA_SUPER_BUF_NOTIFY_CONTINUOUS;
+            ret = mCameraHandle->ops->init_stream_bundle(
+                      mCameraHandle->camera_handle,
+                      mChannelId,
+                      superbuf_cb_routine,
+                      this,
+                      &attr,
+                      1,
+                      stream);
+            if (MM_CAMERA_OK != ret){
+                ALOGE("%s: error - can't init Snapshot streams!", __func__);
+                return BAD_VALUE;
+            }
         }
         ret = mStreams[MM_CAMERA_SNAPSHOT_MAIN]->streamOn();
+
         if (MM_CAMERA_OK != ret){
             ALOGE("%s: error - can't start Snapshot streams!", __func__);
-            mCameraHandle->ops->destroy_stream_bundle(
-               mCameraHandle->camera_handle,
-               mChannelId);
+            if (!mVideoHDRMode) {
+                mCameraHandle->ops->destroy_stream_bundle(
+                   mCameraHandle->camera_handle,
+                   mChannelId);
+            }
             return BAD_VALUE;
         }
         break;
