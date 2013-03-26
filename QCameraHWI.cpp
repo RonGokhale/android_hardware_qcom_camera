@@ -321,7 +321,6 @@ QCameraHardwareInterface(int cameraId, int mode)
     result = createRdi();
     if(result != MM_CAMERA_OK) {
         ALOGE("%s X: Failed to create Rdi Object",__func__);
-        return;
     }
     mCameraState = CAMERA_STATE_READY;
 
