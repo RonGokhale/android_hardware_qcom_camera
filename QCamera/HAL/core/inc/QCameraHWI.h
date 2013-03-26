@@ -643,13 +643,15 @@ private:
     void handleZoomEventForSnapshot(void);
     status_t autoFocusEvent(cam_ctrl_status_t *, app_notify_cb_t *);
     void zslFlashEvent(struct zsl_flash_t evt, app_notify_cb_t *);
+    status_t autoFocusMoveEvent(cam_ctrl_status_t *, app_notify_cb_t *);
+    void zslExpBktEvent(struct zsl_exp_bracket_t evt, app_notify_cb_t *);
 
     void filterPictureSizes();
     bool supportsSceneDetection();
     bool supportsSelectableZoneAf();
     bool supportsFaceDetection();
     bool supportsRedEyeReduction();
-
+    bool supportsVideoHDR();
     void stopPreviewInternal();
     void stopRecordingInternal();
     //void stopPreviewZSL();
@@ -716,6 +718,7 @@ private:
     status_t setOverlayFormats(const QCameraParameters& params);
     status_t setHighFrameRate(const QCameraParameters& params);
     status_t setRedeyeReduction(const QCameraParameters& params);
+    status_t setVideoHDR(const QCameraParameters& params);
     status_t setAEBracket(const QCameraParameters& params);
     status_t setFaceDetect(const QCameraParameters& params);
     status_t setDenoise(const QCameraParameters& params);
@@ -859,10 +862,13 @@ private:
     bool mReleasedRecordingFrame;
     bool mIsYUVSensor;
     int mHdrMode;
+    int mVideoHdrMode;
     int mSnapshotFormat;
     int mZslInterval;
     bool mRestartPreview;
     bool mMobiCatEnabled;
+    bool mRDIEnabled;
+    bool mVideoHDRMode;
     /*for histogram*/
     int            mStatsOn;
     int            mCurrentHisto;
@@ -908,6 +914,7 @@ private:
     String8 mFpsRangesSupportedValues;
     String8 mZslValues;
     String8 mFocusDistance;
+    String8 mVideoHdrValues;
 
     friend class QCameraStream;
     friend class QCameraStream_record;
