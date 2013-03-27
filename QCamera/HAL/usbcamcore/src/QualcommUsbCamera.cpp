@@ -1756,6 +1756,69 @@ static int startUsbCamCapture(camera_hardware_t *camHal)
         rc = 0;
     }
 
+    /************************************************************************/
+    /* Some USB webcameras are not UVC compliant and can provide a corrupted */
+    /* first frame. Discard the first frame after STREAMON */
+    /************************************************************************/
+
+    /* Wait on for 1 second for camera frame availability */
+    if(0 == rc)
+    {
+        fd_set fds;
+        struct timeval tv;
+        int r = 0;
+
+        FD_ZERO(&fds);
+        FD_SET(camHal->fd, &fds);
+
+        tv.tv_sec = 1;
+        tv.tv_usec = 0;
+
+        do{
+            r = select(camHal->fd + 1, &fds, NULL, NULL, &tv);
+        }while((0 == r) || ((-1 == r) && (EINTR == errno)));
+
+        if ((-1 == r) && (EINTR != errno)){
+            ALOGE("%s: FDSelect while discarding  ret = %d error: %d",
+                __func__, r, errno);
+            rc = -1;
+        }
+    }
+
+    /* DeQueue first frame and Queue it back without displayin it */
+    if(0 == rc){
+        struct v4l2_buffer tempBuf;
+        memset(&tempBuf, 0, sizeof(tempBuf));
+        tempBuf.type    = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+        tempBuf.memory  = V4L2_MEMORY_MMAP;
+
+        /* DeQueue camera frame */
+        if (-1 == ioctlLoop(camHal->fd, VIDIOC_DQBUF, &tempBuf)){
+            switch (errno) {
+            case EAGAIN:
+                ALOGE("%s: EAGAIN error while discarding first frm", __func__);
+                rc = -1;
+
+            case EIO:
+            /* Could ignore EIO, see spec. */
+
+            default:
+                ALOGE("%s: VIDIOC_DQBUF error while discarding first frame",
+                    __func__);
+                rc = -1;
+            }
+        }else{
+            ALOGD("%s: Discarding buffer id: %d after STREAMON",
+                __func__, tempBuf.index);
+            /* Queue the frame back to camera without displaying */
+            if (-1 == ioctlLoop(camHal->fd, VIDIOC_QBUF, &tempBuf))
+            {
+                ALOGE("%s: VIDIOC_QBUF failed while discarding first frame",
+                     __func__);
+                rc = -1;
+            }
+        }
+    }
     ALOGD("%s: X", __func__);
     return rc;
 }

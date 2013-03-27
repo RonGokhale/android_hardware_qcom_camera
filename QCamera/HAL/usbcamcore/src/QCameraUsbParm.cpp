@@ -582,7 +582,7 @@ static int usbCamSetPrvwSize(   camera_hardware_t           *camHal,
     ALOGD("%s: E", __func__);
 
     params.getPreviewSize(&width, &height);
-    ALOGI("%s: Requested preview size %d x %d", __func__, width, height);
+    ALOGE("%s: Requested preview size %d x %d", __func__, width, height);
 
     // Validate the preview size
     numPrvwSizes = sizeof(previewSizes) / sizeof(camera_size_type);
@@ -634,7 +634,7 @@ static int usbCamSetVideoSize(  camera_hardware_t           *camHal,
     ALOGD("%s: E", __func__);
 
     params.getVideoSize(&width, &height);
-    ALOGI("%s: Requested video size %d x %d", __func__, width, height);
+    ALOGE("%s: Requested video size %d x %d", __func__, width, height);
 
     // Validate the preview size
     numVidSizes = sizeof(video_sizes) / sizeof(camera_size_type);
@@ -687,7 +687,7 @@ static int usbCamSetPictSize(   camera_hardware_t           *camHal,
 
     /* parse for picture width and height */
     params.getPictureSize(&width, &height);
-    ALOGI("%s: Requested picture size %d x %d", __func__, width, height);
+    ALOGE("%s: Requested picture size %d x %d", __func__, width, height);
 
     // Validate the picture size
     numPictSizes = sizeof(picture_sizes) / sizeof(camera_size_type);
@@ -738,7 +738,7 @@ static int usbCamSetThumbnailSize(  camera_hardware_t           *camHal,
     /* parse for thumbnail width and height */
     width = params.getInt(QCameraParameters::KEY_JPEG_THUMBNAIL_WIDTH);
     height = params.getInt(QCameraParameters::KEY_JPEG_THUMBNAIL_HEIGHT);
-    ALOGI("%s: Requested thumbnail size %d x %d", __func__, width, height);
+    ALOGE("%s: Requested thumbnail size %d x %d", __func__, width, height);
 
     // Validate the thumbnail size
     numThumbnailSizes = sizeof(thumbnail_sizes) / sizeof(camera_size_type);
@@ -791,7 +791,7 @@ static int usbCamSetJpegQlty(   camera_hardware_t           *camHal,
 
     /**/
     quality = params.getInt(QCameraParameters::KEY_JPEG_QUALITY);
-    ALOGI("%s: Requested picture qlty %d", __func__, quality);
+    ALOGE("%s: Requested picture qlty %d", __func__, quality);
 
     if (quality >= 0 && quality <= 100) {
         camHal->pictJpegQlty = quality;
@@ -803,7 +803,7 @@ static int usbCamSetJpegQlty(   camera_hardware_t           *camHal,
     }
 
     quality = params.getInt(QCameraParameters::KEY_JPEG_THUMBNAIL_QUALITY);
-    ALOGI("%s: Requested thumbnail qlty %d", __func__, quality);
+    ALOGE("%s: Requested thumbnail qlty %d", __func__, quality);
 
     if (quality >= 0 && quality <= 100) {
         camHal->thumbnailJpegQlty = quality;
@@ -873,7 +873,7 @@ static int setPreviewFpsRange(camera_hardware_t           *camHal,
 
     camHal->qCamParams.getPreviewFpsRange(&prevMinFps, &prevMaxFps);
     params.getPreviewFpsRange(&minFps,&maxFps);
-    ALOGI("%s: Requested FpsRange Values:(%d, %d)", __func__, minFps, maxFps);
+    ALOGE("%s: Requested FpsRange Values:(%d, %d)", __func__, minFps, maxFps);
 
     supportedFpsRangesCount = sizeof(prevFpsRanges) / sizeof(android::FPSRange);
     for(i = 0; i < supportedFpsRangesCount ; i++) {
@@ -923,7 +923,7 @@ static int setFocusMode(camera_hardware_t           *camHal,
     ALOGD("%s",__func__);
 
     if (new_str != NULL) {
-        ALOGI("%s: Requested Focus mode: %s", __func__, new_str);
+        ALOGE("%s: Requested Focus mode: %s", __func__, new_str);
 
         int32_t value = attr_lookup(focus_modes,
                             sizeof(focus_modes) / sizeof(str_map), new_str);
