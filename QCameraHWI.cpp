@@ -396,6 +396,12 @@ QCameraHardwareInterface::~QCameraHardwareInterface()
         mStreamRdi = NULL;
     }
 
+    //Deallocate histogram stats buffer
+    if (mStatsOn) {
+        ALOGI("%s Deallocate histogram stats buffer", __func__);
+        setHistogram(0);
+    }
+
     /* Now close the camera after deleting all the instances */
     cam_ops_close(mCameraId);
     pthread_mutex_destroy(&mAsyncCmdMutex);
