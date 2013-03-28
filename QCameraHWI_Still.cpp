@@ -1661,6 +1661,7 @@ encodeData(mm_camera_ch_data_buf_t* recvd_frame,
         encode_params.snapshot_fd = mainframe->fd;
         encode_params.snapshot_offset = mainframe->phy_offset;
         encode_params.scaling_params = &crop;
+        mHalCamCtrl->setExifTags();
         encode_params.exif_data = mHalCamCtrl->getExifData();
         encode_params.exif_numEntries = mHalCamCtrl->getExifTableNumEntries();
 
