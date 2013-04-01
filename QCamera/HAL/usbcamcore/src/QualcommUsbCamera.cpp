@@ -99,6 +99,12 @@ camera_device_ops_t usbcam_camera_ops = {
 #define FILE_DUMP_RECORD_BUFS   0
 #define NEON_OPTIMIZATION       0
 
+/* Allow camera HAL to capture MJPEG frames from USB camera */
+#define USE_MJPEG               1
+
+/* this is effective only if USE_MJPEG = 1*/
+#define USE_LIBJPEG             1
+
 namespace android {
 
 static int initUsbCamera(               camera_hardware_t *camHal,
@@ -1426,12 +1432,13 @@ static int getPreviewCaptureFmt(camera_hardware_t *camHal)
     /************************************************************************/
     //V4L2_PIX_FMT_MJPEG; V4L2_PIX_FMT_YUYV; V4L2_PIX_FMT_H264 = 0x34363248;
     camHal->captureFormat = V4L2_PIX_FMT_YUYV;
-#if 0
+#if USE_MJPEG
     if(camHal->capWidth > 640){
         if(1 == mjpegSupported)
             camHal->captureFormat = V4L2_PIX_FMT_MJPEG;
-        else if(1 == h264Supported)
-            camHal->captureFormat = V4L2_PIX_FMT_H264;
+    /* h264 selection is commented out until h264 decoding is supported */
+    //    else if(1 == h264Supported)
+    //      camHal->captureFormat = V4L2_PIX_FMT_H264;
     }
 #endif
     ALOGI("%s: Capture format chosen: 0x%x. 0x%x:YUYV. 0x%x:MJPEG. 0x%x: H264",
@@ -2376,6 +2383,17 @@ static int convert_data_frm_cam_to_disp(camera_hardware_t *camHal, int buffer_id
     /* If camera buffer is MJPEG encoded, call mjpeg decode call */
     if(V4L2_PIX_FMT_MJPEG == camHal->captureFormat)
     {
+#if USE_LIBJPEG
+        rc = libJpegDecode(
+            (char *)camHal->buffers[camHal->curCaptureBuf.index].data,
+            camHal->curCaptureBuf.bytesused,
+            (char *)camHal->previewMem.camera_memory[buffer_id]->data,
+            (char *)camHal->previewMem.camera_memory[buffer_id]->data +
+            camHal->dispWidth * camHal->dispHeight,
+            getMjpegdOutputFormat(camHal->dispFormat));
+        if(rc < 0)
+            ALOGE("%s: libJpegDecode Error: %d", __func__, rc);
+#else //USE_LIBJPEG
         if(NULL == camHal->mjpegd)
         {
             rc = mjpegDecoderInit(&camHal->mjpegd);
@@ -2395,6 +2413,7 @@ static int convert_data_frm_cam_to_disp(camera_hardware_t *camHal, int buffer_id
             if(rc < 0)
                 ALOGE("%s: mjpegDecode Error: %d", __func__, rc);
         }
+#endif
     }
     return rc;
 }

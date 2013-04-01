@@ -60,7 +60,8 @@ LOCAL_HAL_FILES := \
         src/QCameraStream.cpp\
         ../usbcamcore/src/QualcommUsbCamera.cpp\
         ../usbcamcore/src/QCameraMjpegDecode.cpp\
-        ../usbcamcore/src/QCameraUsbParm.cpp
+        ../usbcamcore/src/QCameraUsbParm.cpp\
+        ../usbcamcore/src/QCameraLibJpegDecode.cpp
 
 LOCAL_HAL_WRAPPER_FILES := ../wrapper/QualcommCamera.cpp
 
@@ -72,6 +73,7 @@ LOCAL_C_INCLUDES := \
         $(LOCAL_PATH)/../../stack/mm-jpeg-interface/inc \
         $(LOCAL_PATH)/../../../ \
         $(TARGET_OUT_INTERMEDIATES)/include/mm-camera-interface \
+         $(LOCAL_PATH)/../../../../../../external/jpeg/ \
 #       $(TARGET_OUT_INTERMEDIATES)/include/mm-jpeg-interface\
 
 # may need remove this includes
@@ -96,7 +98,7 @@ LOCAL_SRC_FILES := \
         $(LOCAL_HAL_WRAPPER_FILES) \
         $(LOCAL_HAL_FILES)
 
-LOCAL_SHARED_LIBRARIES := libutils libui libcamera_client liblog libcutils libmmjpeg
+LOCAL_SHARED_LIBRARIES := libutils libui libcamera_client liblog libcutils libmmjpeg libjpeg
 LOCAL_SHARED_LIBRARIES += libmmcamera_interface
 LOCAL_SHARED_LIBRARIES += libgenlock libbinder libmmjpeg_interface libhardware
 

@@ -33,6 +33,7 @@ typedef int MJPEGD_ERR;
 #define MJPEGD_NO_ERROR          0
 #define MJPEGD_ERROR            -1
 #define MJPEGD_INSUFFICIENT_MEM -2
+#define MJPEGD_INVALID_INPUT    -3
 
 MJPEGD_ERR mjpegDecoderInit(void**);
 
@@ -46,4 +47,10 @@ MJPEGD_ERR mjpegDecode(
             char*   outputUVptr,
             int     outputFormat);
 
+MJPEGD_ERR libJpegDecode(
+            char*   mjpegBuffer,
+            int     mjpegBufferSize,
+            char*   outputYptr,
+            char*   outputUVptr,
+            int     outputFormat);
 #endif /* __QCAMERA_MJPEG_DECODE_H */
