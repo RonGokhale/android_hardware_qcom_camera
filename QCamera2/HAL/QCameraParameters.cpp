@@ -101,6 +101,8 @@ const char QCameraParameters::KEY_QC_PREVIEW_FLIP[] = "preview-flip";
 const char QCameraParameters::KEY_QC_VIDEO_FLIP[] = "video-flip";
 const char QCameraParameters::KEY_QC_SNAPSHOT_PICTURE_FLIP[] = "snapshot-picture-flip";
 const char QCameraParameters::KEY_QC_SUPPORTED_FLIP_MODES[] = "flip-mode-values";
+const char QCameraParameters::KEY_QC_VIDEO_HDR[] = "video-hdr";
+const char QCameraParameters::KEY_QC_SUPPORTED_VIDEO_HDR_MODES[] = "video-hdr-values";
 
 // Values for effect settings.
 const char QCameraParameters::EFFECT_EMBOSS[] = "emboss";
@@ -310,6 +312,7 @@ const QCameraParameters::QCameraMap QCameraParameters::PREVIEW_FORMATS_MAP[] = {
 
 const QCameraParameters::QCameraMap QCameraParameters::PICTURE_TYPES_MAP[] = {
     {PIXEL_FORMAT_JPEG,                          CAM_FORMAT_JPEG},
+    {PIXEL_FORMAT_YUV422SP,                      CAM_FORMAT_YUV_422_NV16},
     {QC_PIXEL_FORMAT_YUV_RAW_8BIT_YUYV,          CAM_FORMAT_YUV_RAW_8BIT_YUYV},
     {QC_PIXEL_FORMAT_YUV_RAW_8BIT_YVYU,          CAM_FORMAT_YUV_RAW_8BIT_YVYU},
     {QC_PIXEL_FORMAT_YUV_RAW_8BIT_UYVY,          CAM_FORMAT_YUV_RAW_8BIT_UYVY},
@@ -1080,13 +1083,40 @@ int32_t QCameraParameters::setLiveSnapshotSize(const QCameraParameters& params)
     // use picture size from user setting
     params.getPictureSize(&m_LiveSnapshotSize.width, &m_LiveSnapshotSize.height);
 
-    if (useOptimal) {
+    uint8_t livesnapshot_sizes_tbl_cnt = m_pCapability->livesnapshot_sizes_tbl_cnt;
+    cam_dimension_t *livesnapshot_sizes_tbl = &m_pCapability->livesnapshot_sizes_tbl[0];
+
+    // check if HFR is enabled
+    const char *hfrStr = params.get(KEY_QC_VIDEO_HIGH_FRAME_RATE);
+    cam_hfr_mode_t hfrMode = CAM_HFR_MODE_OFF;
+    if (hfrStr != NULL) {
+        int32_t value = lookupAttr(HFR_MODES_MAP,
+                                   sizeof(HFR_MODES_MAP)/sizeof(QCameraMap),
+                                   hfrStr);
+        if (value != NAME_NOT_FOUND) {
+            // if HFR is enabled, change live snapshot size
+            if (value > CAM_HFR_MODE_OFF) {
+                for (int i = 0; i < m_pCapability->hfr_tbl_cnt; i++) {
+                    if (m_pCapability->hfr_tbl[i].mode == value) {
+                        livesnapshot_sizes_tbl_cnt =
+                            m_pCapability->hfr_tbl[i].livesnapshot_sizes_tbl_cnt;
+                        livesnapshot_sizes_tbl =
+                            &m_pCapability->hfr_tbl[i].livesnapshot_sizes_tbl[0];
+                        hfrMode = m_pCapability->hfr_tbl[i].mode;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    if (useOptimal || hfrMode != CAM_HFR_MODE_OFF) {
         bool found = false;
 
         // first check if picture size is within the list of supported sizes
-        for (int i = 0; i < m_pCapability->livesnapshot_sizes_tbl_cnt; ++i) {
-            if (m_LiveSnapshotSize.width == m_pCapability->livesnapshot_sizes_tbl[i].width &&
-                m_LiveSnapshotSize.height == m_pCapability->livesnapshot_sizes_tbl[i].height) {
+        for (int i = 0; i < livesnapshot_sizes_tbl_cnt; ++i) {
+            if (m_LiveSnapshotSize.width == livesnapshot_sizes_tbl[i].width &&
+                m_LiveSnapshotSize.height == livesnapshot_sizes_tbl[i].height) {
                 found = true;
                 break;
             }
@@ -1099,20 +1129,25 @@ int32_t QCameraParameters::setLiveSnapshotSize(const QCameraParameters& params)
             params.getPreviewSize(&width, &height);
 
             double previewAspectRatio = (double)width / height;
-            for (int i = 0; i < m_pCapability->livesnapshot_sizes_tbl_cnt; ++i) {
-                double ratio = (double)m_pCapability->livesnapshot_sizes_tbl[i].width /
-                                m_pCapability->livesnapshot_sizes_tbl[i].height;
+            for (int i = 0; i < livesnapshot_sizes_tbl_cnt; ++i) {
+                double ratio = (double)livesnapshot_sizes_tbl[i].width /
+                                livesnapshot_sizes_tbl[i].height;
                 if (fabs(previewAspectRatio - ratio) <= ASPECT_TOLERANCE) {
-                    m_LiveSnapshotSize = m_pCapability->livesnapshot_sizes_tbl[i];
+                    m_LiveSnapshotSize = livesnapshot_sizes_tbl[i];
                     found = true;
                     break;
                 }
             }
 
-            if (!found) {
+            if (!found && hfrMode != CAM_HFR_MODE_OFF) {
                 // Cannot find matching aspect ration from supported live snapshot list
-                // fall back to picture size
-                ALOGI("%s: Cannot find matching aspect ratio, fall back to pic size", __func__);
+                // choose the max dim from preview and video size
+                ALOGI("%s: Cannot find matching aspect ratio, choose max of preview or video size", __func__);
+                params.getVideoSize(&m_LiveSnapshotSize.width, &m_LiveSnapshotSize.height);
+                if (m_LiveSnapshotSize.width < width && m_LiveSnapshotSize.height < height) {
+                    m_LiveSnapshotSize.width = width;
+                    m_LiveSnapshotSize.height = height;
+                }
             }
         }
     }
@@ -1725,6 +1760,31 @@ int32_t QCameraParameters::setSceneDetect(const QCameraParameters& params)
         if (prev_str == NULL ||
             strcmp(str, prev_str) != 0) {
             return setSceneDetect(str);
+        }
+    }
+    return NO_ERROR;
+}
+
+/*===========================================================================
+ * FUNCTION   : setVideoHDR
+ *
+ * DESCRIPTION: set video HDR value from user setting
+ *
+ * PARAMETERS :
+ *   @params  : user setting parameters
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraParameters::setVideoHDR(const QCameraParameters& params)
+{
+    const char *str = params.get(KEY_QC_VIDEO_HDR);
+    const char *prev_str = get(KEY_QC_VIDEO_HDR);
+    if (str != NULL) {
+        if (prev_str == NULL ||
+            strcmp(str, prev_str) != 0) {
+            return setVideoHDR(str);
         }
     }
     return NO_ERROR;
@@ -2648,7 +2708,6 @@ int32_t QCameraParameters::updateParameters(QCameraParameters& params,
     if ((rc = setPreviewSize(params)))                  final_rc = rc;
     if ((rc = setVideoSize(params)))                    final_rc = rc;
     if ((rc = setPictureSize(params)))                  final_rc = rc;
-    if ((rc = setLiveSnapshotSize(params)))             final_rc = rc;
     if ((rc = setPreviewFormat(params)))                final_rc = rc;
     if ((rc = setPictureFormat(params)))                final_rc = rc;
     if ((rc = setJpegThumbnailSize(params)))            final_rc = rc;
@@ -2693,6 +2752,10 @@ int32_t QCameraParameters::updateParameters(QCameraParameters& params,
     if ((rc = setWaveletDenoise(params)))               final_rc = rc;
     if ((rc = setFaceRecognition(params)))              final_rc = rc;
     if ((rc = setFlip(params)))                         final_rc = rc;
+    if ((rc = setVideoHDR(params)))                     final_rc = rc;
+
+    // update live snapshot size after all other parameters are set
+    if ((rc = setLiveSnapshotSize(params)))             final_rc = rc;
 
 UPDATE_PARAM_DONE:
     needRestart = m_bNeedRestart;
@@ -3124,6 +3187,12 @@ int32_t QCameraParameters::initDefaultParameters()
     set(KEY_QC_SUPPORTED_ZSL_MODES, onOffValues);
     set(KEY_QC_ZSL, VALUE_OFF);
     m_bZslMode =false;
+
+    //Set video HDR
+    if ((m_pCapability->qcom_supported_feature_mask & CAM_QCOM_FEATURE_VIDEO_HDR) > 0) {
+        set(KEY_QC_SUPPORTED_VIDEO_HDR_MODES, onOffValues);
+        set(KEY_QC_VIDEO_HDR, VALUE_OFF);
+    }
 
     //Set Touch AF/AEC
     String8 touchValues = createValuesStringFromMap(
@@ -3678,6 +3747,38 @@ int32_t QCameraParameters::setSceneDetect(const char *sceneDetect)
 }
 
 /*===========================================================================
+ * FUNCTION   : setVideoHDR
+ *
+ * DESCRIPTION: set video HDR value
+ *
+ * PARAMETERS :
+ *   @videoHDR  : svideo HDR value string
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraParameters::setVideoHDR(const char *videoHDR)
+{
+    if (videoHDR != NULL) {
+        int32_t value = lookupAttr(ON_OFF_MODES_MAP,
+                                   sizeof(ON_OFF_MODES_MAP)/sizeof(QCameraMap),
+                                   videoHDR);
+        if (value != NAME_NOT_FOUND) {
+            ALOGD("%s: Setting Video HDR %s", __func__, videoHDR);
+            updateParamEntry(KEY_QC_VIDEO_HDR, videoHDR);
+            return AddSetParmEntryToBatch(m_pParamBuf,
+                                          CAM_INTF_PARM_VIDEO_HDR,
+                                          sizeof(value),
+                                          &value);
+        }
+    }
+    ALOGE("Invalid Video HDR value: %s",
+          (videoHDR == NULL) ? "NULL" : videoHDR);
+    return BAD_VALUE;
+}
+
+/*===========================================================================
  * FUNCTION   : setFaceRecognition
  *
  * DESCRIPTION: set face recognition value
@@ -3960,16 +4061,6 @@ int32_t QCameraParameters::setHighFrameRate(const char *hfrStr)
                                    sizeof(HFR_MODES_MAP)/sizeof(QCameraMap),
                                    hfrStr);
         if (value != NAME_NOT_FOUND) {
-            // if HFR is enabled, change live snapshot size
-            if (value > CAM_HFR_MODE_OFF) {
-                for (int i = 0; i < m_pCapability->hfr_tbl_cnt; i++) {
-                    if (m_pCapability->hfr_tbl[i].mode == value) {
-                        m_LiveSnapshotSize = m_pCapability->hfr_tbl[i].dim;
-                        break;
-                    }
-                }
-            }
-
             // HFR value changed, need to restart preview
             m_bNeedRestart = true;
             // Set HFR value
@@ -4636,7 +4727,11 @@ int32_t QCameraParameters::getStreamFormat(cam_stream_type_t streamType,
         format = mPreviewFormat;
         break;
     case CAM_STREAM_TYPE_SNAPSHOT:
-        format = CAM_FORMAT_YUV_420_NV21;
+        if ( mPictureFormat == CAM_FORMAT_YUV_422_NV16 ) {
+            format = CAM_FORMAT_YUV_422_NV16;
+        } else {
+            format = CAM_FORMAT_YUV_420_NV21;
+        }
         break;
     case CAM_STREAM_TYPE_VIDEO:
         format = CAM_FORMAT_YUV_420_NV12;
@@ -4722,7 +4817,6 @@ int32_t QCameraParameters::getStreamDimension(cam_stream_type_t streamType,
                                                cam_dimension_t &dim)
 {
     int32_t ret = NO_ERROR;
-
     memset(&dim, 0, sizeof(cam_dimension_t));
 
     switch (streamType) {
@@ -5077,18 +5171,21 @@ int32_t QCameraParameters::getExifDateTime(char *dateTime, uint32_t &count)
 {
     //get time and date from system
     time_t rawtime;
-    struct tm * timeinfo;
+    struct tm * timeinfo = NULL;
+    memset(&rawtime, 0, sizeof(rawtime));
     time(&rawtime);
     timeinfo = localtime (&rawtime);
-    //Write datetime according to EXIF Spec
-    //"YYYY:MM:DD HH:MM:SS" (20 chars including \0)
-    snprintf(dateTime, 20, "%04d:%02d:%02d %02d:%02d:%02d",
-             timeinfo->tm_year + 1900, timeinfo->tm_mon + 1,
-             timeinfo->tm_mday, timeinfo->tm_hour,
-             timeinfo->tm_min, timeinfo->tm_sec);
-    count = 20;
-
-    return NO_ERROR;
+    if (timeinfo != NULL && count >= 20) {
+        //Write datetime according to EXIF Spec
+        //"YYYY:MM:DD HH:MM:SS" (20 chars including \0)
+        snprintf(dateTime, 20, "%04d:%02d:%02d %02d:%02d:%02d",
+                 timeinfo->tm_year + 1900, timeinfo->tm_mon + 1,
+                 timeinfo->tm_mday, timeinfo->tm_hour,
+                 timeinfo->tm_min, timeinfo->tm_sec);
+        count = 20;
+        return NO_ERROR;
+    }
+    return UNKNOWN_ERROR;
 }
 
 /*===========================================================================

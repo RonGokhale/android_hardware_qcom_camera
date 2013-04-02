@@ -266,7 +266,7 @@ int QCamera2HardwareInterface::start_preview(struct camera_device *device)
         ALOGE("NULL camera device");
         return BAD_VALUE;
     }
-
+    ALOGD("[KPI Perf] %s: E", __func__);
     hw->lockAPI();
     qcamera_sm_evt_enum_t evt = QCAMERA_SM_EVT_START_PREVIEW;
     if (hw->isNoDisplayMode()) {
@@ -278,6 +278,7 @@ int QCamera2HardwareInterface::start_preview(struct camera_device *device)
         ret = hw->m_apiResult.status;
     }
     hw->unlockAPI();
+    ALOGD("[KPI Perf] %s: X", __func__);
     return ret;
 }
 
@@ -299,12 +300,14 @@ void QCamera2HardwareInterface::stop_preview(struct camera_device *device)
         ALOGE("NULL camera device");
         return;
     }
+    ALOGD("[KPI Perf] %s: E", __func__);
     hw->lockAPI();
     int32_t ret = hw->processAPI(QCAMERA_SM_EVT_STOP_PREVIEW, NULL);
     if (ret == NO_ERROR) {
         hw->waitAPIResult(QCAMERA_SM_EVT_STOP_PREVIEW);
     }
     hw->unlockAPI();
+    ALOGD("[KPI Perf] %s: X", __func__);
 }
 
 /*===========================================================================
@@ -395,6 +398,7 @@ int QCamera2HardwareInterface::start_recording(struct camera_device *device)
         ALOGE("NULL camera device");
         return BAD_VALUE;
     }
+    ALOGD("[KPI Perf] %s: E", __func__);
     hw->lockAPI();
     ret = hw->processAPI(QCAMERA_SM_EVT_START_RECORDING, NULL);
     if (ret == NO_ERROR) {
@@ -402,7 +406,7 @@ int QCamera2HardwareInterface::start_recording(struct camera_device *device)
         ret = hw->m_apiResult.status;
     }
     hw->unlockAPI();
-
+    ALOGD("[KPI Perf] %s: X", __func__);
     return ret;
 }
 
@@ -424,12 +428,14 @@ void QCamera2HardwareInterface::stop_recording(struct camera_device *device)
         ALOGE("NULL camera device");
         return;
     }
+    ALOGD("[KPI Perf] %s: E", __func__);
     hw->lockAPI();
     int32_t ret = hw->processAPI(QCAMERA_SM_EVT_STOP_RECORDING, NULL);
     if (ret == NO_ERROR) {
         hw->waitAPIResult(QCAMERA_SM_EVT_STOP_RECORDING);
     }
     hw->unlockAPI();
+    ALOGD("[KPI Perf] %s: X", __func__);
 }
 
 /*===========================================================================
@@ -483,12 +489,14 @@ void QCamera2HardwareInterface::release_recording_frame(
         ALOGE("NULL camera device");
         return;
     }
+    ALOGD("%s: E", __func__);
     hw->lockAPI();
     int32_t ret = hw->processAPI(QCAMERA_SM_EVT_RELEASE_RECORIDNG_FRAME, (void *)opaque);
     if (ret == NO_ERROR) {
         hw->waitAPIResult(QCAMERA_SM_EVT_RELEASE_RECORIDNG_FRAME);
     }
     hw->unlockAPI();
+    ALOGD("%s: X", __func__);
 }
 
 /*===========================================================================
@@ -512,6 +520,7 @@ int QCamera2HardwareInterface::auto_focus(struct camera_device *device)
         ALOGE("NULL camera device");
         return BAD_VALUE;
     }
+    ALOGD("[KPI Perf] %s : E", __func__);
     hw->lockAPI();
     ret = hw->processAPI(QCAMERA_SM_EVT_START_AUTO_FOCUS, NULL);
     if (ret == NO_ERROR) {
@@ -519,6 +528,7 @@ int QCamera2HardwareInterface::auto_focus(struct camera_device *device)
         ret = hw->m_apiResult.status;
     }
     hw->unlockAPI();
+    ALOGD("[KPI Perf] %s : X", __func__);
 
     return ret;
 }
@@ -576,7 +586,7 @@ int QCamera2HardwareInterface::take_picture(struct camera_device *device)
         ALOGE("NULL camera device");
         return BAD_VALUE;
     }
-
+    ALOGD("[KPI Perf] %s: E", __func__);
     hw->lockAPI();
 
     /* Prepare snapshot in case LED needs to be flashed */
@@ -598,6 +608,7 @@ int QCamera2HardwareInterface::take_picture(struct camera_device *device)
     }
 
     hw->unlockAPI();
+    ALOGD("[KPI Perf] %s: X", __func__);
     return ret;
 }
 
@@ -1333,15 +1344,31 @@ QCameraMemory *QCamera2HardwareInterface::allocateStreamBuf(cam_stream_type_t st
     // Allocate stream buffer memory object
     switch (stream_type) {
     case CAM_STREAM_TYPE_PREVIEW:
-    case CAM_STREAM_TYPE_POSTVIEW: {
-        cam_dimension_t dim;
-        QCameraGrallocMemory *grallocMemory = new QCameraGrallocMemory(mGetMemory);
+        {
+            if (isNoDisplayMode()) {
+                mem = new QCameraStreamMemory(mGetMemory);
+            } else {
+                cam_dimension_t dim;
+                QCameraGrallocMemory *grallocMemory = new QCameraGrallocMemory(mGetMemory);
 
-        mParameters.getStreamDimension(stream_type, dim);
-        if (grallocMemory)
-            grallocMemory->setWindowInfo(mPreviewWindow, dim.width, dim.height,
-                    mParameters.getPreviewHalPixelFormat());
-        mem = grallocMemory;
+                mParameters.getStreamDimension(stream_type, dim);
+                if (grallocMemory)
+                    grallocMemory->setWindowInfo(mPreviewWindow, dim.width, dim.height,
+                            mParameters.getPreviewHalPixelFormat());
+                mem = grallocMemory;
+            }
+        }
+        break;
+    case CAM_STREAM_TYPE_POSTVIEW:
+        {
+            cam_dimension_t dim;
+            QCameraGrallocMemory *grallocMemory = new QCameraGrallocMemory(mGetMemory);
+
+            mParameters.getStreamDimension(stream_type, dim);
+            if (grallocMemory)
+                grallocMemory->setWindowInfo(mPreviewWindow, dim.width, dim.height,
+                        mParameters.getPreviewHalPixelFormat());
+            mem = grallocMemory;
         }
         break;
     case CAM_STREAM_TYPE_SNAPSHOT:
@@ -1428,8 +1455,10 @@ QCameraHeapMemory *QCamera2HardwareInterface::allocateStreamInfoBuf(
 
     //set flip mode based on Stream type;
     int flipMode = mParameters.getFlipMode(stream_type);
-    streamInfo->pp_config.feature_mask |= CAM_QCOM_FEATURE_FLIP;
-    streamInfo->pp_config.flip = flipMode;
+    if (flipMode > 0) {
+        streamInfo->pp_config.feature_mask |= CAM_QCOM_FEATURE_FLIP;
+        streamInfo->pp_config.flip = flipMode;
+    }
 
     // set Rotation if need online rotation per stream in CPP
     if (needOnlineRotation()) {
@@ -1585,14 +1614,14 @@ int QCamera2HardwareInterface::msgTypeEnabledWithLock(int32_t msg_type)
 int QCamera2HardwareInterface::startPreview()
 {
     int32_t rc = NO_ERROR;
-
+    ALOGD("%s: E", __func__);
     // start preview stream
     if (mParameters.isZSLMode()) {
         rc = startChannel(QCAMERA_CH_TYPE_ZSL);
     } else {
         rc = startChannel(QCAMERA_CH_TYPE_PREVIEW);
     }
-
+    ALOGD("%s: X", __func__);
     return rc;
 }
 
@@ -1609,6 +1638,7 @@ int QCamera2HardwareInterface::startPreview()
  *==========================================================================*/
 int QCamera2HardwareInterface::stopPreview()
 {
+    ALOGD("%s: E", __func__);
     // stop preview stream
     if (mParameters.isZSLMode()) {
         stopChannel(QCAMERA_CH_TYPE_ZSL);
@@ -1618,7 +1648,7 @@ int QCamera2HardwareInterface::stopPreview()
 
     // delete all channels from preparePreview
     unpreparePreview();
-
+    ALOGD("%s: X", __func__);
     return NO_ERROR;
 }
 
@@ -1654,6 +1684,7 @@ int QCamera2HardwareInterface::storeMetaDataInBuffers(int enable)
 int QCamera2HardwareInterface::startRecording()
 {
     int32_t rc = NO_ERROR;
+    ALOGD("%s: E", __func__);
     if (mParameters.getRecordingHintValue() == false) {
         ALOGE("%s: start recording when hint is false, stop preview first", __func__);
         stopChannel(QCAMERA_CH_TYPE_PREVIEW);
@@ -1681,6 +1712,7 @@ int QCamera2HardwareInterface::startRecording()
         }
     }
 #endif
+    ALOGD("%s: X", __func__);
     return rc;
 }
 
@@ -1698,6 +1730,7 @@ int QCamera2HardwareInterface::startRecording()
 int QCamera2HardwareInterface::stopRecording()
 {
     int rc = stopChannel(QCAMERA_CH_TYPE_VIDEO);
+    ALOGD("%s: E", __func__);
 #ifdef QCOM_POWER_H_EXTENDED
     if (m_pPowerModule) {
         if (m_pPowerModule->powerHint) {
@@ -1705,6 +1738,7 @@ int QCamera2HardwareInterface::stopRecording()
         }
     }
 #endif
+    ALOGD("%s: X", __func__);
     return rc;
 }
 
@@ -1725,6 +1759,7 @@ int QCamera2HardwareInterface::releaseRecordingFrame(const void * opaque)
     int32_t rc = UNKNOWN_ERROR;
     QCameraVideoChannel *pChannel =
         (QCameraVideoChannel *)m_channels[QCAMERA_CH_TYPE_VIDEO];
+    ALOGD("%s: opaque data = %p", __func__,opaque);
     if(pChannel != NULL) {
         rc = pChannel->releaseFrame(opaque, mStoreMetaDataInFrame > 0);
     }
@@ -1863,7 +1898,7 @@ int QCamera2HardwareInterface::takePicture()
 {
     int rc = NO_ERROR;
     uint8_t numSnapshots = mParameters.getNumOfSnapshots();
-
+    ALOGD("%s: E", __func__);
     if (mParameters.isZSLMode()) {
         QCameraPicChannel *pZSLChannel =
             (QCameraPicChannel *)m_channels[QCAMERA_CH_TYPE_ZSL];
@@ -1888,7 +1923,8 @@ int QCamera2HardwareInterface::takePicture()
         delChannel(QCAMERA_CH_TYPE_PREVIEW);
 
         // start snapshot
-        if (mParameters.isJpegPictureFormat()) {
+        if (mParameters.isJpegPictureFormat() ||
+            mParameters.isNV16PictureFormat() ) {
             rc = addCaptureChannel();
             if (rc == NO_ERROR) {
                 // start postprocessor
@@ -1924,7 +1960,7 @@ int QCamera2HardwareInterface::takePicture()
             }
         }
     }
-
+    ALOGD("%s: X", __func__);
     return rc;
 }
 
@@ -1957,7 +1993,8 @@ int QCamera2HardwareInterface::cancelPicture()
         }
     } else {
         // normal capture case
-        if (mParameters.isJpegPictureFormat()) {
+        if (mParameters.isJpegPictureFormat() ||
+            mParameters.isNV16PictureFormat() ) {
             stopChannel(QCAMERA_CH_TYPE_CAPTURE);
             delChannel(QCAMERA_CH_TYPE_CAPTURE);
         } else {
@@ -3490,10 +3527,10 @@ int32_t QCamera2HardwareInterface::processFaceDetectionResult(cam_face_detection
         return NO_MEMORY;
     }
 
-    void *faceData = faceResultBuffer->data;
+    unsigned char *faceData = ( unsigned char * ) faceResultBuffer->data;
     memset(faceData, 0, faceResultSize);
     camera_frame_metadata_t *roiData = (camera_frame_metadata_t * ) faceData;
-    camera_face_t *faces = (camera_face_t *) faceData + sizeof(camera_frame_metadata_t);
+    camera_face_t *faces = (camera_face_t *) ( faceData + sizeof(camera_frame_metadata_t) );
 
     roiData->number_of_faces = fd_data->num_faces_detected;
     roiData->faces = faces;

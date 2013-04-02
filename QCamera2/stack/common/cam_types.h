@@ -36,6 +36,7 @@
 #include <media/msmb_camera.h>
 
 #define CAM_MAX_NUM_BUFS_PER_STREAM 24
+#define MAX_METADATA_PAYLOAD_SIZE 1024
 
 #define CEILING32(X) (((X) + 0x0001F) & 0xFFFFFFE0)
 #define CEILING16(X) (((X) + 0x000F) & 0xFFF0)
@@ -310,6 +311,8 @@ typedef struct {
     cam_hfr_mode_t mode;
     cam_dimension_t dim;
     uint8_t frame_skip;
+    uint8_t livesnapshot_sizes_tbl_cnt;                     /* livesnapshot sizes table size */
+    cam_dimension_t livesnapshot_sizes_tbl[MAX_SIZES_CNT];  /* livesnapshot sizes table */
 } cam_hfr_info_t;
 
 typedef enum {
@@ -650,6 +653,8 @@ typedef  struct {
      * 2. good_frame_idx_range.min_frame_idx - current_frame_idx < 100 */
     cam_frame_idx_range_t good_frame_idx_range;
 
+    char private_metadata[MAX_METADATA_PAYLOAD_SIZE];
+
 } cam_metadata_info_t;
 
 typedef enum {
@@ -693,6 +698,7 @@ typedef enum {
     CAM_INTF_PARM_ZSL_MODE,  /* indicating if it's running in ZSL mode */
     CAM_INTF_PARM_HDR_NEED_1X, /* if HDR needs 1x output */
     CAM_INTF_PARM_LOCK_CAF,
+    CAM_INTF_PARM_VIDEO_HDR,
     CAM_INTF_PARM_MAX
 } cam_intf_parm_type_t;
 
@@ -711,6 +717,7 @@ typedef struct {
 #define CAM_QCOM_FEATURE_HDR            (1<<5)
 #define CAM_QCOM_FEATURE_REGISTER_FACE  (1<<6)
 #define CAM_QCOM_FEATURE_SHARPNESS      (1<<7)
+#define CAM_QCOM_FEATURE_VIDEO_HDR      (1<<8)
 
 // Counter clock wise
 typedef enum {

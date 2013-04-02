@@ -308,6 +308,7 @@ int32_t QCameraPostProcessor::getJpegEncodingConfig(mm_jpeg_encode_params_t& enc
         cam_frame_len_offset_t thumb_offset;
         memset(&thumb_offset, 0, sizeof(cam_frame_len_offset_t));
         thumb_stream->getFrameOffset(thumb_offset);
+        encode_parm.num_tmb_bufs =  pStreamMem->getCnt();
         for (int i = 0; i < pStreamMem->getCnt(); i++) {
             camera_memory_t *stream_mem = pStreamMem->getMemory(i, false);
             if (stream_mem != NULL) {
@@ -468,6 +469,8 @@ int32_t QCameraPostProcessor::processData(mm_camera_super_buf_t *frame)
         ALOGD("%s: need reprocess", __func__);
         // enqueu to post proc input queue
         m_inputPPQ.enqueue((void *)frame);
+    } else if (m_parent->mParameters.isNV16PictureFormat()) {
+        processRawData(frame);
     } else {
         ALOGD("%s: no need offline reprocess, sending to jpeg encoding", __func__);
         qcamera_jpeg_data_t *jpeg_job =
@@ -539,6 +542,8 @@ int32_t QCameraPostProcessor::processJpegEvt(qcamera_jpeg_evt_payload_t *evt)
         goto end;
     }
 
+    ALOGD("[KPI Perf] %s : jpeg job %d", __func__, evt->jobId);
+
     if (m_parent->mDataCb == NULL ||
         m_parent->msgTypeEnabledWithLock(CAMERA_MSG_COMPRESSED_IMAGE) == 0 ) {
         ALOGD("%s: No dataCB or CAMERA_MSG_COMPRESSED_IMAGE not enabled",
@@ -582,11 +587,9 @@ int32_t QCameraPostProcessor::processJpegEvt(qcamera_jpeg_evt_payload_t *evt)
 end:
     if (rc != NO_ERROR) {
         // send error msg to upper layer
-        sendDataNotify(CAMERA_MSG_COMPRESSED_IMAGE,
-                       NULL,
-                       0,
-                       NULL,
-                       NULL);
+        sendEvtNotify(CAMERA_MSG_ERROR,
+                      UNKNOWN_ERROR,
+                      0);
 
         if (NULL != jpeg_mem) {
             jpeg_mem->release(jpeg_mem);
@@ -952,9 +955,6 @@ int32_t QCameraPostProcessor::encodeData(qcamera_jpeg_data_t *jpeg_job_data,
         return NO_MEMORY;
     }
 
-    // clean and invalidate cache ops through mem obj of the frame
-    memObj->cleanInvalidateCache(main_frame->buf_idx);
-
     // dump snapshot frame if enabled
     m_parent->dumpFrameToFile(main_frame->buffer, main_frame->frame_len,
                               main_frame->frame_idx, QCAMERA_DUMP_FRM_SNAPSHOT);
@@ -983,12 +983,6 @@ int32_t QCameraPostProcessor::encodeData(qcamera_jpeg_data_t *jpeg_job_data,
     }
 
     if (thumb_frame != NULL) {
-        QCameraMemory *thumb_memObj = (QCameraMemory *)thumb_frame->mem_info;
-        if (NULL != thumb_memObj) {
-            // clean and invalidate cache ops through mem obj of the frame
-            thumb_memObj->cleanInvalidateCache(thumb_frame->buf_idx);
-        }
-
         // dump thumbnail frame if enabled
         m_parent->dumpFrameToFile(thumb_frame->buffer, thumb_frame->frame_len,
                                   thumb_frame->frame_idx, QCAMERA_DUMP_FRM_THUMBNAIL);
@@ -1004,6 +998,7 @@ int32_t QCameraPostProcessor::encodeData(qcamera_jpeg_data_t *jpeg_job_data,
         mm_jpeg_encode_params_t encodeParam;
         memset(&encodeParam, 0, sizeof(mm_jpeg_encode_params_t));
         getJpegEncodingConfig(encodeParam, main_stream, thumb_stream);
+        ALOGD("[KPI Perf] %s : call jpeg create_session", __func__);
         ret = mJpegHandle.create_session(mJpegClientHandle, &encodeParam, &mJpegSessionId);
         if (ret != NO_ERROR) {
             ALOGE("%s: error creating a new jpeg encoding session", __func__);
@@ -1080,13 +1075,13 @@ int32_t QCameraPostProcessor::encodeData(qcamera_jpeg_data_t *jpeg_job_data,
         jpg_job.encode_job.p_metadata = (cam_metadata_info_t *)meta_frame->buffer;
     }
 
+    ALOGD("[KPI Perf] %s : call jpeg start_job", __func__);
     ret = mJpegHandle.start_job(&jpg_job, &jobId);
     if (ret == NO_ERROR) {
         // remember job info
         jpeg_job_data->jobId = jobId;
     }
 
-    ALOGD("%s : X", __func__);
     return ret;
 }
 
@@ -1106,7 +1101,19 @@ int32_t QCameraPostProcessor::processRawImageImpl(mm_camera_super_buf_t *recvd_f
 {
     int32_t rc = NO_ERROR;
 
-    mm_camera_buf_def_t *frame = recvd_frame->bufs[0];
+    mm_camera_buf_def_t *frame = NULL;
+    for ( int i= 0 ; i < recvd_frame->num_bufs ; i++ ) {
+        if ( recvd_frame->bufs[i]->stream_type == CAM_STREAM_TYPE_SNAPSHOT ||
+             recvd_frame->bufs[i]->stream_type == CAM_STREAM_TYPE_RAW ) {
+            frame = recvd_frame->bufs[i];
+            break;
+        }
+    }
+    if ( NULL == frame ) {
+        ALOGE("%s: No valid raw buffer", __func__);
+        return BAD_VALUE;
+    }
+
     QCameraMemory *rawMemObj = (QCameraMemory *)frame->mem_info;
     camera_memory_t *raw_mem = NULL;
 
@@ -1115,9 +1122,6 @@ int32_t QCameraPostProcessor::processRawImageImpl(mm_camera_super_buf_t *recvd_f
     }
 
     if (NULL != rawMemObj && NULL != raw_mem) {
-        // send data callback for COMPRESSED_IMAGE
-        rawMemObj->cleanCache(frame->buf_idx);
-
         // dump frame into file
         m_parent->dumpFrameToFile(frame->buffer, frame->frame_len,
                                   frame->frame_idx, QCAMERA_DUMP_FRM_RAW);
@@ -1284,11 +1288,7 @@ void *QCameraPostProcessor::dataProcessRoutine(void *data)
 
                                 pme->releaseJpegJobData(jpeg_job);
                                 free(jpeg_job);
-                                pme->sendDataNotify(CAMERA_MSG_COMPRESSED_IMAGE,
-                                                    NULL,
-                                                    0,
-                                                    NULL,
-                                                    NULL);
+                                pme->sendEvtNotify(CAMERA_MSG_ERROR, UNKNOWN_ERROR, 0);
                             }
                         }
                     }
@@ -1304,11 +1304,7 @@ void *QCameraPostProcessor::dataProcessRoutine(void *data)
                         if (NO_ERROR != ret) {
                             pme->releaseSuperBuf(super_buf);
                             free(super_buf);
-                            pme->sendDataNotify(CAMERA_MSG_COMPRESSED_IMAGE,
-                                                NULL,
-                                                0,
-                                                NULL,
-                                                NULL);
+                            pme->sendEvtNotify(CAMERA_MSG_ERROR, UNKNOWN_ERROR, 0);
                         }
                     }
 
@@ -1348,11 +1344,7 @@ void *QCameraPostProcessor::dataProcessRoutine(void *data)
                                 free(pp_frame);
                             }
                             // send error notify
-                            pme->sendDataNotify(CAMERA_MSG_COMPRESSED_IMAGE,
-                                                NULL,
-                                                0,
-                                                NULL,
-                                                NULL);
+                            pme->sendEvtNotify(CAMERA_MSG_ERROR, UNKNOWN_ERROR, 0);
                         }
                     }
                 } else {

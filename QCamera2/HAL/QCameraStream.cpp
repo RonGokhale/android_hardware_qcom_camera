@@ -118,6 +118,29 @@ int32_t QCameraStream::invalidate_buf(int index, void *user_data)
 }
 
 /*===========================================================================
+ * FUNCTION   : clean_invalidate_buf
+ *
+ * DESCRIPTION: static function entry to clean invalidate a specific stream buffer
+ *
+ * PARAMETERS :
+ *   @index      : index of the stream buffer to clean invalidate
+ *   @user_data  : user data ptr of ops_tbl
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraStream::clean_invalidate_buf(int index, void *user_data)
+{
+    QCameraStream *stream = reinterpret_cast<QCameraStream *>(user_data);
+    if (!stream) {
+        ALOGE("invalid stream pointer");
+        return NO_MEMORY;
+    }
+    return stream->cleanInvalidateBuf(index);
+}
+
+/*===========================================================================
  * FUNCTION   : QCameraStream
  *
  * DESCRIPTION: constructor of QCameraStream
@@ -152,6 +175,7 @@ QCameraStream::QCameraStream(QCameraAllocator &allocator,
     mMemVtbl.get_bufs = get_bufs;
     mMemVtbl.put_bufs = put_bufs;
     mMemVtbl.invalidate_buf = invalidate_buf;
+    mMemVtbl.clean_invalidate_buf = clean_invalidate_buf;
     memset(&mFrameLenOffset, 0, sizeof(mFrameLenOffset));
     memcpy(&mPaddingInfo, paddingInfo, sizeof(cam_padding_info_t));
     memset(&mCropInfo, 0, sizeof(cam_rect_t));
@@ -500,11 +524,11 @@ int32_t QCameraStream::bufDone(const void *opaque, bool isMetaData)
     int32_t rc = NO_ERROR;
 
     int index = mStreamBufs->getMatchBufIndex(opaque, isMetaData);
-    if (index == -1 || index >= mNumBufs) {
+    if (index == -1 || index >= mNumBufs || mBufDefs == NULL) {
         ALOGE("%s: Cannot find buf for opaque data = %p", __func__, opaque);
         return BAD_INDEX;
     }
-
+    ALOGD("%s: Buffer Index = %d, Frame Idx = %d", __func__, index, mBufDefs[index].frame_idx);
     rc = bufDone(index);
     return rc;
 }
@@ -663,6 +687,23 @@ int32_t QCameraStream::putBufs(mm_camera_map_unmap_ops_tbl_t *ops_tbl)
 int32_t QCameraStream::invalidateBuf(int index)
 {
     return mStreamBufs->invalidateCache(index);
+}
+
+/*===========================================================================
+ * FUNCTION   : cleanInvalidateBuf
+ *
+ * DESCRIPTION: clean invalidate a specific stream buffer
+ *
+ * PARAMETERS :
+ *   @index   : index of the buffer to clean invalidate
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraStream::cleanInvalidateBuf(int index)
+{
+    return mStreamBufs->cleanInvalidateCache(index);
 }
 
 /*===========================================================================
