@@ -913,11 +913,11 @@ deinitSnapshotBuffers(void)
             if(ret != NO_ERROR) {
                 ALOGE("%s:unreg snapshot buf err=%d\n", __func__, ret);
                 ret = FAILED_TRANSACTION;
-                goto end;
             }
         }
 
         /* Clear main and thumbnail heap*/
+        ALOGE("%s: Clear main and thumbnail heap",__func__);
         if(!isLiveSnapshot()) {
             mHalCamCtrl->releaseHeapMem(&mHalCamCtrl->mSnapshotMemory);
             if (!isFullSizeLiveshot())
