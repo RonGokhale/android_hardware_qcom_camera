@@ -3138,7 +3138,11 @@ int32_t QCameraParameters::initDefaultParameters()
     String8 denoiseValues = createValuesStringFromMap(
        DENOISE_ON_OFF_MODES_MAP, sizeof(DENOISE_ON_OFF_MODES_MAP) / sizeof(QCameraMap));
     set(KEY_QC_SUPPORTED_DENOISE, denoiseValues.string());
+#ifdef DEFAULT_DENOISE_MODE_ON
+    setWaveletDenoise(DENOISE_ON);
+#else
     setWaveletDenoise(DENOISE_OFF);
+#endif
 
     // Set feature enable/disable
     String8 enableDisableValues = createValuesStringFromMap(
@@ -3185,8 +3189,13 @@ int32_t QCameraParameters::initDefaultParameters()
 
     //Set ZSL
     set(KEY_QC_SUPPORTED_ZSL_MODES, onOffValues);
+#ifdef DEFAULT_ZSL_MODE_ON
+    set(KEY_QC_ZSL, VALUE_ON);
+    m_bZslMode = true;
+#else
     set(KEY_QC_ZSL, VALUE_OFF);
-    m_bZslMode =false;
+    m_bZslMode = false;
+#endif
 
     //Set video HDR
     if ((m_pCapability->qcom_supported_feature_mask & CAM_QCOM_FEATURE_VIDEO_HDR) > 0) {
@@ -4730,7 +4739,16 @@ int32_t QCameraParameters::getStreamFormat(cam_stream_type_t streamType,
         if ( mPictureFormat == CAM_FORMAT_YUV_422_NV16 ) {
             format = CAM_FORMAT_YUV_422_NV16;
         } else {
-            format = CAM_FORMAT_YUV_420_NV21;
+            char prop[PROPERTY_VALUE_MAX];
+            int snapshotFormat;
+            memset(prop, 0, sizeof(prop));
+            property_get("persist.camera.snap.format", prop, "0");
+            snapshotFormat = atoi(prop);
+            if(snapshotFormat == 1) {
+                format = CAM_FORMAT_YUV_422_NV61;
+            } else {
+                format = CAM_FORMAT_YUV_420_NV21;
+            }
         }
         break;
     case CAM_STREAM_TYPE_VIDEO:
@@ -5615,45 +5633,6 @@ int32_t QCameraParameters::setLockCAF(bool bLock)
         m_bCAFLocked = bLock;
         return NO_ERROR;
     }
-}
-
-/*===========================================================================
- * FUNCTION   : setBundleInfo
- *
- * DESCRIPTION: send bundle info of a channel to backend
- *
- * PARAMETERS :
- *   @bundle_info : reference to bundle info struct
- *
- * RETURN     : int32_t type of status
- *              NO_ERROR  -- success
- *              none-zero failure code
- *==========================================================================*/
-int32_t QCameraParameters::setBundleInfo(cam_bundle_config_t &bundle_info)
-{
-    int32_t rc = NO_ERROR;
-
-    if(initBatchUpdate(m_pParamBuf) < 0 ) {
-        ALOGE("%s:Failed to initialize group update table", __func__);
-        return BAD_TYPE;
-    }
-
-    rc = AddSetParmEntryToBatch(m_pParamBuf,
-                                CAM_INTF_PARM_SET_BUNDLE,
-                                sizeof(cam_bundle_config_t),
-                                &bundle_info);
-    if (rc != NO_ERROR) {
-        ALOGE("%s:Failed to update table", __func__);
-        return rc;
-    }
-
-    rc = commitSetBatch();
-    if (rc != NO_ERROR) {
-        ALOGE("%s:Failed to set bundle info parm", __func__);
-        return rc;
-    }
-
-    return rc;
 }
 
 /*===========================================================================
