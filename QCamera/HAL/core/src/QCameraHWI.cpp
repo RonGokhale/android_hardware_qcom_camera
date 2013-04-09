@@ -601,6 +601,9 @@ status_t QCameraHardwareInterface::encodeData(mm_camera_super_buf_t* recvd_frame
     }
     main_mem_info = &mSnapshotMemory.mem_info[main_frame->buf_idx];
 
+    //Update Exiftag values.
+    setExifTags();
+
     // send upperlayer callback for raw image (data or notify, not both)
     app_notify_cb_t *app_cb = (app_notify_cb_t *)malloc(sizeof(app_notify_cb_t));
     if (app_cb != NULL) {
@@ -2036,6 +2039,7 @@ void QCameraHardwareInterface::processCtrlEvent(mm_camera_ctrl_event_t *event, a
             break;
         case MM_CAMERA_CTRL_EVT_AUTO_FOCUS_DONE:
             ALOGI("processCtrlEvent: MM_CAMERA_CTRL_EVT_AUTO_FOCUS_DONE");
+            mTouchROIEnabled = false;
             autoFocusEvent(&event->status, app_cb);
             break;
         case MM_CAMERA_CTRL_EVT_PREP_SNAPSHOT:
@@ -2890,7 +2894,6 @@ status_t QCameraHardwareInterface::autoFocusEvent(cam_ctrl_status_t *status, app
        mNeedToUnlockCaf = true;
     mAutoFocusRunning = false;
     mAutofocusLock.unlock();
-
 /************************************************************
   END MUTEX CODE
 *************************************************************/
@@ -3090,7 +3093,8 @@ status_t  QCameraHardwareInterface::takePicture()
             if (isZSLMode() && (mYUVThruVFE || !mIsYUVSensor)){
                 ALOGD("%s: ZSL Snapshot Enabled",__func__);
                 int32_t flash_expected = 0;
-                ret = mCameraHandle->ops->get_parm(mCameraHandle->camera_handle, MM_CAMERA_PARM_QUERY_FLASH4SNAP, (void *)&flash_expected);
+                ret = mCameraHandle->ops->get_parm(mCameraHandle->camera_handle,
+                        MM_CAMERA_PARM_QUERY_FLASH4ZSL, (void *)&flash_expected);
                 if (MM_CAMERA_OK != ret) {
                     ALOGE("%s: error: can not get flash_expected value", __func__);
                     return BAD_VALUE;
@@ -3315,12 +3319,13 @@ status_t QCameraHardwareInterface::autoFocus()
    /* Prepare snapshot*/
     ALOGI("%s:Prepare Snapshot", __func__);
 
-    if(mPrepareSnapshot==false){
+    if(isZSLMode()){
+      if((mPrepareSnapshot==false) && (mTouchROIEnabled==false)){
         mCameraHandle->ops->prepare_snapshot(mCameraHandle->camera_handle,
             mChannelId,0);
         mPrepareSnapshot = true;
     }
-
+  }
     ALOGI("%s:AF start (mode %d)", __func__, afMode);
     if(MM_CAMERA_OK != mCameraHandle->ops->start_focus(mCameraHandle->camera_handle,
                mChannelId, mCameraId,(uint32_t)&afMode)){
@@ -3724,6 +3729,7 @@ int QCameraHardwareInterface::initHeapMem( QCameraHalHeap_t *heap,
             rc = -1;
             break;
         }
+        memset(heap->camera_memory[i]->data,0,heap->camera_memory[i]->size);
         //Invalidate since the memory allocated is cached
         cache_ops(&heap->mem_info[i], heap->camera_memory[i]->data, ION_IOC_INV_CACHES);
 
@@ -3748,7 +3754,6 @@ int QCameraHardwareInterface::initHeapMem( QCameraHalHeap_t *heap,
                      buf_def[i].planes[j-1].length;
             }
         }
-
         ALOGE("heap->fd[%d] =%d, camera_memory=%p", i,
               heap->mem_info[i].fd, heap->camera_memory[i]);
         heap->local_flag[i] = 1;
@@ -4105,6 +4110,9 @@ void QCameraHardwareInterface::notifyHdrEvent(cam_ctrl_status_t status, void * c
         free(frame);
         mHdrInfo.recvd_frame[1] = NULL;
     }
+
+    memset(mHdrInfo.recvd_frame, 0,
+           sizeof(mm_camera_super_buf_t *)*MAX_HDR_EXP_FRAME_NUM);
     ALOGV("%s X", __func__);
 }
 
