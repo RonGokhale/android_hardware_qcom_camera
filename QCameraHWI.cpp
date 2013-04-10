@@ -868,7 +868,7 @@ void QCameraHardwareInterface::processChannelEvent(
 void QCameraHardwareInterface::processCtrlEvent(mm_camera_ctrl_event_t *event, app_notify_cb_t *app_cb)
 {
     ALOGI("processCtrlEvent: %d, E",event->evt);
-    Mutex::Autolock lock(mLock);
+    mLock.lock();
     switch(event->evt)
     {
         case MM_CAMERA_CTRL_EVT_ZOOM_DONE:
@@ -880,8 +880,9 @@ void QCameraHardwareInterface::processCtrlEvent(mm_camera_ctrl_event_t *event, a
         case MM_CAMERA_CTRL_EVT_PREP_SNAPSHOT:
             break;
         case MM_CAMERA_CTRL_EVT_WDN_DONE:
+            mLock.unlock();
             wdenoiseEvent(event->status, (void *)(event->cookie));
-            break;
+            return;
         case MM_CAMERA_CTRL_EVT_ERROR:
             app_cb->notifyCb  = mNotifyCb;
             app_cb->argm_notify.msg_type = CAMERA_MSG_ERROR;
@@ -891,6 +892,7 @@ void QCameraHardwareInterface::processCtrlEvent(mm_camera_ctrl_event_t *event, a
        default:
             break;
     }
+    mLock.unlock();
     ALOGI("processCtrlEvent: X");
     return;
 }
