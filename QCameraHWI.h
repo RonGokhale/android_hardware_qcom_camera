@@ -224,6 +224,8 @@ typedef struct{
     //Other tags
     char        dateTime[20];
     rat_t       focalLength;
+    rat_t       exposureTime;
+    uint16_t    whiteBalance;
     uint16_t    flashMode;
     uint16_t    isoSpeed;
 

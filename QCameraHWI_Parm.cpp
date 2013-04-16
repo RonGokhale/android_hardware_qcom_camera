@@ -1457,7 +1457,6 @@ status_t QCameraHardwareInterface::setParameters(const QCameraParameters& params
     if ((rc = setZSLBurstLookBack(params))) final_rc = rc;
     if ((rc = setZSLBurstInterval(params))) final_rc = rc;
     if ((rc = setNoDisplayMode(params))) final_rc = rc;
-    
     //Update Exiftag values.
     setExifTags();
 
@@ -2495,7 +2494,7 @@ status_t QCameraHardwareInterface::setVideoSize(const QCameraParameters& params)
         if(!parse_size(str, videoWidth, videoHeight)) {
             parse_size(str_t, old_vid_w, old_vid_h);
             if(old_vid_w != videoWidth || old_vid_h != videoHeight) {
-                mRestartPreview = true; 
+                mRestartPreview = true;
                 ALOGE("%s: Video sizes changes, Restart preview...", __func__, str);
             }
             mParameters.set(QCameraParameters::KEY_VIDEO_SIZE, str);
@@ -3960,6 +3959,8 @@ void QCameraHardwareInterface::initExifData(){
                   20, 1, (void *)mExifValues.dateTime);
     }
     addExifTag(EXIFTAGID_FOCAL_LENGTH, EXIF_RATIONAL, 1, 1, (void *)&(mExifValues.focalLength));
+    addExifTag(EXIFTAGID_EXPOSURE_TIME, EXIF_RATIONAL, 1, 1, (void *)&(mExifValues.exposureTime));
+    addExifTag(EXIFTAGID_WHITE_BALANCE, EXIF_SHORT, 1, 1, (void *)&(mExifValues.whiteBalance));
     addExifTag(EXIFTAGID_ISO_SPEED_RATING,EXIF_SHORT,1,1,(void *)&(mExifValues.isoSpeed));
 
     if(mExifValues.mGpsProcess) {
@@ -4017,7 +4018,10 @@ void QCameraHardwareInterface::initExifData(){
 //Add all exif tags in this function
 void QCameraHardwareInterface::setExifTags()
 {
-    const char *str;
+    const char *str = NULL;
+    float exp_time = 0;
+    uint32_t numn = 0;
+    uint32_t denm = 0;
 
     //set TimeStamp
     str = mParameters.get(QCameraParameters::KEY_QC_EXIF_DATETIME);
@@ -4034,6 +4038,32 @@ void QCameraHardwareInterface::setExifTags()
 
     //Set ISO Speed
     mExifValues.isoSpeed = getISOSpeedValue();
+    //set Exposure Time
+    if(MM_CAMERA_OK != cam_config_get_parm(mCameraId, MM_CAMERA_PARM_EXPOSURE_TIME,
+             &exp_time)) {
+      ALOGE("%s:Failed to get exposure time",__func__);
+    } else {
+         denm = 100000;
+         numn = (exp_time) * (denm);
+         mExifValues.exposureTime = getRational(numn, denm);
+    }
+
+    //set White Balance
+    const char *str1 = mParameters.get(CameraParameters::KEY_WHITE_BALANCE);
+    if (str1 != NULL) {
+        int32_t value = attr_lookup(whitebalance, sizeof(whitebalance) / sizeof(str_map), str1);
+        if( value == 1) //1
+            mExifValues.whiteBalance = 0;//0 is AUTO for exif reader
+        else
+            mExifValues.whiteBalance = 1; //1 is Manual for exif reader
+    }
+
+    uint32_t iso_mode;
+    if (mExifValues.isoSpeed == 0 || mExifValues.isoSpeed == 1) {
+        cam_config_get_parm(mCameraId, MM_CAMERA_PARM_CURR_ISO,
+        (void *)&iso_mode);
+        mExifValues.isoSpeed = (uint16_t)iso_mode;
+    }
 
     //get time and date from system
     time_t rawtime;

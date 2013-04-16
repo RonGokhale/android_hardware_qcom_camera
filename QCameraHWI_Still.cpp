@@ -1551,6 +1551,8 @@ encodeData(mm_camera_ch_data_buf_t* recvd_frame,
         dimension.orig_picture_dx = dimension.picture_width;//mPictureWidth;
         dimension.orig_picture_dy = dimension.picture_height; //mPictureHeight;
 
+        mHalCamCtrl->setExifTags();
+
         if(!mDropThumbnail) {
             if(isZSLMode()) {
                 ALOGI("Setting input thumbnail size to previewWidth= %d   previewheight= %d in ZSL mode",
