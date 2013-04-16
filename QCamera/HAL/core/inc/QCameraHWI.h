@@ -579,6 +579,10 @@ public:
     preview_format_info_t getPreviewFormatInfo( );
     bool isCameraReady();
     bool isNoDisplayMode();
+    mm_camera_large_msg_t *  getMember3AExifInfo(); /*get the pointer to the memeber*/
+    void filllOut3AExifInfoFromDriver(); /*get info from lower layer*/
+    void filllOutQExifInfoFromDriver(); /*get info from lower layer*/
+    void Add3AExifInfoTag( );
 
     int getBuf(uint32_t camera_handle,
                         uint32_t ch_id, uint32_t stream_id,
@@ -645,7 +649,7 @@ private:
     void zslFlashEvent(struct zsl_flash_t evt, app_notify_cb_t *);
     status_t autoFocusMoveEvent(cam_ctrl_status_t *, app_notify_cb_t *);
     void zslExpBktEvent(struct zsl_exp_bracket_t evt, app_notify_cb_t *);
-
+    status_t afStateEvent(cam_ctrl_status_t *, app_notify_cb_t *);
     void filterPictureSizes();
     bool supportsSceneDetection();
     bool supportsSelectableZoneAf();
@@ -739,6 +743,8 @@ private:
     status_t setDimension();
     status_t setRDIMode(const QCameraParameters& params);
     status_t setMobiCat(const QCameraParameters& params);
+    status_t setLLSMode(const QCameraParameters& params);
+    status_t setCafLock(const uint32_t value);
 
     isp3a_af_mode_t getAutoFocusMode(const QCameraParameters& params);
     bool isValidDimension(int w, int h);
@@ -846,6 +852,7 @@ private:
     bool mAutoFocusRunning;
     bool mPrepareSnapshot;
     bool mTouchROIEnabled;
+    bool mAutoFocusRerun;
     bool mNeedToUnlockCaf;
     bool mMultiTouch;
     bool mHasAutoFocusSupport;
@@ -868,9 +875,12 @@ private:
     int mSnapshotFormat;
     int mZslInterval;
     bool mRestartPreview;
+	bool mLowLightShot;
     bool mMobiCatEnabled;
     bool mRDIEnabled;
     bool mVideoHDRMode;
+    bool mCAFstop;
+
     /*for histogram*/
     int            mStatsOn;
     int            mCurrentHisto;
@@ -978,7 +988,7 @@ private:
      bool  mInitSetting;
      cam_sensor_fps_range_t mSensorFpsRange;
      int mSnapshotFlip;
-
+     mm_camera_large_msg_t *m3AExifInfo;
      typedef struct {
        mm_camera_buf_def_t * frame;
        QCameraHalHeap_t * heap;

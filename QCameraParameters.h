@@ -115,6 +115,7 @@ public:
     static const char KEY_QC_SUPPORTED_ZSL_MODES[];
     static const char KEY_QC_VIDEO_HDR[];
     static const char KEY_QC_SUPPORTED_VIDEO_HDR_MODES[];
+    static const char KEY_QC_LLS[];
 
     static const char KEY_QC_CAMERA_MODE[];
 

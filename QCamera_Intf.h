@@ -440,6 +440,7 @@ typedef enum {
     MM_CAMERA_PARM_SNAPSHOT_BURST_NUM,  // num shots per snapshot action
     MM_CAMERA_PARM_LIVESHOT_MAIN,       // enable/disable full size live shot
     MM_CAMERA_PARM_MAXZOOM, /* 65 */
+    MM_CAMERA_PARM_AF_STATE,
     MM_CAMERA_PARM_LUMA_ADAPTATION,     // enable/disable
     MM_CAMERA_PARM_HDR,
     MM_CAMERA_PARM_CROP,
@@ -486,7 +487,11 @@ typedef enum {
     MM_CAMERA_PARM_VISION_AE,
     MM_CAMERA_PARM_FLIP_HINT,
     MM_CAMERA_PARM_STREAM_ERROR, /* 110 */
+    MM_CAMERA_PARM_GET_AWB_EXIF_INFO,
+    MM_CAMERA_PARM_GET_AF_EXIF_INFO,
+	MM_CAMERA_PARM_SET_CAF_LOCK,
     MM_CAMERA_PARM_FD_INFO,
+	MM_CAMERA_PARM_LLS,
     MM_CAMERA_PARAM_EXPOSURE_TIME,
     MM_CAMERA_PARM_EXTERNAL_DIS_ENABLE,
     MM_CAMERA_PARAM_ISO_AUTO_VALUE,
@@ -560,6 +565,7 @@ typedef enum {
   CAMERA_DISABLE_BSM,
   CAMERA_GET_PARM_ZOOM,
   CAMERA_GET_PARM_MAXZOOM,
+  CAMERA_GET_PARM_AF_STATE,//Changes 12_17
   CAMERA_GET_PARM_ZOOMRATIOS,
   CAMERA_GET_PARM_AF_SHARPNESS,
   CAMERA_SET_PARM_LED_MODE, /* 50 */
@@ -651,9 +657,13 @@ typedef enum {
   CAMERA_SET_VISION_AE,
   CAMERA_SET_FLIP_HINT,
   CAMERA_SET_PARM_STREAM_ERROR,
+  CAMERA_GET_AWB_EXIF_INFO,
+  CAMERA_GET_AF_EXIF_INFO,
+  CAMERA_SET_CAF_LOCK,
   CAMERA_SET_PARM_FD_INFO,
   CAMERA_GET_PARAM_EXPOSURE_TIME,
   CAMERA_SET_EXTERNAL_DIS_ENABLE,
+  CAMERA_SET_PARM_LLS,
   CAMERA_GET_PARAM_ISO_AUTO_VALUE,
   CAMERA_UNPREPARE_SNAPSHOT_ZSL,
   CAMERA_SET_VIDEO_HDR,
@@ -719,6 +729,7 @@ typedef enum {
 typedef enum {
   CAMERA_ISO_AUTO = 0,
   CAMERA_ISO_DEBLUR,
+  CAMERA_ISO_50 = 1,
   CAMERA_ISO_100,
   CAMERA_ISO_200,
   CAMERA_ISO_400,
@@ -768,11 +779,18 @@ typedef struct {
   } aec_roi_position;
 } cam_set_aec_roi_t;
 
+typedef enum {
+  CAM_ROI_TYPE_DEF,
+  CAM_ROI_TYPE_TOUCH,
+  CAM_ROI_TYPE_FACE,
+} cam_roi_type_t;
+
 typedef struct {
   uint32_t frm_id;
   uint8_t num_roi;
   roi_t roi[MAX_ROI];
   uint8_t is_multiwindow;
+  cam_roi_type_t roi_type;
 } roi_info_t;
 
 /* Exif Tag Data Type */
@@ -930,6 +948,16 @@ typedef struct {
 } mm_camera_histo_mem_info_t;
 
 typedef enum {
+ AUTO_FOCUS_FAIL = 0x0,       // for single AF and CAF
+ AUTO_FOCUS_SUCCESS,// for single AF and CAF
+ AUTO_FOCUS_RECHECK,// for CAF
+ AUTO_FOCUS_FOCUSING,// for single AF and CAF
+ AUTO_FOCUS_MONITOR,
+ AUTO_FOCUS_ABORT,
+ AUTO_FOCUS_INIT,
+}mm_camera_ctrl_af_status_evt_t;
+
+typedef enum {
   MM_CAMERA_CTRL_EVT_ZOOM_DONE,
   MM_CAMERA_CTRL_EVT_AUTO_FOCUS_DONE,
   MM_CAMERA_CTRL_EVT_PREP_SNAPSHOT,
@@ -937,6 +965,7 @@ typedef enum {
   MM_CAMERA_CTRL_EVT_WDN_DONE, // wavelet denoise done
   MM_CAMERA_CTRL_EVT_HDR_DONE,
   MM_CAMERA_CTRL_EVT_AUTO_FOCUS_MOVE,
+  MM_CAMERA_CTRL_EVT_AF_STATE,
   MM_CAMERA_CTRL_EVT_ERROR,
   MM_CAMERA_CTRL_EVT_MAX
 }mm_camera_ctrl_event_type_t;
@@ -981,6 +1010,11 @@ typedef enum {
 typedef struct {
   int fd_mode;
   int num_fd;
+  int fd_roi_en;	//MAK
+  uint16_t x;
+  uint16_t y;
+  uint16_t dx;
+  uint16_t dy;
 } fd_set_parm_t;
 
 typedef struct {
@@ -1158,6 +1192,22 @@ typedef struct {
   uint32_t dest_handle;    /* Which destination to start/stop */
   uint8_t  start_flag;     /* flag: start isp(TRUE)/stop isp(FALSE) */
 } mm_camera_repro_cmd_start_stop_t;
+
+#define MAX_LARGE_MSG_SIZE (350 * sizeof( unsigned long))
+/***********************************************************
+  *===============mm_camera_large_msg_t============
+  *For large generic data communicate between HAL and MM camera.
+  * the real msg type shall be defined inside the msgData if needed.
+
+  * WARNING: Since this data type is huge, please use it carefully,  and
+  * recommended to allocate memory from heap instead of stack (local
+  * variable)
+  ***********************************************************/
+typedef struct {
+	uint32_t msgMaxLen;
+	uint32_t msgDataLen;
+	uint8_t   msgData[MAX_LARGE_MSG_SIZE];
+} mm_camera_large_msg_t;
 
 typedef struct {
   /* mm_camera_repro_cmd_type_t */
