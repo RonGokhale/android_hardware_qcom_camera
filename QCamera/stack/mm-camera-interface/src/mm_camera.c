@@ -860,6 +860,19 @@ int32_t mm_camera_get_parm(mm_camera_obj_t *my_obj,
                                         p_value);
         break;
 
+    case MM_CAMERA_PARM_GET_AWB_EXIF_INFO:
+	  CDBG(" Call CAMERA_GET_AWB_EXIF_INFO");
+      rc =  mm_camera_send_native_ctrl_cmd(my_obj,
+                                       CAMERA_GET_AWB_EXIF_INFO,
+                                       sizeof(mm_camera_large_msg_t),
+                                       p_value);
+	  break;
+    case MM_CAMERA_PARM_GET_AF_EXIF_INFO:
+      rc =  mm_camera_send_native_ctrl_cmd(my_obj,
+                                       CAMERA_GET_AF_EXIF_INFO,
+                                       sizeof(mm_camera_large_msg_t),
+                                       p_value);
+      break;
     default:
         /* needs to add more implementation */
         rc = -1;
@@ -1848,6 +1861,10 @@ int32_t mm_camera_set_general_parm(mm_camera_obj_t * my_obj,
                                            sizeof(mm_cam_mobicat_info_t),
                                            p_value);
         break;
+	case MM_CAMERA_PARM_LLS:
+	   CDBG("RC# send native ctrl cmd type : %d , value =%d",CAMERA_SET_PARM_LLS, *(((uint8_t *)parm->p_value) ));
+	   return mm_camera_send_native_ctrl_cmd(my_obj,
+						 CAMERA_SET_PARM_LLS, sizeof(uint8_t), p_value);
        break;
     case MM_CAMERA_PARM_ZSL_FLASH:
         rc = mm_camera_send_native_ctrl_cmd(my_obj,
@@ -1861,6 +1878,9 @@ int32_t mm_camera_set_general_parm(mm_camera_obj_t * my_obj,
                                             sizeof(int),
                                             p_value);
        break;
+    case MM_CAMERA_PARM_SET_CAF_LOCK:
+	  return mm_camera_send_native_ctrl_cmd(my_obj,
+        CAMERA_SET_CAF_LOCK, sizeof(uint32_t), p_value);
     default:
         CDBG("%s: default: parm %d not supported\n", __func__, parm_type);
         break;
