@@ -16,9 +16,9 @@
 
 /*#error uncomment this for compiler test!*/
 
-#define ALOG_NDEBUG 0
-#define ALOG_NDDEBUG 0
-#define ALOG_NIDEBUG 0
+#define LOG_NDEBUG 0
+#define LOG_NDDEBUG 0
+#define LOG_NIDEBUG 0
 #define LOG_TAG "QCameraHWI_Still"
 #include <utils/Log.h>
 #include <utils/threads.h>
@@ -188,6 +188,7 @@ static void snapshot_jpeg_cb(jpeg_event_t event, void *user_data)
     }
 
     if (pme != NULL) {
+       pme->setSnapJpegCbState(true);
        pme->receiveCompleteJpegPicture(event);
        ALOGE(" Completed issuing JPEG callback");
        /* deinit only if we are done taking requested number of snapshots */
@@ -200,6 +201,7 @@ static void snapshot_jpeg_cb(jpeg_event_t event, void *user_data)
                pme->stop();
            }
         }
+        pme->setSnapJpegCbState(false);
     }
     else
         ALOGW("%s: Receive jpeg cb Obj Null", __func__);
@@ -276,12 +278,27 @@ receiveCompleteJpegPicture(jpeg_event_t event)
     camera_data_callback jpg_data_cb = NULL;
     bool fail_cb_flag = false;
 
-    if(!mActive && !isLiveSnapshot()) {
+    mStopCallbackLock.lock( );
+    ALOGI("%s after mStopCallbackLock.lock()", __func__);
+    // if(!mActive && !isLiveSnapshot() && !mHalCamCtrl->mSnapCbDisabled) {
+    if(mHalCamCtrl->mSnapCbDisabled) {
         ALOGE("%s : Cancel Picture",__func__);
         fail_cb_flag = true;
-        goto end;
+        /* free the resource we allocated to maintain the structure */
+        //mm_camera_do_munmap(main_fd, (void *)main_buffer_addr, mSnapshotStreamBuf.frame_len);
+        mHalCamCtrl->deinitExifData();
+        mBurstModeFlag = false;
+        //reset jpeg_offset
+        mJpegOffset = 0;
+        if(mCurrentFrameEncoded) {
+            free(mCurrentFrameEncoded);
+            mCurrentFrameEncoded = NULL;
+         }
+        // goto end;
+        mStopCallbackLock.unlock();
+        return;
     }
-    mStopCallbackLock.lock( );
+    // mStopCallbackLock.lock( );
 
     if(mCurrentFrameEncoded!=NULL /*&& !isLiveSnapshot()*/){
         ALOGV("<DEBUG>: Calling buf done for snapshot buffer");
@@ -354,8 +371,8 @@ end:
             ALOGE("%s: mGetMemory failed.\n", __func__);
         }
         memcpy(encodedMem->data, mHalCamCtrl->mJpegMemory.camera_memory[0]->data, mJpegOffset );
-        mStopCallbackLock.unlock( );
-        if ((mActive || isLiveSnapshot()) && jpg_data_cb != NULL) {
+        // mStopCallbackLock.unlock( );
+        if ((mActive || isLiveSnapshot()) && jpg_data_cb != NULL && !mHalCamCtrl->mSnapCbDisabled) {
             ALOGV("%s: Calling upperlayer callback to store JPEG image", __func__);
             jpg_data_cb (msg_type,encodedMem, 0, NULL,mHalCamCtrl->mCallbackCookie);
         }
@@ -363,18 +380,21 @@ end:
         jpg_data_cb = NULL;
     }else{
         ALOGV("Image Encoding Failed... Notify Upper layer");
-        mStopCallbackLock.unlock( );
-        if((mActive || isLiveSnapshot()) && jpg_data_cb != NULL) {
+        // mStopCallbackLock.unlock( );
+        if((mActive || isLiveSnapshot()) && jpg_data_cb != NULL && !mHalCamCtrl->mSnapCbDisabled) {
             jpg_data_cb (CAMERA_MSG_COMPRESSED_IMAGE,NULL, 0, NULL,
                          mHalCamCtrl->mCallbackCookie);
         }
     }
-    // If this is non-fullsize liveshot, we need to de-allocate snapshot buffers
-    // here because stop() won't do it (mActive is FALSE)
-    if (isLiveSnapshot() && !isFullSizeLiveshot())
-           deinitSnapshotBuffers();
+
     //reset jpeg_offset
     mJpegOffset = 0;
+    if(isLiveSnapshot() && mHalCamCtrl->mStateLiveshot) {
+        deInitBuffer();
+    }
+    mHalCamCtrl->mStateLiveshot = false;
+    mStopCallbackLock.unlock( );
+    ALOGI("%s After mStopCallbackLock.unlock()", __func__);
     ALOGD("%s: X", __func__);
 }
 
@@ -947,16 +967,18 @@ void QCameraStream_Snapshot::deInitBuffer(void)
     }
     else
     {
-          /*register main and thumbnail buffers at back-end for frameproc*/
-        for (int i = 0; i < mHalCamCtrl->mSnapshotMemory.buffer_count; i++) {
-          if (NO_ERROR != mHalCamCtrl->sendUnMappingBuf(MSM_V4L2_EXT_CAPTURE_MODE_MAIN, i, mCameraId,
-                                                        CAM_SOCK_MSG_TYPE_FD_UNMAPPING)) {
-            ALOGE("%s: sending unmapping data Msg Failed", __func__);
-          }
-          if (NO_ERROR != mHalCamCtrl->sendUnMappingBuf(MSM_V4L2_EXT_CAPTURE_MODE_THUMBNAIL, i, mCameraId,
-                                                        CAM_SOCK_MSG_TYPE_FD_UNMAPPING)) {
-            ALOGE("%s: sending unmapping data Msg Failed", __func__);
-          }
+        if(!isLiveSnapshot()) {
+	          /*register main and thumbnail buffers at back-end for frameproc*/
+	        for (int i = 0; i < mHalCamCtrl->mSnapshotMemory.buffer_count; i++) {
+	          if (NO_ERROR != mHalCamCtrl->sendUnMappingBuf(MSM_V4L2_EXT_CAPTURE_MODE_MAIN, i, mCameraId,
+	                                                        CAM_SOCK_MSG_TYPE_FD_UNMAPPING)) {
+	            ALOGE("%s: sending unmapping data Msg Failed", __func__);
+	          }
+	          if (NO_ERROR != mHalCamCtrl->sendUnMappingBuf(MSM_V4L2_EXT_CAPTURE_MODE_THUMBNAIL, i, mCameraId,
+	                                                        CAM_SOCK_MSG_TYPE_FD_UNMAPPING)) {
+	            ALOGE("%s: sending unmapping data Msg Failed", __func__);
+	          }
+	        }
         }
         deinitSnapshotBuffers();
     }
@@ -1365,6 +1387,11 @@ takePictureLiveshot(mm_camera_ch_data_buf_t* recvd_frame,
     camera_data_callback dataCb;
 
     ALOGI("%s: E", __func__);
+    Mutex::Autolock lock(mStopCallbackLock);
+    if(mHalCamCtrl->mSnapCbDisabled) {
+       ALOGD("%s: Stop receiving takePictureLiveshot ", __func__);
+       return ret;
+    }
 
     /* set flag to indicate we are doing livesnapshot */
     resetSnapshotCounters( );
@@ -1432,11 +1459,11 @@ takePictureLiveshot(mm_camera_ch_data_buf_t* recvd_frame,
         goto end;
     }
 
-    if (dataCb) {
+    if (dataCb && !mHalCamCtrl->mSnapCbDisabled) {
       dataCb(CAMERA_MSG_RAW_IMAGE, mHalCamCtrl->mSnapshotMemory.camera_memory[0],
                            1, NULL, mHalCamCtrl->mCallbackCookie);
     }
-    if (notifyCb) {
+    if (notifyCb && !mHalCamCtrl->mSnapCbDisabled) {
       notifyCb(CAMERA_MSG_RAW_IMAGE_NOTIFY, 0, 0, mHalCamCtrl->mCallbackCookie);
     }
 
@@ -1754,7 +1781,7 @@ void QCameraStream_Snapshot::notifyShutter(common_crop_t *crop,
       ALOGE("__debbug: Snapshot thread stopped \n");
       return;
     }
-    if(mHalCamCtrl->mNotifyCb)
+    if(mHalCamCtrl->mNotifyCb && !mHalCamCtrl->mSnapCbDisabled)
       mHalCamCtrl->mNotifyCb(CAMERA_MSG_SHUTTER, 0, mPlayShutterSoundOnly,
                                  mHalCamCtrl->mCallbackCookie);
     ALOGD("%s: X", __func__);
@@ -1839,7 +1866,12 @@ status_t QCameraStream_Snapshot::receiveRawPicture(mm_camera_ch_data_buf_t* recv
     camera_data_callback           dataCb, jpgDataCb;
 
     ALOGD("%s: E ", __func__);
+    if(!mActive) {
+        ALOGD("%s: Stop receiving raw pic before acquiring lock", __func__);
+        return NO_ERROR;
+    }
     mStopCallbackLock.lock( );
+    ALOGI("%s after mStopCallbackLock.lock()", __func__);
     if(!mActive) {
         mStopCallbackLock.unlock();
         ALOGD("%s: Stop receiving raw pic ", __func__);
@@ -1858,14 +1890,14 @@ status_t QCameraStream_Snapshot::receiveRawPicture(mm_camera_ch_data_buf_t* recv
     /* If it's raw snapshot, we just want to tell upperlayer to save the image*/
     if(mSnapshotFormat == PICTURE_FORMAT_RAW) {
         ALOGD("%s: Call notifyShutter 2nd time in case of RAW", __func__);
-        mStopCallbackLock.unlock();
+        // mStopCallbackLock.unlock();
         if(!mHalCamCtrl->mShutterSoundPlayed) {
             notifyShutter(&crop, TRUE);
         }
         notifyShutter(&crop, FALSE);
         mHalCamCtrl->mShutterSoundPlayed = FALSE;
 
-        mStopCallbackLock.lock( );
+        // mStopCallbackLock.lock( );
         ALOGD("%s: Sending Raw Snapshot Callback to Upperlayer", __func__);
         buf_index = recvd_frame->def.idx;
 
@@ -1875,9 +1907,9 @@ status_t QCameraStream_Snapshot::receiveRawPicture(mm_camera_ch_data_buf_t* recv
         } else {
           dataCb = NULL;
         }
-        mStopCallbackLock.unlock();
+        // mStopCallbackLock.unlock();
 
-        if(dataCb) {
+        if(mActive && dataCb && !mHalCamCtrl->mSnapCbDisabled) {
             dataCb(
                 CAMERA_MSG_COMPRESSED_IMAGE,
                 mHalCamCtrl->mRawMemory.camera_memory[buf_index], 0, NULL,
@@ -1885,6 +1917,7 @@ status_t QCameraStream_Snapshot::receiveRawPicture(mm_camera_ch_data_buf_t* recv
         }
         /* TBD: Temp: To be removed once event handling is enabled */
         mm_app_snapshot_done();
+        mStopCallbackLock.unlock();
     } else {
         /*TBD: v4l2 doesn't have support to provide cropinfo along with
           frame. We'll need to query.*/
@@ -1947,7 +1980,6 @@ status_t QCameraStream_Snapshot::receiveRawPicture(mm_camera_ch_data_buf_t* recv
             rc = encodeDisplayAndSave(frame, 0);
         }
 
-
         // send upperlayer callback for raw image (data or notify, not both)
         if((mHalCamCtrl->mDataCb) && (mHalCamCtrl->mMsgEnabled & CAMERA_MSG_RAW_IMAGE)){
           dataCb = mHalCamCtrl->mDataCb;
@@ -1960,8 +1992,12 @@ status_t QCameraStream_Snapshot::receiveRawPicture(mm_camera_ch_data_buf_t* recv
           notifyCb = NULL;
         }
 
+        if (!mActive) {
+            ALOGE("%s Snapshot thread is stoped, deinit buffer and exit", __func__);
+            goto end;
+        }
         mSnapshotDataCallingBack = 1;
-        mStopCallbackLock.unlock();
+        //mStopCallbackLock.unlock();
         if(!mHalCamCtrl->mShutterSoundPlayed) {
             notifyShutter(&crop, TRUE);
         }
@@ -1982,17 +2018,17 @@ status_t QCameraStream_Snapshot::receiveRawPicture(mm_camera_ch_data_buf_t* recv
                 jpgDataCb = mHalCamCtrl->mDataCb;
             } else {
               jpgDataCb = NULL;
-           	}
+            }
             ALOGE("%s: encode err so data cb", __func__);
             //mStopCallbackLock.unlock();
-            if (dataCb) {
+            if (mActive && dataCb && !mHalCamCtrl->mSnapCbDisabled) {
               dataCb(CAMERA_MSG_RAW_IMAGE, mHalCamCtrl->mSnapshotMemory.camera_memory[0],
                                    1, NULL, mHalCamCtrl->mCallbackCookie);
             }
-            if (notifyCb) {
+            if (mActive && notifyCb && !mHalCamCtrl->mSnapCbDisabled) {
               notifyCb(CAMERA_MSG_RAW_IMAGE_NOTIFY, 0, 0, mHalCamCtrl->mCallbackCookie);
             }
-            if (jpgDataCb) {
+            if (mActive && jpgDataCb && !mHalCamCtrl->mSnapCbDisabled) {
               jpgDataCb(CAMERA_MSG_COMPRESSED_IMAGE,
                                        NULL, 0, NULL,
                                        mHalCamCtrl->mCallbackCookie);
@@ -2002,22 +2038,23 @@ status_t QCameraStream_Snapshot::receiveRawPicture(mm_camera_ch_data_buf_t* recv
                 free(frame);
             }
         } else {
-
+          ALOGI("%s: NO Error while encoding/displaying/saving image", __func__);
           //mStopCallbackLock.unlock();
-          if (dataCb) {
+          if (mActive && dataCb && !mHalCamCtrl->mSnapCbDisabled) {
             dataCb(CAMERA_MSG_RAW_IMAGE, mHalCamCtrl->mSnapshotMemory.camera_memory[0],
                                  1, NULL, mHalCamCtrl->mCallbackCookie);
           }
-          if (notifyCb) {
+          if (mActive && notifyCb && !mHalCamCtrl->mSnapCbDisabled) {
             notifyCb(CAMERA_MSG_RAW_IMAGE_NOTIFY, 0, 0, mHalCamCtrl->mCallbackCookie);
           }
         }
-        mStopCallbackLock.lock();
+        //mStopCallbackLock.lock();
         mSnapshotDataCallingBack = 0;
-        if (mFreeSnapshotBufAfterDataCb) {
+end:    if (mFreeSnapshotBufAfterDataCb) {
           deInitBuffer();
           mFreeSnapshotBufAfterDataCb = 0;
         }
+        ALOGI("%s before mStopCallbackLock.unlock()", __func__);
         mStopCallbackLock.unlock();
     }
 
@@ -2264,6 +2301,7 @@ status_t QCameraStream_Snapshot::start(void) {
     }
     mSnapshotDataCallingBack = 0;
     mFreeSnapshotBufAfterDataCb = 0;
+    mHalCamCtrl->mSnapCbDisabled = false;
 
     /* Keep track of number of snapshots to take - in case of
        multiple snapshot/burst mode */
@@ -2392,14 +2430,31 @@ void QCameraStream_Snapshot::stop(void)
     status_t ret = NO_ERROR;
 
     ALOGV("%s: E", __func__);
-    //Mutex::Autolock l(&snapshotLock);
 
-    if(!mActive) {
+    if(!mActive && !isLiveSnapshot()) {
       ALOGV("%s: Not Active return now", __func__);
       return;
     }
     mActive = false;
+    mHalCamCtrl->mSnapCbDisabled = true;
     Mutex::Autolock lock(mStopCallbackLock);
+
+    if(isLiveSnapshot()) {
+       if(mHalCamCtrl->mStateLiveshot) {
+          if(getSnapshotState() == SNAPSHOT_STATE_JPEG_ENCODING) {
+             ALOGI("Destroy Liveshot Jpeg Instance");
+             omxJpegAbort();
+          }
+          ALOGI("%s: De Intialized the JPEG buffers", __func__);
+          deInitBuffer();
+          mHalCamCtrl->mStateLiveshot = false;
+       }
+       else {
+          ALOGI("%s: JPEG buffers are de Intialized and just return", __func__);
+       }
+       return;
+    }
+
     if (getSnapshotState() != SNAPSHOT_STATE_UNINIT) {
         /* Stop polling for further frames */
         stopPolling();
@@ -2452,9 +2507,6 @@ void QCameraStream_Snapshot::release()
     ALOGV("%s: E", __func__);
     //Mutex::Autolock l(&snapshotLock);
 
-    if(isLiveSnapshot()) {
-        deInitBuffer();
-    }
     if(!mInit){
         ALOGE("%s : Stream not Initalized",__func__);
         return;
@@ -2519,7 +2571,15 @@ void QCameraStream_Snapshot::notifyWDenoiseEvent(cam_ctrl_status_t status, void 
     mm_camera_ch_data_buf_t *frame = (mm_camera_ch_data_buf_t *)cookie;
 
     ALOGI("%s: WDN Done status (%d) received",__func__,status);
+    if(!mActive) {
+        ALOGD("%s: Stop receiving raw pic before acquiring lock", __func__);
+        return;
+    }
     Mutex::Autolock lock(mStopCallbackLock);
+    if(!mActive) {
+        ALOGD("%s: Stop receiving raw pic ", __func__);
+        return;
+    }
     if (frame == NULL) {
         ALOGE("%s: cookie is returned NULL", __func__);
     } else {
@@ -2552,7 +2612,7 @@ void QCameraStream_Snapshot::notifyWDenoiseEvent(cam_ctrl_status_t status, void 
     // launch next WDN if there is more in WDN Queue
     lauchNextWDenoiseFromQueue();
 
-    mStopCallbackLock.unlock();
+    // mStopCallbackLock.unlock();
 
     if (rc != NO_ERROR)
     {
@@ -2561,14 +2621,14 @@ void QCameraStream_Snapshot::notifyWDenoiseEvent(cam_ctrl_status_t status, void 
             cam_evt_buf_done(mCameraId, frame);
         }
 
-        if (dataCb) {
+        if (mActive && dataCb && !mHalCamCtrl->mSnapCbDisabled) {
           dataCb(CAMERA_MSG_RAW_IMAGE, mHalCamCtrl->mSnapshotMemory.camera_memory[0],
                                1, NULL, mHalCamCtrl->mCallbackCookie);
         }
-        if (notifyCb) {
+        if (mActive && notifyCb && !mHalCamCtrl->mSnapCbDisabled) {
           notifyCb(CAMERA_MSG_RAW_IMAGE_NOTIFY, 0, 0, mHalCamCtrl->mCallbackCookie);
         }
-        if (jpgDataCb) {
+        if (mActive && jpgDataCb && !mHalCamCtrl->mSnapCbDisabled) {
           jpgDataCb(CAMERA_MSG_COMPRESSED_IMAGE,
                                    NULL, 0, NULL,
                                    mHalCamCtrl->mCallbackCookie);
@@ -2756,6 +2816,21 @@ void QCameraStream_Snapshot::notifyHdrEvent(cam_ctrl_status_t status, void * coo
             mHdrInfo.recvd_frame[i] = NULL;
         }
     }
+}
+
+void QCameraStream_Snapshot::setSnapJpegCbState(bool state)
+{
+     ALOGE("%s: mSnapJpegCbRunning=%d. ", __func__, mHalCamCtrl->mSnapJpegCbRunning);
+     mHalCamCtrl->mSnapJpegCbLock.lock();
+     mHalCamCtrl->mSnapJpegCbRunning = state;
+     if(state==false)
+     mHalCamCtrl->mSnapJpegCbWait.signal();
+     mHalCamCtrl->mSnapJpegCbLock.unlock();
+}
+
+bool QCameraStream_Snapshot::getSnapJpegCbState()
+{
+     return mHalCamCtrl->mSnapJpegCbRunning;
 }
 
 }; // namespace android

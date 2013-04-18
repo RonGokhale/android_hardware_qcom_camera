@@ -1,5 +1,5 @@
 /*
-** Copyright (c) 2011-2012 The Linux Foundation. All rights reserved.
+** Copyright (c) 2011-2013 Code Aurora Forum. All rights reserved.
 **
 ** Licensed under the Apache License, Version 2.0 (the "License");
 ** you may not use this file except in compliance with the License.
@@ -739,6 +739,7 @@ private:
     bool mAppRecordingHint;
     bool mStartRecording;
     bool mReleasedRecordingFrame;
+    bool mStateLiveshot;
     int mHdrMode;
     int mSnapshotFormat;
     int mZslInterval;
@@ -839,6 +840,11 @@ private:
      int mSupportedFpsRangesCount;
 
      power_module_t*   mPowerModule;
+     /* Used to show the process state of snapshot_jpeg_cb*/
+     Mutex                  mSnapJpegCbLock;
+     Condition              mSnapJpegCbWait;
+     bool                   mSnapJpegCbRunning;
+     bool                   mSnapCbDisabled;
 };
 
 }; // namespace android
