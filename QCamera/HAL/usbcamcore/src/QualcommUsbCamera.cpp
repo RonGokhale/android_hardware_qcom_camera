@@ -230,7 +230,7 @@ extern "C" int  usbcam_camera_device_open(
         ALOGE("%s: No UVC node found \n", __func__);
         return -1;
     }
-
+    ALOGD("%s: opening UVC device: %s", __func__, dev_name);
     camHal->fd = open(dev_name, O_RDWR /* required */ | O_NONBLOCK, 0);
 
     if (camHal->fd <  0) {
@@ -2738,24 +2738,26 @@ static int get_uvc_device(char *devname)
     int     i = 0, ret = 0, fd;
 
     ALOGD("%s: E", __func__);
-#if 1
+
+    /* Setting a default video node if the dynamic detection logic fails */
     strncpy(devname, "/dev/video1", FILENAME_LENGTH);
 
-/*
-    struct          stat st;
+#if 1
+    /* loop /dev/video1 to /dev/video10 to identify USB camera node */
+    /* /dev/video0 node is occupied by msm camera driver */
+    for(i = 1; i <= 10; i++){
+        snprintf(temp_devname, FILENAME_LENGTH, "/dev/video%d", i);
+        ALOGD("%s: Probing %s for USB camera", __func__, temp_devname);
 
-    strncpy(dev_name, "/dev/video1", FILENAME_LENGTH);
-    if (-1 == stat(dev_name, &st)) {
-        ALOGE("%s: Cannot identify '%s': %d, %s\n",
-             __func__, dev_name, errno, strerror(errno));
+        fd = open(temp_devname, O_RDWR | O_NONBLOCK, 0);
+        ALOGD("%s: fd = %d for %s", __func__, fd, temp_devname);
+        if(fd > 0){
+            ALOGD("%s: Found a valid node at %s", __func__, temp_devname);
+            close(fd);
+            break;
+        }
     }
-
-    if (!S_ISCHR(st.st_mode)) {
-        ALOGE("%s: %s is no device\n", __func__, dev_name);
-        rc = -1;
-    }
-*/
-
+    strncpy(devname, temp_devname, FILENAME_LENGTH);
 #else
 
     *devname = '\0';
