@@ -1,6 +1,5 @@
 /*
-** Copyright 2008, Google Inc.
-** Copyright (c) 2009-2012, The Linux Foundation. All rights reserved.
+** Copyright (c) 2009-2013, Code Aurora Forum. All rights reserved.
 **
 ** Licensed under the Apache License, Version 2.0 (the "License");
 ** you may not use this file except in compliance with the License.
@@ -293,6 +292,8 @@ public:
     void resetSnapshotCounters(void );
     void InitHdrInfoForSnapshot(bool HDR_on, int number_frames, int *exp );
     void notifyHdrEvent(cam_ctrl_status_t status, void * cookie);
+    bool getSnapJpegCbState(void);
+    void setSnapJpegCbState(bool state);
 
 private:
     QCameraStream_Snapshot(int, camera_mode_t);
