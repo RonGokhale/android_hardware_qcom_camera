@@ -107,6 +107,9 @@ extern "C" {
 #define FWVGA_WIDTH 864
 #define FWVGA_HEIGHT 480
 
+#define VGA_WIDTH 640
+#define VGA_HEIGHT 480
+
 #define DONT_CARE_COORDINATE -1
 
 //for histogram stats
@@ -2592,6 +2595,41 @@ status_t QCameraHardwareInterface::setVideoSize(const QCameraParameters& params)
                 mRestartPreview = true; 
                 ALOGE("%s: Video sizes changes, Restart preview...", __func__, str);
             }
+
+	    bool ret;
+            int mNuberOfVFEOutputs;
+            ret = cam_config_get_parm(mCameraId, MM_CAMERA_PARM_VFE_OUTPUT_ENABLE, &mNuberOfVFEOutputs);
+            if(ret != MM_CAMERA_OK) {
+                ALOGE("get parm MM_CAMERA_PARM_VFE_OUTPUT_ENABLE  failed");
+                        ret = BAD_VALUE;
+            }
+
+            const char * strHint = params.get(QCameraParameters::KEY_RECORDING_HINT);
+            if(strHint != NULL) {
+                int32_t value = attr_lookup(recording_Hints,
+                                        sizeof(recording_Hints) / sizeof(str_map), strHint);
+                if(value != NOT_FOUND) {
+                        mRecordingHint = value;
+                }
+                else {
+                        ALOGE("Invalid Recording Hint: %s", strHint);
+                        return BAD_VALUE;
+                }
+
+            }
+
+            if((mNuberOfVFEOutputs==1) && (mRecordingHint == TRUE))  {
+                if((videoWidth > FWVGA_WIDTH) && (videoHeight > FWVGA_HEIGHT)) {
+                        if((mDimension.picture_width >= VGA_WIDTH ) && (mDimension.picture_height >= VGA_HEIGHT)) {
+                                mDimension.picture_width = videoWidth;
+                                mDimension.picture_height = videoHeight;
+                                mParameters.setPictureSize(videoWidth, videoHeight);
+                                mRestartPreview = true;
+                                ALOGE("%s: Changing the Picture size to video size %dx%d", __func__, mDimension.picture_width,mDimension.picture_height);
+                        }
+                }
+            }
+
             mParameters.set(QCameraParameters::KEY_VIDEO_SIZE, str);
             //VFE output1 shouldn't be greater than VFE output2.
             if( (mPreviewWidth > videoWidth) || (mPreviewHeight > videoHeight)) {
