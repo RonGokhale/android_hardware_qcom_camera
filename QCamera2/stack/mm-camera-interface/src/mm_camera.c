@@ -134,6 +134,7 @@ static void mm_camera_dispatch_app_event(mm_camera_cmdcb_t *cmd_cb,
         }
         pthread_mutex_unlock(&my_obj->cb_lock);
     }
+    free(cmd_cb);
 }
 
 /*===========================================================================
@@ -152,7 +153,8 @@ static void mm_camera_event_notify(void* user_data)
     struct v4l2_event ev;
     struct msm_v4l2_event_data *msm_evt = NULL;
     int rc;
-    mm_camera_cmdcb_t *node = NULL;
+    mm_camera_event_t evt;
+    memset(&evt, 0, sizeof(mm_camera_event_t));
 
     mm_camera_obj_t *my_obj = (mm_camera_obj_t*)user_data;
     if (NULL != my_obj) {
@@ -173,27 +175,23 @@ static void mm_camera_event_notify(void* user_data)
             case CAM_EVENT_TYPE_AUTO_FOCUS_DONE:
             case CAM_EVENT_TYPE_ZOOM_DONE:
                 {
-                    node = (mm_camera_cmdcb_t *)malloc(sizeof(mm_camera_cmdcb_t));
-                    if (NULL != node) {
-                        memset(node, 0, sizeof(mm_camera_cmdcb_t));
-                        node->cmd_type = MM_CAMERA_CMD_TYPE_EVT_CB;
-                        node->u.evt.server_event_type = msm_evt->command;
-                        if (msm_evt->status == MSM_CAMERA_STATUS_SUCCESS) {
-                            node->u.evt.status = CAM_STATUS_SUCCESS;
-                        } else {
-                            node->u.evt.status = CAM_STATUS_FAILED;
-                        }
+                    evt.server_event_type = msm_evt->command;
+                    if (msm_evt->status == MSM_CAMERA_STATUS_SUCCESS) {
+                         evt.status = CAM_STATUS_SUCCESS;
+                    } else {
+                        evt.status = CAM_STATUS_FAILED;
                     }
+                    mm_camera_enqueue_evt(my_obj, &evt);
+                }
+                break;
+            case MSM_CAMERA_PRIV_SHUTDOWN:
+                {
+                    evt.server_event_type = CAM_EVENT_TYPE_DAEMON_DIED;
+                    mm_camera_enqueue_evt(my_obj, &evt);
                 }
                 break;
             default:
                 break;
-            }
-            if (NULL != node) {
-                /* enqueue to evt cmd thread */
-                cam_queue_enq(&(my_obj->evt_thread.cmd_queue), node);
-                /* wake up evt cmd thread */
-                cam_sem_post(&(my_obj->evt_thread.cmd_sem));
             }
         }
     }
