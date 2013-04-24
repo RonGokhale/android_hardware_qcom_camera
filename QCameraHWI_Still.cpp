@@ -1630,6 +1630,17 @@ encodeData(mm_camera_ch_data_buf_t* recvd_frame,
                 crop.out2_w = mHalCamCtrl->mPictureWidth_ui;
                 crop.out2_h = mHalCamCtrl->mPictureHeight_ui;
             }
+            /*in case of SW JPEG encoder padding is not expected, so treat
+            the input padded size as org size and crop the padded size*/
+            if( (hw_encode == false) && (!mJpegDownscaling) ) {
+                /*Set EXIF rotation as SW encoder is not able to handle rotation
+                  in case of image height nont multiple of 16*/
+                mHalCamCtrl->setJpegRotation(1);
+                dimension.orig_picture_dy     = CEILING16(mPictureHeight);
+                mCrop.snapshot.main_crop.top  = dimension.orig_picture_dy-mPictureHeight;
+                crop.in2_h = (crop.out2_h);
+                crop.in2_w = crop.out2_w;
+            }
         }
 
         main_crop_offset.x=mCrop.snapshot.main_crop.left;
