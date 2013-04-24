@@ -629,7 +629,6 @@ private:
 
     isp3a_af_mode_t getAutoFocusMode(const QCameraParameters& params);
     bool isValidDimension(int w, int h);
-    bool isValidSize(const camera_size_type *size_table, int table_count, int width, int height);
 
     String8 create_values_str(const str_map *values, int len);
     String8 create_filter_values_str(const str_map *values, int len,
@@ -755,7 +754,6 @@ private:
     int mSnapshotFormat;
     int mZslInterval;
     bool mRestartPreview;
-    bool mLiveShotRatioError;
 
 /*for histogram*/
     int            mStatsOn;

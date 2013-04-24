@@ -219,9 +219,7 @@ QCameraHardwareInterface(int cameraId, int mode)
                     mSupportedFpsRangesCount(0),
                     mChannelInterfaceMask(STREAM_IMAGE),
                     mSnapJpegCbRunning(false),
-                    mSnapCbDisabled(false),
-                    mLiveShotRatioError(false)
-
+                    mSnapCbDisabled(false)
 {
     ALOGI("QCameraHardwareInterface: E");
     int32_t result = MM_CAMERA_E_GENERAL;
@@ -1123,7 +1121,7 @@ status_t QCameraHardwareInterface::startPreview2()
     /* config the parmeters and see if we need to re-init the stream*/
     initPreview = preview_parm_config (&dim, mParameters);
 
-    if (mRecordingHint && mFullLiveshotEnabled && canTakeFullSizeLiveshot()) {
+    if (mRecordingHint && mFullLiveshotEnabled) {
 #if 0
       /* Camcorder mode and Full resolution liveshot enabled
        * TBD lookup table for correct aspect ratio matching size */
@@ -1881,9 +1879,6 @@ bool QCameraHardwareInterface::canTakeFullSizeLiveshot() {
           (mDimension.picture_height == mDimension.video_height)) {
         return FALSE;
       }
-
-      if(mLiveShotRatioError)
-          return FALSE;
 
       if (mDisEnabled) {
        /* If DIS is enabled and Picture size is
