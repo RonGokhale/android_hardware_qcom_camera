@@ -295,7 +295,11 @@ QCameraHardwareInterface(int cameraId, int mode)
         *(void **)&LINK_morpho_DNR_ProcessFrame = dlsym(libdnr, "LINK_mm_camera_morpho_noise_reduction");
     }
     else
+    {
         ALOGE("failed to open libmorpho_noise_reduction");
+        LINK_morpho_DNR_ProcessFrame = NULL;
+        ALOGE("%s LINK_morpho_DNR_ProcessFrame %d", __func__, LINK_morpho_DNR_ProcessFrame);
+    }
 
     if (hw_get_module(POWER_HARDWARE_MODULE_ID,
                 (const hw_module_t **)&mPowerModule)) {
