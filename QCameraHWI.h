@@ -623,6 +623,7 @@ private:
 
     isp3a_af_mode_t getAutoFocusMode(const QCameraParameters& params);
     bool isValidDimension(int w, int h);
+    bool isValidSize(const camera_size_type *size_table, int table_count, int width, int height);
 
     String8 create_values_str(const str_map *values, int len);
 
@@ -841,6 +842,7 @@ private:
      int mSupportedFpsRangesCount;
 
      power_module_t*   mPowerModule;
+     bool mLiveShotRatioError;
      /* Used to show the process state of snapshot_jpeg_cb*/
      Mutex                  mSnapJpegCbLock;
      Condition              mSnapJpegCbWait;

@@ -1447,6 +1447,7 @@ status_t QCameraHardwareInterface::setParameters(const QCameraParameters& params
     //    if ((rc = setDenoise(params)))                final_rc = rc;
     if ((rc = setPreviewFpsRange(params)))              final_rc = rc;
     if((rc = setRecordingHint(params)))                 final_rc = rc;
+    if((rc = setFullLiveshot()))                        final_rc = rc;
     if ((rc = setNumOfSnapshot(params)))                final_rc = rc;
     if ((rc = setAecAwbLock(params)))                   final_rc = rc;
 
@@ -3387,7 +3388,7 @@ status_t QCameraHardwareInterface::setRecordingHintValue(const int32_t value)
                                            (void *)&value);
     }
     setDISMode();
-    setFullLiveshot();
+    //setFullLiveshot();
     return NO_ERROR;
 }
 
@@ -3412,7 +3413,7 @@ status_t QCameraHardwareInterface::setRecordingHint(const QCameraParameters& par
       }
   }
   setDISMode();
-  setFullLiveshot();
+//  setFullLiveshot();
   return NO_ERROR;
 }
 
@@ -3438,12 +3439,65 @@ status_t QCameraHardwareInterface::setFullLiveshot()
    * - Full size liveshot is enabled. */
   uint32_t value = mRecordingHint && mFullLiveshotEnabled
                    && !isLowPowerCamcorder();
-
-  if (((mDimension.picture_width == mDimension.video_width) &&
+   ALOGE("%s: mRecordingHint=%d, mFullLiveshotEnabled=%d , value= %d ",
+              __func__, mRecordingHint, mFullLiveshotEnabled,value);
+ if (((mDimension.picture_width == mDimension.video_width) &&
       (mDimension.picture_height == mDimension.video_height))) {
     /* If video size matches the live snapshot size
      * turn off full size liveshot to get higher fps. */
     value = 0;
+
+  }
+
+  ALOGE("%s:  value= %d ",__func__, value);
+      if(value != 0){
+      //need check if the ratio of picture size and preview size is the same.
+
+      int pic_width, pic_height;
+      int preview_width, preview_height;
+      mParameters.getPictureSize(&pic_width, &pic_height);
+      mParameters.getPreviewSize(&preview_width, &preview_height);
+
+      mLiveShotRatioError = TRUE;
+
+      //check if the picture size is validated
+      if(!isValidSize(mPictureSizesPtr, mSupportedPictureSizesCount, pic_width, pic_height)
+              && !isValidDimension(pic_width, pic_height)){
+          //not validate, set to default.
+          ALOGE("%s: invalidate picture size: width=%d, height=%d. ",
+              __func__, pic_width, pic_height);
+             mParameters.setPictureSize(DEFAULT_PICTURE_WIDTH, DEFAULT_PICTURE_HEIGHT);
+             mDimension.picture_width = DEFAULT_PICTURE_WIDTH;
+             mDimension.picture_height = DEFAULT_PICTURE_HEIGHT;
+
+             mParameters.getPictureSize(&pic_width, &pic_height);
+      }
+
+                   double ASPECT_TOLERANCE = 0.001;
+
+      double pic_ratio = (double)pic_width / pic_height;
+      double preview_ratio = (double)preview_width / preview_height;
+
+      ALOGE("%s: pic_width=%d, pic_height=%d, preview_width=%d, preview_height=%d, ",
+              __func__, pic_width, pic_height, preview_width, preview_height);
+
+      if(fabs(pic_ratio - preview_ratio) > ASPECT_TOLERANCE){
+          //should use default picture size
+          mParameters.setPictureSize(mDimension.video_width,mDimension.video_height) ;
+          mDimension.picture_width = mDimension.video_width;
+          mDimension.picture_height = mDimension.video_height;
+
+          value = 0;
+
+          ALOGE("%s: picture size after reset: picture_width=%d, picture_height=%d, mLiveShotRatioError=%d.",
+                  __func__, mDimension.picture_width, mDimension.picture_height, mLiveShotRatioError);
+      }else{
+           //ratio of picture size and preview size is the same
+           ALOGE("%s: ratio of picture size and preview size is the same.", __func__);
+           mLiveShotRatioError = FALSE;
+      }
+  }else{
+      mLiveShotRatioError = TRUE;
   }
 
   ALOGI("%s Full size liveshot %s value = %d", __func__,
@@ -3451,6 +3505,7 @@ status_t QCameraHardwareInterface::setFullLiveshot()
   native_set_parms(MM_CAMERA_PARM_FULL_LIVESHOT, sizeof(value),
                                                (void *)&value);
   return NO_ERROR;
+
 }
 
 
@@ -4203,6 +4258,18 @@ status_t QCameraHardwareInterface::setNoDisplayMode(const QCameraParameters& par
     ALOGD("prop mNoDisplayMode =%d", mNoDisplayMode);
   }
   return NO_ERROR;
+}
+
+bool QCameraHardwareInterface::isValidSize(const camera_size_type *size_table, int table_count, int width, int height){
+
+  for(int i = 0; i < table_count; i++){
+      if((width == size_table[i].width)
+              && (height == size_table[i].height)){
+          return true;
+      }
+  }
+
+  return false;
 }
 
 }; /*namespace android */
