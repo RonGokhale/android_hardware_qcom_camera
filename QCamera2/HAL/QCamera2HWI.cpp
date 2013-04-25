@@ -854,14 +854,16 @@ int QCamera2HardwareInterface::dump(struct camera_device *device, int fd)
 int QCamera2HardwareInterface::close_camera_device(hw_device_t *hw_dev)
 {
     int ret = NO_ERROR;
+    ALOGD("[KPI Perf] %s: E",__func__);
     QCamera2HardwareInterface *hw =
         reinterpret_cast<QCamera2HardwareInterface *>(
             reinterpret_cast<camera_device_t *>(hw_dev)->priv);
     if (!hw) {
-        ALOGE("NULL camera device");
+        ALOGE("%s: NULL camera device", __func__);
         return BAD_VALUE;
     }
     delete hw;
+    ALOGD("[KPI Perf] %s: X",__func__);
     return ret;
 }
 
@@ -1124,7 +1126,7 @@ int QCamera2HardwareInterface::initCapabilities(int cameraId)
     }
 
     /* Allocate memory for capability buffer */
-    capabilityHeap = new QCameraHeapMemory();
+    capabilityHeap = new QCameraHeapMemory(QCAMERA_ION_USE_CACHE);
     rc = capabilityHeap->allocate(1, sizeof(cam_capability_t));
     if(rc != OK) {
         ALOGE("%s: No memory for cappability", __func__);
@@ -1340,16 +1342,18 @@ QCameraMemory *QCamera2HardwareInterface::allocateStreamBuf(cam_stream_type_t st
 {
     int rc = NO_ERROR;
     QCameraMemory *mem = NULL;
+    bool bCachedMem = QCAMERA_ION_USE_CACHE;
 
     // Allocate stream buffer memory object
     switch (stream_type) {
     case CAM_STREAM_TYPE_PREVIEW:
         {
             if (isNoDisplayMode()) {
-                mem = new QCameraStreamMemory(mGetMemory);
+                mem = new QCameraStreamMemory(mGetMemory, bCachedMem);
             } else {
                 cam_dimension_t dim;
-                QCameraGrallocMemory *grallocMemory = new QCameraGrallocMemory(mGetMemory);
+                QCameraGrallocMemory *grallocMemory =
+                    new QCameraGrallocMemory(mGetMemory);
 
                 mParameters.getStreamDimension(stream_type, dim);
                 if (grallocMemory)
@@ -1362,7 +1366,8 @@ QCameraMemory *QCamera2HardwareInterface::allocateStreamBuf(cam_stream_type_t st
     case CAM_STREAM_TYPE_POSTVIEW:
         {
             cam_dimension_t dim;
-            QCameraGrallocMemory *grallocMemory = new QCameraGrallocMemory(mGetMemory);
+            QCameraGrallocMemory *grallocMemory =
+                new QCameraGrallocMemory(mGetMemory);
 
             mParameters.getStreamDimension(stream_type, dim);
             if (grallocMemory)
@@ -1375,10 +1380,18 @@ QCameraMemory *QCamera2HardwareInterface::allocateStreamBuf(cam_stream_type_t st
     case CAM_STREAM_TYPE_RAW:
     case CAM_STREAM_TYPE_METADATA:
     case CAM_STREAM_TYPE_OFFLINE_PROC:
-        mem = new QCameraStreamMemory(mGetMemory);
+        mem = new QCameraStreamMemory(mGetMemory, bCachedMem);
         break;
     case CAM_STREAM_TYPE_VIDEO:
-        mem = new QCameraVideoMemory(mGetMemory);
+        {
+            char value[32];
+            property_get("persist.camera.mem.usecache", value, "1");
+            if (atoi(value) == 0) {
+                bCachedMem = QCAMERA_ION_USE_NOCACHE;
+            }
+            ALOGD("%s: vidoe buf using cached memory = %d", __func__, bCachedMem);
+            mem = new QCameraVideoMemory(mGetMemory, bCachedMem);
+        }
         break;
     case CAM_STREAM_TYPE_DEFAULT:
     case CAM_STREAM_TYPE_MAX:
@@ -1415,7 +1428,7 @@ QCameraHeapMemory *QCamera2HardwareInterface::allocateStreamInfoBuf(
 {
     int rc = NO_ERROR;
 
-    QCameraHeapMemory *streamInfoBuf = new QCameraHeapMemory();
+    QCameraHeapMemory *streamInfoBuf = new QCameraHeapMemory(QCAMERA_ION_USE_CACHE);
     if (!streamInfoBuf) {
         ALOGE("allocateStreamInfoBuf: Unable to allocate streamInfo object");
         return NULL;
@@ -1690,8 +1703,8 @@ int QCamera2HardwareInterface::startRecording()
         stopChannel(QCAMERA_CH_TYPE_PREVIEW);
         delChannel(QCAMERA_CH_TYPE_PREVIEW);
 
-        // Set local recording hint to TRUE
-        mParameters.setRecordingHintValue(true);
+        // Set recording hint to TRUE
+        mParameters.updateRecordingHintValue(TRUE);
         rc = preparePreview();
         if (rc == NO_ERROR) {
             rc = startChannel(QCAMERA_CH_TYPE_PREVIEW);
@@ -2156,7 +2169,7 @@ int QCamera2HardwareInterface::registerFaceImage(void *img_ptr,
     }
 
     // allocate ion memory for source image
-    QCameraHeapMemory *imgBuf = new QCameraHeapMemory();
+    QCameraHeapMemory *imgBuf = new QCameraHeapMemory(QCAMERA_ION_USE_CACHE);
     if (imgBuf == NULL) {
         ALOGE("%s: Unable to new heap memory obj for image buf", __func__);
         return NO_MEMORY;
@@ -3731,25 +3744,34 @@ int QCamera2HardwareInterface::updateThermalLevel(
     switch(level) {
     case QCAMERA_THERMAL_NO_ADJUSTMENT:
         {
-            adjustedRange.min_fps = minFPS/1000.0f;
-            adjustedRange.max_fps = maxFPS/1000.0f;
+            adjustedRange.min_fps = minFPS / 1000.0f;
+            adjustedRange.max_fps = maxFPS / 1000.0f;
             skipPattern = NO_SKIP;
         }
         break;
     case QCAMERA_THERMAL_SLIGHT_ADJUSTMENT:
         {
-            adjustedRange.min_fps = minFPS/1000.0f;
-            adjustedRange.max_fps = (maxFPS / 2 ) / 1000.0f;
-            if ( adjustedRange.max_fps < adjustedRange.min_fps ) {
-                adjustedRange.max_fps = adjustedRange.min_fps;
+            adjustedRange.min_fps = (minFPS / 2) / 1000.0f;
+            adjustedRange.max_fps = (maxFPS / 2) / 1000.0f;
+            if ( adjustedRange.min_fps < 1 ) {
+                adjustedRange.min_fps = 1;
+            }
+            if ( adjustedRange.max_fps < 1 ) {
+                adjustedRange.max_fps = 1;
             }
             skipPattern = EVERY_2FRAME;
         }
         break;
     case QCAMERA_THERMAL_BIG_ADJUSTMENT:
         {
-            adjustedRange.min_fps = minFPS/1000.0f;
-            adjustedRange.max_fps = adjustedRange.min_fps;
+            adjustedRange.min_fps = (minFPS / 4) / 1000.0f;
+            adjustedRange.max_fps = (maxFPS / 4) / 1000.0f;
+            if ( adjustedRange.min_fps < 1 ) {
+                adjustedRange.min_fps = 1;
+            }
+            if ( adjustedRange.max_fps < 1 ) {
+                adjustedRange.max_fps = 1;
+            }
             skipPattern = EVERY_4FRAME;
         }
         break;
@@ -4187,6 +4209,7 @@ int32_t QCamera2HardwareInterface::setFaceDetection(bool enabled)
  *==========================================================================*/
 int32_t QCamera2HardwareInterface::prepareHardwareForSnapshot(int32_t afNeeded)
 {
+    ALOGD("[KPI Perf] %s: Prepare hardware such as LED",__func__);
     return mCameraHandle->ops->prepare_snapshot(mCameraHandle->camera_handle,
                                                 afNeeded);
 }
