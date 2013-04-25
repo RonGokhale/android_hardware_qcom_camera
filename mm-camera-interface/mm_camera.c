@@ -1023,10 +1023,10 @@ int32_t mm_camera_open(mm_camera_obj_t *my_obj,
 
     /* get camera capabilities */
     memset(&my_obj->properties, 0, sizeof(cam_prop_t));
-    rc = mm_camera_send_native_ctrl_cmd(my_obj,
+    rc = mm_camera_send_native_ctrl_timeout_cmd(my_obj,
                                         CAMERA_GET_CAPABILITIES,
                                         sizeof(cam_prop_t),
-                                        (void *)& my_obj->properties);
+                                        (void *)& my_obj->properties, 3000);
     if (rc != MM_CAMERA_OK) {
         CDBG_ERROR("%s: cannot get camera capabilities\n", __func__);
         close(my_obj->ctrl_fd);
