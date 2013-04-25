@@ -193,6 +193,7 @@ QCameraHardwareInterface(int cameraId, int mode)
     mSupportedFpsRanges(NULL),
     mSupportedFpsRangesCount(0),
     mPowerModule(0),
+    mLiveShotRatioError(false),
     mSnapJpegCbRunning(false),
     mSnapCbDisabled(false)
 {
@@ -1079,7 +1080,7 @@ status_t QCameraHardwareInterface::startPreview2()
     /* config the parmeters and see if we need to re-init the stream*/
     initPreview = preview_parm_config (&dim, mParameters);
 
-    if (mRecordingHint && mFullLiveshotEnabled) {
+    if (mRecordingHint /* && mFullLiveshotEnabled */) {
 #if 0
       /* Camcorder mode and Full resolution liveshot enabled
        * TBD lookup table for correct aspect ratio matching size */
@@ -1302,6 +1303,7 @@ status_t QCameraHardwareInterface::startRecording()
             // Set recording hint to TRUE
             mRecordingHint = TRUE;
             setRecordingHintValue(mRecordingHint);
+            setFullLiveshot();
 
             // start preview again
             mPreviewState = QCAMERA_HAL_PREVIEW_START;
@@ -1710,9 +1712,9 @@ status_t  QCameraHardwareInterface::takePicture()
     switch(mPreviewState) {
     case QCAMERA_HAL_PREVIEW_STARTED:
           //set the fullsize liveshot to FALSE
-        mFullLiveshotEnabled = FALSE;
-        setFullLiveshot();
-        mStreamSnap->setFullSizeLiveshot(false);
+        //mFullLiveshotEnabled = FALSE;
+        //setFullLiveshot();
+       // mStreamSnap->setFullSizeLiveshot(false);
         if (isZSLMode()) {
             if (mStreamSnap != NULL) {
                 pausePreviewForZSL();
@@ -1813,6 +1815,8 @@ bool QCameraHardwareInterface::canTakeFullSizeLiveshot() {
         return FALSE;
       }
 
+      if(mLiveShotRatioError)
+          return FALSE;
       if (mDisEnabled) {
        /* If DIS is enabled and Picture size is
         * less than (video size + 10% DIS Margin)
