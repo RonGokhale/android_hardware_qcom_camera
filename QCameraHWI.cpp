@@ -16,7 +16,8 @@
 
 /*#error uncomment this for compiler test!*/
 
-#define ALOG_NIDEBUG 0
+#define LOG_NDDEBUG 0
+#define LOG_NIDEBUG 0
 
 #define LOG_TAG "QCameraHWI"
 #include <utils/Log.h>
@@ -173,6 +174,7 @@ QCameraHardwareInterface(int cameraId, int mode)
                     mAppRecordingHint(false),
     mStartRecording(0),
     mReleasedRecordingFrame(false),
+    mStateLiveshot(false),
     mHdrMode(HDR_BRACKETING_OFF),
     mSnapshotFormat(0),
     mZslInterval(1),
@@ -190,7 +192,9 @@ QCameraHardwareInterface(int cameraId, int mode)
                     mNoDisplayMode(0),
     mSupportedFpsRanges(NULL),
     mSupportedFpsRangesCount(0),
-    mPowerModule(0)
+    mPowerModule(0),
+    mSnapJpegCbRunning(false),
+    mSnapCbDisabled(false)
 {
     ALOGI("QCameraHardwareInterface: E");
     int32_t result = MM_CAMERA_E_GENERAL;
@@ -330,9 +334,13 @@ QCameraHardwareInterface::~QCameraHardwareInterface()
       mStatHeap.clear( );
       mStatHeap = NULL;
     }
+
+    /*First stop the polling threads*/
+    cam_ops_stop(mCameraId);
+
     /* Join the threads, complete operations and then delete
        the instances. */
-    cam_ops_close(mCameraId);
+
     if(mStreamDisplay){
         QCameraStream_preview::deleteInstance (mStreamDisplay);
         mStreamDisplay = NULL;
@@ -350,6 +358,14 @@ QCameraHardwareInterface::~QCameraHardwareInterface()
         QCameraStream_Snapshot::deleteInstance (mStreamLiveSnap);
         mStreamLiveSnap = NULL;
     }
+ 
+    //Deallocate histogram stats buffer
+    if (mStatsOn) {
+        ALOGI("%s Deallocate histogram stats buffer", __func__);
+        setHistogram(0);
+    }
+
+    cam_ops_close(mCameraId);
 
     pthread_mutex_destroy(&mAsyncCmdMutex);
     pthread_cond_destroy(&mAsyncCmdWait);
@@ -748,13 +764,13 @@ processSnapshotChannelEvent(mm_camera_ch_event_type_t channelEvent, app_notify_c
       mCameraState);
     switch(channelEvent) {
         case MM_CAMERA_CH_EVT_STREAMING_ON:
-          if (!mFullLiveshotEnabled) {
+          if (!mStateLiveshot) {
             mCameraState =
               isZSLMode() ? CAMERA_STATE_ZSL : CAMERA_STATE_SNAP_CMD_ACKED;
           }
           break;
         case MM_CAMERA_CH_EVT_STREAMING_OFF:
-          if (!mFullLiveshotEnabled) {
+          if (!mStateLiveshot) {
             mCameraState = CAMERA_STATE_READY;
           }
           break;
@@ -1198,6 +1214,9 @@ void QCameraHardwareInterface::stopPreview()
             mPreviewState = QCAMERA_HAL_PREVIEW_STOPPED;
             break;
       case QCAMERA_HAL_TAKE_PICTURE:
+          cancelPictureInternal();
+          mPreviewState = QCAMERA_HAL_PREVIEW_STOPPED;
+          break;
       case QCAMERA_HAL_PREVIEW_STOPPED:
       default:
             break;
@@ -1358,6 +1377,10 @@ void QCameraHardwareInterface::stopRecordingInternal()
     * call QCameraStream_record::stop()
     * Unregister Callback, action stop
     */
+    if(mStateLiveshot && mStreamLiveSnap != NULL) {
+        mStreamLiveSnap->stop();
+        mStateLiveshot = false;
+    }
     mStreamRecord->stop();
     mCameraState = CAMERA_STATE_PREVIEW;  //TODO : Apurva : Hacked for 2nd time Recording
     mPreviewState = QCAMERA_HAL_PREVIEW_STARTED;
@@ -1501,6 +1524,10 @@ status_t QCameraHardwareInterface::cancelPicture()
         case QCAMERA_HAL_PREVIEW_STARTED:
         case QCAMERA_HAL_RECORDING_STARTED:
         default:
+            if(mStateLiveshot && (mStreamLiveSnap != NULL)) {
+                mStreamLiveSnap->stop();
+                mStateLiveshot = false;
+            }
             break;
         case QCAMERA_HAL_TAKE_PICTURE:
             ret = cancelPictureInternal();
@@ -1514,6 +1541,19 @@ status_t QCameraHardwareInterface::cancelPictureInternal()
 {
     ALOGI("cancelPictureInternal: E");
     status_t ret = MM_CAMERA_OK;
+    // Do not need Snapshot callback to up layer any more
+    mSnapCbDisabled = true;
+    //we should make sure that snap_jpeg_cb has finished
+    if(mStreamSnap){
+        mSnapJpegCbLock.lock();
+        if(mSnapJpegCbRunning != false){
+            ALOGE("%s: wait snapshot_jpeg_cb() to finish.", __func__);
+            mSnapJpegCbWait.wait(mSnapJpegCbLock);
+            ALOGE("%s: finish waiting snapshot_jpeg_cb(). ", __func__);
+        }
+        mSnapJpegCbLock.unlock();
+    }
+    ALOGI("%s: mCameraState=%d.", __func__, mCameraState);
     if(mCameraState != CAMERA_STATE_READY) {
         if(mStreamSnap) {
             mStreamSnap->stop();
@@ -1648,6 +1688,14 @@ status_t  QCameraHardwareInterface::takePicture()
     int  frm_num = 1;
     int  exp[MAX_HDR_EXP_FRAME_NUM];
 
+    mSnapJpegCbLock.lock();
+    if(mSnapJpegCbRunning==true){ // This flag is set true in snapshot_jpeg_cb
+       ALOGE("%s: wait snapshot_jpeg_cb() to finish to proceed with the next take picture", __func__);
+       mSnapJpegCbWait.wait(mSnapJpegCbLock);
+       ALOGE("%s: finish waiting snapshot_jpeg_cb() ", __func__);
+    }
+    mSnapJpegCbLock.unlock();
+
     // if we have liveSnapshot instance,
     // we need to delete it here to release teh channel it acquires
     if (NULL != mStreamLiveSnap) {
@@ -1655,6 +1703,7 @@ status_t  QCameraHardwareInterface::takePicture()
         mStreamLiveSnap = NULL;
     }
 
+    mSnapCbDisabled = false;
     hdr = getHdrInfoAndSetExp(MAX_HDR_EXP_FRAME_NUM, &frm_num, exp);
     mStreamSnap->resetSnapshotCounters();
     mStreamSnap->InitHdrInfoForSnapshot(hdr, frm_num, exp);
@@ -1714,6 +1763,10 @@ status_t  QCameraHardwareInterface::takePicture()
       ret = UNKNOWN_ERROR;
       break;
     case QCAMERA_HAL_RECORDING_STARTED:
+      if(mStateLiveshot) {
+          ALOGE("takePicture : Duplicate TakePicture Call");
+          return ret;
+      }
       if (canTakeFullSizeLiveshot()) {
         ALOGD(" Calling takeFullSizeLiveshot");
         takeFullSizeLiveshot();
@@ -1738,7 +1791,7 @@ status_t  QCameraHardwareInterface::takePicture()
                                                     this);
         }
       }
-
+      mStateLiveshot = true;
       break;
     default:
         ret = UNKNOWN_ERROR;
