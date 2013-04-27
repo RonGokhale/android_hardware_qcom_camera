@@ -946,6 +946,10 @@ QCamera2HardwareInterface::QCamera2HardwareInterface(int cameraId)
     pthread_cond_init(&m_cond, NULL);
     memset(&m_apiResult, 0, sizeof(qcamera_api_result_t));
 
+    pthread_mutex_init(&m_evtLock, NULL);
+    pthread_cond_init(&m_evtCond, NULL);
+    memset(&m_evtResult, 0, sizeof(qcamera_api_result_t));
+
     memset(m_channels, 0, sizeof(m_channels));
 
 #ifdef HAS_MULTIMEDIA_HINTS
@@ -970,6 +974,8 @@ QCamera2HardwareInterface::~QCamera2HardwareInterface()
     closeCamera();
     pthread_mutex_destroy(&m_lock);
     pthread_cond_destroy(&m_cond);
+    pthread_mutex_destroy(&m_evtLock);
+    pthread_cond_destroy(&m_evtCond);
 }
 
 /*===========================================================================
@@ -1046,12 +1052,13 @@ int QCamera2HardwareInterface::openCamera()
         gCamCapability[mCameraId]->padding_info.plane_padding = padding_info.plane_padding;
     }
 
+    mParameters.init(gCamCapability[mCameraId], mCameraHandle);
+
     rc = m_thermalAdapter.init(this);
     if (rc != 0) {
         ALOGE("Init thermal adapter failed");
     }
 
-    mParameters.init(gCamCapability[mCameraId], mCameraHandle);
     mCameraOpened = true;
 
     return NO_ERROR;
@@ -1451,7 +1458,7 @@ QCameraHeapMemory *QCamera2HardwareInterface::allocateStreamInfoBuf(
     switch (stream_type) {
     case CAM_STREAM_TYPE_SNAPSHOT:
     case CAM_STREAM_TYPE_RAW:
-        if (mParameters.isZSLMode()) {
+        if (mParameters.isZSLMode() && mParameters.getRecordingHintValue() != true) {
             streamInfo->streaming_mode = CAM_STREAMING_MODE_CONTINUOUS;
         } else {
             streamInfo->streaming_mode = CAM_STREAMING_MODE_BURST;
@@ -1471,21 +1478,6 @@ QCameraHeapMemory *QCamera2HardwareInterface::allocateStreamInfoBuf(
     if (flipMode > 0) {
         streamInfo->pp_config.feature_mask |= CAM_QCOM_FEATURE_FLIP;
         streamInfo->pp_config.flip = flipMode;
-    }
-
-    // set Rotation if need online rotation per stream in CPP
-    if (needOnlineRotation()) {
-        streamInfo->pp_config.feature_mask |= CAM_QCOM_FEATURE_ROTATION;
-        int rotation = mParameters.getJpegRotation();
-        if (rotation == 0) {
-            streamInfo->pp_config.rotation = ROTATE_0;
-        } else if (rotation == 90) {
-            streamInfo->pp_config.rotation = ROTATE_90;
-        } else if (rotation == 180) {
-            streamInfo->pp_config.rotation = ROTATE_180;
-        } else if (rotation == 270) {
-            streamInfo->pp_config.rotation = ROTATE_270;
-        }
     }
 
     return streamInfoBuf;
@@ -2305,6 +2297,37 @@ int QCamera2HardwareInterface::processEvt(qcamera_sm_evt_enum_t evt, void *evt_p
 }
 
 /*===========================================================================
+ * FUNCTION   : processSyncEvt
+ *
+ * DESCRIPTION: process synchronous Evt from backend
+ *
+ * PARAMETERS :
+ *   @evt         : event type to be processed
+ *   @evt_payload : ptr to event payload if any
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int QCamera2HardwareInterface::processSyncEvt(qcamera_sm_evt_enum_t evt, void *evt_payload)
+{
+    int rc = NO_ERROR;
+
+    pthread_mutex_lock(&m_evtLock);
+    rc =  processEvt(evt, evt_payload);
+    if (rc == NO_ERROR) {
+        memset(&m_evtResult, 0, sizeof(qcamera_api_result_t));
+        while (m_evtResult.request_api != evt) {
+            pthread_cond_wait(&m_evtCond, &m_evtLock);
+        }
+        rc =  m_evtResult.status;
+    }
+    pthread_mutex_unlock(&m_evtLock);
+
+    return rc;
+}
+
+/*===========================================================================
  * FUNCTION   : evtHandle
  *
  * DESCRIPTION: Function registerd to mm-camera-interface to handle backend events
@@ -2633,6 +2656,24 @@ void QCamera2HardwareInterface::signalAPIResult(qcamera_api_result_t *result)
     m_apiResult = *result;
     pthread_cond_signal(&m_cond);
     pthread_mutex_unlock(&m_lock);
+}
+
+/*===========================================================================
+ * FUNCTION   : signalEvtResult
+ *
+ * DESCRIPTION: signal condition variable that certain event was processed
+ *
+ * PARAMETERS :
+ *   @result  : Event result
+ *
+ * RETURN     : none
+ *==========================================================================*/
+void QCamera2HardwareInterface::signalEvtResult(qcamera_api_result_t *result)
+{
+    pthread_mutex_lock(&m_evtLock);
+    m_evtResult = *result;
+    pthread_cond_signal(&m_evtCond);
+    pthread_mutex_unlock(&m_evtLock);
 }
 
 /*===========================================================================
@@ -3150,22 +3191,21 @@ QCameraReprocessChannel *QCamera2HardwareInterface::addOnlineReprocChannel(
     // pp feature config
     cam_pp_feature_config_t pp_config;
     memset(&pp_config, 0, sizeof(cam_pp_feature_config_t));
-    if (mParameters.isZSLMode()) {
-        if (gCamCapability[mCameraId]->min_required_pp_mask & CAM_QCOM_FEATURE_SHARPNESS) {
-            pp_config.feature_mask |= CAM_QCOM_FEATURE_SHARPNESS;
-            pp_config.sharpness = mParameters.getInt(QCameraParameters::KEY_QC_SHARPNESS);
-        }
-
-        if (mParameters.isWNREnabled()) {
-            pp_config.feature_mask |= CAM_QCOM_FEATURE_DENOISE2D;
-            pp_config.denoise2d.denoise_enable = 1;
-            pp_config.denoise2d.process_plates = mParameters.getWaveletDenoiseProcessPlate();
-        }
-
-        if (isCACEnabled()) {
-            pp_config.feature_mask |= CAM_QCOM_FEATURE_CAC;
-        }
+    if (gCamCapability[mCameraId]->min_required_pp_mask & CAM_QCOM_FEATURE_SHARPNESS) {
+        pp_config.feature_mask |= CAM_QCOM_FEATURE_SHARPNESS;
+        pp_config.sharpness = mParameters.getInt(QCameraParameters::KEY_QC_SHARPNESS);
     }
+
+    if (mParameters.isWNREnabled()) {
+        pp_config.feature_mask |= CAM_QCOM_FEATURE_DENOISE2D;
+        pp_config.denoise2d.denoise_enable = 1;
+        pp_config.denoise2d.process_plates = mParameters.getWaveletDenoiseProcessPlate();
+    }
+
+    if (isCACEnabled()) {
+        pp_config.feature_mask |= CAM_QCOM_FEATURE_CAC;
+    }
+
     if (needRotationReprocess()) {
         pp_config.feature_mask |= CAM_QCOM_FEATURE_ROTATION;
         int rotation = mParameters.getJpegRotation();
@@ -3397,24 +3437,29 @@ int32_t QCamera2HardwareInterface::preparePreview()
             return rc;
         }
     } else {
+        bool recordingHint = mParameters.getRecordingHintValue();
+        if(recordingHint) {
+            rc = addChannel(QCAMERA_CH_TYPE_SNAPSHOT);
+            if (rc != NO_ERROR) {
+                return rc;
+            }
+
+            rc = addChannel(QCAMERA_CH_TYPE_VIDEO);
+            if (rc != NO_ERROR) {
+                delChannel(QCAMERA_CH_TYPE_SNAPSHOT);
+                return rc;
+            }
+        }
+
         rc = addChannel(QCAMERA_CH_TYPE_PREVIEW);
         if (rc != NO_ERROR) {
+            if (recordingHint) {
+                delChannel(QCAMERA_CH_TYPE_SNAPSHOT);
+                delChannel(QCAMERA_CH_TYPE_VIDEO);
+            }
             return rc;
         }
 
-        if(mParameters.getRecordingHintValue() == true) {
-            rc = addChannel(QCAMERA_CH_TYPE_VIDEO);
-            if (rc != NO_ERROR) {
-                delChannel(QCAMERA_CH_TYPE_PREVIEW);
-                return rc;
-            }
-            rc = addChannel(QCAMERA_CH_TYPE_SNAPSHOT);
-            if (rc != NO_ERROR) {
-                delChannel(QCAMERA_CH_TYPE_METADATA);
-                delChannel(QCAMERA_CH_TYPE_PREVIEW);
-                delChannel(QCAMERA_CH_TYPE_VIDEO);
-            }
-        }
     }
 
     return rc;
@@ -3910,11 +3955,9 @@ bool QCamera2HardwareInterface::needReprocess()
         return false;
     }
 
-    if (mParameters.isZSLMode() &&
-        ((gCamCapability[mCameraId]->min_required_pp_mask > 0) ||
+    if (((gCamCapability[mCameraId]->min_required_pp_mask > 0) ||
          mParameters.isWNREnabled() || isCACEnabled())) {
         // TODO: add for ZSL HDR later
-        // pp module has min requirement for zsl reprocess, or WNR in ZSL mode
         ALOGD("%s: need do reprocess for ZSL WNR or min PP reprocess", __func__);
         return true;
     }
@@ -3934,52 +3977,15 @@ bool QCamera2HardwareInterface::needReprocess()
  *==========================================================================*/
 bool QCamera2HardwareInterface::needRotationReprocess()
 {
-    // TODO: hack here to return false to avoid reprocess
-    // Need to be enabled after PP is enabled
-    return false;
-
     if (!mParameters.isJpegPictureFormat()) {
         // RAW image, no need to reprocess
         return false;
     }
 
-    if (mParameters.isZSLMode() &&
-        (gCamCapability[mCameraId]->qcom_supported_feature_mask & CAM_QCOM_FEATURE_ROTATION) > 0 &&
+    if ((gCamCapability[mCameraId]->qcom_supported_feature_mask & CAM_QCOM_FEATURE_ROTATION) > 0 &&
         mParameters.getJpegRotation() > 0) {
         // current rotation is not zero, and pp has the capability to process rotation
         ALOGD("%s: need do reprocess for rotation", __func__);
-        return true;
-    }
-
-    return false;
-}
-
-/*===========================================================================
- * FUNCTION   : needRotationReprocess
- *
- * DESCRIPTION: if online rotation needs to be done by cpp
- *
- * PARAMETERS : none
- *
- * RETURN     : true: needed
- *              false: no need
- *==========================================================================*/
-bool QCamera2HardwareInterface::needOnlineRotation()
-{
-    // TODO: hack here to return false to avoid reprocess
-    // Need to be enabled after PP is enabled
-    return false;
-
-    if (!mParameters.isJpegPictureFormat()) {
-        // RAW image, no need
-        return false;
-    }
-
-    if (!mParameters.isZSLMode() &&
-        (gCamCapability[mCameraId]->qcom_supported_feature_mask & CAM_QCOM_FEATURE_ROTATION) > 0 &&
-        mParameters.getJpegRotation() > 0) {
-        // current rotation is not zero, and pp has the capability to process rotation
-        ALOGD("%s: need do online rotation", __func__);
         return true;
     }
 
