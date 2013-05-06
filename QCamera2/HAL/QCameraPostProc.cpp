@@ -57,11 +57,13 @@ QCameraPostProcessor::QCameraPostProcessor(QCamera2HardwareInterface *cam_ctrl)
       m_pJpegExifObj(NULL),
       m_bThumbnailNeeded(TRUE),
       m_pReprocChannel(NULL),
+      m_bInited(FALSE),
       m_inputPPQ(releasePPInputData, this),
       m_ongoingPPQ(releaseOngoingPPData, this),
       m_inputJpegQ(releaseJpegData, this),
       m_ongoingJpegQ(releaseJpegData, this),
-      m_inputRawQ(releasePPInputData, this)
+      m_inputRawQ(releasePPInputData, this),
+      mRawBurstCount(0)
 {
     memset(&mJpegHandle, 0, sizeof(mJpegHandle));
 }
@@ -119,6 +121,7 @@ int32_t QCameraPostProcessor::init(jpeg_encode_callback_t jpeg_cb, void *user_da
 
     m_dataProcTh.launch(dataProcessRoutine, this);
 
+    m_bInited = TRUE;
     return NO_ERROR;
 }
 
@@ -135,16 +138,18 @@ int32_t QCameraPostProcessor::init(jpeg_encode_callback_t jpeg_cb, void *user_da
  *==========================================================================*/
 int32_t QCameraPostProcessor::deinit()
 {
-    m_dataProcTh.exit();
+    if (m_bInited == TRUE) {
+        m_dataProcTh.exit();
 
-    if(mJpegClientHandle > 0) {
-        int rc = mJpegHandle.close(mJpegClientHandle);
-        ALOGE("%s: Jpeg closed, rc = %d, mJpegClientHandle = %x",
-              __func__, rc, mJpegClientHandle);
-        mJpegClientHandle = 0;
-        memset(&mJpegHandle, 0, sizeof(mJpegHandle));
+        if(mJpegClientHandle > 0) {
+            int rc = mJpegHandle.close(mJpegClientHandle);
+            ALOGE("%s: Jpeg closed, rc = %d, mJpegClientHandle = %x",
+                  __func__, rc, mJpegClientHandle);
+            mJpegClientHandle = 0;
+            memset(&mJpegHandle, 0, sizeof(mJpegHandle));
+        }
+        m_bInited = FALSE;
     }
-
     return NO_ERROR;
 }
 
@@ -167,6 +172,11 @@ int32_t QCameraPostProcessor::deinit()
 int32_t QCameraPostProcessor::start(QCameraChannel *pSrcChannel)
 {
     int32_t rc = NO_ERROR;
+    if (m_bInited == FALSE) {
+        ALOGE("%s: postproc not initialized yet", __func__);
+        return UNKNOWN_ERROR;
+    }
+
     if (m_parent->needReprocess()) {
         if (m_pReprocChannel != NULL) {
             delete m_pReprocChannel;
@@ -190,7 +200,7 @@ int32_t QCameraPostProcessor::start(QCameraChannel *pSrcChannel)
 
     m_dataProcTh.sendCmd(CAMERA_CMD_TYPE_START_DATA_PROC, FALSE, FALSE);
     m_parent->m_cbNotifier.startSnapshots();
-
+    mRawBurstCount = m_parent->numOfSnapshotsExpected();
     return rc;
 }
 
@@ -209,9 +219,11 @@ int32_t QCameraPostProcessor::start(QCameraChannel *pSrcChannel)
  *==========================================================================*/
 int32_t QCameraPostProcessor::stop()
 {
-    m_parent->m_cbNotifier.stopSnapshots();
-    // dataProc Thread need to process "stop" as sync call because abort jpeg job should be a sync call
-    m_dataProcTh.sendCmd(CAMERA_CMD_TYPE_STOP_DATA_PROC, TRUE, TRUE);
+    if (m_bInited == TRUE) {
+        m_parent->m_cbNotifier.stopSnapshots();
+        // dataProc Thread need to process "stop" as sync call because abort jpeg job should be a sync call
+        m_dataProcTh.sendCmd(CAMERA_CMD_TYPE_STOP_DATA_PROC, TRUE, TRUE);
+    }
 
     return NO_ERROR;
 }
@@ -466,6 +478,11 @@ int32_t QCameraPostProcessor::sendDataNotify(int32_t msg_type,
  *==========================================================================*/
 int32_t QCameraPostProcessor::processData(mm_camera_super_buf_t *frame)
 {
+    if (m_bInited == FALSE) {
+        ALOGE("%s: postproc not initialized yet", __func__);
+        return UNKNOWN_ERROR;
+    }
+
     if (m_parent->needReprocess()) {
         ALOGD("%s: need reprocess", __func__);
         // enqueu to post proc input queue
@@ -506,6 +523,11 @@ int32_t QCameraPostProcessor::processData(mm_camera_super_buf_t *frame)
  *==========================================================================*/
 int32_t QCameraPostProcessor::processRawData(mm_camera_super_buf_t *frame)
 {
+    if (m_bInited == FALSE) {
+        ALOGE("%s: postproc not initialized yet", __func__);
+        return UNKNOWN_ERROR;
+    }
+
     // enqueu to raw input queue
     m_inputRawQ.enqueue((void *)frame);
     m_dataProcTh.sendCmd(CAMERA_CMD_TYPE_DO_NEXT_JOB, FALSE, FALSE);
@@ -531,6 +553,11 @@ int32_t QCameraPostProcessor::processRawData(mm_camera_super_buf_t *frame)
  *==========================================================================*/
 int32_t QCameraPostProcessor::processJpegEvt(qcamera_jpeg_evt_payload_t *evt)
 {
+    if (m_bInited == FALSE) {
+        ALOGE("%s: postproc not initialized yet", __func__);
+        return UNKNOWN_ERROR;
+    }
+
     int32_t rc = NO_ERROR;
     camera_memory_t *jpeg_mem = NULL;
 
@@ -627,6 +654,11 @@ end:
  *==========================================================================*/
 int32_t QCameraPostProcessor::processPPData(mm_camera_super_buf_t *frame)
 {
+    if (m_bInited == FALSE) {
+        ALOGE("%s: postproc not initialized yet", __func__);
+        return UNKNOWN_ERROR;
+    }
+
     qcamera_pp_data_t *job = (qcamera_pp_data_t *)m_ongoingPPQ.dequeue();
 
     if (job == NULL || job->src_frame == NULL) {
@@ -1198,17 +1230,20 @@ int32_t QCameraPostProcessor::processRawImageImpl(mm_camera_super_buf_t *recvd_f
 
         if ((m_parent->mDataCb != NULL) &&
             m_parent->msgTypeEnabledWithLock(CAMERA_MSG_COMPRESSED_IMAGE) > 0) {
+            mRawBurstCount--;
             qcamera_release_data_t release_data;
             memset(&release_data, 0, sizeof(qcamera_release_data_t));
-            release_data.streamBufs = rawMemObj;
+            if ( 0 == mRawBurstCount ) {
+                release_data.streamBufs = rawMemObj;
+                pStream->acquireStreamBufs();
+            } else {
+                release_data.frame = recvd_frame;
+            }
             rc = sendDataNotify(CAMERA_MSG_COMPRESSED_IMAGE,
                                 raw_mem,
                                 0,
                                 NULL,
                                 &release_data);
-            if ( NO_ERROR == rc ) {
-                pStream->acquireStreamBufs();
-            }
         }
     } else {
         ALOGE("%s: Cannot get raw mem", __func__);
