@@ -2747,15 +2747,22 @@ void QCameraStream_Snapshot::notifyHdrEvent(cam_ctrl_status_t status, void * coo
 {
     camera_notify_callback         notifyCb;
     camera_data_callback           dataCb, jpgDataCb;
-    int rc[2];
+    int rc[3];
     mm_camera_ch_data_buf_t *frame;
     int i;
 
-    ALOGI("%s: WDN Done status (%d) received",__func__,status);
+    ALOGI("%s: HDR Done status (%d) received: %d\n",__func__,status, mHdrInfo.num_raw_received);
     Mutex::Autolock lock(mStopCallbackLock);
-    for (i =0; i < 2; i++) {
-        frame = mHdrInfo.recvd_frame[i];
-        rc[i] = encodeDisplayAndSave(frame, 0);
+    for (i = 0; i <= 2; i++) {
+         if (i == 0 || i == 2) {
+             ALOGI("notifyHdrEvent - if: %d\n", i);
+             frame = mHdrInfo.recvd_frame[i];
+             rc[i] = encodeDisplayAndSave(frame, 0);
+         } else {
+             ALOGI("notifyHdrEvent - else: %d\n", i);
+             rc[i] = NO_ERROR;
+             frame = mHdrInfo.recvd_frame[i];
+         }
     }
 
     // send upperlayer callback for raw image (data or notify, not both)
@@ -2781,7 +2788,7 @@ void QCameraStream_Snapshot::notifyHdrEvent(cam_ctrl_status_t status, void * coo
 
     mStopCallbackLock.unlock();
 
-    for (i =0; i< 2; i++) {
+    for (i =0; i< 3; i++) {
         if (rc[i] != NO_ERROR)
         {
             ALOGE("%s: Error while encoding/displaying/saving image", __func__);
@@ -2809,7 +2816,7 @@ void QCameraStream_Snapshot::notifyHdrEvent(cam_ctrl_status_t status, void * coo
         }
     }
 
-    for (i = 2; i <mHdrInfo.num_raw_received; i++ ) {
+    for (i = 3; i <mHdrInfo.num_raw_received; i++ ) {
         if (mHdrInfo.recvd_frame[i]) {
             cam_evt_buf_done(mCameraId,  mHdrInfo.recvd_frame[i]);
             free( mHdrInfo.recvd_frame[i]);
