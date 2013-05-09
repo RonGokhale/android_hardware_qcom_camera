@@ -893,9 +893,9 @@ status_t QCameraStream_preview::processPreviewFrameWithDisplay(
     ALOGE("%s: Cache clean for Preview buffer %p fd = %d failed", __func__,
       cache_inv_data.vaddr, cache_inv_data.fd);
 #endif
-
-  if(mHFRFrameSkip == 1)
-  {
+  if(mHalCamCtrl->mPreviewMemory.buffer_handle[frame->def.idx]!=NULL) {
+    if(mHFRFrameSkip == 1)
+    {
       const char *str = mHalCamCtrl->mParameters.get(
                           QCameraParameters::KEY_QC_VIDEO_HIGH_FRAME_RATE);
       if(str != NULL){
@@ -921,9 +921,10 @@ status_t QCameraStream_preview::processPreviewFrameWithDisplay(
       } else
           err = this->mPreviewWindow->enqueue_buffer(this->mPreviewWindow,
             (buffer_handle_t *)mHalCamCtrl->mPreviewMemory.buffer_handle[frame->def.idx]);
-  } else {
-      err = this->mPreviewWindow->enqueue_buffer(this->mPreviewWindow,
-          (buffer_handle_t *)mHalCamCtrl->mPreviewMemory.buffer_handle[frame->def.idx]);
+    } else {
+        err = this->mPreviewWindow->enqueue_buffer(this->mPreviewWindow,
+            (buffer_handle_t *)mHalCamCtrl->mPreviewMemory.buffer_handle[frame->def.idx]);
+    }
   }
   if(err != 0) {
     ALOGE("%s: enqueue_buffer failed, err = %d", __func__, err);
