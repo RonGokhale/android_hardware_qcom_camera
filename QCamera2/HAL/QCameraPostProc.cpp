@@ -266,6 +266,9 @@ int32_t QCameraPostProcessor::getJpegEncodingConfig(mm_jpeg_encode_params_t& enc
     main_stream->getFormat(img_fmt);
     encode_parm.color_format = getColorfmtFromImgFmt(img_fmt);
 
+    cam_format_t img_fmt_thumb = CAM_FORMAT_YUV_420_NV12;
+    encode_parm.thumb_color_format = getColorfmtFromImgFmt(img_fmt_thumb);
+
     // get jpeg quality
     encode_parm.quality = m_parent->getJpegQuality();
     if (encode_parm.quality <= 0) {
@@ -454,7 +457,7 @@ int32_t QCameraPostProcessor::sendDataNotify(int32_t msg_type,
     int rc = m_parent->m_cbNotifier.notifyCallback(cbArg);
     if ( NO_ERROR != rc ) {
         ALOGE("%s: Error enqueuing jpeg data into notify queue", __func__);
-        free(data_cb);
+        releaseNotifyData(data_cb, this);
         return UNKNOWN_ERROR;
     }
 

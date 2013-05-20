@@ -1273,6 +1273,9 @@ int32_t QCameraStateMachine::procEvtPrepareSnapshotState(qcamera_sm_evt_enum_t e
             qcamera_sm_internal_evt_payload_t *internal_evt =
                 (qcamera_sm_internal_evt_payload_t *)payload;
             switch (internal_evt->evt_type) {
+            case QCAMERA_INTERNAL_EVT_FOCUS_UPDATE:
+                rc = m_parent->processAutoFocusEvent(internal_evt->focus_data);
+                break;
             case QCAMERA_INTERNAL_EVT_PREP_SNAPSHOT_DONE:
                 ALOGI("%s: Received QCAMERA_INTERNAL_EVT_PREP_SNAPSHOT_DONE event",
                     __func__);
@@ -2458,9 +2461,15 @@ int32_t QCameraStateMachine::procEvtPreviewPicTakingState(qcamera_sm_evt_enum_t 
         break;
     case QCAMERA_SM_EVT_START_RECORDING:
         {
-            rc = m_parent->stopRecording();
-            if (rc == NO_ERROR) {
-                m_state = QCAMERA_SM_STATE_VIDEO_PIC_TAKING;
+            if (m_parent->isZSLMode()) {
+                ALOGE("%s: cannot handle evt(%d) in state(%d) in ZSL mode",
+                      __func__, evt, m_state);
+                rc = INVALID_OPERATION;
+            } else {
+                rc = m_parent->startRecording();
+                if (rc == NO_ERROR) {
+                    m_state = QCAMERA_SM_STATE_VIDEO_PIC_TAKING;
+                }
             }
             result.status = rc;
             result.request_api = evt;
