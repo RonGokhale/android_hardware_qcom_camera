@@ -1411,6 +1411,7 @@ QCameraMemory *QCamera2HardwareInterface::allocateStreamBuf(cam_stream_type_t st
         break;
     case CAM_STREAM_TYPE_DEFAULT:
     case CAM_STREAM_TYPE_MAX:
+    default:
         break;
     }
     if (!mem) {
@@ -1482,11 +1483,14 @@ QCameraHeapMemory *QCamera2HardwareInterface::allocateStreamInfoBuf(
         break;
     }
 
-    //set flip mode based on Stream type;
-    int flipMode = mParameters.getFlipMode(stream_type);
-    if (flipMode > 0) {
-        streamInfo->pp_config.feature_mask |= CAM_QCOM_FEATURE_FLIP;
-        streamInfo->pp_config.flip = flipMode;
+    if (!isZSLMode() ||
+        (isZSLMode() && (stream_type != CAM_STREAM_TYPE_SNAPSHOT))) {
+        //set flip mode based on Stream type;
+        int flipMode = mParameters.getFlipMode(stream_type);
+        if (flipMode > 0) {
+            streamInfo->pp_config.feature_mask |= CAM_QCOM_FEATURE_FLIP;
+            streamInfo->pp_config.flip = flipMode;
+        }
     }
 
     return streamInfoBuf;
@@ -3085,7 +3089,7 @@ int32_t QCamera2HardwareInterface::addCaptureChannel()
     }
 
     rc = addStreamToChannel(pChannel, CAM_STREAM_TYPE_POSTVIEW,
-                            postview_stream_cb_routine, this);
+                            NULL, this);
 
     if (rc != NO_ERROR) {
         ALOGE("%s: add postview stream failed, ret = %d", __func__, rc);
@@ -3234,7 +3238,8 @@ QCameraReprocessChannel *QCamera2HardwareInterface::addOnlineReprocChannel(
                                               pp_config,
                                               pInputChannel,
                                               minStreamBufNum,
-                                              &gCamCapability[mCameraId]->padding_info);
+                                              &gCamCapability[mCameraId]->padding_info,
+                                              mParameters);
     if (rc != NO_ERROR) {
         delete pChannel;
         return NULL;
@@ -3976,6 +3981,15 @@ bool QCamera2HardwareInterface::needReprocess()
         // TODO: add for ZSL HDR later
         ALOGD("%s: need do reprocess for ZSL WNR or min PP reprocess", __func__);
         return true;
+    }
+
+    if (isZSLMode()) {
+        int snapshot_flipMode =
+            mParameters.getFlipMode(CAM_STREAM_TYPE_SNAPSHOT);
+        if (snapshot_flipMode > 0) {
+            ALOGD("%s: Need do flip for snapshot in ZSL mode", __func__);
+            return true;
+        }
     }
 
     return needRotationReprocess();
