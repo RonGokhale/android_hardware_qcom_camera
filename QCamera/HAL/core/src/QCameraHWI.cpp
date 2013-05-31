@@ -1075,11 +1075,13 @@ void QCameraHardwareInterface::receiveCompleteJpegPicture(jpeg_job_status_t stat
                                NULL,
                                NULL);
        }
+       pme->mSnapshotDone = FALSE;
        return;
    }
 
    if(thumbnailDroppedFlag) {
        ALOGE("%s : Error in thumbnail encoding", __func__);
+       pme->mSnapshotDone = FALSE;
        return;
    }
 
@@ -1099,6 +1101,7 @@ void QCameraHardwareInterface::receiveCompleteJpegPicture(jpeg_job_status_t stat
                                     NULL,
                                     NULL);
             }
+            pme->mSnapshotDone = FALSE;
             return;
        }
 
