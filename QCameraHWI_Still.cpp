@@ -442,6 +442,57 @@ configSnapshotDimension(cam_ctrl_dimension_t* dim)
         }else{
             mJpegDownscaling = false;
         }
+        //based on the condition to decide primary and secondary VFE o/ps in back end
+        if(isZSLMode() && (mPictureWidth <= dim->display_width) && (mPictureHeight > dim->display_height)) {
+            int temp_index = -1;
+            for (int i = 0; i < mHalCamCtrl->mSupportedPictureSizesCount; ++i) {
+                 if (dim->display_width >= mHalCamCtrl->mPictureSizesPtr[i].width
+                     && dim->display_height >= mHalCamCtrl->mPictureSizesPtr[i].height) {
+                     if(((float)mPictureWidth / mPictureHeight) ==
+                        ((float)mHalCamCtrl->mPictureSizesPtr[i].width / mHalCamCtrl->mPictureSizesPtr[i].height)) {
+                        temp_index = i;
+                        break;
+                     }
+
+                 }
+            }
+            mActualPictureWidth = mPictureWidth;
+            mActualPictureHeight = mPictureHeight;
+            if(temp_index == -1){
+              mPictureHeight = dim->display_height;
+            }else {
+              mPictureWidth = mHalCamCtrl->mPictureSizesPtr[temp_index].width;
+              mPictureHeight = mHalCamCtrl->mPictureSizesPtr[temp_index].height;
+            }
+            ALOGE("%s: Changing picture sizes to %dX%d", __func__, mPictureWidth, mPictureHeight);
+
+            mJpegDownscaling = true;
+        }
+        if(isZSLMode() && (mPictureWidth > dim->display_width) && (mPictureHeight < dim->display_height)) {
+            int temp_index = -1;
+            for (int i = (mHalCamCtrl->mSupportedPictureSizesCount-1); i >=0 ; --i) {
+                 if (dim->display_width <= mHalCamCtrl->mPictureSizesPtr[i].width
+                     && dim->display_height <= mHalCamCtrl->mPictureSizesPtr[i].height) {
+                     if(((float)mPictureWidth / mPictureHeight) ==
+                        ((float)mHalCamCtrl->mPictureSizesPtr[i].width / mHalCamCtrl->mPictureSizesPtr[i].height)) {
+                        temp_index = i;
+                        break;
+                     }
+
+                 }
+            }
+            mActualPictureWidth = mPictureWidth;
+            mActualPictureHeight = mPictureHeight;
+            if(temp_index == -1){
+              mPictureHeight = dim->display_height;
+            }else {
+              mPictureWidth = mHalCamCtrl->mPictureSizesPtr[temp_index].width;
+              mPictureHeight = mHalCamCtrl->mPictureSizesPtr[temp_index].height;
+            }
+            ALOGE("%s: Changing picture sizes to %dX%d", __func__, mPictureWidth, mPictureHeight);
+
+            mJpegDownscaling = true;
+        }
         dim->picture_width  = mPictureWidth;
         dim->picture_height = mPictureHeight;
         dim->ui_thumbnail_height = mThumbnailHeight = mPostviewHeight;
