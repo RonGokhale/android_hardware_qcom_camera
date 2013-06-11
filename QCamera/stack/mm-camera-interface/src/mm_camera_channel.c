@@ -1016,7 +1016,7 @@ int32_t mm_channel_start_streams(mm_channel_t *my_obj,
                                  uint8_t num_streams,
                                  uint32_t *stream_ids)
 {
-    int32_t rc = 0;
+    int32_t rc = 0, val = 0;
     int i, j;
     mm_stream_t* s_objs[MM_CAMEAR_MAX_STRAEM_BUNDLE] = {NULL};
     uint8_t num_streams_to_start = num_streams;
@@ -1106,10 +1106,21 @@ int32_t mm_channel_start_streams(mm_channel_t *my_obj,
     if (0 != rc) {
         for (j=0; j<=i; j++) {
             /* stop streams*/
-            mm_stream_fsm_fn(s_objs[i],
+            val = mm_stream_fsm_fn(s_objs[j],
                              MM_STREAM_EVT_STOP,
                              NULL,
                              NULL);
+            if ((s_objs[i]->ext_image_mode == MSM_V4L2_EXT_CAPTURE_MODE_PREVIEW) && (val < 0)) {
+                CDBG_ERROR("FAULT-DEBUG stream off failed");
+                rc = mm_camera_send_native_ctrl_cmd(my_obj->cam_obj,
+                                           CAMERA_TERMINATE_SESSION,
+                                           0,
+                                           (void *)NULL);
+                if (rc != 0) {
+                    CDBG_ERROR("FAULT-DEBUG terminate session failed");
+                    rc = 0;
+                }
+            }
 
             /* unreg buf */
             mm_stream_fsm_fn(s_objs[i],
@@ -1134,7 +1145,7 @@ int32_t mm_channel_stop_streams(mm_channel_t *my_obj,
                                 uint32_t *stream_ids,
                                 uint8_t tear_down_flag)
 {
-    int32_t rc = 0;
+    int32_t rc = 0, val = 0;
     int i, j;
     mm_stream_t* s_objs[MM_CAMEAR_MAX_STRAEM_BUNDLE] = {NULL};
     uint8_t num_streams_to_stop = num_streams;
@@ -1178,10 +1189,21 @@ int32_t mm_channel_stop_streams(mm_channel_t *my_obj,
 
         if (NULL != s_objs[i]) {
             /* stream off */
-            mm_stream_fsm_fn(s_objs[i],
+            val = mm_stream_fsm_fn(s_objs[i],
                              MM_STREAM_EVT_STOP,
                              NULL,
                              NULL);
+            if ((s_objs[i]->ext_image_mode == MSM_V4L2_EXT_CAPTURE_MODE_PREVIEW) && (val <  0)) {
+                CDBG_ERROR("FAULT-DEBUG stream off failed");
+                rc = mm_camera_send_native_ctrl_cmd(my_obj->cam_obj,
+                                           CAMERA_TERMINATE_SESSION,
+                                           0,
+                                           (void *)NULL);
+                if (rc != 0) {
+                    CDBG_ERROR("FAULT-DEBUG terminate session failed");
+                    rc = 0;
+                }
+            }
 
             /* unreg buf at kernel */
             mm_stream_fsm_fn(s_objs[i],
