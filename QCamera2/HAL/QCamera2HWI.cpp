@@ -1089,6 +1089,9 @@ int QCamera2HardwareInterface::closeCamera()
         return NO_ERROR;
     }
 
+    // set open flag to false
+    mCameraOpened = false;
+
     // deinit Parameters
     mParameters.deinit();
 
@@ -1112,7 +1115,6 @@ int QCamera2HardwareInterface::closeCamera()
 
     rc = mCameraHandle->ops->close_camera(mCameraHandle->camera_handle);
     mCameraHandle = NULL;
-    mCameraOpened = false;
 
     return rc;
 }
@@ -1279,6 +1281,9 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
                         mParameters.getMaxUnmatchedFramesInQueue() +
                         mParameters.getNumOfExtraHDRBufsIfNeeded() +
                         CAMERA_MIN_STREAMING_BUFFERS;
+            if (bufferCnt > zslQBuffers + minCircularBufNum) {
+                bufferCnt = zslQBuffers + minCircularBufNum;
+            }
         }
         break;
     case CAM_STREAM_TYPE_SNAPSHOT:
@@ -1290,6 +1295,9 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
                             mParameters.getMaxUnmatchedFramesInQueue() +
                             mParameters.getNumOfExtraHDRBufsIfNeeded() +
                             CAMERA_MIN_STREAMING_BUFFERS;
+                if (bufferCnt > zslQBuffers + minCircularBufNum) {
+                    bufferCnt = zslQBuffers + minCircularBufNum;
+                }
             }
         }
         break;
@@ -1301,6 +1309,9 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
                         mParameters.getMaxUnmatchedFramesInQueue() +
                         mParameters.getNumOfExtraHDRBufsIfNeeded() +
                         CAMERA_MIN_STREAMING_BUFFERS;
+            if (bufferCnt > zslQBuffers + minCircularBufNum) {
+                bufferCnt = zslQBuffers + minCircularBufNum;
+            }
         }
         break;
     case CAM_STREAM_TYPE_VIDEO:
@@ -1325,6 +1336,9 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
         {
             bufferCnt = minCaptureBuffers +
                         mParameters.getMaxUnmatchedFramesInQueue();
+            if (bufferCnt > zslQBuffers + minCircularBufNum) {
+                bufferCnt = zslQBuffers + minCircularBufNum;
+            }
             if (bufferCnt < CAMERA_MIN_STREAMING_BUFFERS) {
                 bufferCnt = CAMERA_MIN_STREAMING_BUFFERS;
             }
@@ -2421,6 +2435,11 @@ void QCamera2HardwareInterface::jpegEvtHandle(jpeg_job_status_t status,
 int QCamera2HardwareInterface::thermalEvtHandle(
         qcamera_thermal_level_enum_t level, void *userdata, void *data)
 {
+    if (!mCameraOpened) {
+        ALOGI("%s: Camera is not opened, no need to handle thermal evt", __func__);
+        return NO_ERROR;
+    }
+
     // Make sure thermal events are logged
     ALOGI("%s: level = %d, userdata = %p, data = %p",
         __func__, level, userdata, data);
@@ -3222,7 +3241,7 @@ QCameraReprocessChannel *QCamera2HardwareInterface::addOnlineReprocChannel(
         }
     }
 
-    uint8_t minStreamBufNum = mParameters.getNumOfSnapshots();
+    uint8_t minStreamBufNum = getBufNumRequired(CAM_STREAM_TYPE_OFFLINE_PROC);
     rc = pChannel->addReprocStreamsFromSource(*this,
                                               pp_config,
                                               pInputChannel,
