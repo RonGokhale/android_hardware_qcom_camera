@@ -1,4 +1,4 @@
-/*Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/*Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are
@@ -30,6 +30,10 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
 #define __QEXIF_H__
 
 #include <stdio.h>
+#include <linux/types.h>
+#include <stdint.h>
+#include <inttypes.h>
+#include <stddef.h>
 
 /* Exif Info (opaque definition) */
 struct exif_info_t;
