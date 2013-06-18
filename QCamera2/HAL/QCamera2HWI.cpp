@@ -929,7 +929,7 @@ QCamera2HardwareInterface::QCamera2HardwareInterface(int cameraId)
       m_thermalAdapter(QCameraThermalAdapter::getInstance()),
       m_cbNotifier(this),
       m_bShutterSoundPlayed(false),
-      m_currentFocusState(CAM_AF_NOT_FOCUSED),
+      m_currentFocusState(CAM_AF_SCANNING),
       m_pPowerModule(NULL),
       mDumpFrmCnt(0),
       mDumpSkipCnt(0)
@@ -1866,7 +1866,7 @@ int QCamera2HardwareInterface::autoFocus()
     case CAM_FOCUS_MODE_EDOF:
     default:
         ALOGE("%s: No ops in focusMode (%d)", __func__, focusMode);
-        rc = BAD_VALUE;
+        rc = sendEvtNotify(CAMERA_MSG_FOCUS, true, 0);
         break;
     }
     return rc;
@@ -3910,7 +3910,15 @@ int QCamera2HardwareInterface::updateParameters(const char *parms, bool &needRes
     String8 str = String8(parms);
     QCameraParameters param(str);
     rc =  mParameters.updateParameters(param, needRestart);
+
+    // update stream based parameter settings
+    for (int i = 0; i < QCAMERA_CH_TYPE_MAX; i++) {
+        if (m_channels[i] != NULL) {
+            m_channels[i]->UpdateStreamBasedParameters(mParameters);
+        }
+    }
     pthread_mutex_unlock(&m_parm_lock);
+
     return rc;
 }
 
