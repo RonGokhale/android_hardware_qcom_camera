@@ -112,8 +112,6 @@ void QCamera2HardwareInterface::capture_channel_cb_routine(mm_camera_super_buf_t
         pme->mCameraHandle == NULL ||
         pme->mCameraHandle->camera_handle != recvd_frame->camera_handle){
         ALOGE("%s: camera obj not valid", __func__);
-        // simply free super frame
-        free(recvd_frame);
         return;
     }
 
@@ -202,8 +200,6 @@ void QCamera2HardwareInterface::postproc_channel_cb_routine(mm_camera_super_buf_
         pme->mCameraHandle == NULL ||
         pme->mCameraHandle->camera_handle != recvd_frame->camera_handle){
         ALOGE("%s: camera obj not valid", __func__);
-        // simply free super frame
-        free(recvd_frame);
         return;
     }
 
@@ -785,6 +781,13 @@ void QCamera2HardwareInterface::metadata_stream_cb_routine(mm_camera_super_buf_t
             }
         } else {
             ALOGE("%s: No memory for prep_snapshot qcamera_sm_internal_evt_payload_t", __func__);
+        }
+    }
+
+    if (pMetaData->is_hdr_scene_data_valid) {
+        int32_t rc = pme->processHDRData(pMetaData->hdr_scene_data);
+        if (rc != NO_ERROR) {
+            ALOGE("%s: processHDRData failed", __func__);
         }
     }
 
