@@ -1316,9 +1316,7 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
         break;
     case CAM_STREAM_TYPE_VIDEO:
         {
-            bufferCnt = CAMERA_MIN_VIDEO_BUFFERS +
-                        mParameters.getMaxUnmatchedFramesInQueue() +
-                        CAMERA_MIN_STREAMING_BUFFERS;
+            bufferCnt = CAMERA_MIN_VIDEO_BUFFERS;
         }
         break;
     case CAM_STREAM_TYPE_METADATA:
@@ -1509,6 +1507,18 @@ QCameraHeapMemory *QCamera2HardwareInterface::allocateStreamInfoBuf(
         }
     }
 
+    if (!isZSLMode()) {
+        if (gCamCapability[mCameraId]->min_required_pp_mask & CAM_QCOM_FEATURE_SHARPNESS) {
+            streamInfo->pp_config.feature_mask |= CAM_QCOM_FEATURE_SHARPNESS;
+            streamInfo->pp_config.sharpness = mParameters.getInt(QCameraParameters::KEY_QC_SHARPNESS);
+        }
+        if (mParameters.isWNREnabled()) {
+            streamInfo->pp_config.feature_mask |= CAM_QCOM_FEATURE_DENOISE2D;
+            streamInfo->pp_config.denoise2d.denoise_enable = 1;
+            streamInfo->pp_config.denoise2d.process_plates = mParameters.getWaveletDenoiseProcessPlate();
+        }
+    }
+
     return streamInfoBuf;
 }
 
@@ -1674,11 +1684,8 @@ int QCamera2HardwareInterface::stopPreview()
 {
     ALOGD("%s: E", __func__);
     // stop preview stream
-    if (mParameters.isZSLMode() && mParameters.getRecordingHintValue() !=true) {
-        stopChannel(QCAMERA_CH_TYPE_ZSL);
-    } else {
-        stopChannel(QCAMERA_CH_TYPE_PREVIEW);
-    }
+    stopChannel(QCAMERA_CH_TYPE_ZSL);
+    stopChannel(QCAMERA_CH_TYPE_PREVIEW);
 
     // delete all channels from preparePreview
     unpreparePreview();
@@ -1721,8 +1728,7 @@ int QCamera2HardwareInterface::startRecording()
     ALOGD("%s: E", __func__);
     if (mParameters.getRecordingHintValue() == false) {
         ALOGE("%s: start recording when hint is false, stop preview first", __func__);
-        stopChannel(QCAMERA_CH_TYPE_PREVIEW);
-        delChannel(QCAMERA_CH_TYPE_PREVIEW);
+        stopPreview();
 
         // Set recording hint to TRUE
         mParameters.updateRecordingHintValue(TRUE);
@@ -3498,15 +3504,10 @@ int32_t QCamera2HardwareInterface::preparePreview()
  *==========================================================================*/
 void QCamera2HardwareInterface::unpreparePreview()
 {
-    if (mParameters.isZSLMode() && mParameters.getRecordingHintValue() !=true) {
-        delChannel(QCAMERA_CH_TYPE_ZSL);
-    } else {
-        delChannel(QCAMERA_CH_TYPE_PREVIEW);
-        if(mParameters.getRecordingHintValue() == true) {
-            delChannel(QCAMERA_CH_TYPE_VIDEO);
-            delChannel(QCAMERA_CH_TYPE_SNAPSHOT);
-        }
-    }
+    delChannel(QCAMERA_CH_TYPE_ZSL);
+    delChannel(QCAMERA_CH_TYPE_PREVIEW);
+    delChannel(QCAMERA_CH_TYPE_VIDEO);
+    delChannel(QCAMERA_CH_TYPE_SNAPSHOT);
 }
 
 /*===========================================================================
@@ -3790,6 +3791,49 @@ int32_t QCamera2HardwareInterface::processHistogramStats(cam_hist_stats_t &stats
         histBuffer->release(histBuffer);
     }
     return NO_ERROR;
+}
+
+/*===========================================================================
+ * FUNCTION   : processHDRData
+ *
+ * DESCRIPTION: process incoming hdr algo data
+ *
+ * PARAMETERS :
+ *   @confidence : hdr algo confidence level
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCamera2HardwareInterface::processHDRData(cam_asd_hdr_scene_data_t hdr_scene)
+{
+    int rc = NO_ERROR;
+
+    if ( msgTypeEnabled(CAMERA_MSG_META_DATA) ) {
+        camera_memory_t *hdrBuffer = mGetMemory(-1,
+                                                 sizeof(cam_asd_hdr_scene_data_t),
+                                                 1,
+                                                 mCallbackCookie);
+        if ( NULL == hdrBuffer ) {
+            ALOGE("%s: Not enough memory for auto hdr data",
+                  __func__);
+            return NO_MEMORY;
+        }
+
+        memcpy(hdrBuffer->data, &hdr_scene, sizeof(cam_asd_hdr_scene_data_t));
+        qcamera_callback_argm_t cbArg;
+        memset(&cbArg, 0, sizeof(qcamera_callback_argm_t));
+        cbArg.cb_type = QCAMERA_DATA_CALLBACK;
+        cbArg.msg_type = CAMERA_MSG_META_DATA;
+        cbArg.data = hdrBuffer;
+        cbArg.user_data = hdrBuffer;
+        cbArg.cookie = this;
+        cbArg.release_cb = releaseCameraMemory;
+        m_cbNotifier.notifyCallback(cbArg);
+
+    }
+
+    return rc;
 }
 
 /*===========================================================================

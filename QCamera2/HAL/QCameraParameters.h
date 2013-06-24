@@ -528,8 +528,7 @@ private:
     String8 createFpsRangeString(const cam_fps_range_t *fps,
                                  int len,
                                  int &default_fps_index);
-    static int compareFPSValues(const void *p1, const void *p2);
-    String8 createFpsString(const cam_fps_range_t *fps, int len);
+    String8 createFpsString(cam_fps_range_t &fps);
     String8 createZoomRatioValuesString(int *zoomRatios, int length);
     int lookupAttr(const QCameraMap arr[], int len, const char *name);
     const char *lookupNameByValue(const QCameraMap arr[], int len, int value);
@@ -600,6 +599,7 @@ private:
     bool m_bPreviewFlipChanged;        // if flip setting for preview changed
     bool m_bVideoFlipChanged;          // if flip setting for video changed
     bool m_bSnapshotFlipChanged;       // if flip setting for snapshot changed
+    bool m_bFixedFrameRateSet;      // Indicates that a fixed frame rate is set
     qcamera_thermal_mode m_ThermalMode; // adjust fps vs adjust frameskip
     cam_dimension_t m_LiveSnapshotSize; // live snapshot size
 
