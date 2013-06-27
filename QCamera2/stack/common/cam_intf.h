@@ -30,8 +30,8 @@
 #ifndef __QCAMERA_INTF_H__
 #define __QCAMERA_INTF_H__
 
-#include <media/msmb_isp.h>
 #include "cam_types.h"
+#include <media/msmb_isp.h>
 
 #define CAM_PRIV_IOCTL_BASE (V4L2_CID_PRIVATE_BASE + 14)
 typedef enum {
