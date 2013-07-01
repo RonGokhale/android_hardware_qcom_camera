@@ -34,14 +34,18 @@ static void mm_app_preview_notify_cb(mm_camera_super_buf_t *bufs,
                                      void *user_data)
 {
     char file_name[64];
+    static int i = 0;
     mm_camera_buf_def_t *frame = bufs->bufs[0];
     mm_camera_test_obj_t *pme = (mm_camera_test_obj_t *)user_data;
 
     CDBG("%s: BEGIN - length=%d, frame idx = %d\n",
          __func__, frame->frame_len, frame->frame_idx);
     snprintf(file_name, sizeof(file_name), "P_C%d", pme->cam->camera_handle);
-    mm_app_dump_frame(frame, file_name, "yuv", frame->frame_idx);
-
+    i++;
+    if(i==50) { //dump one frame out of 50 frames.
+        mm_app_dump_frame(frame, file_name, "yuv", frame->frame_idx);
+        i = 0;
+    }
     if (MM_CAMERA_OK != pme->cam->ops->qbuf(bufs->camera_handle,
                                             bufs->ch_id,
                                             frame)) {

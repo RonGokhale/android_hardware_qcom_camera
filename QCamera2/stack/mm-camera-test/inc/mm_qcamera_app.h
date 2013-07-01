@@ -137,6 +137,7 @@ typedef struct {
     mm_camera_super_buf_t* current_job_frames;
     uint32_t current_job_id;
     mm_camera_app_buf_t jpeg_buf;
+    parm_buffer_t *params_buffer;
 } mm_camera_test_obj_t;
 
 typedef struct {
@@ -248,6 +249,7 @@ extern int mm_app_start_capture(mm_camera_test_obj_t *test_obj,
 extern int mm_app_stop_capture(mm_camera_test_obj_t *test_obj);
 extern int mm_app_start_rdi(mm_camera_test_obj_t *test_obj, uint8_t num_burst);
 extern int mm_app_stop_rdi(mm_camera_test_obj_t *test_obj);
+extern int mm_app_take_picture(mm_camera_test_obj_t *test_obj);
 
 #endif /* __MM_QCAMERA_APP_H__ */
 
