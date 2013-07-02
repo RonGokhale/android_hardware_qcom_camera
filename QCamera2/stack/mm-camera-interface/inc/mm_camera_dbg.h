@@ -30,9 +30,12 @@
 #ifndef __MM_CAMERA_DBG_H__
 #define __MM_CAMERA_DBG_H__
 
-//#define LOG_DEBUG 1
+#undef CDBG
+#undef LOGE
+//#define LOG_DEBUG
 
 #ifndef LOG_DEBUG
+  #define CDBG(fmt, args...) do{}while(0)
   #ifdef _ANDROID_
     #undef LOG_NIDEBUG
     #undef LOG_TAG
@@ -41,11 +44,8 @@
     #include <utils/Log.h>
   #else
     #include <stdio.h>
-    #define ALOGE CDBG
+    #define LOGE(fmt, args...) do {} while (0)
   #endif
-  #undef CDBG
-  #define CDBG(fmt, args...) do{}while(0)
-  #define CDBG_ERROR(fmt, args...) ALOGE(fmt, ##args)
 #else
   #ifdef _ANDROID_
     #undef LOG_NIDEBUG
@@ -56,16 +56,20 @@
     #define CDBG(fmt, args...) ALOGE(fmt, ##args)
   #else
     #include <stdio.h>
-    #define CDBG(fmt, args...) fprintf(stderr, fmt, ##args)
-    #define ALOGE(fmt, args...) fprintf(stderr, fmt, ##args)
+    #define CDBG(fmt, args...) fprintf(stderr, ""fmt"\n", ##args)
+    #define LOGE(fmt, args...) fprintf(stderr, ""fmt"\n", ##args)
   #endif
 #endif
 
 #ifdef _ANDROID_
-  #define CDBG_HIGH(fmt, args...)  ALOGD(fmt, ##args)
+  #define CDBG_HIGH(fmt, args...)  ALOGE(fmt, ##args)
   #define CDBG_ERROR(fmt, args...)  ALOGE(fmt, ##args)
+  #define CDBG_LOW(fmt, args...) ALOGE(fmt, ##args)
 #else
-  #define CDBG_HIGH(fmt, args...) fprintf(stderr, fmt, ##args)
-  #define CDBG_ERROR(fmt, args...) fprintf(stderr, fmt, ##args)
+  #define ALOGE(fmt, args...) fprintf(stderr, ""fmt"\n", ##args)
+  #define CDBG_HIGH(fmt, args...) fprintf(stderr, ""fmt"\n", ##args)
+  #define CDBG_ERROR(fmt, args...) fprintf(stderr, ""fmt"\n", ##args)
+  #define CDBG_LOW(fmt, args...) fprintf(stderr, ""fmt"\n", ##args)
 #endif
+
 #endif /* __MM_CAMERA_DBG_H__ */

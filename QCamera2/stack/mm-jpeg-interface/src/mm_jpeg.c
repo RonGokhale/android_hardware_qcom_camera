@@ -34,6 +34,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <poll.h>
+#include <assert.h>
 
 #include "mm_jpeg_dbg.h"
 #include "mm_jpeg_interface.h"
@@ -1397,6 +1398,8 @@ error:
  **/
 static inline void mm_jpeg_job_done(mm_jpeg_job_session_t *p_session)
 {
+  assert(p_session != NULL);
+
   mm_jpeg_obj *my_obj = (mm_jpeg_obj *)p_session->jpeg_obj;
   mm_jpeg_job_q_node_t *node = NULL;
 
@@ -2247,6 +2250,8 @@ OMX_ERRORTYPE mm_jpeg_ebd(OMX_HANDLETYPE hComponent,
   OMX_BUFFERHEADERTYPE *pBuffer)
 {
   OMX_ERRORTYPE ret = OMX_ErrorNone;
+  assert(pAppData != NULL);
+
   mm_jpeg_job_session_t *p_session = (mm_jpeg_job_session_t *) pAppData;
 
   CDBG("%s:%d] count %d ", __func__, __LINE__, p_session->ebd_count);
@@ -2261,6 +2266,12 @@ OMX_ERRORTYPE mm_jpeg_fbd(OMX_HANDLETYPE hComponent,
   OMX_BUFFERHEADERTYPE *pBuffer)
 {
   OMX_ERRORTYPE ret = OMX_ErrorNone;
+
+  CDBG("%s: Enter", __func__);
+
+  assert(pAppData != NULL);
+  assert(pBuffer != NULL);
+
   mm_jpeg_job_session_t *p_session = (mm_jpeg_job_session_t *) pAppData;
   uint32_t i = 0;
   int rc = 0;
@@ -2292,7 +2303,8 @@ OMX_ERRORTYPE mm_jpeg_fbd(OMX_HANDLETYPE hComponent,
     mm_jpeg_job_done(p_session);
   }
   pthread_mutex_unlock(&p_session->lock);
-  CDBG("%s:%d] ", __func__, __LINE__);
+
+  CDBG("%s: Exit", __func__);
 
   return ret;
 }
@@ -2428,6 +2440,10 @@ mm_jpeg_job_q_node_t* mm_jpeg_queue_remove_job_by_job_id(
   struct cam_list *head = NULL;
   struct cam_list *pos = NULL;
 
+  CDBG("%s: Enter");
+
+  assert(queue != NULL);
+
   pthread_mutex_lock(&queue->lock);
   head = &queue->head.list;
   pos = head->next;
@@ -2436,7 +2452,7 @@ mm_jpeg_job_q_node_t* mm_jpeg_queue_remove_job_by_job_id(
     data = (mm_jpeg_job_q_node_t *)node->data;
 
     if (data && (data->enc_info.job_id == job_id)) {
-      CDBG_ERROR("%s:%d] found matching job id", __func__, __LINE__);
+      CDBG("%s:%d] found matching job id", __func__, __LINE__);
       job_node = data;
       cam_list_del_node(&node->list);
       queue->size--;
@@ -2447,6 +2463,8 @@ mm_jpeg_job_q_node_t* mm_jpeg_queue_remove_job_by_job_id(
   }
 
   pthread_mutex_unlock(&queue->lock);
+
+  CDBG("%s: Exit");
 
   return job_node;
 }

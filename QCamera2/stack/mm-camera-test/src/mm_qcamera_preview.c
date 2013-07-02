@@ -29,31 +29,30 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "mm_qcamera_dbg.h"
 #include "mm_qcamera_app.h"
+#include <assert.h>
 
 static void mm_app_preview_notify_cb(mm_camera_super_buf_t *bufs,
                                      void *user_data)
 {
     char file_name[64];
-    static int i = 0;
-    int rc = MM_CAMERA_OK;
+    int rc;
+
     mm_camera_buf_def_t *frame = bufs->bufs[0];
     mm_camera_test_obj_t *pme = (mm_camera_test_obj_t *)user_data;
 
-    CDBG("%s: BEGIN - length=%d, frame idx = %d\n",__func__, frame->frame_len, frame->frame_idx);
-    if(MM_CAMERA_OK != (rc = mm_app_dl_render(frame->fd, pme))) {
-       CDBG_HIGH("\n%s mm_app_dl_render failed=%d\n",__func__,rc);
-    }
-    snprintf(file_name, sizeof(file_name), "P_C%d", pme->cam->camera_handle);
-    i++;
-    if(i==50) { //dump one frame out of 50 frames.
+    CDBG("%s: BEGIN - frame length=%d, frame idx = %d\n", __func__, frame->frame_len, frame->frame_idx);
+
+    rc = mm_app_dl_render(frame->fd, pme);
+    assert(rc == MM_CAMERA_OK);
+
+    if (0  == frame->frame_idx % PREIVEW_FRAMEDUMP_INTERVAL) {
+        snprintf(file_name, sizeof(file_name), "P_C%d", pme->cam->camera_handle);
         mm_app_dump_frame(frame, file_name, "yuv", frame->frame_idx);
-        i = 0;
     }
-    if (MM_CAMERA_OK != pme->cam->ops->qbuf(bufs->camera_handle,
-                                            bufs->ch_id,
-                                            frame)) {
-        CDBG_ERROR("%s: Failed in Preview Qbuf\n", __func__);
-    }
+
+    rc = pme->cam->ops->qbuf(bufs->camera_handle, bufs->ch_id, frame);
+    assert(rc == MM_CAMERA_OK);
+
     mm_app_cache_ops((mm_camera_app_meminfo_t *)frame->mem_info,
                      ION_IOC_INV_CACHES);
 
@@ -63,7 +62,7 @@ static void mm_app_preview_notify_cb(mm_camera_super_buf_t *bufs,
 static void mm_app_zsl_notify_cb(mm_camera_super_buf_t *bufs,
                                  void *user_data)
 {
-    int i = 0;
+    int i = 0, rc;
     mm_camera_test_obj_t *pme = (mm_camera_test_obj_t *)user_data;
     mm_camera_channel_t *channel = NULL;
     mm_camera_stream_t *p_stream = NULL;
@@ -80,10 +79,7 @@ static void mm_app_zsl_notify_cb(mm_camera_super_buf_t *bufs,
             break;
         }
     }
-    if (NULL == channel) {
-        CDBG_ERROR("%s: Wrong channel id (%d)", __func__, bufs->ch_id);
-        return;
-    }
+    assert(NULL != channel);
 
     /* find preview stream */
     for (i = 0; i < channel->num_streams; i++) {
@@ -92,10 +88,7 @@ static void mm_app_zsl_notify_cb(mm_camera_super_buf_t *bufs,
             break;
         }
     }
-    if (NULL == p_stream) {
-        CDBG_ERROR("%s: cannot find preview stream", __func__);
-        return;
-    }
+    assert(NULL != p_stream);
 
     /* find snapshot stream */
     for (i = 0; i < channel->num_streams; i++) {
@@ -104,10 +97,7 @@ static void mm_app_zsl_notify_cb(mm_camera_super_buf_t *bufs,
             break;
         }
     }
-    if (NULL == m_stream) {
-        CDBG_ERROR("%s: cannot find snapshot stream", __func__);
-        return;
-    }
+    assert(NULL != m_stream);
 
     /* find preview frame */
     for (i = 0; i < bufs->num_bufs; i++) {
@@ -116,6 +106,7 @@ static void mm_app_zsl_notify_cb(mm_camera_super_buf_t *bufs,
             break;
         }
     }
+    assert(NULL != p_frame);
 
     /* find snapshot frame */
     for (i = 0; i < bufs->num_bufs; i++) {
@@ -124,29 +115,30 @@ static void mm_app_zsl_notify_cb(mm_camera_super_buf_t *bufs,
             break;
         }
     }
+    assert(NULL != m_frame);
 
-    if (!m_frame || !p_frame) {
-        CDBG_ERROR("%s: cannot find preview/snapshot frame", __func__);
-        return;
+    //render preview frame
+    rc = mm_app_dl_render(p_frame->fd, pme);
+    assert(MM_CAMERA_OK == rc);
+
+    if (0  == p_frame->frame_idx % PREIVEW_FRAMEDUMP_INTERVAL) {
+        mm_app_dump_frame(p_frame, "zsl_preview", "yuv", p_frame->frame_idx);
+        mm_app_dump_frame(m_frame, "zsl_main", "yuv", m_frame->frame_idx);
     }
 
-    mm_app_dump_frame(p_frame, "zsl_preview", "yuv", p_frame->frame_idx);
-    mm_app_dump_frame(m_frame, "zsl_main", "yuv", m_frame->frame_idx);
-
-    if (MM_CAMERA_OK != pme->cam->ops->qbuf(bufs->camera_handle,
+    rc = pme->cam->ops->qbuf(bufs->camera_handle,
                                             bufs->ch_id,
-                                            p_frame)) {
-        CDBG_ERROR("%s: Failed in preview Qbuf\n", __func__);
-    }
+                                            p_frame);
+    assert(MM_CAMERA_OK == rc);
+
     mm_app_cache_ops((mm_camera_app_meminfo_t *)p_frame->mem_info,
                      ION_IOC_INV_CACHES);
 
-
-    if (MM_CAMERA_OK != pme->cam->ops->qbuf(bufs->camera_handle,
+    rc = pme->cam->ops->qbuf(bufs->camera_handle,
                                             bufs->ch_id,
-                                            m_frame)) {
-        CDBG_ERROR("%s: Failed in main Qbuf\n", __func__);
-    }
+                                            m_frame);
+    assert(MM_CAMERA_OK == rc);
+
     mm_app_cache_ops((mm_camera_app_meminfo_t *)m_frame->mem_info,
                      ION_IOC_INV_CACHES);
 
@@ -177,23 +169,28 @@ mm_camera_stream_t * mm_app_add_preview_stream(mm_camera_test_obj_t *test_obj,
     stream->s_config.mem_vtbl.user_data = (void *)stream;
     stream->s_config.stream_cb = stream_cb;
     stream->s_config.userdata = userdata;
-    stream->num_of_bufs = num_bufs;
+
+    uint8_t min_bufs = CAMERA_MIN_STREAMING_BUFFERS + CAMERA_MIN_JPEG_ENCODING_BUFFERS + 1;
+
+    if(num_bufs < min_bufs)
+        stream->num_of_bufs = min_bufs;
+    else
+        stream->num_of_bufs = num_bufs;
 
     stream->s_config.stream_info = (cam_stream_info_t *)stream->s_info_buf.buf.buffer;
     memset(stream->s_config.stream_info, 0, sizeof(cam_stream_info_t));
     stream->s_config.stream_info->stream_type = CAM_STREAM_TYPE_PREVIEW;
     stream->s_config.stream_info->streaming_mode = CAM_STREAMING_MODE_CONTINUOUS;
-    stream->s_config.stream_info->fmt = DEFAULT_PREVIEW_FORMAT;
-    stream->s_config.stream_info->dim.width = test_obj->preview_resolution.user_input_display_width;
-    stream->s_config.stream_info->dim.height = test_obj->preview_resolution.user_input_display_height;
+    stream->s_config.stream_info->fmt = test_obj->app_handle->preview_format; //DEFAULT_PREVIEW_FORMAT;
+    stream->s_config.stream_info->dim.width = test_obj->app_handle->preview_width; //DEFAULT_PREVIEW_WIDTH;
+    stream->s_config.stream_info->dim.height = test_obj->app_handle->preview_height; //DEFAULT_PREVIEW_HEIGHT;
     stream->s_config.padding_info = cam_cap->padding_info;
 
-    CDBG_HIGH("\nPreview W=%d & H=%d\n",test_obj->preview_resolution.user_input_display_width,test_obj->preview_resolution.user_input_display_height);
+    CDBG_HIGH("\nPreview W=%d & H=%d\n",test_obj->app_handle->preview_width,
+        test_obj->app_handle->preview_height);
+
     rc = mm_app_config_stream(test_obj, channel, stream, &stream->s_config);
-    if (MM_CAMERA_OK != rc) {
-        CDBG_ERROR("%s:config preview stream err=%d\n", __func__, rc);
-        return NULL;
-    }
+    assert(MM_CAMERA_OK == rc);
 
     return stream;
 }
@@ -210,10 +207,7 @@ mm_camera_stream_t * mm_app_add_snapshot_stream(mm_camera_test_obj_t *test_obj,
     cam_capability_t *cam_cap = (cam_capability_t *)(test_obj->cap_buf.buf.buffer);
 
     stream = mm_app_add_stream(test_obj, channel);
-    if (NULL == stream) {
-        CDBG_ERROR("%s: add stream failed\n", __func__);
-        return NULL;
-    }
+    assert(NULL != stream);
 
     stream->s_config.mem_vtbl.get_bufs = mm_app_stream_initbuf;
     stream->s_config.mem_vtbl.put_bufs = mm_app_stream_deinitbuf;
@@ -223,27 +217,40 @@ mm_camera_stream_t * mm_app_add_snapshot_stream(mm_camera_test_obj_t *test_obj,
     stream->s_config.mem_vtbl.user_data = (void *)stream;
     stream->s_config.stream_cb = stream_cb;
     stream->s_config.userdata = userdata;
-    stream->num_of_bufs = num_bufs;
+
+	uint8_t min_bufs = num_burst + CAMERA_MIN_STREAMING_BUFFERS +
+                                CAMERA_MIN_JPEG_ENCODING_BUFFERS + 1;
+
+    if(num_bufs < min_bufs)
+        stream->num_of_bufs = min_bufs;
+    else
+        stream->num_of_bufs = num_bufs;
 
     stream->s_config.stream_info = (cam_stream_info_t *)stream->s_info_buf.buf.buffer;
     memset(stream->s_config.stream_info, 0, sizeof(cam_stream_info_t));
     stream->s_config.stream_info->stream_type = CAM_STREAM_TYPE_SNAPSHOT;
-    if (num_burst == 0) {
-        stream->s_config.stream_info->streaming_mode = CAM_STREAMING_MODE_CONTINUOUS;
-    } else {
+
+    if (num_burst > 1) {
         stream->s_config.stream_info->streaming_mode = CAM_STREAMING_MODE_BURST;
-        stream->s_config.stream_info->num_of_burst = num_burst;
+        /* Info: There could be some frame mismatch in the frameIDs of postview
+           and snapshot images. This may result in not getting callback as the
+           mm-camera interface tries to match the two IDs before giving callback
+           for super buff. To compensate it, configure num_bursts to be slightly
+           higher than what is requested. There is a logic in test app to discard
+           additional callbacks
+        */
+        stream->s_config.stream_info->num_of_burst = num_burst + CAMERA_FRAME_ID_OFFSET;
+    } else {
+        stream->s_config.stream_info->streaming_mode = CAM_STREAMING_MODE_CONTINUOUS;
     }
-    stream->s_config.stream_info->fmt = DEFAULT_SNAPSHOT_FORMAT;
-    stream->s_config.stream_info->dim.width = DEFAULT_SNAPSHOT_WIDTH;
-    stream->s_config.stream_info->dim.height = DEFAULT_SNAPSHOT_HEIGHT;
+
+    stream->s_config.stream_info->fmt = test_obj->app_handle->snapshot_format;  //DEFAULT_SNAPSHOT_FORMAT;
+    stream->s_config.stream_info->dim.width = test_obj->app_handle->snapshot_width; //DEFAULT_SNAPSHOT_WIDTH;
+    stream->s_config.stream_info->dim.height = test_obj->app_handle->snapshot_height; //DEFAULT_SNAPSHOT_HEIGHT;
     stream->s_config.padding_info = cam_cap->padding_info;
 
     rc = mm_app_config_stream(test_obj, channel, stream, &stream->s_config);
-    if (MM_CAMERA_OK != rc) {
-        CDBG_ERROR("%s:config preview stream err=%d\n", __func__, rc);
-        return NULL;
-    }
+    assert(MM_CAMERA_OK == rc);
 
     return stream;
 }
@@ -258,21 +265,14 @@ mm_camera_channel_t * mm_app_add_preview_channel(mm_camera_test_obj_t *test_obj)
                                  NULL,
                                  NULL,
                                  NULL);
-    if (NULL == channel) {
-        CDBG_ERROR("%s: add channel failed", __func__);
-        return NULL;
-    }
+    assert (NULL != channel);
 
     stream = mm_app_add_preview_stream(test_obj,
                                        channel,
                                        mm_app_preview_notify_cb,
                                        (void *)test_obj,
                                        PREVIEW_BUF_NUM);
-    if (NULL == stream) {
-        CDBG_ERROR("%s: add stream failed\n", __func__);
-        mm_app_del_channel(test_obj, channel);
-        return NULL;
-    }
+    assert(NULL != stream);
 
     return channel;
 }
@@ -285,22 +285,16 @@ int mm_app_stop_and_del_channel(mm_camera_test_obj_t *test_obj,
     uint8_t i;
 
     rc = mm_app_stop_channel(test_obj, channel);
-    if (MM_CAMERA_OK != rc) {
-        CDBG_ERROR("%s:Stop Preview failed rc=%d\n", __func__, rc);
-    }
+    assert(MM_CAMERA_OK == rc);
 
     for (i = 0; i < channel->num_streams; i++) {
         stream = &channel->streams[i];
         rc = mm_app_del_stream(test_obj, channel, stream);
-        if (MM_CAMERA_OK != rc) {
-            CDBG_ERROR("%s:del stream(%d) failed rc=%d\n", __func__, i, rc);
-        }
+        assert(MM_CAMERA_OK == rc);
     }
 
     rc = mm_app_del_channel(test_obj, channel);
-    if (MM_CAMERA_OK != rc) {
-        CDBG_ERROR("%s:delete channel failed rc=%d\n", __func__, rc);
-    }
+    assert(MM_CAMERA_OK == rc);
 
     return rc;
 }
@@ -313,21 +307,11 @@ int mm_app_start_preview(mm_camera_test_obj_t *test_obj)
     uint8_t i;
 
     channel =  mm_app_add_preview_channel(test_obj);
-    if (NULL == channel) {
-        CDBG_ERROR("%s: add channel failed", __func__);
-        return -MM_CAMERA_E_GENERAL;
-    }
+    assert(NULL != channel);
 
     rc = mm_app_start_channel(test_obj, channel);
-    if (MM_CAMERA_OK != rc) {
-        CDBG_ERROR("%s:start preview failed rc=%d\n", __func__, rc);
-        for (i = 0; i < channel->num_streams; i++) {
-            stream = &channel->streams[i];
-            mm_app_del_stream(test_obj, channel, stream);
-        }
-        mm_app_del_channel(test_obj, channel);
-        return rc;
-    }
+    assert(MM_CAMERA_OK == rc);
+
     //Launch display thread.
     launch_camframe_fb_thread();
 
@@ -342,9 +326,8 @@ int mm_app_stop_preview(mm_camera_test_obj_t *test_obj)
         mm_app_get_channel_by_type(test_obj, MM_CHANNEL_TYPE_PREVIEW);
 
     rc = mm_app_stop_and_del_channel(test_obj, channel);
-    if (MM_CAMERA_OK != rc) {
-        CDBG_ERROR("%s:Stop Preview failed rc=%d\n", __func__, rc);
-    }
+    assert(MM_CAMERA_OK == rc);
+
     //Release display thread.
     release_camframe_fb_thread();
     return rc;
@@ -369,21 +352,14 @@ int mm_app_start_preview_zsl(mm_camera_test_obj_t *test_obj)
                                  &attr,
                                  mm_app_zsl_notify_cb,
                                  test_obj);
-    if (NULL == channel) {
-        CDBG_ERROR("%s: add channel failed", __func__);
-        return -MM_CAMERA_E_GENERAL;
-    }
+    assert(NULL != channel);
 
     s_preview = mm_app_add_preview_stream(test_obj,
                                           channel,
                                           mm_app_preview_notify_cb,
                                           (void *)test_obj,
                                           PREVIEW_BUF_NUM);
-    if (NULL == s_preview) {
-        CDBG_ERROR("%s: add preview stream failed\n", __func__);
-        mm_app_del_channel(test_obj, channel);
-        return rc;
-    }
+    assert(NULL != s_preview);
 
     s_main = mm_app_add_snapshot_stream(test_obj,
                                         channel,
@@ -391,21 +367,13 @@ int mm_app_start_preview_zsl(mm_camera_test_obj_t *test_obj)
                                         NULL,
                                         PREVIEW_BUF_NUM,
                                         0);
-    if (NULL == s_main) {
-        CDBG_ERROR("%s: add main snapshot stream failed\n", __func__);
-        mm_app_del_stream(test_obj, channel, s_preview);
-        mm_app_del_channel(test_obj, channel);
-        return rc;
-    }
+    assert(NULL != s_main);
 
     rc = mm_app_start_channel(test_obj, channel);
-    if (MM_CAMERA_OK != rc) {
-        CDBG_ERROR("%s:start zsl failed rc=%d\n", __func__, rc);
-        mm_app_del_stream(test_obj, channel, s_preview);
-        mm_app_del_stream(test_obj, channel, s_main);
-        mm_app_del_channel(test_obj, channel);
-        return rc;
-    }
+    assert(MM_CAMERA_OK == rc);
+
+    //Launch display thread.
+    launch_camframe_fb_thread();
 
     return rc;
 }
@@ -418,9 +386,9 @@ int mm_app_stop_preview_zsl(mm_camera_test_obj_t *test_obj)
         mm_app_get_channel_by_type(test_obj, MM_CHANNEL_TYPE_ZSL);
 
     rc = mm_app_stop_and_del_channel(test_obj, channel);
-    if (MM_CAMERA_OK != rc) {
-        CDBG_ERROR("%s:Stop Preview failed rc=%d\n", __func__, rc);
-    }
+    assert(MM_CAMERA_OK == rc);
+
+    release_camframe_fb_thread();
 
     return rc;
 }

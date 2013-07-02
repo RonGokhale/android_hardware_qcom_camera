@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -43,13 +43,20 @@
 
 #define MM_QCAMERA_APP_INTERATION 1
 
-#define MM_APP_MAX_DUMP_FRAME_NUM 1000
+#define PREIVEW_FRAMEDUMP_INTERVAL 50
 
 #define PREVIEW_BUF_NUM 7
 #define VIDEO_BUF_NUM 7
 #define ISP_PIX_BUF_NUM 9
 #define STATS_BUF_NUM 4
 #define RDI_BUF_NUM 8
+
+#define CAMERA_MIN_STREAMING_BUFFERS     5
+#define CAMERA_MIN_JPEG_ENCODING_BUFFERS 2
+#define CAMERA_MIN_VIDEO_BUFFERS         9
+#define CAMERA_FRAME_ID_OFFSET           1
+
+ #define CAMERA_MAX_JPEG_SESSIONS (CAMERA_MIN_JPEG_ENCODING_BUFFERS + CAMERA_MIN_STREAMING_BUFFERS + 1)
 
 #define DEFAULT_PREVIEW_FORMAT    CAM_FORMAT_YUV_420_NV21
 #define DEFAULT_PREVIEW_WIDTH     800
@@ -130,23 +137,6 @@ typedef struct {
 } USER_INPUT_DISPLAY_T;
 
 typedef struct {
-    mm_camera_vtbl_t *cam;
-    uint8_t num_channels;
-    mm_camera_channel_t channels[MM_CHANNEL_TYPE_MAX];
-    mm_jpeg_ops_t jpeg_ops;
-    uint32_t jpeg_hdl;
-    mm_camera_app_buf_t cap_buf;
-    mm_camera_app_buf_t parm_buf;
-
-    uint32_t current_jpeg_sess_id;
-    mm_camera_super_buf_t* current_job_frames;
-    uint32_t current_job_id;
-    mm_camera_app_buf_t jpeg_buf;
-    parm_buffer_t *params_buffer;
-    USER_INPUT_DISPLAY_T preview_resolution;
-} mm_camera_test_obj_t;
-
-typedef struct {
   void *ptr;
   void* ptr_jpeg;
 
@@ -156,9 +146,48 @@ typedef struct {
 } hal_interface_lib_t;
 
 typedef struct {
-    uint8_t num_cameras;
+    uint16_t num_cameras;
+    int32_t preview_width;
+    int32_t preview_height;
+    cam_format_t preview_format;
+    int32_t snapshot_width;
+    int32_t snapshot_height;
+    cam_format_t snapshot_format;
+    int32_t video_width;
+    int32_t video_height;
+    cam_format_t video_format;
+    uint8_t test_mode;
+    uint8_t test_idx;
     hal_interface_lib_t hal_lib;
+    uint32_t num_rcvd_snapshot;
+    uint32_t num_snapshot;
 } mm_camera_app_t;
+
+typedef struct {
+    mm_camera_super_buf_t job_frame;
+    uint32_t job_id;
+
+} mm_camera_app_frame_stack;
+
+typedef struct {
+    mm_camera_vtbl_t *cam;
+    uint8_t num_channels;
+    mm_camera_channel_t channels[MM_CHANNEL_TYPE_MAX];
+    mm_jpeg_ops_t jpeg_ops;
+    uint32_t jpeg_hdl;
+    mm_camera_app_buf_t cap_buf;
+    mm_camera_app_buf_t parm_buf;
+
+    uint32_t current_jpeg_sess_id;
+    mm_camera_app_buf_t jpeg_buf;
+
+	parm_buffer_t *params_buffer;
+
+    mm_camera_app_t *app_handle;
+
+    mm_camera_app_frame_stack jpeg_frame_queue[CAMERA_MAX_JPEG_SESSIONS];
+} mm_camera_test_obj_t;
+
 
 typedef int (*mm_app_test_t) (mm_camera_app_t *cam_apps);
 typedef struct {
