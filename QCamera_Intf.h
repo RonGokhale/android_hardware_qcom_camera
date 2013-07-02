@@ -32,7 +32,7 @@
 #include <stdint.h>
 #include <pthread.h>
 #include <inttypes.h>
-#include <media/msm_camera.h>
+#include <linux/media/msm_camera.h>
 
 #ifdef _ANDROID_
 #define MSM_CAMERA_SERVER "/dev/msm_camera/video_msm"
