@@ -125,6 +125,11 @@ typedef struct {
 } mm_camera_channel_t;
 
 typedef struct {
+    uint16_t user_input_display_width;
+    uint16_t user_input_display_height;
+} USER_INPUT_DISPLAY_T;
+
+typedef struct {
     mm_camera_vtbl_t *cam;
     uint8_t num_channels;
     mm_camera_channel_t channels[MM_CHANNEL_TYPE_MAX];
@@ -138,6 +143,7 @@ typedef struct {
     uint32_t current_job_id;
     mm_camera_app_buf_t jpeg_buf;
     parm_buffer_t *params_buffer;
+    USER_INPUT_DISPLAY_T preview_resolution;
 } mm_camera_test_obj_t;
 
 typedef struct {
@@ -249,7 +255,7 @@ extern int mm_app_start_capture(mm_camera_test_obj_t *test_obj,
 extern int mm_app_stop_capture(mm_camera_test_obj_t *test_obj);
 extern int mm_app_start_rdi(mm_camera_test_obj_t *test_obj, uint8_t num_burst);
 extern int mm_app_stop_rdi(mm_camera_test_obj_t *test_obj);
-extern int mm_app_take_picture(mm_camera_test_obj_t *test_obj);
+extern int mm_app_take_picture(mm_camera_test_obj_t *test_obj, uint8_t);
 
 #endif /* __MM_QCAMERA_APP_H__ */
 

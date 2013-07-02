@@ -181,10 +181,11 @@ mm_camera_stream_t * mm_app_add_preview_stream(mm_camera_test_obj_t *test_obj,
     stream->s_config.stream_info->stream_type = CAM_STREAM_TYPE_PREVIEW;
     stream->s_config.stream_info->streaming_mode = CAM_STREAMING_MODE_CONTINUOUS;
     stream->s_config.stream_info->fmt = DEFAULT_PREVIEW_FORMAT;
-    stream->s_config.stream_info->dim.width = DEFAULT_PREVIEW_WIDTH;
-    stream->s_config.stream_info->dim.height = DEFAULT_PREVIEW_HEIGHT;
+    stream->s_config.stream_info->dim.width = test_obj->preview_resolution.user_input_display_width;
+    stream->s_config.stream_info->dim.height = test_obj->preview_resolution.user_input_display_height;
     stream->s_config.padding_info = cam_cap->padding_info;
 
+    CDBG_HIGH("\nPreview W=%d & H=%d\n",test_obj->preview_resolution.user_input_display_width,test_obj->preview_resolution.user_input_display_height);
     rc = mm_app_config_stream(test_obj, channel, stream, &stream->s_config);
     if (MM_CAMERA_OK != rc) {
         CDBG_ERROR("%s:config preview stream err=%d\n", __func__, rc);
