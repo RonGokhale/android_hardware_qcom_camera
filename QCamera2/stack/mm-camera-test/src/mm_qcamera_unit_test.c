@@ -30,9 +30,9 @@
 #include "mm_qcamera_dbg.h"
 #include "mm_qcamera_app.h"
 
-#define MM_QCAMERA_APP_UTEST_MAX_MAIN_LOOP 4
-#define MM_QCAMERA_APP_UTEST_OUTER_LOOP 10
-#define MM_QCAMERA_APP_UTEST_INNER_LOOP 4
+#define MM_QCAMERA_APP_UTEST_MAX_MAIN_LOOP 1
+#define MM_QCAMERA_APP_UTEST_OUTER_LOOP 1
+#define MM_QCAMERA_APP_UTEST_INNER_LOOP 1
 #define MM_QCAM_APP_TEST_NUM 128
 
 static mm_app_tc_t mm_app_tc[MM_QCAM_APP_TEST_NUM];

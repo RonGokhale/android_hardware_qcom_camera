@@ -6,6 +6,7 @@ mm_qcamera_app_CFLAGS += -DUSE_ION
 
 mm_qcamera_app_CFLAGS += -I inc
 mm_qcamera_app_CFLAGS += -I ../common
+mm_qcamera_app_CFLAGS += -I ../../../
 mm_qcamera_app_CFLAGS += -I ../../../mm-image-codec/qexif
 mm_qcamera_app_CFLAGS += -I ../../../mm-image-codec/qomx_core
 
@@ -25,6 +26,7 @@ mm_qcamera_app_SOURCES += src/mm_qcamera_video.c
 mm_qcamera_app_SOURCES += src/mm_qcamera_preview.c
 mm_qcamera_app_SOURCES += src/mm_qcamera_snapshot.c
 mm_qcamera_app_SOURCES += src/mm_qcamera_rdi.c
+mm_qcamera_app_SOURCES += src/mm_qcamera_main_menu.c
 
 mm_qcamera_app_LDADD := -ldl
 mm_qcamera_app_LDADD += ../../../QCamera2/stack/mm-camera-interface/libmmcamera_interface.la

@@ -363,7 +363,6 @@ int mm_app_start_capture(mm_camera_test_obj_t *test_obj,
         CDBG_ERROR("%s: add channel failed", __func__);
         return -MM_CAMERA_E_GENERAL;
     }
-
     s_postview = mm_app_add_postview_stream(test_obj,
                                             channel,
                                             NULL,
@@ -413,5 +412,42 @@ int mm_app_stop_capture(mm_camera_test_obj_t *test_obj)
         CDBG_ERROR("%s:stop recording failed rc=%d\n", __func__, rc);
     }
 
+    return rc;
+}
+
+int mm_app_take_picture(mm_camera_test_obj_t *test_obj)
+{
+    CDBG_HIGH("\nEnter %s!!\n",__func__);
+    int rc = MM_CAMERA_OK;
+    int num_snapshot = 4;
+    int num_rcvd_snapshot = 0;
+
+    //stop preview before starting capture.
+    rc = mm_app_stop_preview(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: stop preview failed before capture!!, err=%d\n",__func__, rc);
+        return rc;
+    }
+
+    rc = mm_app_start_capture(test_obj, num_snapshot);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: mm_app_start_capture(), err=%d\n", __func__,rc);
+        return rc;
+    }
+    while (num_rcvd_snapshot < num_snapshot) {
+        CDBG_HIGH("\nWaiting mm_camera_app_wait !!\n");
+        mm_camera_app_wait();
+        num_rcvd_snapshot++;
+    }
+    rc = mm_app_stop_capture(test_obj);
+    if (rc != MM_CAMERA_OK) {
+       CDBG_ERROR("%s: mm_app_stop_capture(), err=%d\n",__func__, rc);
+       return rc;
+    }
+    //start preview after capture.
+    rc = mm_app_start_preview(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: start preview failed after capture!!, err=%d\n",__func__,rc);
+    }
     return rc;
 }
