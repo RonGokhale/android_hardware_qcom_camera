@@ -66,6 +66,7 @@ typedef struct {
     uint32_t stream_id;
     cam_stream_type_t stream_type;
     int8_t buf_idx;
+    uint8_t is_uv_subsampled;
     struct timespec ts;
     uint32_t frame_idx;
     int8_t num_planes;
@@ -372,22 +373,6 @@ typedef struct {
      **/
     int32_t (*prepare_snapshot) (uint32_t camera_handle,
                                  int32_t do_af_flag);
-
-    /** start_zsl_snapshot: function definition for starting
-     *                    zsl snapshot.
-     *    @camera_handle : camer handler
-     *  Return value: 0 -- success
-     *                -1 -- failure
-     **/
-    int32_t (*start_zsl_snapshot) (uint32_t camera_handle);
-
-    /** stop_zsl_snapshot: function definition for stopping
-     *                    zsl snapshot.
-     *    @camera_handle : camer handler
-     *  Return value: 0 -- success
-     *                -1 -- failure
-     **/
-    int32_t (*stop_zsl_snapshot) (uint32_t camera_handle);
 
     /** add_channel: fucntion definition for adding a channel
      *    @camera_handle : camer handler

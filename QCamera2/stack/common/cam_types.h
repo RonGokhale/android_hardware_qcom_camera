@@ -285,6 +285,8 @@ typedef struct{
     int32_t offset_y;
     int32_t stride;
     int32_t scanline;
+    int32_t width;    /* width without padding */
+    int32_t height;   /* height without padding */
 } cam_mp_len_offset_t;
 
 typedef struct {
@@ -664,6 +666,11 @@ typedef struct {
 } cam_auto_focus_data_t;
 
 typedef struct {
+  uint32_t is_hdr_scene;
+  float    hdr_confidence;
+} cam_asd_hdr_scene_data_t;
+
+typedef struct {
     uint32_t stream_id;
     cam_rect_t crop;
 } cam_stream_crop_info_t;
@@ -705,6 +712,9 @@ typedef  struct {
      * 1. good_frame_idx_range.min_frame_idx > current_frame_idx
      * 2. good_frame_idx_range.min_frame_idx - current_frame_idx < 100 */
     cam_frame_idx_range_t good_frame_idx_range;
+
+    uint32_t is_hdr_scene_data_valid;
+    cam_asd_hdr_scene_data_t hdr_scene_data;
 
     char private_metadata[MAX_METADATA_PAYLOAD_SIZE];
 
@@ -766,6 +776,7 @@ typedef enum {
     /* stream based parameters */
     CAM_INTF_PARM_DO_REPROCESS,
     CAM_INTF_PARM_SET_BUNDLE,
+    CAM_INTF_PARM_STREAM_FLIP,
 
     /* specific to HAL3 */
     /* Whether the metadata maps to a valid frame number */
@@ -900,6 +911,7 @@ typedef enum {
     /* Tone map mode */
     CAM_INTF_META_TONEMAP_MODE,
     CAM_INTF_META_FLASH_MODE,
+    CAM_INTF_META_ASD_HDR_SCENE_DATA,
     CAM_INTF_META_PRIVATE_DATA,
 
     CAM_INTF_PARM_MAX
@@ -1110,6 +1122,7 @@ typedef struct {
     cam_denoise_param_t denoise;
     cam_crop_param_t crop;
     uint32_t flip;     /* 0 means no flip */
+    uint32_t uv_upsample; /* 0 means no chroma upsampling */
     int32_t sharpness; /* 0 means no sharpness */
 } cam_per_frame_pp_config_t;
 

@@ -562,6 +562,10 @@ QCameraParameters::QCameraParameters()
       m_nBurstNum(1),
       m_bUpdateEffects(false),
       m_bSceneTransitionAuto(false),
+      m_bPreviewFlipChanged(false),
+      m_bVideoFlipChanged(false),
+      m_bSnapshotFlipChanged(false),
+      m_bFixedFrameRateSet(false),
       m_tempMap()
 {
     char value[32];
@@ -618,6 +622,10 @@ QCameraParameters::QCameraParameters(const String8 &params)
     m_bAFRunning(false),
     m_bInited(false),
     m_nBurstNum(1),
+    m_bPreviewFlipChanged(false),
+    m_bVideoFlipChanged(false),
+    m_bSnapshotFlipChanged(false),
+    m_bFixedFrameRateSet(false),
     m_tempMap()
 {
     memset(&m_LiveSnapshotSize, 0, sizeof(m_LiveSnapshotSize));
@@ -829,68 +837,40 @@ String8 QCameraParameters::createHfrSizesString(
 }
 
 /*===========================================================================
- * FUNCTION   : compareFPSValues
- *
- * DESCRIPTION: helper function for fps sorting
- *
- * PARAMETERS :
- *   @p1     : first array element
- *   @p2     : second array element
- *
- * RETURN     : -1 - left element is greater than right
- *              0  - elements are equals
- *              1  - left element is less than right
- *==========================================================================*/
-int QCameraParameters::compareFPSValues(const void *p1, const void *p2)
-{
-    if ( *( (int *) p1) > *( (int *) p2) ) {
-        return -1;
-    } else if (  *( (int *) p1) < *( (int *) p2) ) {
-        return 1;
-    }
-
-    return 0;
-}
-
-/*===========================================================================
  * FUNCTION   : createFpsString
  *
  * DESCRIPTION: create string obj contains array of FPS rates
  *
  * PARAMETERS :
- *   @fps     : array of fps ranges
- *   @len     : size of the array
+ *   @fps     : default fps range
  *
  * RETURN     : string obj
  *==========================================================================*/
-String8 QCameraParameters::createFpsString(const cam_fps_range_t *fps, int len)
+String8 QCameraParameters::createFpsString(cam_fps_range_t &fps)
 {
-    String8 str;
     char buffer[32];
-    int duplicate = INT_MAX;
+    String8 fpsValues;
 
-    int *fpsValues = new int[len];
+    int min_fps = int(fps.min_fps);
+    int max_fps = int(fps.max_fps);
 
-    for (int i = 0; i < len; i++ ) {
-        fpsValues[i] = int(fps[i].max_fps);
+    if (min_fps < fps.min_fps){
+        min_fps++;
+    }
+    if (max_fps > fps.max_fps) {
+        max_fps--;
+    }
+    if (min_fps <= max_fps) {
+        snprintf(buffer, sizeof(buffer), "%d", min_fps);
+        fpsValues.append(buffer);
     }
 
-    qsort(fpsValues, len, sizeof(int), compareFPSValues);
-
-    for (int i = 0; i < len; i++ ) {
-        if ( duplicate != fpsValues[i] ) {
-            snprintf(buffer, sizeof(buffer), "%d", fpsValues[i]);
-            str.append(buffer);
-            if (i < len-1) {
-                str.append(",");
-            }
-            duplicate = fpsValues[i];
-        }
+    for (int i = min_fps+1; i <= max_fps; i++) {
+        snprintf(buffer, sizeof(buffer), ",%d", i);
+        fpsValues.append(buffer);
     }
 
-    delete [] fpsValues;
-
-    return str;
+    return fpsValues;
 }
 
 /*===========================================================================
@@ -1432,16 +1412,22 @@ int32_t QCameraParameters::setPreviewFpsRange(const QCameraParameters& params)
     ALOGV("%s: Requested FpsRange Values:(%d, %d)", __func__, minFps, maxFps);
 
     if(minFps == prevMinFps && maxFps == prevMaxFps) {
-        ALOGV("%s: No change in FpsRange", __func__);
-        rc = NO_ERROR;
-        goto end;
+        if ( m_bFixedFrameRateSet ) {
+            minFps = params.getPreviewFrameRate() * 1000;
+            maxFps = params.getPreviewFrameRate() * 1000;
+            m_bFixedFrameRateSet = false;
+        } else {
+            ALOGV("%s: No change in FpsRange", __func__);
+            rc = NO_ERROR;
+            goto end;
+        }
     }
     for(int i = 0; i < m_pCapability->fps_ranges_tbl_cnt; i++) {
         // if the value is in the supported list
         if(minFps >= m_pCapability->fps_ranges_tbl[i].min_fps * 1000 &&
            maxFps <= m_pCapability->fps_ranges_tbl[i].max_fps * 1000) {
             found = true;
-            ALOGV("%s: FPS i=%d : minFps = %d, maxFps = %d ", __func__, i, minFps, maxFps);
+            ALOGE("%s: FPS i=%d : minFps = %d, maxFps = %d ", __func__, i, minFps, maxFps);
             setPreviewFpsRange(minFps, maxFps);
             break;
         }
@@ -1468,9 +1454,17 @@ end:
  *==========================================================================*/
 int32_t QCameraParameters::setPreviewFrameRate(const QCameraParameters& params)
 {
-    uint16_t fps = (uint16_t)params.getPreviewFrameRate();
-    ALOGV("%s: requested preview frame rate is %d", __func__, fps);
-    CameraParameters::setPreviewFrameRate(fps);
+    const char *str = params.get(KEY_PREVIEW_FRAME_RATE);
+    const char *prev_str = get(KEY_PREVIEW_FRAME_RATE);
+
+    if ( str ) {
+        if ( prev_str &&
+             strcmp(str, prev_str)) {
+            ALOGV("%s: Requested Fixed Frame Rate %s", __func__, str);
+            updateParamEntry(KEY_PREVIEW_FRAME_RATE, str);
+            m_bFixedFrameRateSet = true;
+        }
+    }
     return NO_ERROR;
 }
 
@@ -2691,34 +2685,46 @@ int32_t QCameraParameters::setFlip(const QCameraParameters& params)
 
     //check preview flip setting
     const char *str = params.get(KEY_QC_PREVIEW_FLIP);
+    const char *prev_val = get(KEY_QC_PREVIEW_FLIP);
     if(str != NULL){
-        int32_t value = lookupAttr(FLIP_MODES_MAP,
-                                   sizeof(FLIP_MODES_MAP)/sizeof(QCameraMap),
-                                   str);
-        if(value != NAME_NOT_FOUND){
-            set(KEY_QC_PREVIEW_FLIP, str);
+        if (prev_val == NULL || strcmp(str, prev_val) != 0) {
+            int32_t value = lookupAttr(FLIP_MODES_MAP,
+                                       sizeof(FLIP_MODES_MAP)/sizeof(QCameraMap),
+                                       str);
+            if(value != NAME_NOT_FOUND){
+                set(KEY_QC_PREVIEW_FLIP, str);
+                m_bPreviewFlipChanged = true;
+            }
         }
     }
 
     // check video filp setting
     str = params.get(KEY_QC_VIDEO_FLIP);
+    prev_val = get(KEY_QC_VIDEO_FLIP);
     if(str != NULL){
-        int32_t value = lookupAttr(FLIP_MODES_MAP,
-                                   sizeof(FLIP_MODES_MAP)/sizeof(QCameraMap),
-                                   str);
-        if(value != NAME_NOT_FOUND){
-            set(KEY_QC_VIDEO_FLIP, str);
+        if (prev_val == NULL || strcmp(str, prev_val) != 0) {
+            int32_t value = lookupAttr(FLIP_MODES_MAP,
+                                       sizeof(FLIP_MODES_MAP)/sizeof(QCameraMap),
+                                       str);
+            if(value != NAME_NOT_FOUND){
+                set(KEY_QC_VIDEO_FLIP, str);
+                m_bVideoFlipChanged = true;
+            }
         }
     }
 
     // check picture filp setting
     str = params.get(KEY_QC_SNAPSHOT_PICTURE_FLIP);
+    prev_val = get(KEY_QC_SNAPSHOT_PICTURE_FLIP);
     if(str != NULL){
-        int32_t value = lookupAttr(FLIP_MODES_MAP,
-                                   sizeof(FLIP_MODES_MAP)/sizeof(QCameraMap),
-                                   str);
-        if(value != NAME_NOT_FOUND){
-            set(KEY_QC_SNAPSHOT_PICTURE_FLIP, str);
+        if (prev_val == NULL || strcmp(str, prev_val) != 0) {
+            int32_t value = lookupAttr(FLIP_MODES_MAP,
+                                       sizeof(FLIP_MODES_MAP)/sizeof(QCameraMap),
+                                       str);
+            if(value != NAME_NOT_FOUND){
+                set(KEY_QC_SNAPSHOT_PICTURE_FLIP, str);
+                m_bSnapshotFlipChanged = true;
+            }
         }
     }
 
@@ -2799,8 +2805,8 @@ int32_t QCameraParameters::updateParameters(QCameraParameters& params,
     if ((rc = setCameraMode(params)))                   final_rc = rc;
     if ((rc = setRecordingHint(params)))                final_rc = rc;
 
-    if ((rc = setPreviewFpsRange(params)))              final_rc = rc;
     if ((rc = setPreviewFrameRate(params)))             final_rc = rc;
+    if ((rc = setPreviewFpsRange(params)))              final_rc = rc;
     if ((rc = setAutoExposure(params)))                 final_rc = rc;
     if ((rc = setEffect(params)))                       final_rc = rc;
     if ((rc = setBrightness(params)))                   final_rc = rc;
@@ -2899,7 +2905,7 @@ int32_t QCameraParameters::initDefaultParameters()
     setFloat(KEY_FOCAL_LENGTH, m_pCapability->focal_length);
     setFloat(KEY_HORIZONTAL_VIEW_ANGLE, m_pCapability->hor_view_angle);
     setFloat(KEY_VERTICAL_VIEW_ANGLE, m_pCapability->ver_view_angle);
-
+    set(QCameraParameters::KEY_FOCUS_DISTANCES, "Infinity,Infinity,Infinity");
     // Set supported preview sizes
     if (m_pCapability->preview_sizes_tbl_cnt > 0 &&
         m_pCapability->preview_sizes_tbl_cnt <= MAX_SIZES_CNT) {
@@ -3022,9 +3028,9 @@ int32_t QCameraParameters::initDefaultParameters()
         setPreviewFpsRange(min_fps, max_fps);
 
         // Set legacy preview fps
-        String8 fpsValues = createFpsString(m_pCapability->fps_ranges_tbl,
-                                            m_pCapability->fps_ranges_tbl_cnt);
+        String8 fpsValues = createFpsString(m_pCapability->fps_ranges_tbl[default_fps_index]);
         set(KEY_SUPPORTED_PREVIEW_FRAME_RATES, fpsValues.string());
+        ALOGD("%s: supported fps rates: %s", __func__, fpsValues.string());
         CameraParameters::setPreviewFrameRate(int(m_pCapability->fps_ranges_tbl[default_fps_index].max_fps));
     } else {
         ALOGE("%s: supported fps ranges cnt is 0 or exceeds max!!!", __func__);
@@ -3575,9 +3581,9 @@ int32_t QCameraParameters::setPreviewFpsRange(int minFPS, int maxFPS)
 {
     char str[32];
     snprintf(str, sizeof(str), "%d,%d", minFPS, maxFPS);
-    ALOGD("%s: Setting preview fps range %s", __func__, str);
+    ALOGE("%s: Setting preview fps range %s", __func__, str);
     updateParamEntry(KEY_PREVIEW_FPS_RANGE, str);
-    cam_fps_range_t fps_range = {minFPS / 1000.0, maxFPS / 1000.0};
+    cam_fps_range_t fps_range = {minFPS / float (1000.0), maxFPS / float (1000.0)};
     return AddSetParmEntryToBatch(m_pParamBuf,
                                   CAM_INTF_PARM_FPS_RANGE,
                                   sizeof(cam_fps_range_t),
@@ -3686,6 +3692,7 @@ int32_t QCameraParameters::setBrightness(int brightness)
  *==========================================================================*/
 int32_t QCameraParameters::setFocusMode(const char *focusMode)
 {
+    int32_t rc;
     if (focusMode != NULL) {
         int32_t value = lookupAttr(FOCUS_MODES_MAP,
                                    sizeof(FOCUS_MODES_MAP)/sizeof(QCameraMap),
@@ -3700,10 +3707,14 @@ int32_t QCameraParameters::setFocusMode(const char *focusMode)
             m_bAFRunning = false;
 
             updateParamEntry(KEY_FOCUS_MODE, focusMode);
-            return AddSetParmEntryToBatch(m_pParamBuf,
+            rc = AddSetParmEntryToBatch(m_pParamBuf,
                                           CAM_INTF_PARM_FOCUS_MODE,
                                           sizeof(value),
                                           &value);
+            if (strcmp(focusMode,"infinity")==0){
+                set(QCameraParameters::KEY_FOCUS_DISTANCES, "Infinity,Infinity,Infinity");
+            }
+            return rc;
         }
     }
     ALOGE("Invalid focus mode value: %s", (focusMode == NULL) ? "NULL" : focusMode);
@@ -5086,7 +5097,7 @@ int QCameraParameters::getZSLBackLookCount()
  *==========================================================================*/
 int QCameraParameters::getMaxUnmatchedFramesInQueue()
 {
-    return m_pCapability->min_num_pp_bufs;
+    return m_pCapability->min_num_pp_bufs + (m_nBurstNum / 10);
 }
 
 /*===========================================================================
