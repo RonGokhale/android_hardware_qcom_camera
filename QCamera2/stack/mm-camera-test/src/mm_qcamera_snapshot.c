@@ -415,12 +415,15 @@ int mm_app_stop_capture(mm_camera_test_obj_t *test_obj)
     return rc;
 }
 
-int mm_app_take_picture(mm_camera_test_obj_t *test_obj)
+int mm_app_take_picture(mm_camera_test_obj_t *test_obj, uint8_t is_burst_mode)
 {
     CDBG_HIGH("\nEnter %s!!\n",__func__);
     int rc = MM_CAMERA_OK;
     int num_snapshot = 4;
     int num_rcvd_snapshot = 0;
+
+    if (is_burst_mode)
+       num_snapshot = 6;
 
     //stop preview before starting capture.
     rc = mm_app_stop_preview(test_obj);

@@ -60,10 +60,9 @@
 
 const CAMERA_MAIN_MENU_TBL_T camera_main_menu_tbl[] = {
   {STOP_CAMERA,                   "Stop preview/video and exit camera."},
-  {PREVIEW_VIDEO_RESOLUTION,      "Preview/Video Resolution: SQCIF/QCIF/"
-                              "QVGA/CIF/VGA/WVGA... Default WVGA."},
-  {SET_WHITE_BALANCE,          "Set white balance mode: Auto/Off/Daylight/Incandescent/Fluorescent. Default Auto."},
-  {SET_EXP_METERING,          "Set exposure metering mode: FrameAverage/CenterWeighted/SpotMetering. Default CenterWeighted"},
+  {PREVIEW_VIDEO_RESOLUTION,      "Preview/Video Resolution"},
+  {SET_WHITE_BALANCE,          "Set white balance mode"},
+  {SET_EXP_METERING,          "Set exposure metering mode"},
   {GET_CTRL_VALUE,              "Get control value menu"},
   {TOGGLE_AFR,                 "Toggle auto frame rate. Default fixed frame rate"},
   {SET_ISO,                 "ISO changes."},
@@ -74,22 +73,23 @@ const CAMERA_MAIN_MENU_TBL_T camera_main_menu_tbl[] = {
   {SET_ZOOM,          "Set Digital Zoom."},
   {SET_SHARPNESS,          "Set Sharpness."},
   {TAKE_YUV_SNAPSHOT,       "Take a snapshot"},
+  {TAKE_BURST_SNAPSHOT,       "Take burst snapshot"},
   {START_RECORDING,       "Start RECORDING"},
   {STOP_RECORDING,       "Stop RECORDING"},
   {BEST_SHOT,       "Set best-shot mode"},
   {LIVE_SHOT,       "Take a live snapshot"},
+  {FLASH_MODES,       "Set Flash modes"},
 };
 
 const PREVIEW_DIMENSION_TBL_T preview_video_dimension_tbl[] = {
-   { SQCIF, SQCIF_WIDTH, SQCIF_HEIGHT, "SQCIF",  "Preview/Video Resolution: SQCIF <128x96>"},
    {  QCIF,  QCIF_WIDTH,  QCIF_HEIGHT,  "QCIF",  "Preview/Video Resolution: QCIF <176x144>"},
    {  QVGA,  QVGA_WIDTH,  QVGA_HEIGHT,  "QVGA",  "Preview/Video Resolution: QVGA <320x240>"},
-   {   CIF,   CIF_WIDTH,   CIF_HEIGHT,   "CIF",  "Preview/Video Resolution: CIF <352x288>"},
-   {   VGA,   VGA_WIDTH,   VGA_HEIGHT,   "VGA",  "Preview/Video Resolution: VGA <640x480>"},
+   {  VGA,   VGA_WIDTH,   VGA_HEIGHT,   "VGA",  "Preview/Video Resolution: VGA <640x480>"},
    {  WVGA,  WVGA_WIDTH,  WVGA_HEIGHT,  "WVGA",  "Preview/Video Resolution: WVGA <800x480>"},
-   {  SVGA,  SVGA_WIDTH,  SVGA_HEIGHT,  "SVGA",  "Preview/Video Resolution: SVGA <800x600>"},
-   {   XGA,   XGA_WIDTH,   XGA_HEIGHT,    "XGA", "Preview/Video Resolution: XGA <1024x768>"},
-   { HD720, HD720_WIDTH, HD720_HEIGHT,  "HD720", "Preview/Video Resolution: HD720 <1280x720>"},
+   {  WVGA_PLUS,  WVGA_PLUS_WIDTH,  WVGA_PLUS_HEIGHT,  "WVGA_PLUS",  "Preview/Video Resolution: WVGA_PLUS <960x720>"},
+   {  HD720, HD720_WIDTH, HD720_HEIGHT,  "HD720", "Preview/Video Resolution: HD720 <1280x720>"},
+   {  HD720_PLUS, HD720_PLUS_WIDTH, HD720_PLUS_HEIGHT,  "HD720_PLUS", "Preview/Video Resolution: HD720_PLUS <1440x1080>"},
+   {  HD1080, HD1080_WIDTH, HD1080_HEIGHT,  "HD1080", "Preview/Video Resolution: HD1080 <1920x1080>"},
 };
 
 const CAMERA_BRIGHTNESS_TBL_T brightness_change_tbl[] = {
@@ -118,11 +118,13 @@ const CAMERA_SHARPNESS_TBL_T camera_sharpness_tbl[] = {
 };
 
 const WHITE_BALANCE_TBL_T white_balance_tbl[] = {
-  { 	WHITE_BALANCE_AUTO,         "White Balance - Auto"},
-  { 	WHITE_BALANCE_OFF,          "White Balance - Off"},
-  {   WHITE_BALANCE_DAYLIGHT,     "White Balance - Daylight"},
-  {   WHITE_BALANCE_INCANDESCENT, "White Balance - Incandescent"},
-  {   WHITE_BALANCE_FLUORESCENT,  "White Balance - Fluorescent"},
+  {   WB_AUTO,               "White Balance - Auto"},
+  {   WB_INCANDESCENT,       "White Balance - Incandescent"},
+  {   WB_FLUORESCENT,        "White Balance - Fluorescent"},
+  {   WB_WARM_FLUORESCENT,   "White Balance - Warm Fluorescent"},
+  {   WB_DAYLIGHT,           "White Balance - Daylight"},
+  {   WB_TWILIGHT,           "White Balance - Twilight"},
+  {   WB_SHADE,              "White Balance - Shade"},
 };
 
 const GET_CTRL_TBL_T get_ctrl_tbl[] = {
@@ -136,9 +138,13 @@ const GET_CTRL_TBL_T get_ctrl_tbl[] = {
 };
 
 const EXP_METERING_TBL_T exp_metering_tbl[] = {
-  {   EXP_METERING_FRAME_AVERAGE,      "Exposure Metering - Frame Average"},
-  {   EXP_METERING_CENTER_WEIGHTED,    "Exposure Metering - Center Weighted"},
-  {   EXP_METERING_SPOT_METERING,      "Exposure Metering - Spot Metering"},
+  {   AUTO_EXP_FRAME_AVG,          "Exposure Metering - Frame Average"},
+  {   AUTO_EXP_CENTER_WEIGHTED,    "Exposure Metering - Center Weighted"},
+  {   AUTO_EXP_SPOT_METERING,      "Exposure Metering - Spot Metering"},
+  {   AUTO_EXP_SMART_METERING,     "Exposure Metering - Smart Metering"},
+  {   AUTO_EXP_USER_METERING,      "Exposure Metering - User Metering"},
+  {   AUTO_EXP_SPOT_METERING_ADV,  "Exposure Metering - Spot Metering Adv"},
+  {   AUTO_EXP_CENTER_WEIGHTED_ADV,"Exposure Metering - Center Weighted Adv"},
 };
 
 const ISO_TBL_T iso_tbl[] = {
@@ -179,18 +185,24 @@ const BESTSHOT_MODE_TBT_T bestshot_mode_tbl[] = {
   {BESTSHOT_HDR,            "Bestshot Mode: HDR"},
 };
 
+const FLASH_MODE_TBL_T flashmodes_tbl[] = {
+  {   FLASH_MODE_OFF, "Flash Mode Off"},
+  {   FLASH_MODE_AUTO, "Flash Mode Auto"},
+  {   FLASH_MODE_ON, "Flash Mode On"},
+  {   FLASH_MODE_TORCH, "Flash Mode Torch"},
+};
+
 /*===========================================================================
  * Forward declarations
  *===========================================================================*/
 static int set_fps(int fps);
 static int start_snapshot (void);
 static int stop_snapshot (void);
-static int system_dimension_set(int cam_id);
+static void system_dimension_set(mm_camera_test_obj_t *test_obj);
 /*===========================================================================
  * Static global variables
  *===========================================================================*/
 USER_INPUT_DISPLAY_T input_display;
-
 int preview_video_resolution_flag = 0;
 
 //TODO: default values.
@@ -334,6 +346,11 @@ int next_menu(menu_id_change_t current_menu_id, char keypress, camera_action_t *
           CDBG("\nTaking Live snapshot\n");
           break;
 
+        case FLASH_MODES:
+          next_menu_id = MENU_ID_FLASHMODE;
+          CDBG("next_menu_id = MENU_ID_FLASHMODE = %d\n", next_menu_id);
+          break;
+
         case SET_SHARPNESS:
           next_menu_id = MENU_ID_SHARPNESSCHANGE;
           CDBG("next_menu_id = MENU_ID_SHARPNESSCHANGE = %d\n", next_menu_id);
@@ -342,6 +359,11 @@ int next_menu(menu_id_change_t current_menu_id, char keypress, camera_action_t *
         case TAKE_YUV_SNAPSHOT:
           * action_id_ptr = ACTION_TAKE_YUV_SNAPSHOT;
           printf("\n Taking YUV snapshot\n");
+          break;
+
+       case TAKE_BURST_SNAPSHOT:
+          * action_id_ptr = ACTION_TAKE_BURST_SNAPSHOT;
+          printf("\n Taking Burst snapshot\n");
           break;
 
         case START_RECORDING:
@@ -529,6 +551,17 @@ int next_menu(menu_id_change_t current_menu_id, char keypress, camera_action_t *
       } else {
         next_menu_id = MENU_ID_MAIN;
         * action_id_ptr = ACTION_SET_BESTSHOT_MODE;
+        * action_param = output_to_event;
+      }
+      break;
+
+    case MENU_ID_FLASHMODE:
+      if (output_to_event >= FLASH_MODE_MAX) {
+        next_menu_id = current_menu_id;
+        * action_id_ptr = ACTION_NO_ACTION;
+      } else {
+        next_menu_id = MENU_ID_MAIN;
+        * action_id_ptr = ACTION_SET_FLASH_MODE;
         * action_param = output_to_event;
       }
       break;
@@ -810,6 +843,27 @@ static void camera_set_bestshot_tbl(void)
   return;
 }
 
+static void camera_set_flashmode_tbl(void)
+{
+  unsigned int i;
+
+  printf("\n");
+  printf("===========================================\n");
+  printf("      Camera is in set flash mode now       \n");
+  printf("===========================================\n\n");
+
+
+  char bsmenuNum = 'A';
+  for (i = 0; i < sizeof(flashmodes_tbl)/sizeof(flashmodes_tbl[0]); i++) {
+    printf("%c.  %s\n", bsmenuNum,
+      flashmodes_tbl[i].name);
+    bsmenuNum++;
+  }
+
+  printf("\nPlease enter your choice of Bestshot Mode: ");
+  return;
+}
+
 /*===========================================================================
  * FUNCTION     - increase_contrast -
  *
@@ -968,42 +1022,25 @@ int decrease_saturation (void) {
 }
 
 
-int take_yuv_snapshot(mm_camera_test_obj_t *test_obj)
+int take_yuv_snapshot(mm_camera_test_obj_t *test_obj, int is_burst_mode)
 {
-  printf("\nEnter take_yuv_snapshot!!\n");
-  int rc = 0;
-  mm_app_take_picture(test_obj);
-#if 0
-  int rc = 0;
-  CDBG("%s:BEGIN\n", __func__);
-  if(0 != (rc = mm_app_take_picture(cam_id))) {
+  CDBG_HIGH("\nEnter take_yuv_snapshot!!\n");
+  int rc = MM_CAMERA_OK;
+  if(MM_CAMERA_OK != (rc = mm_app_take_picture(test_obj, is_burst_mode))) {
     CDBG_ERROR("%s: mm_app_take_picture() err=%d\n", __func__, rc);
-    return -1;
   }
   return rc;
-#endif
 }
 
-static int system_dimension_set(int cam_id)
+static void system_dimension_set(mm_camera_test_obj_t *test_obj)
 {
-#if 0
-  static cam_ctrl_dimension_t dim;
-  int rc = 0;
-
   if (preview_video_resolution_flag == 0) {
-    mm_app_set_dim_def(&dim);
+    test_obj->preview_resolution.user_input_display_width = WVGA_WIDTH;
+    test_obj->preview_resolution.user_input_display_height = WVGA_HEIGHT;
   } else {
-    input_display.user_input_display_width = CEILING32(input_display.user_input_display_width);
-    dim.video_width = input_display.user_input_display_width;
-    dim.video_height = input_display.user_input_display_height;
-    dim.orig_video_width = dim.video_width;
-    dim.orig_video_height = dim.video_height;
-    dim.display_width = dim.video_width;
-    dim.display_height = dim.video_height;
+    test_obj->preview_resolution.user_input_display_width = input_display.user_input_display_width;
+    test_obj->preview_resolution.user_input_display_height = input_display.user_input_display_height;
   }
-  rc = mm_app_set_dim(cam_id, &dim);
-  return rc;
-#endif
 }
 /*===========================================================================
  * FUNCTION    - main -
@@ -1016,18 +1053,11 @@ int main(int argc, char **argv)
     int rc = 0;
     int mode = 0;
 
-#if 0
-    /* we must init mm_app first */
-  if(MM_CAMERA_OK != (rc = mm_app_init())) {
-    CDBG_ERROR("%s:mm_app_init err=%d\n", __func__, rc);
-    exit(-1);
-  }
-#endif
     printf("Please Select Execution Mode:\n");
     printf("0: Menu Based 1: Regression\n");
     mode = getchar() - '0';
     if(mode == 0) {
-      printf("\nStarting Menu based!!\n");      
+      printf("\nStarting Menu based!!\n");
     } else if(mode == 1) {
       printf("Starting Regression testing!!\n");
       if(!mm_app_start_regression_test(1)) {
@@ -1042,8 +1072,7 @@ int main(int argc, char **argv)
        printf("\nExisting the App!!\n");
        exit(-1);
     }
-    
-    printf("\nAJJ before mm_app_load HAL\n");
+
     mm_camera_app_t cam_app;
     memset(&cam_app, 0, sizeof(mm_camera_app_t));
     if((mm_app_load_hal(&cam_app) != MM_CAMERA_OK)) {
@@ -1051,10 +1080,20 @@ int main(int argc, char **argv)
         return -1;
     }
     printf("\nHAL Loaded successfully!!\n");
+    mm_camera_test_obj_t test_obj;
+    memset(&test_obj, 0, sizeof(mm_camera_test_obj_t));
 
-  do {
-    keep_on_going = submain(&cam_app);
-  } while ( keep_on_going );
+    printf("\n Opening Camera!!\n");
+    //TODO: Remove hardcoded cam_id, take cam id from user input.
+    rc = mm_app_open(&cam_app, 0, &test_obj);
+    if (rc != MM_CAMERA_OK) {
+       CDBG_ERROR("%s:mm_app_open() err=%d\n", __func__, rc);
+       return -1;
+    }
+
+    do {
+       keep_on_going = submain(&test_obj);
+    } while ( keep_on_going );
 
   printf("Exiting application\n");
   return 0;
@@ -1066,7 +1105,7 @@ int main(int argc, char **argv)
  *
  * DESCRIPTION:
  * ===========================================================================*/
-static int submain(mm_camera_app_t *cam_app)
+static int submain(mm_camera_test_obj_t *test_obj)
 {
   int rc = 0;
   int back_mainflag = 0;
@@ -1076,22 +1115,14 @@ static int submain(mm_camera_app_t *cam_app)
   camera_action_t action_id;
   int action_param;
   int i;
-  //TODO: have all required dimensions in one structure.
-  rc = system_dimension_set(cam_id);
 
-  mm_camera_test_obj_t test_obj;
-  memset(&test_obj, 0, sizeof(mm_camera_test_obj_t));
-  
-  printf("\n Opening Camera!!\n");
-  //TODO: Remove hardcoded cam_id, take cam id from user input.
-  rc = mm_app_open(cam_app, 0, &test_obj);
-  if (rc != MM_CAMERA_OK) {
-    CDBG_ERROR("%s:mm_app_open() cam_idx=%d, err=%d\n", __func__, i, rc);
-    return -1;
-  }
+
+  //set preview resolution.
+  //TODO: Add other dimension related stuff here.
+  system_dimension_set(test_obj);
 
   printf("\nStarting Preview!!\n");
-  rc = mm_app_start_preview(&test_obj);
+  rc = mm_app_start_preview(test_obj);
   if (rc != MM_CAMERA_OK) {
     CDBG_ERROR("%s:mm_app_open() cam_idx=%d, err=%d\n", __func__, i, rc);
     return -1;
@@ -1104,7 +1135,6 @@ static int submain(mm_camera_app_t *cam_app)
 #endif
 
   do {
-    printf("\n\nPrinting MENU!!! \n\n");
     print_current_menu (current_menu_id);
     fgets(tc_buf, 3, stdin);
 
@@ -1120,7 +1150,7 @@ static int submain(mm_camera_app_t *cam_app)
     switch(action_id) {
       case ACTION_STOP_CAMERA:
         CDBG("ACTION_STOP_CAMERA \n");
-        //mm_app_stop_preview(cam_id);
+        mm_app_stop_preview(test_obj);
         break;
 
       case ACTION_PREVIEW_VIDEO_RESOLUTION:
@@ -1130,17 +1160,17 @@ static int submain(mm_camera_app_t *cam_app)
      //     goto ERROR;
      //   }
         CDBG("Selection for the preview/video resolution change\n");
-        preview_video_resolution (action_param);
+        preview_video_resolution (test_obj, action_param);
         break;
 
       case ACTION_SET_WHITE_BALANCE:
         CDBG("Selection for the White Balance changes\n");
-        set_whitebalance(action_param);
+        set_whitebalance(test_obj, action_param);
         break;
 
       case ACTION_SET_EXP_METERING:
         CDBG("Selection for the Exposure Metering changes\n");
-        set_exp_metering(action_param);
+        set_exp_metering(test_obj, action_param);
         break;
 
       case ACTION_GET_CTRL_VALUE:
@@ -1195,7 +1225,7 @@ static int submain(mm_camera_app_t *cam_app)
 
       case ACTION_SET_ISO:
         CDBG("Select for ISO changes\n");
-        set_iso(action_param);
+        set_iso(test_obj, action_param);
         break;
 
       case ACTION_SET_ZOOM:
@@ -1214,10 +1244,17 @@ static int submain(mm_camera_app_t *cam_app)
         break;
 
       case ACTION_TAKE_YUV_SNAPSHOT:
-        printf("\n Take YUV snapshot\n");
-        if (take_yuv_snapshot(&test_obj) < 0)
+        CDBG_HIGH("\n Take YUV snapshot\n");
+        if (take_yuv_snapshot(test_obj, 0) < 0)
           goto ERROR;
         break;
+
+      case ACTION_TAKE_BURST_SNAPSHOT:
+        CDBG_HIGH("\n Take Burst snapshot\n");
+        if (take_yuv_snapshot(test_obj, 1) < 0)
+          goto ERROR;
+        break;
+
       case ACTION_START_RECORDING:
         CDBG("Start recording action\n");
 #if 0
@@ -1238,7 +1275,7 @@ static int submain(mm_camera_app_t *cam_app)
         break;
       case ACTION_SET_BESTSHOT_MODE:
         CDBG("Selection for bestshot\n");
-        set_bestshot_mode(&test_obj, action_param);
+        set_bestshot_mode(test_obj, action_param);
         break;
       case ACTION_TAKE_LIVE_SNAPSHOT:
         printf("Selection for live shot\n");
@@ -1248,6 +1285,10 @@ static int submain(mm_camera_app_t *cam_app)
         else
            printf("\n !!! Use live snapshot option while recording only !!!\n");
 #endif
+        break;
+      case ACTION_SET_FLASH_MODE:
+        printf("\n Selection for flashmode\n");
+        set_flash_mode(test_obj, action_param);
         break;
       case ACTION_NO_ACTION:
         printf("Go back to main menu");
@@ -1281,26 +1322,26 @@ ERROR:
  *
  * DESCRIPTION:
  * ===========================================================================*/
-int preview_video_resolution (int preview_video_action_param) {
+int preview_video_resolution (mm_camera_test_obj_t *test_obj, int preview_video_action_param) {
   char * resolution_name;
-  CDBG("Selecting the action for preview/video resolution = %d \n", preview_video_action_param);
+  CDBG_HIGH("\n Selecting the action for preview/video resolution = %d \n", preview_video_action_param);
   resolution_name = set_preview_video_dimension_tbl(preview_video_action_param,
                       & input_display.user_input_display_width,
                       & input_display.user_input_display_height);
 
-  CDBG("Selected preview/video resolution is %s\n", resolution_name);
+  CDBG_HIGH("\n Selected preview/video resolution is %s\n", resolution_name);
 
   if (resolution_name == NULL) {
     CDBG("main:%d set_preview_dimension failed!\n", __LINE__);
     goto ERROR;
   }
 
-  CDBG("Selected Preview Resolution: display_width = %d, display_height = %d\n",
+  CDBG_HIGH("\n Selected Preview Resolution: display_width = %d, display_height = %d\n",
     input_display.user_input_display_width, input_display.user_input_display_height);
 
   preview_video_resolution_flag = 1;
   //stopping preview before resolution change.
-  mm_app_stop_preview(cam_id);
+  mm_app_stop_preview(test_obj);
   return 0;
 
 ERROR:
@@ -1312,30 +1353,45 @@ ERROR:
  *
  * DESCRIPTION:
  * ===========================================================================*/
-int set_whitebalance (int wb_action_param) {
-#if 0
-        int mode;
+int set_whitebalance (mm_camera_test_obj_t *test_obj, int wb_action_param) {
+        cam_wb_mode_type type;
         switch (wb_action_param) {
-                case WHITE_BALANCE_AUTO:
-                        mode = MM_CAMERA_WHITE_BALANCE_AUTO;
+                case WB_AUTO:
+                        printf("\n WB_AUTO\n");
+                        type = CAM_WB_MODE_AUTO;
                         break;
-                case WHITE_BALANCE_OFF:
-                        mode = MM_CAMERA_WHITE_BALANCE_OFF;
+                case WB_INCANDESCENT:
+                        printf("\n WB_INCANDESCENT\n");
+                        type = CAM_WB_MODE_INCANDESCENT;
                         break;
-                case WHITE_BALANCE_DAYLIGHT:
-                        mode = MM_CAMERA_WHITE_BALANCE_DAYLIGHT;
+                case WB_FLUORESCENT:
+                        printf("\n WB_FLUORESCENT\n");
+                        type = CAM_WB_MODE_FLUORESCENT;
                         break;
-                case WHITE_BALANCE_INCANDESCENT:
-                        mode = MM_CAMERA_WHITE_BALANCE_INCANDESCENT;
+                case WB_WARM_FLUORESCENT:
+                        printf("\n WB_WARM_FLUORESCENT\n");
+                        type = CAM_WB_MODE_WARM_FLUORESCENT;
                         break;
-                case WHITE_BALANCE_FLUORESCENT:
-                        mode = MM_CAMERA_WHITE_BALANCE_FLUORESCENT;
+                case WB_DAYLIGHT:
+                        printf("\n WB_DAYLIGHT\n");
+                        type = CAM_WB_MODE_DAYLIGHT;
+                        break;
+                case WB_CLOUDY_DAYLIGHT:
+                        printf("\n WB_CLOUDY_DAYLIGHT\n");
+                        type = CAM_WB_MODE_CLOUDY_DAYLIGHT;
+                        break;
+               case WB_TWILIGHT:
+                        printf("\n WB_TWILIGHT\n");
+                        type = CAM_WB_MODE_TWILIGHT;
+                        break;
+               case WB_SHADE:
+                        printf("\n WB_SHADE\n");
+                        type = CAM_WB_MODE_SHADE;
                         break;
                 default:
                         break;
         }
-        return mm_app_set_config_parm(cam_id, MM_CAMERA_PARM_WHITE_BALANCE, mode);
-#endif
+        return mm_app_set_params(test_obj, CAM_INTF_PARM_WHITE_BALANCE, type);
 }
 
 
@@ -1344,24 +1400,41 @@ int set_whitebalance (int wb_action_param) {
  *
  * DESCRIPTION:
  * ===========================================================================*/
-int set_exp_metering (int exp_metering_action_param) {
-#if 0
-        camera_auto_exposure_mode_type type;
+int set_exp_metering (mm_camera_test_obj_t *test_obj, int exp_metering_action_param) {
+        cam_auto_exposure_mode_type type;
         switch (exp_metering_action_param) {
-                case EXP_METERING_FRAME_AVERAGE:
-                        type = CAMERA_AEC_FRAME_AVERAGE;
+		case AUTO_EXP_FRAME_AVG:
+                        printf("\nAUTO_EXP_FRAME_AVG\n");
+                        type = CAM_AEC_MODE_FRAME_AVERAGE;
                         break;
-                case EXP_METERING_CENTER_WEIGHTED:
-                        type = CAMERA_AEC_CENTER_WEIGHTED;
+                case AUTO_EXP_CENTER_WEIGHTED:
+                        printf("\n AUTO_EXP_CENTER_WEIGHTED\n");
+                        type = CAM_AEC_MODE_CENTER_WEIGHTED;
                         break;
-                case EXP_METERING_SPOT_METERING:
-                        type = CAMERA_AEC_SPOT_METERING;
+                case AUTO_EXP_SPOT_METERING:
+                        printf("\n AUTO_EXP_SPOT_METERING\n");
+                        type = CAM_AEC_MODE_SPOT_METERING;
+                        break;
+                case AUTO_EXP_SMART_METERING:
+                        printf("\n AUTO_EXP_SMART_METERING\n");
+                        type = CAM_AEC_MODE_SMART_METERING;
+                        break;
+                case AUTO_EXP_USER_METERING:
+                        printf("\n AUTO_EXP_USER_METERING\n");
+                        type = CAM_AEC_MODE_USER_METERING;
+                        break;
+                case AUTO_EXP_SPOT_METERING_ADV:
+                        printf("\n AUTO_EXP_SPOT_METERING_ADV\n");
+                        type = CAM_AEC_MODE_SPOT_METERING_ADV;
+                        break;
+                case AUTO_EXP_CENTER_WEIGHTED_ADV:
+                        printf("\n AUTO_EXP_CENTER_WEIGHTED_ADV\n");
+                        type = CAM_AEC_MODE_CENTER_WEIGHTED_ADV;
                         break;
                 default:
                         break;
         }
-        return mm_app_set_config_parm(cam_id, MM_CAMERA_PARM_EXPOSURE, type);
-#endif
+        return mm_app_set_params(test_obj, CAM_INTF_PARM_AEC_ALGO_TYPE, type);
 }
 
 int get_ctrl_value (int ctrl_value_mode_param){
@@ -1443,36 +1516,41 @@ int set_zoom (int zoom_action_param) {
  *
  * DESCRIPTION:
  * ===========================================================================*/
-int set_iso (int iso_action_param) {
-#if 0
-    camera_iso_mode_type type;
+int set_iso (mm_camera_test_obj_t *test_obj, int iso_action_param) {
+    cam_iso_mode_type type;
     switch (iso_action_param) {
         case ISO_AUTO:
-            type = CAMERA_ISO_AUTO;
+            printf("\n ISO_AUTO\n");
+            type = CAM_ISO_MODE_AUTO;
             break;
         case ISO_DEBLUR:
-            type = CAMERA_ISO_DEBLUR;
+            printf("\n ISO_DEBLUR\n");
+            type = CAM_ISO_MODE_DEBLUR;
             break;
         case ISO_100:
-            type = CAMERA_ISO_100;
+            printf("\n ISO_100\n");
+            type = CAM_ISO_MODE_100;
             break;
         case ISO_200:
-            type = CAMERA_ISO_200;
+            printf("\n ISO_200\n");
+            type = CAM_ISO_MODE_200;
             break;
         case ISO_400:
-            type = CAMERA_ISO_400;
+            printf("\n ISO_400\n");
+            type = CAM_ISO_MODE_400;
             break;
         case ISO_800:
-            type = CAMERA_ISO_800;
+            printf("\n ISO_800\n");
+            type = CAM_ISO_MODE_800;
             break;
         case ISO_1600:
-            type = CAMERA_ISO_1600;
+            printf("\n ISO_1600\n");
+            type = CAM_ISO_MODE_1600;
             break;
         default:
             break;
     }
-    return mm_app_set_config_parm(cam_id, MM_CAMERA_PARM_ISO, type);
-#endif
+    return mm_app_set_params(test_obj, CAM_INTF_PARM_BESTSHOT_MODE, type);
 }
 
 /*===========================================================================
@@ -1507,6 +1585,31 @@ int decrease_sharpness () {
     printf("Decrease Sharpness to %d\n", sharpness);
     return mm_app_set_config_parm(cam_id,  MM_CAMERA_PARM_SHARPNESS, sharpness);
 #endif
+}
+
+int set_flash_mode (mm_camera_test_obj_t *test_obj, int action_param) {
+    cam_flash_mode_t type;
+    switch (action_param) {
+        case FLASH_MODE_OFF:
+            printf("\n FLASH_MODE_OFF\n");
+            type = CAM_FLASH_MODE_OFF;
+            break;
+        case FLASH_MODE_AUTO:
+            printf("\n FLASH_MODE_AUTO\n");
+            type = CAM_FLASH_MODE_AUTO;
+            break;
+        case FLASH_MODE_ON:
+            printf("\n FLASH_MODE_ON\n");
+            type = CAM_FLASH_MODE_ON;
+            break;
+        case FLASH_MODE_TORCH:
+            printf("\n FLASH_MODE_TORCH\n");
+            type = CAM_ISO_MODE_100;
+            break;
+        default:
+            break;
+    }
+    return mm_app_set_params(test_obj, CAM_INTF_PARM_LED_MODE, type);
 }
 
 int set_bestshot_mode(mm_camera_test_obj_t *test_obj, int action_param) {
@@ -1629,6 +1732,8 @@ int print_current_menu (menu_id_change_t current_menu_id) {
     camera_preview_video_sharpness_change_tbl();
   } else if (current_menu_id == MENU_ID_BESTSHOT) {
     camera_set_bestshot_tbl();
+  } else if (current_menu_id == MENU_ID_FLASHMODE) {
+    camera_set_flashmode_tbl();
   }
 
   return 0;

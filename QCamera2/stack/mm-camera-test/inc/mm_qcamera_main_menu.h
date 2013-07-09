@@ -62,10 +62,12 @@ typedef enum
   SET_ZOOM = 12,
   SET_SHARPNESS = 13,
   TAKE_YUV_SNAPSHOT = 14,
-  START_RECORDING = 15,
-  STOP_RECORDING = 16,
-  BEST_SHOT = 17,
-  LIVE_SHOT = 18
+  TAKE_BURST_SNAPSHOT = 15,
+  START_RECORDING = 16,
+  STOP_RECORDING = 17,
+  BEST_SHOT = 18,
+  LIVE_SHOT = 19,
+  FLASH_MODES = 20
 } Camera_main_menu_t;
 
 typedef enum
@@ -90,10 +92,12 @@ typedef enum
   ACTION_SHARPNESS_INCREASE,
   ACTION_SHARPNESS_DECREASE,
   ACTION_TAKE_YUV_SNAPSHOT,
+  ACTION_TAKE_BURST_SNAPSHOT,
   ACTION_START_RECORDING,
   ACTION_STOP_RECORDING,
   ACTION_SET_BESTSHOT_MODE,
   ACTION_TAKE_LIVE_SNAPSHOT,
+  ACTION_SET_FLASH_MODE,
 } camera_action_t;
 
 #define INVALID_KEY_PRESS 0
@@ -116,6 +120,8 @@ typedef enum
 #define VGA_HEIGHT      480
 #define WVGA_WIDTH      800
 #define WVGA_HEIGHT     480
+#define WVGA_PLUS_WIDTH      960
+#define WVGA_PLUS_HEIGHT     720
 
 #define MP1_WIDTH      1280
 #define MP1_HEIGHT      960
@@ -132,6 +138,8 @@ typedef enum
 #define XGA_HEIGHT      768
 #define HD720_WIDTH    1280
 #define HD720_HEIGHT    720
+#define HD720_PLUS_WIDTH    1440
+#define HD720_PLUS_HEIGHT   1080
 #define WXGA_WIDTH     1280
 #define WXGA_HEIGHT     768
 #define HD1080_WIDTH   1920
@@ -140,22 +148,20 @@ typedef enum
 typedef enum
 {
   RESOLUTION_MIN         = 1,
-  SQCIF                  = RESOLUTION_MIN,
-  QCIF                   = 2,
-  QVGA                   = 3,
-  CIF                    = 4,
-  VGA                    = 5,
-  WVGA                   = 6,
-  SVGA                   = 7,
-  XGA                    = 8,
-  HD720                  = 9,
-  RESOLUTION_PREVIEW_VIDEO_MAX = HD720,
-  WXGA                   = 10,
-  MP1                    = 11,
-  MP2                    = 12,
-  HD1080                 = 13,
-  MP3                    = 14,
-  MP5                    = 15,
+  QCIF                  = RESOLUTION_MIN,
+  QVGA                   = 2,
+  VGA                    = 3,
+  WVGA                   = 4,
+  WVGA_PLUS              = 5,
+  HD720                  = 6,
+  HD720_PLUS             = 7,
+  HD1080                 = 8,
+  RESOLUTION_PREVIEW_VIDEO_MAX = HD1080,
+  WXGA                   = 9,
+  MP1                    = 10,
+  MP2                    = 11,
+  MP3                    = 12,
+  MP5                    = 13,
   RESOLUTION_MAX         = MP5,
 } Camera_Resolution;
 
@@ -171,9 +177,13 @@ typedef enum {
 } Get_Ctrl_modes;
 
 typedef enum {
-	EXP_METERING_FRAME_AVERAGE   = 1,
-	EXP_METERING_CENTER_WEIGHTED = 2,
-  EXP_METERING_SPOT_METERING   = 3,
+    AUTO_EXP_FRAME_AVG = 1,
+    AUTO_EXP_CENTER_WEIGHTED = 2,
+    AUTO_EXP_SPOT_METERING = 3,
+    AUTO_EXP_SMART_METERING = 4,
+    AUTO_EXP_USER_METERING = 5,
+    AUTO_EXP_SPOT_METERING_ADV = 6,
+    AUTO_EXP_CENTER_WEIGHTED_ADV = 7,
 } Exp_Metering_modes;
 
 typedef enum {
@@ -210,14 +220,23 @@ typedef enum {
   BESTSHOT_MAX = 21,
 }Bestshot_modes;
 
-//TODO: Add more based on cam_types.h 
 typedef enum {
-    WHITE_BALANCE_AUTO         = 1,
-    WHITE_BALANCE_INCANDESCENT = 3,
-    WHITE_BALANCE_FLUORESCENT  = 4,
-    WHITE_BALANCE_DAYLIGHT     = 5,
-    WHITE_BALANCE_CLOUDY       = 6,
-    WHITE_BALANCE_OFF          = 9,
+    FLASH_MODE_OFF = 1,
+    FLASH_MODE_AUTO = 2,
+    FLASH_MODE_ON = 3,
+    FLASH_MODE_TORCH = 4,
+    FLASH_MODE_MAX = 5,
+}Flash_modes;
+
+typedef enum {
+  WB_AUTO = 1,
+  WB_INCANDESCENT = 2,
+  WB_FLUORESCENT = 3,
+  WB_WARM_FLUORESCENT = 4,
+  WB_DAYLIGHT = 5,
+  WB_CLOUDY_DAYLIGHT = 6,
+  WB_TWILIGHT = 7,
+  WB_SHADE = 8,
 } White_Balance_modes;
 
 typedef enum
@@ -236,6 +255,7 @@ typedef enum
   MENU_ID_ZOOMCHANGE,
   MENU_ID_SHARPNESSCHANGE,
   MENU_ID_BESTSHOT,
+  MENU_ID_FLASHMODE,
   MENU_ID_INVALID,
 } menu_id_change_t;
 
@@ -321,6 +341,11 @@ typedef struct {
 } BESTSHOT_MODE_TBT_T;
 
 typedef struct {
+  Flash_modes bs_id;
+  char *name;
+} FLASH_MODE_TBL_T;
+
+typedef struct {
   ISO_modes iso_modes;
   char *iso_modes_name;
 } ISO_TBL_T;
@@ -360,10 +385,6 @@ typedef struct {
   char * sharpness_name;
 } CAMERA_SHARPNESS_TBL_T;
 
-typedef struct {
-    uint16_t user_input_display_width;
-    uint16_t user_input_display_height;
-} USER_INPUT_DISPLAY_T;
 
 int set_zoom (int zoom_action_param);
 int set_hjr (void);
@@ -376,16 +397,13 @@ int decrease_brightness (void);
 int increase_brightness (void);
 int decrease_EV (void);
 int increase_EV (void);
-int set_iso (int iso_action_param);
 int decrease_sharpness (void);
 int increase_sharpness (void);
 int SpecialEffect (void);
-int set_exp_metering (int exp_metering_action_param);
 int LED_mode_change (void);
 int set_sharpness_AF (void);
 int set_auto_focus (void);
 int set_antibanding (void);
-int set_whitebalance (int wb_action_param);
 int print_current_menu ();
 int set_MotionIso (void);
 int start_preview (void);
@@ -395,7 +413,6 @@ static int stop_video (void);
 int start_recording (void);
 int stop_recording (void);
 int snapshot_resolution (int);
-int preview_video_resolution (int);
 int system_init(void);
 int system_destroy(void);
 int toggle_hue(void);
