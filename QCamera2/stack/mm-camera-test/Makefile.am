@@ -27,6 +27,7 @@ mm_qcamera_app_SOURCES += src/mm_qcamera_preview.c
 mm_qcamera_app_SOURCES += src/mm_qcamera_snapshot.c
 mm_qcamera_app_SOURCES += src/mm_qcamera_rdi.c
 mm_qcamera_app_SOURCES += src/mm_qcamera_main_menu.c
+mm_qcamera_app_SOURCES += src/mm_qcamera_display.c
 
 mm_qcamera_app_LDADD := -ldl
 mm_qcamera_app_LDADD += ../../../QCamera2/stack/mm-camera-interface/libmmcamera_interface.la

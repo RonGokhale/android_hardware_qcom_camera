@@ -123,6 +123,7 @@ const WHITE_BALANCE_TBL_T white_balance_tbl[] = {
   {   WB_FLUORESCENT,        "White Balance - Fluorescent"},
   {   WB_WARM_FLUORESCENT,   "White Balance - Warm Fluorescent"},
   {   WB_DAYLIGHT,           "White Balance - Daylight"},
+  {   WB_CLOUDY_DAYLIGHT,    "White Balance - Cloudy Daylight"},
   {   WB_TWILIGHT,           "White Balance - Twilight"},
   {   WB_SHADE,              "White Balance - Shade"},
 };
@@ -245,6 +246,10 @@ int is_rec = 0;
 #define CAMERA_MAX_SATURATION  10
 #define CAMERA_SATURATION_STEP 1
 
+#define CAMERA_MIN_SHARPNESS 0
+#define CAMERA_MAX_SHARPNESS 10
+#define CAMERA_DEF_SHARPNESS 5
+#define CAMERA_SHARPNESS_STEP 1
 
 static int submain();
 
@@ -869,16 +874,14 @@ static void camera_set_flashmode_tbl(void)
  *
  * DESCRIPTION:
  * ===========================================================================*/
-int increase_contrast (void) {
-#if 0
+int increase_contrast (mm_camera_test_obj_t *test_obj) {
         contrast += CAMERA_CONTRAST_STEP;
         if (contrast > CAMERA_MAX_CONTRAST) {
                 contrast = CAMERA_MAX_CONTRAST;
                 printf("Reached max CONTRAST. \n");
         }
         printf("Increase Contrast to %d\n", contrast);
-        return mm_app_set_config_parm(cam_id, MM_CAMERA_PARM_CONTRAST, contrast);
-#endif
+        return mm_app_set_params(test_obj, CAM_INTF_PARM_CONTRAST, contrast);
 }
 
 /*===========================================================================
@@ -886,16 +889,14 @@ int increase_contrast (void) {
  *
  * DESCRIPTION:
  * ===========================================================================*/
-int decrease_contrast (void) {
-#if 0
+int decrease_contrast (mm_camera_test_obj_t *test_obj) {
         contrast -= CAMERA_CONTRAST_STEP;
         if (contrast < CAMERA_MIN_CONTRAST) {
                 contrast = CAMERA_MIN_CONTRAST;
                 printf("Reached min CONTRAST. \n");
         }
         printf("Decrease Contrast to %d\n", contrast);
-        return mm_app_set_config_parm(cam_id, MM_CAMERA_PARM_CONTRAST, contrast);
-#endif
+        return mm_app_set_params(test_obj, CAM_INTF_PARM_CONTRAST, contrast);
 }
 
 /*===========================================================================
@@ -903,16 +904,14 @@ int decrease_contrast (void) {
  *
  * DESCRIPTION:
  * ===========================================================================*/
-int decrease_brightness (void) {
-#if 0
+int decrease_brightness (mm_camera_test_obj_t *test_obj) {
         brightness -= CAMERA_BRIGHTNESS_STEP;
         if (brightness < CAMERA_MIN_BRIGHTNESS) {
                 brightness = CAMERA_MIN_BRIGHTNESS;
                 printf("Reached min BRIGHTNESS. \n");
         }
         printf("Decrease Brightness to %d\n", brightness);
-        return mm_app_set_config_parm(cam_id, MM_CAMERA_PARM_BRIGHTNESS, brightness);
-#endif
+        return mm_app_set_params(test_obj, CAM_INTF_PARM_BRIGHTNESS, brightness);
 }
 
 /*===========================================================================
@@ -920,16 +919,14 @@ int decrease_brightness (void) {
  *
  * DESCRIPTION:
  * ===========================================================================*/
-int increase_brightness (void) {
-#if 0
+int increase_brightness (mm_camera_test_obj_t *test_obj) {
         brightness += CAMERA_BRIGHTNESS_STEP;
         if (brightness > CAMERA_MAX_BRIGHTNESS) {
                 brightness = CAMERA_MAX_BRIGHTNESS;
                 printf("Reached max BRIGHTNESS. \n");
         }
         printf("Increase Brightness to %d\n", brightness);
-        return mm_app_set_config_parm(cam_id, MM_CAMERA_PARM_BRIGHTNESS, brightness);
-#endif
+        return mm_app_set_params(test_obj, CAM_INTF_PARM_BRIGHTNESS, brightness);
 }
 
 /*===========================================================================
@@ -1035,8 +1032,9 @@ int take_yuv_snapshot(mm_camera_test_obj_t *test_obj, int is_burst_mode)
 static void system_dimension_set(mm_camera_test_obj_t *test_obj)
 {
   if (preview_video_resolution_flag == 0) {
-    test_obj->preview_resolution.user_input_display_width = WVGA_WIDTH;
-    test_obj->preview_resolution.user_input_display_height = WVGA_HEIGHT;
+    //Default preview resolution.
+    test_obj->preview_resolution.user_input_display_width = WVGA_PLUS_WIDTH;
+    test_obj->preview_resolution.user_input_display_height = WVGA_PLUS_HEIGHT;
   } else {
     test_obj->preview_resolution.user_input_display_width = input_display.user_input_display_width;
     test_obj->preview_resolution.user_input_display_height = input_display.user_input_display_height;
@@ -1127,12 +1125,9 @@ static int submain(mm_camera_test_obj_t *test_obj)
     CDBG_ERROR("%s:mm_app_open() cam_idx=%d, err=%d\n", __func__, i, rc);
     return -1;
   }
-
-#if 0
-  if( 0 != (rc = mm_app_set_config_parm(cam_id, MM_CAMERA_PARM_AUTO_CONTRAST, autoContrast))) {
-  printf("AutoContrast set fails rc=%d\n", rc);
-  }
-#endif
+  //Set default values.
+  //Default Auto exposure.
+  mm_app_set_params(test_obj, CAM_INTF_PARM_AEC_ALGO_TYPE, CAM_AEC_MODE_FRAME_AVERAGE);
 
   do {
     print_current_menu (current_menu_id);
@@ -1180,22 +1175,22 @@ static int submain(mm_camera_test_obj_t *test_obj)
 
       case ACTION_BRIGHTNESS_INCREASE:
         printf("Increase brightness\n");
-        increase_brightness();
+        increase_brightness(test_obj);
         break;
 
       case ACTION_BRIGHTNESS_DECREASE:
         printf("Decrease brightness\n");
-        decrease_brightness();
+        decrease_brightness(test_obj);
         break;
 
       case ACTION_CONTRAST_INCREASE:
         CDBG("Selection for the contrast increase\n");
-        increase_contrast ();
+        increase_contrast (test_obj);
         break;
 
       case ACTION_CONTRAST_DECREASE:
         CDBG("Selection for the contrast decrease\n");
-        decrease_contrast ();
+        decrease_contrast (test_obj);
         break;
 
       case ACTION_EV_INCREASE:
@@ -1230,17 +1225,17 @@ static int submain(mm_camera_test_obj_t *test_obj)
 
       case ACTION_SET_ZOOM:
         CDBG("Selection for the zoom direction changes\n");
-        set_zoom(action_param);
+        set_zoom(test_obj ,action_param);
         break;
 
       case ACTION_SHARPNESS_INCREASE:
         CDBG("Selection for sharpness increase\n");
-        increase_sharpness();
+        increase_sharpness(test_obj);
         break;
 
       case ACTION_SHARPNESS_DECREASE:
         CDBG("Selection for sharpness decrease\n");
-        decrease_sharpness();
+        decrease_sharpness(test_obj);
         break;
 
       case ACTION_TAKE_YUV_SNAPSHOT:
@@ -1305,9 +1300,6 @@ static int submain(mm_camera_test_obj_t *test_obj)
   } while ((action_id != ACTION_STOP_CAMERA) &&
       (action_id != ACTION_PREVIEW_VIDEO_RESOLUTION));
   action_id = ACTION_NO_ACTION;
-
-  //system_destroy();
-
 
   return back_mainflag;
 
@@ -1493,8 +1485,8 @@ int toggle_afr () {
 #endif
 }
 
-int set_zoom (int zoom_action_param) {
-#if 0
+int set_zoom (mm_camera_test_obj_t *test_obj, int zoom_action_param) {
+
     if (zoom_action_param == ZOOM_IN) {
         zoom_level += ZOOM_STEP;
         if (zoom_level > zoom_max_value)
@@ -1507,8 +1499,7 @@ int set_zoom (int zoom_action_param) {
         CDBG("%s: Invalid zoom_action_param value\n", __func__);
         return -EINVAL;
     }
-    return mm_app_set_config_parm(cam_id, MM_CAMERA_PARM_ZOOM, zoom_level);
-#endif
+    return mm_app_set_params(test_obj, CAM_INTF_PARM_ZOOM, zoom_level);
 }
 
 /*===========================================================================
@@ -1558,16 +1549,14 @@ int set_iso (mm_camera_test_obj_t *test_obj, int iso_action_param) {
  *
  * DESCRIPTION:
  * ===========================================================================*/
-int increase_sharpness () {
-#if 0
+int increase_sharpness (mm_camera_test_obj_t *test_obj) {
     sharpness += CAMERA_SHARPNESS_STEP;
     if (sharpness > CAMERA_MAX_SHARPNESS) {
         sharpness = CAMERA_MAX_SHARPNESS;
         printf("Reached max SHARPNESS. \n");
     }
     printf("Increase Sharpness to %d\n", sharpness);
-    return mm_app_set_config_parm(cam_id,  MM_CAMERA_PARM_SHARPNESS, sharpness);
-#endif
+    return mm_app_set_params(test_obj, CAM_INTF_PARM_SHARPNESS, sharpness);
 }
 
 /*===========================================================================
@@ -1575,16 +1564,14 @@ int increase_sharpness () {
  *
  * DESCRIPTION:
  * ===========================================================================*/
-int decrease_sharpness () {
-#if 0
+int decrease_sharpness (mm_camera_test_obj_t *test_obj) {
     sharpness -= CAMERA_SHARPNESS_STEP;
     if (sharpness < CAMERA_MIN_SHARPNESS) {
         sharpness = CAMERA_MIN_SHARPNESS;
         printf("Reached min SHARPNESS. \n");
     }
     printf("Decrease Sharpness to %d\n", sharpness);
-    return mm_app_set_config_parm(cam_id,  MM_CAMERA_PARM_SHARPNESS, sharpness);
-#endif
+    return mm_app_set_params(test_obj, CAM_INTF_PARM_SHARPNESS, sharpness);
 }
 
 int set_flash_mode (mm_camera_test_obj_t *test_obj, int action_param) {

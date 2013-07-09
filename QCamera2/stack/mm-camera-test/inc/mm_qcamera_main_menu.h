@@ -385,44 +385,4 @@ typedef struct {
   char * sharpness_name;
 } CAMERA_SHARPNESS_TBL_T;
 
-
-int set_zoom (int zoom_action_param);
-int set_hjr (void);
-int LensShading (void);
-int decrease_contrast (void);
-int increase_contrast (void);
-int decrease_saturation (void);
-int increase_saturation (void);
-int decrease_brightness (void);
-int increase_brightness (void);
-int decrease_EV (void);
-int increase_EV (void);
-int decrease_sharpness (void);
-int increase_sharpness (void);
-int SpecialEffect (void);
-int LED_mode_change (void);
-int set_sharpness_AF (void);
-int set_auto_focus (void);
-int set_antibanding (void);
-int print_current_menu ();
-int set_MotionIso (void);
-int start_preview (void);
-int stop_preview (void);
-static int start_video (void);
-static int stop_video (void);
-int start_recording (void);
-int stop_recording (void);
-int snapshot_resolution (int);
-int system_init(void);
-int system_destroy(void);
-int toggle_hue(void);
-int cancel_af(void);
-int get_af_step();
-int set_af_step();
-int enable_afd();
-int prepare_snapshot();
-int set_fps_mode(void);
-int get_ctrl_value (int ctrl_value_mode_param);
-int toggle_afr ();
-int take_yuv_snapshot();
 #endif /* __MM_QCAMERA_MAIN_MENU_H__ */
