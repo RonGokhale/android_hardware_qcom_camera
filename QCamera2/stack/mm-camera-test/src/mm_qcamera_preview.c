@@ -35,11 +35,14 @@ static void mm_app_preview_notify_cb(mm_camera_super_buf_t *bufs,
 {
     char file_name[64];
     static int i = 0;
+    int rc = MM_CAMERA_OK;
     mm_camera_buf_def_t *frame = bufs->bufs[0];
     mm_camera_test_obj_t *pme = (mm_camera_test_obj_t *)user_data;
 
-    CDBG("%s: BEGIN - length=%d, frame idx = %d\n",
-         __func__, frame->frame_len, frame->frame_idx);
+    CDBG("%s: BEGIN - length=%d, frame idx = %d\n",__func__, frame->frame_len, frame->frame_idx);
+    if(MM_CAMERA_OK != (rc = mm_app_dl_render(frame->fd, pme))) {
+       CDBG_HIGH("\n%s mm_app_dl_render failed=%d\n",__func__,rc);
+    }
     snprintf(file_name, sizeof(file_name), "P_C%d", pme->cam->camera_handle);
     i++;
     if(i==50) { //dump one frame out of 50 frames.
@@ -325,6 +328,8 @@ int mm_app_start_preview(mm_camera_test_obj_t *test_obj)
         mm_app_del_channel(test_obj, channel);
         return rc;
     }
+    //Launch display thread.
+    launch_camframe_fb_thread();
 
     return rc;
 }
@@ -340,7 +345,8 @@ int mm_app_stop_preview(mm_camera_test_obj_t *test_obj)
     if (MM_CAMERA_OK != rc) {
         CDBG_ERROR("%s:Stop Preview failed rc=%d\n", __func__, rc);
     }
-
+    //Release display thread.
+    release_camframe_fb_thread();
     return rc;
 }
 
