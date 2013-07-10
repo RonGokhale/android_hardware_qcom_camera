@@ -46,6 +46,19 @@
 #define MAX_EXIF_TABLE_ENTRIES 50
 #define MAX_JPEG_SIZE 20000000
 
+/** mm_jpeg_abort_state_t:
+ *  @MM_JPEG_ABORT_NONE: Abort is not issued
+ *  @MM_JPEG_ABORT_INIT: Abort is issued from the client
+ *  @MM_JPEG_ABORT_DONE: Abort is completed
+ *
+ *  State representing the abort state
+ **/
+typedef enum {
+  MM_JPEG_ABORT_NONE,
+  MM_JPEG_ABORT_INIT,
+  MM_JPEG_ABORT_DONE,
+} mm_jpeg_abort_state_t;
+
 typedef struct {
   struct cam_list list;
   void* data;
@@ -87,7 +100,7 @@ typedef struct {
 
   int state_change_pending;      /* flag to indicate if state change is pending */
   OMX_ERRORTYPE error_flag;      /* variable to indicate error during encoding */
-  OMX_BOOL abort_flag;      /* variable to indicate abort during encoding */
+  mm_jpeg_abort_state_t abort_state; /* variable to indicate abort during encoding */
 
   /* OMX related */
   OMX_HANDLETYPE omx_handle;                      /* handle to omx engine */
@@ -106,8 +119,8 @@ typedef struct {
   pthread_mutex_t lock;
   pthread_cond_t cond;
 
-  QEXIF_INFO_DATA exif_info_all[MAX_EXIF_TABLE_ENTRIES];  //all exif tags for JPEG encoder
-  int total_entries;
+  QEXIF_INFO_DATA exif_info_local[MAX_EXIF_TABLE_ENTRIES];  //all exif tags for JPEG encoder
+  int exif_count_local;
 
   mm_jpeg_cirq_t cb_q;
   int32_t ebd_count;
@@ -183,6 +196,7 @@ extern int32_t mm_jpeg_create_session(mm_jpeg_obj *my_obj,
   uint32_t* p_session_id);
 extern int32_t mm_jpeg_destroy_session_by_id(mm_jpeg_obj *my_obj,
   uint32_t session_id);
+extern int32_t mm_jpeg_destroy_job(mm_jpeg_job_session_t *p_session);
 
 /* utiltity fucntion declared in mm-camera-inteface2.c
  * and need be used by mm-camera and below*/
@@ -199,7 +213,9 @@ extern uint32_t mm_jpeg_queue_get_size(mm_jpeg_queue_t* queue);
 extern void* mm_jpeg_queue_peek(mm_jpeg_queue_t* queue);
 extern int32_t addExifEntry(QOMX_EXIF_INFO *p_exif_info, exif_tag_id_t tagid,
   exif_tag_type_t type, uint32_t count, void *data);
-extern int32_t releaseExifEntry(QOMX_EXIF_INFO *p_exif_info);
+extern int32_t releaseExifEntry(QEXIF_INFO_DATA *p_exif_data);
+extern int process_meta_data(cam_metadata_info_t *p_meta,
+  QOMX_EXIF_INFO *exif_info);
 
 #endif /* MM_JPEG_H_ */
 

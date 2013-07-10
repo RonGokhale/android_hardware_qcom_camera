@@ -285,8 +285,10 @@ private:
     bool needRotationReprocess();
     void debugShowVideoFPS();
     void debugShowPreviewFPS();
-    void dumpFrameToFile(const void *data, uint32_t size,
-                         int index, int dump_type);
+    void dumpJpegToFile(const void *data, uint32_t size, int index);
+    void dumpFrameToFile(QCameraStream *stream,
+                         mm_camera_buf_def_t *frame,
+                         int dump_type);
     void releaseSuperBuf(mm_camera_super_buf_t *super_buf);
     void playShutter();
     void getThumbnailSize(cam_dimension_t &dim);
@@ -331,6 +333,7 @@ private:
     QCameraChannel *getChannelByHandle(uint32_t channelHandle);
     mm_camera_buf_def_t *getSnapshotFrame(mm_camera_super_buf_t *recvd_frame);
     int32_t processFaceDetectionResult(cam_face_detection_data_t *fd_data);
+    int32_t processHDRData(cam_asd_hdr_scene_data_t hdr_scene);
     int32_t processHistogramStats(cam_hist_stats_t &stats_data);
     int32_t setHistogram(bool histogram_en);
     int32_t setFaceDetection(bool enabled);
@@ -415,6 +418,8 @@ private:
     pthread_cond_t m_evtCond;
     qcamera_api_result_t m_evtResult;
 
+    pthread_mutex_t m_parm_lock;
+
     QCameraChannel *m_channels[QCAMERA_CH_TYPE_MAX]; // array holding channel ptr
 
     bool m_bShutterSoundPlayed;         // if shutter sound had been played
@@ -424,9 +429,6 @@ private:
     // of whether lens is moving or not.
     bool m_bAutoFocusRunning;
     cam_autofocus_state_t m_currentFocusState;
-
-    // If start_zsl_snapshot is called to notify camera daemon about zsl snapshot
-    bool m_bStartZSLSnapshotCalled;
 
     power_module_t *m_pPowerModule;   // power module
 
