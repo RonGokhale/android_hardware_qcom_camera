@@ -1031,45 +1031,38 @@ int take_yuv_snapshot(mm_camera_test_obj_t *test_obj, int is_burst_mode)
 
 static void system_dimension_set(mm_camera_test_obj_t *test_obj)
 {
-  if (preview_video_resolution_flag == 0) {
-    //Default preview resolution.
-    test_obj->preview_resolution.user_input_display_width = WVGA_PLUS_WIDTH;
-    test_obj->preview_resolution.user_input_display_height = WVGA_PLUS_HEIGHT;
-  } else {
-    test_obj->preview_resolution.user_input_display_width = input_display.user_input_display_width;
-    test_obj->preview_resolution.user_input_display_height = input_display.user_input_display_height;
-  }
+    if (preview_video_resolution_flag == 0)
+    {
+        //Default preview resolution.
+        test_obj->app_handle->preview_format = DEFAULT_PREVIEW_FORMAT;
+
+        test_obj->app_handle->preview_width = WVGA_PLUS_WIDTH;
+        test_obj->app_handle->preview_height = WVGA_PLUS_HEIGHT;
+        test_obj->app_handle->snapshot_format = DEFAULT_SNAPSHOT_FORMAT;
+        test_obj->app_handle->snapshot_width = DEFAULT_SNAPSHOT_WIDTH;
+        test_obj->app_handle->snapshot_height = DEFAULT_SNAPSHOT_HEIGHT;
+
+        test_obj->app_handle->video_format = DEFAULT_VIDEO_FORMAT;
+
+        test_obj->app_handle->video_width = DEFAULT_VIDEO_WIDTH;
+        test_obj->app_handle->video_height = DEFAULT_VIDEO_HEIGHT;
+    }
+    else {
+        test_obj->app_handle->preview_width = input_display.user_input_display_width;
+        test_obj->app_handle->preview_height = input_display.user_input_display_height;
+    }
 }
+
 /*===========================================================================
  * FUNCTION    - main -
  *
  * DESCRIPTION:
  *==========================================================================*/
-int main(int argc, char **argv)
+int menu_based_test_main()
 {
     int keep_on_going = 1;
     int rc = 0;
     int mode = 0;
-
-    printf("Please Select Execution Mode:\n");
-    printf("0: Menu Based 1: Regression\n");
-    mode = getchar() - '0';
-    if(mode == 0) {
-      printf("\nStarting Menu based!!\n");
-    } else if(mode == 1) {
-      printf("Starting Regression testing!!\n");
-      if(!mm_app_start_regression_test(1)) {
-         printf("\nRegressiion test passed!!\n");
-         return 0;
-      } else {
-        printf("\nRegression test failed!!\n");
-        exit(-1);
-      }
-    } else {
-       printf("\nPlease Enter 0 or 1\n");
-       printf("\nExisting the App!!\n");
-       exit(-1);
-    }
 
     mm_camera_app_t cam_app;
     memset(&cam_app, 0, sizeof(mm_camera_app_t));

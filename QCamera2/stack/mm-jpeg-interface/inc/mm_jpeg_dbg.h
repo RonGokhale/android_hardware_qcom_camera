@@ -55,8 +55,8 @@
     #define CDBG(fmt, args...) ALOGE(fmt, ##args)
   #else
     #include <stdio.h>
-    #define CDBG(fmt, args...) fprintf(stderr, fmt, ##args)
-    #define ALOGE(fmt, args...) fprintf(stderr, fmt, ##args)
+    #define CDBG(fmt, args...) fprintf(stderr, ""fmt"\n", ##args)
+    #define ALOGE(fmt, args...) fprintf(stderr, ""fmt"\n", ##args)
   #endif
 #endif
 
@@ -64,7 +64,7 @@
   #define CDBG_HIGH(fmt, args...)  ALOGE(fmt, ##args)
   #define CDBG_ERROR(fmt, args...)  ALOGE(fmt, ##args)
 #else
-  #define CDBG_HIGH(fmt, args...) fprintf(stderr, fmt, ##args)
-  #define CDBG_ERROR(fmt, args...) fprintf(stderr, fmt, ##args)
+  #define CDBG_HIGH(fmt, args...) fprintf(stderr, ""fmt"\n", ##args)
+  #define CDBG_ERROR(fmt, args...) fprintf(stderr, ""fmt"\n", ##args)
 #endif
 #endif /* __MM_JPEG_DBG_H__ */

@@ -125,7 +125,13 @@ mm_camera_stream_t * mm_app_add_rdi_stream(mm_camera_test_obj_t *test_obj,
     stream->s_config.mem_vtbl.user_data = (void *)stream;
     stream->s_config.stream_cb = stream_cb;
     stream->s_config.userdata = userdata;
-    stream->num_of_bufs = num_bufs;
+
+    uint8_t min_bufs = CAMERA_MIN_STREAMING_BUFFERS + 1;
+
+    if(num_bufs < min_bufs)
+        stream->num_of_bufs = min_bufs;
+    else
+        stream->num_of_bufs = num_bufs;
 
     stream->s_config.stream_info = (cam_stream_info_t *)stream->s_info_buf.buf.buffer;
     memset(stream->s_config.stream_info, 0, sizeof(cam_stream_info_t));
@@ -181,7 +187,13 @@ mm_camera_stream_t * mm_app_add_rdi_snapshot_stream(mm_camera_test_obj_t *test_o
     stream->s_config.mem_vtbl.user_data = (void *)stream;
     stream->s_config.stream_cb = stream_cb;
     stream->s_config.userdata = userdata;
-    stream->num_of_bufs = num_bufs;
+
+    uint8_t min_bufs = CAMERA_MIN_STREAMING_BUFFERS + 1;
+
+    if(num_bufs < min_bufs)
+        stream->num_of_bufs = min_bufs;
+    else
+        stream->num_of_bufs = num_bufs;
 
     stream->s_config.stream_info = (cam_stream_info_t *)stream->s_info_buf.buf.buffer;
     memset(stream->s_config.stream_info, 0, sizeof(cam_stream_info_t));

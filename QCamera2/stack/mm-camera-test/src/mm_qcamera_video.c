@@ -77,15 +77,21 @@ mm_camera_stream_t * mm_app_add_video_stream(mm_camera_test_obj_t *test_obj,
     stream->s_config.mem_vtbl.user_data = (void *)stream;
     stream->s_config.stream_cb = stream_cb;
     stream->s_config.userdata = userdata;
-    stream->num_of_bufs = num_bufs;
+
+    uint8_t min_bufs = CAMERA_MIN_STREAMING_BUFFERS + CAMERA_MIN_VIDEO_BUFFERS + 1;
+
+    if(num_bufs < min_bufs)
+        stream->num_of_bufs = min_bufs;
+    else
+        stream->num_of_bufs = num_bufs;
 
     stream->s_config.stream_info = (cam_stream_info_t *)stream->s_info_buf.buf.buffer;
     memset(stream->s_config.stream_info, 0, sizeof(cam_stream_info_t));
     stream->s_config.stream_info->stream_type = CAM_STREAM_TYPE_VIDEO;
     stream->s_config.stream_info->streaming_mode = CAM_STREAMING_MODE_CONTINUOUS;
-    stream->s_config.stream_info->fmt = DEFAULT_VIDEO_FORMAT;
-    stream->s_config.stream_info->dim.width = DEFAULT_VIDEO_WIDTH;
-    stream->s_config.stream_info->dim.height = DEFAULT_VIDEO_HEIGHT;
+    stream->s_config.stream_info->fmt = test_obj->app_handle->video_format;  //DEFAULT_VIDEO_FORMAT;
+    stream->s_config.stream_info->dim.width = (int32_t)test_obj->app_handle->video_width; //DEFAULT_VIDEO_WIDTH;
+    stream->s_config.stream_info->dim.height = (int32_t)test_obj->app_handle->video_height; //DEFAULT_VIDEO_HEIGHT;
     stream->s_config.padding_info = cam_cap->padding_info;
 
     rc = mm_app_config_stream(test_obj, channel, stream, &stream->s_config);

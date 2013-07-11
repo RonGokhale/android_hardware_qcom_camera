@@ -32,6 +32,8 @@
 #include <dlfcn.h>
 #include <linux/msm_ion.h>
 #include <sys/mman.h>
+#include <stdbool.h>
+#include <unistd.h>
 
 #include "mm_qcamera_dbg.h"
 #include "mm_qcamera_app.h"
@@ -39,6 +41,7 @@
 static pthread_mutex_t app_mutex;
 static int thread_status = 0;
 static pthread_cond_t app_cond_v;
+
 
 #define MM_QCAMERA_APP_NANOSEC_SCALE 1000000000
 
@@ -223,7 +226,7 @@ int mm_app_cache_ops(mm_camera_app_meminfo_t *mem_info,
          mem_info->main_ion_fd);
     if(mem_info->main_ion_fd > 0) {
         if(ioctl(mem_info->main_ion_fd, ION_IOC_CUSTOM, &custom_data) < 0) {
-            ALOGE("%s: Cache Invalidate failed\n", __func__);
+            CDBG_ERROR("%s: Cache Invalidate failed\n", __func__);
             ret = -MM_CAMERA_E_GENERAL;
         }
     }
@@ -240,6 +243,8 @@ void mm_app_dump_frame(mm_camera_buf_def_t *frame,
     char file_name[64];
     int file_fd;
     int i;
+    uint32_t offset = 0;
+
     if ( frame != NULL) {
         snprintf(file_name, sizeof(file_name), "/data/%s_%d.%s", name, frame_idx, ext);
         file_fd = open(file_name, O_RDWR | O_CREAT, 0777);
@@ -247,9 +252,14 @@ void mm_app_dump_frame(mm_camera_buf_def_t *frame,
             CDBG_ERROR("%s: cannot open file %s \n", __func__, file_name);
         } else {
             for (i = 0; i < frame->num_planes; i++) {
+
+                offset = offset + frame->planes[i].data_offset;
+
                 write(file_fd,
-                      (uint8_t *)frame->buffer + frame->planes[i].data_offset,
+                      (uint8_t *)((uint32_t)frame->buffer + offset),
                       frame->planes[i].length);
+
+                offset = offset + frame->planes[i].length;
             }
 
             close(file_fd);
@@ -546,7 +556,31 @@ int mm_app_open(mm_camera_app_t *cam_app,
         goto error_after_getparm_buf_map;
     }
 
+    //add reference to app handle in test object. This is needed for
+    // accessing widht/height/format etc of test
+    test_obj->app_handle = cam_app;
+
+    /* alloc ion mem for jpeg output buf */
+    memset(&offset_info, 0, sizeof(offset_info));
+    offset_info.frame_len = DEFAULT_SNAPSHOT_WIDTH * DEFAULT_SNAPSHOT_HEIGHT;
+
+    rc = mm_app_alloc_bufs(&test_obj->jpeg_buf,
+                           &offset_info,
+                           1,
+                           0);
+
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s:alloc buf for jpeg_buf error\n", __func__);
+        goto error_after_jpeg_buf;
+    }
+
+    //init jpeg frame queue structure to 0
+    memset(test_obj->jpeg_frame_queue, 0, sizeof(mm_camera_app_frame_stack) * CAMERA_MAX_JPEG_SESSIONS);
+
     return rc;
+
+error_after_jpeg_buf:
+    mm_app_release_bufs(1, &test_obj->jpeg_buf);
 
 error_after_getparm_buf_map:
     test_obj->cam->ops->unmap_buf(test_obj->cam->camera_handle,
@@ -701,6 +735,12 @@ int mm_app_close(mm_camera_test_obj_t *test_obj)
         CDBG_ERROR("%s: release setparm buf failed, rc=%d", __func__, rc);
     }
 
+     /* dealloc jpeg buf */
+    rc = mm_app_release_bufs(1, &test_obj->jpeg_buf);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: release jpeg buf failed, rc=%d", __func__, rc);
+    }
+
     return MM_CAMERA_OK;
 }
 
@@ -837,35 +877,119 @@ int mm_app_stop_channel(mm_camera_test_obj_t *test_obj,
                                             channel->ch_id);
 }
 
-int mm_app_start_regression_test(int run_tc)
+void print_usage()
+{
+  CDBG_HIGH("\nMandatory parameters: [-s or/and -d]");
+  CDBG_HIGH("-s: Run single camera testcases");
+  CDBG_HIGH("-d: Run dual camera testcases");
+
+  CDBG_HIGH("\nOptional paramters");
+  CDBG_HIGH("-m [1/0] 0 for manual mode, 1 for menu based testing, 2 for automatic regression, . Default is manual");
+  CDBG_HIGH("-t [n] testcase number. Defaults to testindex 0");
+  CDBG_HIGH("-w: preview_width  Width for Image preview");
+  CDBG_HIGH("-h: preview_height  Height for Image preview");
+  CDBG_HIGH("-W: snapshot_width  Width for Image snapshot");
+  CDBG_HIGH("-H: snapshot_height  Height for Image snapshot\n");
+}
+
+
+int main(int argc, char **argv)
 {
     int c;
-    int rc = MM_CAMERA_OK;
-    int run_dual_tc = 0;
-    mm_camera_app_t my_cam_app;
+    int rc;
+    bool run_tc = false;
+    bool run_dual_tc = false;
+    mm_camera_app_t mm_camera_app_handle;
 
-    CDBG("\nCamera Test Application\n");
-    memset(&my_cam_app, 0, sizeof(mm_camera_app_t));
+    //initialize defaults for tests
+    memset(&mm_camera_app_handle, 0, sizeof(mm_camera_app_t));
+    mm_camera_app_handle.preview_format = DEFAULT_PREVIEW_FORMAT;
+    mm_camera_app_handle.preview_width = DEFAULT_PREVIEW_WIDTH;
+    mm_camera_app_handle.preview_height = DEFAULT_PREVIEW_HEIGHT;
 
-    rc = mm_app_load_hal(&my_cam_app);
-    if (rc != MM_CAMERA_OK) {
-        CDBG_ERROR("%s: mm_app_load_hal failed !!", __func__);
+    mm_camera_app_handle.snapshot_format = DEFAULT_SNAPSHOT_FORMAT;
+    mm_camera_app_handle.snapshot_width = DEFAULT_SNAPSHOT_WIDTH;
+    mm_camera_app_handle.snapshot_height = DEFAULT_SNAPSHOT_HEIGHT;
+
+    mm_camera_app_handle.video_format = DEFAULT_VIDEO_FORMAT;
+    mm_camera_app_handle.video_width = DEFAULT_VIDEO_WIDTH;
+    mm_camera_app_handle.video_height = DEFAULT_VIDEO_HEIGHT;
+
+    mm_camera_app_handle.test_mode = 0;
+    mm_camera_app_handle.test_idx = 0;
+
+    while ((c = getopt(argc, argv, "t:d:m:pw:ph:sw:sh")) != -1) {
+        switch (c) {
+            case 's':
+            run_tc = true;
+            break;
+
+            case 'd':
+            run_dual_tc = true;
+            break;
+
+            case 'm':
+            mm_camera_app_handle.test_mode = atoi(optarg);
+            break;
+
+            case 't':
+            mm_camera_app_handle.test_idx = atoi(optarg);
+            break;
+
+            case 'w':
+            mm_camera_app_handle.preview_width = atoi(optarg);
+            break;
+
+            case 'h':
+            mm_camera_app_handle.preview_height = atoi(optarg);
+            break;
+
+            case 'W':
+            mm_camera_app_handle.snapshot_width = atoi(optarg);
+            break;
+
+            case 'H':
+            mm_camera_app_handle.snapshot_height = atoi(optarg);
+            break;
+
+            default:
+            print_usage();
+            goto exit;
+        }
+    }
+
+    //branch to menu based test main if need be
+    if(1 == mm_camera_app_handle.test_mode) {
+        menu_based_test_main();
+        goto exit;
+    }
+
+    if((false == run_tc) && (false == run_dual_tc)) {
+            print_usage();
+            goto exit;
+    }
+
+    if((mm_app_load_hal(&mm_camera_app_handle) != MM_CAMERA_OK)) {
+        CDBG_ERROR("%s:mm_app_init err\n", __func__);
+        return -1;
+    }
+
+    if(true == run_tc) {
+        rc = mm_app_unit_test_entry(&mm_camera_app_handle);
         return rc;
     }
 
-    if(run_tc) {
-        printf("\tRunning unit test engine only\n");
-        rc = mm_app_unit_test_entry(&my_cam_app);
-        printf("\tUnit test engine. EXIT(%d)!!!\n", rc);
-        return rc;
-    }
+//TBD : Enable dual mode testcases
 #if 0
-    if(run_dual_tc) {
-        printf("\tRunning Dual camera test engine only\n");
-        rc = mm_app_dual_test_entry(&my_cam_app);
-        printf("\t Dual camera engine. EXIT(%d)!!!\n", rc);
+    if(true == run_dual_tc) {
+        rc = mm_app_dual_test_entry(&mm_camera_app_handle);
         exit(rc);
     }
 #endif
-    return rc;
+
+
+    exit:
+    /* Clean up and exit. */
+    CDBG("Exiting test app\n");
+    return 0;
 }
