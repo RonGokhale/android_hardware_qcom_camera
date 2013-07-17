@@ -22,6 +22,7 @@ endif
 #sources
 mm_qcamera_app_SOURCES := src/mm_qcamera_app.c
 mm_qcamera_app_SOURCES += src/mm_qcamera_unit_test.c
+mm_qcamera_app_SOURCES += src/mm_qcamera_dual_test.c
 mm_qcamera_app_SOURCES += src/mm_qcamera_video.c
 mm_qcamera_app_SOURCES += src/mm_qcamera_preview.c
 mm_qcamera_app_SOURCES += src/mm_qcamera_snapshot.c

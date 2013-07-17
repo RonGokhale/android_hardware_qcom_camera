@@ -29,24 +29,28 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "mm_qcamera_dbg.h"
 #include "mm_qcamera_app.h"
+#include <assert.h>
 
 static void mm_app_video_notify_cb(mm_camera_super_buf_t *bufs,
                                    void *user_data)
 {
     char file_name[64];
+    int rc;
+
     mm_camera_buf_def_t *frame = bufs->bufs[0];
     mm_camera_test_obj_t *pme = (mm_camera_test_obj_t *)user_data;
 
     CDBG("%s: BEGIN - length=%d, frame idx = %d\n",
          __func__, frame->frame_len, frame->frame_idx);
-    snprintf(file_name, sizeof(file_name), "V_C%d", pme->cam->camera_handle);
-    mm_app_dump_frame(frame, file_name, "yuv", frame->frame_idx);
 
-    if (MM_CAMERA_OK != pme->cam->ops->qbuf(bufs->camera_handle,
-                                            bufs->ch_id,
-                                            frame)) {
-        CDBG_ERROR("%s: Failed in Preview Qbuf\n", __func__);
+    if (0  == frame->frame_idx % PREIVEW_FRAMEDUMP_INTERVAL) {
+        snprintf(file_name, sizeof(file_name), "V_C%d", pme->cam->camera_handle);
+        mm_app_dump_frame(frame, file_name, "yuv", frame->frame_idx);
     }
+
+    rc = pme->cam->ops->qbuf(bufs->camera_handle, bufs->ch_id, frame);
+    assert(rc == MM_CAMERA_OK);
+
     mm_app_cache_ops((mm_camera_app_meminfo_t *)frame->mem_info,
                      ION_IOC_INV_CACHES);
 
@@ -64,10 +68,7 @@ mm_camera_stream_t * mm_app_add_video_stream(mm_camera_test_obj_t *test_obj,
     cam_capability_t *cam_cap = (cam_capability_t *)(test_obj->cap_buf.buf.buffer);
 
     stream = mm_app_add_stream(test_obj, channel);
-    if (NULL == stream) {
-        CDBG_ERROR("%s: add stream failed\n", __func__);
-        return NULL;
-    }
+    assert(NULL != stream);
 
     stream->s_config.mem_vtbl.get_bufs = mm_app_stream_initbuf;
     stream->s_config.mem_vtbl.put_bufs = mm_app_stream_deinitbuf;
@@ -95,10 +96,7 @@ mm_camera_stream_t * mm_app_add_video_stream(mm_camera_test_obj_t *test_obj,
     stream->s_config.padding_info = cam_cap->padding_info;
 
     rc = mm_app_config_stream(test_obj, channel, stream, &stream->s_config);
-    if (MM_CAMERA_OK != rc) {
-        CDBG_ERROR("%s:config preview stream err=%d\n", __func__, rc);
-        return NULL;
-    }
+    assert(MM_CAMERA_OK == rc);
 
     return stream;
 }
@@ -113,21 +111,14 @@ mm_camera_channel_t * mm_app_add_video_channel(mm_camera_test_obj_t *test_obj)
                                  NULL,
                                  NULL,
                                  NULL);
-    if (NULL == channel) {
-        CDBG_ERROR("%s: add channel failed", __func__);
-        return NULL;
-    }
+    assert(NULL != channel);
 
     stream = mm_app_add_video_stream(test_obj,
                                      channel,
                                      mm_app_video_notify_cb,
                                      (void *)test_obj,
                                      1);
-    if (NULL == stream) {
-        CDBG_ERROR("%s: add video stream failed\n", __func__);
-        mm_app_del_channel(test_obj, channel);
-        return NULL;
-    }
+    assert(NULL != stream);
 
     return channel;
 }
@@ -140,34 +131,19 @@ int mm_app_start_record_preview(mm_camera_test_obj_t *test_obj)
     mm_camera_channel_t *s_ch = NULL;
 
     p_ch = mm_app_add_preview_channel(test_obj);
-    if (NULL == p_ch) {
-        CDBG_ERROR("%s: add preview channel failed", __func__);
-        return -MM_CAMERA_E_GENERAL;
-    }
+    assert(NULL != p_ch);
 
     v_ch = mm_app_add_video_channel(test_obj);
-    if (NULL == v_ch) {
-        CDBG_ERROR("%s: add video channel failed", __func__);
-        mm_app_del_channel(test_obj, p_ch);
-        return -MM_CAMERA_E_GENERAL;
-    }
+    assert(NULL != v_ch);
 
     s_ch = mm_app_add_snapshot_channel(test_obj);
-    if (NULL == s_ch) {
-        CDBG_ERROR("%s: add snapshot channel failed", __func__);
-        mm_app_del_channel(test_obj, p_ch);
-        mm_app_del_channel(test_obj, v_ch);
-        return -MM_CAMERA_E_GENERAL;
-    }
+    assert(NULL != s_ch);
 
     rc = mm_app_start_channel(test_obj, p_ch);
-    if (MM_CAMERA_OK != rc) {
-        CDBG_ERROR("%s:start preview failed rc=%d\n", __func__, rc);
-        mm_app_del_channel(test_obj, p_ch);
-        mm_app_del_channel(test_obj, v_ch);
-        mm_app_del_channel(test_obj, s_ch);
-        return rc;
-    }
+    assert(MM_CAMERA_OK == rc);
+
+    //Launch display thread.
+    launch_camframe_fb_thread();
 
     return rc;
 }
@@ -184,19 +160,16 @@ int mm_app_stop_record_preview(mm_camera_test_obj_t *test_obj)
     s_ch = mm_app_get_channel_by_type(test_obj, MM_CHANNEL_TYPE_SNAPSHOT);
 
     rc = mm_app_stop_and_del_channel(test_obj, p_ch);
-    if (MM_CAMERA_OK != rc) {
-        CDBG_ERROR("%s:Stop Preview failed rc=%d\n", __func__, rc);
-    }
+    assert(MM_CAMERA_OK == rc);
 
     rc = mm_app_stop_and_del_channel(test_obj, v_ch);
-    if (MM_CAMERA_OK != rc) {
-        CDBG_ERROR("%s:Stop Preview failed rc=%d\n", __func__, rc);
-    }
+    assert(MM_CAMERA_OK == rc);
 
     rc = mm_app_stop_and_del_channel(test_obj, s_ch);
-    if (MM_CAMERA_OK != rc) {
-        CDBG_ERROR("%s:Stop Preview failed rc=%d\n", __func__, rc);
-    }
+    assert(MM_CAMERA_OK == rc);
+
+    //Release display thread.
+    release_camframe_fb_thread();
 
     return rc;
 }
@@ -209,9 +182,7 @@ int mm_app_start_record(mm_camera_test_obj_t *test_obj)
     v_ch = mm_app_get_channel_by_type(test_obj, MM_CHANNEL_TYPE_VIDEO);
 
     rc = mm_app_start_channel(test_obj, v_ch);
-    if (MM_CAMERA_OK != rc) {
-        CDBG_ERROR("%s:start recording failed rc=%d\n", __func__, rc);
-    }
+    assert(MM_CAMERA_OK == rc);
 
     return rc;
 }
@@ -224,9 +195,7 @@ int mm_app_stop_record(mm_camera_test_obj_t *test_obj)
     v_ch = mm_app_get_channel_by_type(test_obj, MM_CHANNEL_TYPE_VIDEO);
 
     rc = mm_app_stop_channel(test_obj, v_ch);
-    if (MM_CAMERA_OK != rc) {
-        CDBG_ERROR("%s:stop recording failed rc=%d\n", __func__, rc);
-    }
+    assert(MM_CAMERA_OK == rc);
 
     return rc;
 }
@@ -239,9 +208,7 @@ int mm_app_start_live_snapshot(mm_camera_test_obj_t *test_obj)
     s_ch = mm_app_get_channel_by_type(test_obj, MM_CHANNEL_TYPE_SNAPSHOT);
 
     rc = mm_app_start_channel(test_obj, s_ch);
-    if (MM_CAMERA_OK != rc) {
-        CDBG_ERROR("%s:start recording failed rc=%d\n", __func__, rc);
-    }
+    assert(MM_CAMERA_OK == rc);
 
     return rc;
 }
@@ -254,9 +221,7 @@ int mm_app_stop_live_snapshot(mm_camera_test_obj_t *test_obj)
     s_ch = mm_app_get_channel_by_type(test_obj, MM_CHANNEL_TYPE_SNAPSHOT);
 
     rc = mm_app_stop_channel(test_obj, s_ch);
-    if (MM_CAMERA_OK != rc) {
-        CDBG_ERROR("%s:stop recording failed rc=%d\n", __func__, rc);
-    }
+    assert(MM_CAMERA_OK == rc);
 
     return rc;
 }

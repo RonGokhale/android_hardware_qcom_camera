@@ -34,6 +34,7 @@
 #include <sys/mman.h>
 #include <stdbool.h>
 #include <unistd.h>
+#include <assert.h>
 
 #include "mm_qcamera_dbg.h"
 #include "mm_qcamera_app.h"
@@ -86,27 +87,25 @@ int mm_app_load_hal(mm_camera_app_t *my_cam_app)
 {
     memset(&my_cam_app->hal_lib, 0, sizeof(hal_interface_lib_t));
     my_cam_app->hal_lib.ptr = dlopen("libmmcamera_interface.so", RTLD_NOW);
+    assert(NULL != my_cam_app->hal_lib.ptr);
+
     my_cam_app->hal_lib.ptr_jpeg = dlopen("libmmjpeg_interface.so", RTLD_NOW);
-    if (!my_cam_app->hal_lib.ptr || !my_cam_app->hal_lib.ptr_jpeg) {
-        CDBG_ERROR("%s Error opening HAL library %s\n", __func__, dlerror());
-        return -MM_CAMERA_E_GENERAL;
-    }
+    assert(NULL != my_cam_app->hal_lib.ptr_jpeg);
+
     *(void **)&(my_cam_app->hal_lib.get_num_of_cameras) =
         dlsym(my_cam_app->hal_lib.ptr, "get_num_of_cameras");
+    assert(NULL != my_cam_app->hal_lib.get_num_of_cameras);
+
     *(void **)&(my_cam_app->hal_lib.mm_camera_open) =
         dlsym(my_cam_app->hal_lib.ptr, "camera_open");
+    assert(NULL != my_cam_app->hal_lib.mm_camera_open);
+
     *(void **)&(my_cam_app->hal_lib.jpeg_open) =
         dlsym(my_cam_app->hal_lib.ptr_jpeg, "jpeg_open");
-
-    if (my_cam_app->hal_lib.get_num_of_cameras == NULL ||
-        my_cam_app->hal_lib.mm_camera_open == NULL ||
-        my_cam_app->hal_lib.jpeg_open == NULL) {
-        CDBG_ERROR("%s Error loading HAL sym %s\n", __func__, dlerror());
-        return -MM_CAMERA_E_GENERAL;
-    }
+    assert(NULL != my_cam_app->hal_lib.jpeg_open);
 
     my_cam_app->num_cameras = my_cam_app->hal_lib.get_num_of_cameras();
-    CDBG("%s: num_cameras = %d\n", __func__, my_cam_app->num_cameras);
+    CDBG_HIGH("%s: num_cameras = %d\n", __func__, my_cam_app->num_cameras);
 
     return MM_CAMERA_OK;
 }
@@ -122,7 +121,7 @@ int mm_app_allocate_ion_memory(mm_camera_app_buf_t *buf, int ion_type)
 
     main_ion_fd = open("/dev/ion", O_RDONLY);
     if (main_ion_fd <= 0) {
-        CDBG_ERROR("Ion dev open failed %s\n", strerror(errno));
+        CDBG_ERROR("%s: Ion dev open failed %s\n",__func__, strerror(errno));
         goto ION_OPEN_FAILED;
     }
 
@@ -135,7 +134,7 @@ int mm_app_allocate_ion_memory(mm_camera_app_buf_t *buf, int ion_type)
     alloc.heap_mask = ion_type;
     rc = ioctl(main_ion_fd, ION_IOC_ALLOC, &alloc);
     if (rc < 0) {
-        CDBG_ERROR("ION allocation failed\n");
+        CDBG_ERROR("%s: ION allocation failed\n", __func__);
         goto ION_ALLOC_FAILED;
     }
 
@@ -143,7 +142,7 @@ int mm_app_allocate_ion_memory(mm_camera_app_buf_t *buf, int ion_type)
     ion_info_fd.handle = alloc.handle;
     rc = ioctl(main_ion_fd, ION_IOC_SHARE, &ion_info_fd);
     if (rc < 0) {
-        CDBG_ERROR("ION map failed %s\n", strerror(errno));
+        CDBG_ERROR("%s: ION map failed %s\n", __func__, strerror(errno));
         goto ION_MAP_FAILED;
     }
 
@@ -155,7 +154,7 @@ int mm_app_allocate_ion_memory(mm_camera_app_buf_t *buf, int ion_type)
                 0);
 
     if (data == MAP_FAILED) {
-        CDBG_ERROR("ION_MMAP_FAILED: %s (%d)\n", strerror(errno), errno);
+        CDBG_ERROR("%s: ION_MMAP_FAILED: %s (%d)\n",__func__, strerror(errno), errno);
         goto ION_MAP_FAILED;
     }
     buf->mem_info.main_ion_fd = main_ion_fd;
@@ -287,7 +286,10 @@ int mm_app_alloc_bufs(mm_camera_app_buf_t* app_bufs,
                       uint8_t is_streambuf)
 {
     int i, j;
+    int rc = MM_CAMERA_OK;
     int ion_type = 0x1 << CAMERA_ION_FALLBACK_HEAP_ID;
+
+    CDBG("%s: Enter", __func__);
 
     if (is_streambuf) {
         ion_type |= 0x1 << CAMERA_ION_HEAP_ID;
@@ -295,7 +297,12 @@ int mm_app_alloc_bufs(mm_camera_app_buf_t* app_bufs,
 
     for (i = 0; i < num_bufs ; i++) {
         app_bufs[i].mem_info.size = frame_offset_info->frame_len;
-        mm_app_allocate_ion_memory(&app_bufs[i], ion_type);
+
+        rc = mm_app_allocate_ion_memory(&app_bufs[i], ion_type);
+        if (MM_CAMERA_OK != rc) {
+            app_bufs[i].buf.buffer = NULL;
+            goto end;
+        }
 
         app_bufs[i].buf.buf_idx = i;
         app_bufs[i].buf.num_planes = frame_offset_info->num_planes;
@@ -319,8 +326,10 @@ int mm_app_alloc_bufs(mm_camera_app_buf_t* app_bufs,
                 app_bufs[i].buf.planes[j-1].length;
         }
     }
-    CDBG("%s: X", __func__);
-    return MM_CAMERA_OK;
+
+end:
+    CDBG("%s: Exit", __func__);
+    return rc;
 }
 
 int mm_app_release_bufs(uint8_t num_bufs,
@@ -476,14 +485,12 @@ int mm_app_open(mm_camera_app_t *cam_app,
     int32_t rc;
     cam_frame_len_offset_t offset_info;
 
-    CDBG("%s:BEGIN\n", __func__);
+    CDBG_HIGH("%s:Enter\n", __func__);
 
     test_obj->cam = cam_app->hal_lib.mm_camera_open(cam_id);
-    if(test_obj->cam == NULL) {
-        CDBG_ERROR("%s:dev open error\n", __func__);
-        return -MM_CAMERA_E_GENERAL;
-    }
+    assert(NULL != test_obj->cam);
 
+    test_obj->cam_id = cam_id;
     CDBG("Open Camera id = %d handle = %d", cam_id, test_obj->cam->camera_handle);
 
     /* alloc ion mem for capability buf */
@@ -493,20 +500,14 @@ int mm_app_open(mm_camera_app_t *cam_app,
                            &offset_info,
                            1,
                            0);
-    if (rc != MM_CAMERA_OK) {
-        CDBG_ERROR("%s:alloc buf for capability error\n", __func__);
-        goto error_after_cam_open;
-    }
+    assert(rc == MM_CAMERA_OK);
 
     /* mapping capability buf */
     rc = test_obj->cam->ops->map_buf(test_obj->cam->camera_handle,
                                      CAM_MAPPING_BUF_TYPE_CAPABILITY,
                                      test_obj->cap_buf.mem_info.fd,
                                      test_obj->cap_buf.mem_info.size);
-    if (rc != MM_CAMERA_OK) {
-        CDBG_ERROR("%s:map for capability error\n", __func__);
-        goto error_after_cap_buf_alloc;
-    }
+    assert(rc == MM_CAMERA_OK);
 
     /* alloc ion mem for getparm buf */
     memset(&offset_info, 0, sizeof(offset_info));
@@ -515,46 +516,29 @@ int mm_app_open(mm_camera_app_t *cam_app,
                            &offset_info,
                            1,
                            0);
-    if (rc != MM_CAMERA_OK) {
-        CDBG_ERROR("%s:alloc buf for getparm_buf error\n", __func__);
-        goto error_after_cap_buf_map;
-    }
+    assert(rc == MM_CAMERA_OK);
 
     /* mapping getparm buf */
     rc = test_obj->cam->ops->map_buf(test_obj->cam->camera_handle,
                                      CAM_MAPPING_BUF_TYPE_PARM_BUF,
                                      test_obj->parm_buf.mem_info.fd,
                                      test_obj->parm_buf.mem_info.size);
-    if (rc != MM_CAMERA_OK) {
-        CDBG_ERROR("%s:map getparm_buf error\n", __func__);
-        goto error_after_getparm_buf_alloc;
-    }
+    assert(rc == MM_CAMERA_OK);
+
     test_obj->params_buffer = (parm_buffer_t*) test_obj->parm_buf.mem_info.data;
-    CDBG_HIGH("\n%s params_buffer=%p\n",__func__,test_obj->params_buffer);
+    CDBG("\n%s params_buffer=%p\n",__func__,test_obj->params_buffer);
 
     rc = test_obj->cam->ops->register_event_notify(test_obj->cam->camera_handle,
                                                    notify_evt_cb,
                                                    test_obj);
-    if (rc != MM_CAMERA_OK) {
-        CDBG_ERROR("%s: failed register_event_notify", __func__);
-        rc = -MM_CAMERA_E_GENERAL;
-        goto error_after_getparm_buf_map;
-    }
+    assert(rc == MM_CAMERA_OK);
 
     rc = test_obj->cam->ops->query_capability(test_obj->cam->camera_handle);
-    if (rc != MM_CAMERA_OK) {
-        CDBG_ERROR("%s: failed query_capability", __func__);
-        rc = -MM_CAMERA_E_GENERAL;
-        goto error_after_getparm_buf_map;
-    }
+    assert(rc == MM_CAMERA_OK);
 
     memset(&test_obj->jpeg_ops, 0, sizeof(mm_jpeg_ops_t));
     test_obj->jpeg_hdl = cam_app->hal_lib.jpeg_open(&test_obj->jpeg_ops);
-    if (test_obj->jpeg_hdl == 0) {
-        CDBG_ERROR("%s: jpeg lib open err", __func__);
-        rc = -MM_CAMERA_E_GENERAL;
-        goto error_after_getparm_buf_map;
-    }
+    assert(NULL != test_obj->jpeg_hdl);
 
     //add reference to app handle in test object. This is needed for
     // accessing widht/height/format etc of test
@@ -562,39 +546,22 @@ int mm_app_open(mm_camera_app_t *cam_app,
 
     /* alloc ion mem for jpeg output buf */
     memset(&offset_info, 0, sizeof(offset_info));
-    offset_info.frame_len = DEFAULT_SNAPSHOT_WIDTH * DEFAULT_SNAPSHOT_HEIGHT;
+    offset_info.frame_len = cam_app->snapshot_width * cam_app->snapshot_height;
+
+    CDBG("%s: width:%ul, height:%ul, frame_leng::%ul", __func__,
+        cam_app->snapshot_width, cam_app->snapshot_height, offset_info.frame_len);
 
     rc = mm_app_alloc_bufs(&test_obj->jpeg_buf,
                            &offset_info,
                            1,
                            0);
-
-    if (rc != MM_CAMERA_OK) {
-        CDBG_ERROR("%s:alloc buf for jpeg_buf error\n", __func__);
-        goto error_after_jpeg_buf;
-    }
+    assert(rc == MM_CAMERA_OK);
 
     //init jpeg frame queue structure to 0
     memset(test_obj->jpeg_frame_queue, 0, sizeof(mm_camera_app_frame_stack) * CAMERA_MAX_JPEG_SESSIONS);
 
-    return rc;
+    CDBG_HIGH("%s:Exit\n", __func__);
 
-error_after_jpeg_buf:
-    mm_app_release_bufs(1, &test_obj->jpeg_buf);
-
-error_after_getparm_buf_map:
-    test_obj->cam->ops->unmap_buf(test_obj->cam->camera_handle,
-                                  CAM_MAPPING_BUF_TYPE_PARM_BUF);
-error_after_getparm_buf_alloc:
-    mm_app_release_bufs(1, &test_obj->parm_buf);
-error_after_cap_buf_map:
-    test_obj->cam->ops->unmap_buf(test_obj->cam->camera_handle,
-                                  CAM_MAPPING_BUF_TYPE_CAPABILITY);
-error_after_cap_buf_alloc:
-    mm_app_release_bufs(1, &test_obj->cap_buf);
-error_after_cam_open:
-    test_obj->cam->ops->close_camera(test_obj->cam->camera_handle);
-    test_obj->cam = NULL;
     return rc;
 }
 
@@ -602,38 +569,35 @@ int mm_app_set_params(mm_camera_test_obj_t *test_obj,
                       cam_intf_parm_type_t param_type,
                       int32_t value)
 {
-    CDBG_HIGH("\nEnter mm_app_set_params!! param_type =%d & value =%d\n",param_type, value);
     int rc = MM_CAMERA_OK;
+
+    CDBG(":%s: param_type =%d & value =%d",__func__, param_type, value);
+
     rc = init_batch_update(test_obj->params_buffer);
-    if (rc != MM_CAMERA_OK) {
-        CDBG_ERROR("%s: init_batch_update failed !!", __func__);
-        return rc;
-    }
+    assert(MM_CAMERA_OK == rc);
+
     rc = add_parm_entry_tobatch(test_obj->params_buffer, param_type, sizeof(value), &value);
-    if (rc != MM_CAMERA_OK) {
-        CDBG_ERROR("%s: add_parm_entry_tobatch failed !!", __func__);
-        return rc;
-    }
+    assert(MM_CAMERA_OK == rc);
+
     rc = commit_set_batch(test_obj);
-    if (rc != MM_CAMERA_OK) {
-        CDBG_ERROR("%s: commit_set_batch failed !!", __func__);
-        return rc;
-    }
+    assert(MM_CAMERA_OK == rc);
+
     return rc;
 }
 
 int init_batch_update(parm_buffer_t *p_table)
 {
     int rc = MM_CAMERA_OK;
-    CDBG_HIGH("\nEnter %s\n",__func__);
+    CDBG("%s: Enter ",__func__);
+
     int32_t hal_version = CAM_HAL_V1;
 
     memset(p_table, 0, sizeof(parm_buffer_t));
     p_table->first_flagged_entry = CAM_INTF_PARM_MAX;
     rc = add_parm_entry_tobatch(p_table, CAM_INTF_PARM_HAL_VERSION,sizeof(hal_version), &hal_version);
-    if (rc != MM_CAMERA_OK) {
-        CDBG_ERROR("%s: add_parm_entry_tobatch failed !!", __func__);
-    }
+    assert(MM_CAMERA_OK == rc);
+
+    CDBG("%s: Exit ",__func__);
     return rc;
 }
 
@@ -676,12 +640,12 @@ int commit_set_batch(mm_camera_test_obj_t *test_obj)
 {
     int rc = MM_CAMERA_OK;
     if (test_obj->params_buffer->first_flagged_entry < CAM_INTF_PARM_MAX) {
-        CDBG_HIGH("\n set_param p_buffer =%p\n",test_obj->params_buffer);
+        CDBG("\nset_param p_buffer =%p\n",test_obj->params_buffer);
         rc = test_obj->cam->ops->set_parms(test_obj->cam->camera_handle, test_obj->params_buffer);
     }
-    if (rc != MM_CAMERA_OK) {
-        CDBG_ERROR("%s: cam->ops->set_parms failed !!", __func__);
-    }
+
+    assert(MM_CAMERA_OK == rc);
+
     return rc;
 }
 
@@ -697,49 +661,35 @@ int mm_app_close(mm_camera_test_obj_t *test_obj)
     /* unmap capability buf */
     rc = test_obj->cam->ops->unmap_buf(test_obj->cam->camera_handle,
                                        CAM_MAPPING_BUF_TYPE_CAPABILITY);
-    if (rc != MM_CAMERA_OK) {
-        CDBG_ERROR("%s: unmap capability buf failed, rc=%d", __func__, rc);
-    }
+    assert(MM_CAMERA_OK == rc);
 
     /* unmap parm buf */
     rc = test_obj->cam->ops->unmap_buf(test_obj->cam->camera_handle,
                                        CAM_MAPPING_BUF_TYPE_PARM_BUF);
-    if (rc != MM_CAMERA_OK) {
-        CDBG_ERROR("%s: unmap setparm buf failed, rc=%d", __func__, rc);
-    }
+    assert(MM_CAMERA_OK == rc);
 
     rc = test_obj->cam->ops->close_camera(test_obj->cam->camera_handle);
-    if (rc != MM_CAMERA_OK) {
-        CDBG_ERROR("%s: close camera failed, rc=%d", __func__, rc);
-    }
     test_obj->cam = NULL;
+    assert(MM_CAMERA_OK == rc);
 
     /* close jpeg client */
     if (test_obj->jpeg_hdl && test_obj->jpeg_ops.close) {
         rc = test_obj->jpeg_ops.close(test_obj->jpeg_hdl);
         test_obj->jpeg_hdl = 0;
-        if (rc != MM_CAMERA_OK) {
-            CDBG_ERROR("%s: close jpeg failed, rc=%d", __func__, rc);
-        }
+        assert(MM_CAMERA_OK == rc);
     }
 
     /* dealloc capability buf */
     rc = mm_app_release_bufs(1, &test_obj->cap_buf);
-    if (rc != MM_CAMERA_OK) {
-        CDBG_ERROR("%s: release capability buf failed, rc=%d", __func__, rc);
-    }
+    assert(MM_CAMERA_OK == rc);
 
     /* dealloc parm buf */
     rc = mm_app_release_bufs(1, &test_obj->parm_buf);
-    if (rc != MM_CAMERA_OK) {
-        CDBG_ERROR("%s: release setparm buf failed, rc=%d", __func__, rc);
-    }
+    assert(MM_CAMERA_OK == rc);
 
      /* dealloc jpeg buf */
     rc = mm_app_release_bufs(1, &test_obj->jpeg_buf);
-    if (rc != MM_CAMERA_OK) {
-        CDBG_ERROR("%s: release jpeg buf failed, rc=%d", __func__, rc);
-    }
+    assert(MM_CAMERA_OK == rc);
 
     return MM_CAMERA_OK;
 }
@@ -757,10 +707,8 @@ mm_camera_channel_t * mm_app_add_channel(mm_camera_test_obj_t *test_obj,
                                             attr,
                                             channel_cb,
                                             userdata);
-    if (ch_id == 0) {
-        CDBG_ERROR("%s: add channel failed", __func__);
-        return NULL;
-    }
+    assert(ch_id != 0);
+
     channel = &test_obj->channels[ch_type];
     channel->ch_id = ch_id;
     return channel;
@@ -785,10 +733,7 @@ mm_camera_stream_t * mm_app_add_stream(mm_camera_test_obj_t *test_obj,
     stream = &(channel->streams[channel->num_streams++]);
     stream->s_id = test_obj->cam->ops->add_stream(test_obj->cam->camera_handle,
                                                   channel->ch_id);
-    if (stream->s_id == 0) {
-        CDBG_ERROR("%s: add stream failed", __func__);
-        return NULL;
-    }
+    assert (stream->s_id != 0);
 
     /* alloc ion mem for stream_info buf */
     memset(&offset_info, 0, sizeof(offset_info));
@@ -797,14 +742,7 @@ mm_camera_stream_t * mm_app_add_stream(mm_camera_test_obj_t *test_obj,
                            &offset_info,
                            1,
                            0);
-    if (rc != MM_CAMERA_OK) {
-        CDBG_ERROR("%s:alloc buf for stream_info error\n", __func__);
-        test_obj->cam->ops->delete_stream(test_obj->cam->camera_handle,
-                                          channel->ch_id,
-                                          stream->s_id);
-        stream->s_id = 0;
-        return NULL;
-    }
+    assert(rc == MM_CAMERA_OK);
 
     /* mapping streaminfo buf */
     rc = test_obj->cam->ops->map_stream_buf(test_obj->cam->camera_handle,
@@ -815,16 +753,7 @@ mm_camera_stream_t * mm_app_add_stream(mm_camera_test_obj_t *test_obj,
                                             -1,
                                             stream->s_info_buf.mem_info.fd,
                                             stream->s_info_buf.mem_info.size);
-    if (rc != MM_CAMERA_OK) {
-        CDBG_ERROR("%s:map setparm_buf error\n", __func__);
-        mm_app_deallocate_ion_memory(&stream->s_info_buf);
-        test_obj->cam->ops->delete_stream(test_obj->cam->camera_handle,
-                                          channel->ch_id,
-                                          stream->s_id);
-        stream->s_id = 0;
-        return NULL;
-    }
-
+    assert(rc == MM_CAMERA_OK);
     return stream;
 }
 
@@ -877,19 +806,43 @@ int mm_app_stop_channel(mm_camera_test_obj_t *test_obj,
                                             channel->ch_id);
 }
 
+int mm_app_request_super_buf(mm_camera_test_obj_t *test_obj,
+                         mm_camera_channel_t *channel,
+                         uint32_t num_buf_requested)
+{
+    return test_obj->cam->ops->request_super_buf(test_obj->cam->camera_handle,
+                                             channel->ch_id,
+                                             num_buf_requested);
+}
+
 void print_usage()
 {
-  CDBG_HIGH("\nMandatory parameters: [-s or/and -d]");
-  CDBG_HIGH("-s: Run single camera testcases");
-  CDBG_HIGH("-d: Run dual camera testcases");
+    CDBG_HIGH("\nMandatory parameters: [-s or -d]");
+    CDBG_HIGH("-s: Run single camera testcases");
+    CDBG_HIGH("-d: Run dual camera testcases");
 
-  CDBG_HIGH("\nOptional paramters");
-  CDBG_HIGH("-m [1/0] 0 for manual mode, 1 for menu based testing, 2 for automatic regression, . Default is manual");
-  CDBG_HIGH("-t [n] testcase number. Defaults to testindex 0");
-  CDBG_HIGH("-w: preview_width  Width for Image preview");
-  CDBG_HIGH("-h: preview_height  Height for Image preview");
-  CDBG_HIGH("-W: snapshot_width  Width for Image snapshot");
-  CDBG_HIGH("-H: snapshot_height  Height for Image snapshot\n");
+    CDBG_HIGH("\nOptional paramters");
+    CDBG_HIGH("-m [0/1/2] 0 for manual mode, 1 for menu based testing, 2 for automatic regression. Defaults to manual");
+    CDBG_HIGH("-t [n] testcase number. Defaults to testindex 0");
+    CDBG_HIGH("-w: preview_width  Width for Image preview");
+    CDBG_HIGH("-h: preview_height  Height for Image preview");
+    CDBG_HIGH("-W: snapshot_width  Width for Image snapshot");
+    CDBG_HIGH("-H: snapshot_height  Height for Image snapshot\n");
+
+    CDBG_HIGH("\nSingle Camera testcases are");
+    CDBG_HIGH("\t0: mm_app_tc_open_close");
+    CDBG_HIGH("\t1: mm_app_tc_start_stop_preview");
+    CDBG_HIGH("\t2: mm_app_tc_start_stop_zsl");
+    CDBG_HIGH("\t3: mm_app_tc_start_stop_video_preview");
+    CDBG_HIGH("\t4: mm_app_tc_start_stop_video_record");
+    CDBG_HIGH("\t5: mm_app_tc_start_stop_live_snapshot");
+    CDBG_HIGH("\t6: mm_app_tc_capture_regular");
+    CDBG_HIGH("\t7: mm_app_tc_capture_burst");
+    CDBG_HIGH("\t8: mm_app_tc_rdi_cont");
+    CDBG_HIGH("\t9: mm_app_tc_rdi_burst");
+
+    CDBG_HIGH("\nDual Camera testcases are");
+    CDBG_HIGH("\t0 : mm_app_dtc_start_stop_preview");
 }
 
 
@@ -918,7 +871,7 @@ int main(int argc, char **argv)
     mm_camera_app_handle.test_mode = 0;
     mm_camera_app_handle.test_idx = 0;
 
-    while ((c = getopt(argc, argv, "t:d:m:pw:ph:sw:sh")) != -1) {
+    while ((c = getopt(argc, argv, "sdm:t:w:h:W:H:")) != -1) {
         switch (c) {
             case 's':
             run_tc = true;
@@ -954,41 +907,38 @@ int main(int argc, char **argv)
 
             default:
             print_usage();
-            goto exit;
+            goto end;
         }
     }
 
-    //branch to menu based test main if need be
-    if(1 == mm_camera_app_handle.test_mode) {
-        menu_based_test_main();
-        goto exit;
-    }
+    CDBG_HIGH("\nStarting Test with following configuration: \n\tpreview width: %d \n\tpreview height: %d \n\tsnapshot width: %d \n\tsnapshot height: %d\n",
+        mm_camera_app_handle.preview_width, mm_camera_app_handle.preview_height,
+        mm_camera_app_handle.snapshot_width, mm_camera_app_handle.snapshot_height);
 
-    if((false == run_tc) && (false == run_dual_tc)) {
-            print_usage();
-            goto exit;
-    }
+    //Pause for user to see the configs printed above
+    sleep(1);
 
     if((mm_app_load_hal(&mm_camera_app_handle) != MM_CAMERA_OK)) {
         CDBG_ERROR("%s:mm_app_init err\n", __func__);
-        return -1;
+        goto end;
     }
 
-    if(true == run_tc) {
+    //branch to menu based, single camera or dual camera test app
+    if(1 == mm_camera_app_handle.test_mode) {
+        menu_based_test_main(&mm_camera_app_handle);
+        goto end;
+    } else if(true == run_tc) {
         rc = mm_app_unit_test_entry(&mm_camera_app_handle);
-        return rc;
-    }
-
-//TBD : Enable dual mode testcases
-#if 0
-    if(true == run_dual_tc) {
+        goto end;
+    } else if(true == run_dual_tc) {
         rc = mm_app_dual_test_entry(&mm_camera_app_handle);
-        exit(rc);
+        goto end;
+    } else {
+        print_usage();
+        goto end;
     }
-#endif
 
-
-    exit:
+end:
     /* Clean up and exit. */
     CDBG("Exiting test app\n");
     return 0;
