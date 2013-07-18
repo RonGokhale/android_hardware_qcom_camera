@@ -42,8 +42,11 @@ static void mm_app_preview_notify_cb(mm_camera_super_buf_t *bufs,
 
     CDBG("%s: BEGIN - frame length=%d, frame idx = %d\n", __func__, frame->frame_len, frame->frame_idx);
 
-    rc = mm_app_dl_render(frame->fd, pme);
-    assert(rc == MM_CAMERA_OK);
+    //Passing back camera preview buffers to display thread.
+    if((pme->cam_id == 0) || (((pme->app_handle->test_mode & 0xFF00) >> 8) == MM_QCAMERA_APP_SINGLE_MODE)) {
+       rc = mm_app_dl_render(frame->fd, pme);
+       assert(rc == MM_CAMERA_OK);
+    }
 
     if (0  == frame->frame_idx % PREIVEW_FRAMEDUMP_INTERVAL) {
         snprintf(file_name, sizeof(file_name), "P_C%d", pme->cam->camera_handle);
@@ -230,7 +233,7 @@ mm_camera_stream_t * mm_app_add_snapshot_stream(mm_camera_test_obj_t *test_obj,
     memset(stream->s_config.stream_info, 0, sizeof(cam_stream_info_t));
     stream->s_config.stream_info->stream_type = CAM_STREAM_TYPE_SNAPSHOT;
 
-    if (num_burst > 1) {
+    if (num_burst > 0) {
         stream->s_config.stream_info->streaming_mode = CAM_STREAMING_MODE_BURST;
         /* Info: There could be some frame mismatch in the frameIDs of postview
            and snapshot images. This may result in not getting callback as the
@@ -313,7 +316,8 @@ int mm_app_start_preview(mm_camera_test_obj_t *test_obj)
     assert(MM_CAMERA_OK == rc);
 
     //Launch display thread.
-    launch_camframe_fb_thread();
+     if((test_obj->cam_id == 0) || (((test_obj->app_handle->test_mode & 0xFF00) >> 8) == MM_QCAMERA_APP_SINGLE_MODE))
+        launch_camframe_fb_thread();
 
     return rc;
 }
@@ -329,7 +333,9 @@ int mm_app_stop_preview(mm_camera_test_obj_t *test_obj)
     assert(MM_CAMERA_OK == rc);
 
     //Release display thread.
-    release_camframe_fb_thread();
+    //Launch display thread.
+     if((test_obj->cam_id == 0) || (((test_obj->app_handle->test_mode & 0xFF00) >> 8) == MM_QCAMERA_APP_SINGLE_MODE))
+        release_camframe_fb_thread();
     return rc;
 }
 

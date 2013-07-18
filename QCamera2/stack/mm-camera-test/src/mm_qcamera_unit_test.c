@@ -31,11 +31,6 @@
 #include "mm_qcamera_app.h"
 #include <assert.h>
 
-#define MM_QCAMERA_APP_UTEST_MAX_MAIN_LOOP 1
-#define MM_QCAMERA_APP_UTEST_OUTER_LOOP 1
-#define MM_QCAMERA_APP_UTEST_INNER_LOOP 1
-#define MM_QCAM_APP_TEST_NUM 128
-#define MM_QCAM_APP_TEST_PREVIEW_TIME  5 //in seconds
 
 static mm_app_tc_t mm_app_tc[MM_QCAM_APP_TEST_NUM];
 
@@ -87,6 +82,10 @@ int mm_app_tc_start_stop_preview(mm_camera_app_t *cam_app)
         for (j = 0; j < MM_QCAMERA_APP_UTEST_INNER_LOOP; j++) {
             rc = mm_app_start_preview(&test_obj);
             assert(rc == MM_CAMERA_OK);
+
+            //Default Auto exposure.
+            mm_app_set_params(&test_obj, CAM_INTF_PARM_AEC_ALGO_TYPE, CAM_AEC_MODE_FRAME_AVERAGE);
+
 
             sleep(MM_QCAM_APP_TEST_PREVIEW_TIME);
 
@@ -159,41 +158,29 @@ int mm_app_tc_start_stop_video_preview(mm_camera_app_t *cam_app)
     CDBG_HIGH("\n Verifying start/stop video preview...\n");
     for (i = 0; i < cam_app->num_cameras; i++) {
         memset(&test_obj, 0, sizeof(mm_camera_test_obj_t));
+
         rc = mm_app_open(cam_app, i, &test_obj);
-        if (rc != MM_CAMERA_OK) {
-            CDBG_ERROR("%s:mm_app_open() cam_idx=%d, err=%d\n",
-                       __func__, i, rc);
-            break;
-        }
+        assert(MM_CAMERA_OK == rc);
 
         for (j = 0; j < MM_QCAMERA_APP_UTEST_INNER_LOOP; j++) {
+
             rc = mm_app_start_record_preview(&test_obj);
-            if (rc != MM_CAMERA_OK) {
-                CDBG_ERROR("%s:mm_app_start_record_preview() cam_idx=%d, err=%d\n",
-                           __func__, i, rc);
-                break;
-            }
-            sleep(1);
+            assert(MM_CAMERA_OK == rc);
+
+            //Set exposure mode to frame average
+            mm_app_set_params(&test_obj, CAM_INTF_PARM_AEC_ALGO_TYPE, CAM_AEC_MODE_FRAME_AVERAGE);
+
+            sleep(MM_QCAM_APP_TEST_PREVIEW_TIME);
+
             rc = mm_app_stop_record_preview(&test_obj);
-            if (rc != MM_CAMERA_OK) {
-                CDBG_ERROR("%s:mm_app_stop_record_preview() cam_idx=%d, err=%d\n",
-                           __func__, i, rc);
-                break;
-            }
+            assert(MM_CAMERA_OK == rc);
         }
 
         rc = mm_app_close(&test_obj);
-        if (rc != MM_CAMERA_OK) {
-            CDBG_ERROR("%s:mm_app_close() cam_idx=%d, err=%d\n",
-                       __func__, i, rc);
-            break;
-        }
+        assert(MM_CAMERA_OK == rc);
+
     }
-    if (rc == MM_CAMERA_OK) {
-        CDBG_LOW("\nPassed\n");
-    } else {
-        CDBG_LOW("\nFailed\n");
-    }
+
     CDBG_HIGH("%s:END, rc = %d\n", __func__, rc);
     return rc;
 }
@@ -207,68 +194,35 @@ int mm_app_tc_start_stop_video_record(mm_camera_app_t *cam_app)
     CDBG_HIGH("\n Verifying start/stop recording...\n");
     for (i = 0; i < cam_app->num_cameras; i++) {
         memset(&test_obj, 0, sizeof(mm_camera_test_obj_t));
+
         rc = mm_app_open(cam_app, i, &test_obj);
-        if (rc != MM_CAMERA_OK) {
-            CDBG_ERROR("%s:mm_app_open() cam_idx=%d, err=%d\n",
-                       __func__, i, rc);
-            break;
-        }
+        assert(MM_CAMERA_OK == rc);
 
         rc = mm_app_start_record_preview(&test_obj);
-        if (rc != MM_CAMERA_OK) {
-            CDBG_ERROR("%s:mm_app_start_record_preview() cam_idx=%d, err=%d\n",
-                       __func__, i, rc);
-            mm_app_close(&test_obj);
-            break;
-        }
+        assert(MM_CAMERA_OK == rc);
 
-        sleep(1);
+        //Set exposure mode to frame average
+        mm_app_set_params(&test_obj, CAM_INTF_PARM_AEC_ALGO_TYPE, CAM_AEC_MODE_FRAME_AVERAGE);
+
+        sleep(MM_QCAM_APP_TEST_PREVIEW_TIME);
 
         for (j = 0; j < MM_QCAMERA_APP_UTEST_INNER_LOOP; j++) {
             rc = mm_app_start_record(&test_obj);
-            if (rc != MM_CAMERA_OK) {
-                CDBG_ERROR("%s:mm_app_start_record() cam_idx=%d, err=%d\n",
-                           __func__, i, rc);
-                break;
-            }
+            assert(MM_CAMERA_OK == rc);
 
-            sleep(1);
+            sleep(MM_QCAM_APP_TEST_PREVIEW_TIME);
 
             rc = mm_app_stop_record(&test_obj);
-            if (rc != MM_CAMERA_OK) {
-                CDBG_ERROR("%s:mm_app_stop_record() cam_idx=%d, err=%d\n",
-                           __func__, i, rc);
-                break;
-            }
-        }
-        if (rc != MM_CAMERA_OK) {
-            CDBG_ERROR("%s:start/stop record cam_idx=%d, err=%d\n",
-                       __func__, i, rc);
-            mm_app_stop_record_preview(&test_obj);
-            mm_app_close(&test_obj);
-            break;
+            assert(MM_CAMERA_OK == rc);
         }
 
         rc = mm_app_stop_record_preview(&test_obj);
-        if (rc != MM_CAMERA_OK) {
-            CDBG_ERROR("%s:mm_app_stop_record_preview() cam_idx=%d, err=%d\n",
-                       __func__, i, rc);
-            mm_app_close(&test_obj);
-            break;
-        }
+        assert(MM_CAMERA_OK == rc);
 
         rc = mm_app_close(&test_obj);
-        if (rc != MM_CAMERA_OK) {
-            CDBG_ERROR("%s:mm_app_close() cam_idx=%d, err=%d\n",
-                       __func__, i, rc);
-            break;
-        }
+        assert(MM_CAMERA_OK == rc);
     }
-    if (rc == MM_CAMERA_OK) {
-        CDBG_LOW("\nPassed\n");
-    } else {
-        CDBG_LOW("\nFailed\n");
-    }
+
     CDBG_HIGH("%s:END, rc = %d\n", __func__, rc);
     return rc;
 }
@@ -378,54 +332,49 @@ int mm_app_tc_capture_regular(mm_camera_app_t *cam_app)
     int i, j;
     mm_camera_test_obj_t test_obj;
 
-    cam_app->num_rcvd_snapshot = 0;
     cam_app->num_snapshot = 1;
 
-    CDBG_HIGH("\n Verifying capture...\n");
+    CDBG_HIGH(":%s: \n Verifying capture...\n", __func__);
+
     for (i = 0; i < cam_app->num_cameras; i++) {
         memset(&test_obj, 0, sizeof(mm_camera_test_obj_t));
+
+        cam_app->num_rcvd_snapshot = 0;
+
         rc = mm_app_open(cam_app, i, &test_obj);
-        if (rc != MM_CAMERA_OK) {
-            CDBG_ERROR("%s:mm_app_open() cam_idx=%d, err=%d\n",
-                       __func__, i, rc);
-            break;
-        }
+        assert(MM_CAMERA_OK == rc);
 
         for (j = 0; j < MM_QCAMERA_APP_UTEST_INNER_LOOP; j++) {
+
+            rc = mm_app_start_preview(&test_obj);
+            assert(MM_CAMERA_OK == rc);
+
+            //Set exposure mode to frame average
+            mm_app_set_params(&test_obj, CAM_INTF_PARM_AEC_ALGO_TYPE, CAM_AEC_MODE_FRAME_AVERAGE);
+
+            sleep(MM_QCAM_APP_TEST_PREVIEW_TIME);
+
+            rc = mm_app_stop_preview(&test_obj);
+            assert(MM_CAMERA_OK == rc);
+
             rc = mm_app_start_capture(&test_obj, cam_app->num_snapshot);
-            if (rc != MM_CAMERA_OK) {
-                CDBG_ERROR("%s: mm_app_start_capture() cam_idx=%d, err=%d\n",
-                           __func__, i, rc);
-                break;
-            }
+            assert(MM_CAMERA_OK == rc);
 
             //wait till required snapshots are captured
             do {
                 mm_camera_app_wait();
-                CDBG_HIGH("%s: current snapshot count:%d, required count: %d", cam_app->num_rcvd_snapshot, cam_app->num_snapshot);
+                CDBG_HIGH("%s: current snapshot count:%d, required count: %d", __func__, cam_app->num_rcvd_snapshot, cam_app->num_snapshot);
             } while (cam_app->num_rcvd_snapshot < cam_app->num_snapshot);
 
-
             rc = mm_app_stop_capture(&test_obj);
-            if (rc != MM_CAMERA_OK) {
-                CDBG_ERROR("%s: mm_app_stop_capture() cam_idx=%d, err=%d\n",
-                           __func__, i, rc);
-                break;
-            }
+            assert(MM_CAMERA_OK == rc);
         }
 
         rc = mm_app_close(&test_obj);
-        if (rc != MM_CAMERA_OK) {
-            CDBG_ERROR("%s:mm_app_close() cam_idx=%d, err=%d\n",
-                       __func__, i, rc);
-            break;
-        }
+        assert(MM_CAMERA_OK == rc);
+
     }
-    if (rc == MM_CAMERA_OK) {
-        CDBG_LOW("\nPassed\n");
-    } else {
-        CDBG_LOW("\nFailed\n");
-    }
+
     CDBG_HIGH("%s:END, rc = %d\n", __func__, rc);
     return rc;
 }
@@ -612,7 +561,12 @@ int mm_app_unit_test_entry(mm_camera_app_t *cam_app)
 
     tc = mm_app_gen_test_cases();
 
-    if(cam_app->test_mode == 1) {
+    //lower 8 bits of test mode indicate, manual, automatic or menu based
+    //next 8 bits to indicate single camera or dual camera mode
+    cam_app->test_mode = cam_app->test_mode | (MM_QCAMERA_APP_SINGLE_MODE << 8);
+
+    if(cam_app->test_mode && 0xFF == 1) {
+
         CDBG_HIGH("\nRunning single camera Automatic regression for %d test cases",tc);
         for(k = 0; k < MM_QCAMERA_APP_UTEST_MAX_MAIN_LOOP; k++)
         {
@@ -644,7 +598,7 @@ int mm_app_unit_test_entry(mm_camera_app_t *cam_app)
     CDBG_HIGH("\nTotal testcases = %d\n, Max Outer Iterations = %d\n, Max Per Test Iterations = %d",
         tc, MM_QCAMERA_APP_UTEST_MAX_MAIN_LOOP, MM_QCAMERA_APP_UTEST_OUTER_LOOP);
 
-    CDBG_HIGH("\nLast RC:%d\n, Outer Iteration Count = %d\n, Test Idx:%d\n, Testcase Iteration Count = %d\n, rc=%d\n", rc, k, i, j);
+    CDBG_HIGH("\nLast RC = %d\n, Outer Iteration Count = %d\n, Test Idx = %d\n, Testcase Iteration Count = %d\n\n", rc, k, i, j);
     return rc;
 
 }

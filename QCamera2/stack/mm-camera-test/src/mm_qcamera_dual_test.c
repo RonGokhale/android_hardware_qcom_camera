@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2012, The Linux Foundation. All rights reserved.
+Copyright (c) 2013, The Linux Foundation. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are
@@ -28,44 +28,17 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #include <pthread.h>
-#include "mm_camera_dbg.h"
+#include "mm_qcamera_dbg.h"
 #include <errno.h>
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <poll.h>
-#include "mm_qcamera_unit_test.h"
-
-#define MM_QCAMERA_APP_UTEST_MAX_MAIN_LOOP 4
-#define MM_QCAM_APP_TEST_NUM 128
-
-#define MM_QCAMERA_APP_WAIT_TIME 1000000000
-
-extern int system_dimension_set(int cam_id);
-extern int stopPreview(int cam_id);
-extern int takePicture_yuv(int cam_id);
-extern int takePicture_rdi(int cam_id);
-extern int startRdi(int cam_id);
-extern int stopRdi(int cam_id);
-extern int startStats(int cam_id);
-extern int stopStats(int cam_id);
+#include "mm_qcamera_app.h"
+#include <assert.h>
 
 
-/*
-* 1. open back
-* 2. open front
-* 3. start back
-* 4. start front
-* 5. stop back
-* 6. stop front
-* 7. close back
-* 8. close front
-* 9. take picture
-* a. start recording
-* b. stop recording
-* c. take picture rdi
-*/
 static mm_app_tc_t mm_app_tc[MM_QCAM_APP_TEST_NUM];
 static int num_test_cases = 0;
 struct test_case_params {
@@ -77,96 +50,65 @@ struct test_case_params {
 
 /*  Test case 12436857 :*/
 
-int mm_app_dtc_0(mm_camera_app_t *cam_apps)
+int mm_app_dtc_start_stop_preview(mm_camera_app_t *cam_apps)
 {
-        int rc = MM_CAMERA_OK;
-        int i,j;
-        int result = 0;
-        int front_camera = 1;
-        int back_camera = 0;
+    int rc = MM_CAMERA_OK;
+    int front_camera = 1;
+    int back_camera = 0;
+    int j;
+    mm_camera_test_obj_t test_obj_back;
+    mm_camera_test_obj_t test_obj_front;
 
-        printf("\n Verifying Preview on back Camera and RDI on Front camera 0...\n");
-        CDBG_ERROR("DUAL open back camera \n");
-        if(mm_app_open(back_camera) != MM_CAMERA_OK) {
-                CDBG_ERROR("%s:mm_app_open() back camera err=%d\n",__func__, rc);
-                rc = -1;
-                goto end;
-        }
-        if(system_dimension_set(back_camera) != MM_CAMERA_OK){
-                CDBG_ERROR("%s:system_dimension_set() err=%d\n",__func__, rc);
-                rc = -1;
-                goto end;
-        }
+    CDBG_HIGH(":%s: Starting dual camera Preview test \n", __func__);
 
-        CDBG_ERROR("DUAL open front camera \n");
-        if(mm_app_open(front_camera) != MM_CAMERA_OK) {
-                CDBG_ERROR("%s:mm_app_open() front camera err=%d\n",__func__, rc);
-                rc = -1;
-                goto end;
-        }
+    memset(&test_obj_back, 0, sizeof(mm_camera_test_obj_t));
+    memset(&test_obj_front, 0, sizeof(mm_camera_test_obj_t));
 
-        if(system_dimension_set(front_camera) != MM_CAMERA_OK){
-                CDBG_ERROR("%s:system_dimension_set() err=%d\n",__func__, rc);
-                rc = -1;
-                goto end;
-        }
+    rc = mm_app_open(cam_apps, back_camera, &test_obj_back);
+    assert(rc == MM_CAMERA_OK);
 
-        CDBG_ERROR("DUAL start camera Rdi for front \n");
-        if( MM_CAMERA_OK != (rc = startRdi(front_camera))) {
-               CDBG_ERROR("%s: back camera startPreview() err=%d\n", __func__, rc);
-                goto end;
-        }
-        mm_camera_app_wait();
+    rc = mm_app_open(cam_apps, front_camera, &test_obj_front);
+    assert(rc == MM_CAMERA_OK);
+
+    for (j = 0; j < MM_QCAMERA_APP_UTEST_INNER_LOOP; j++) {
+        rc = mm_app_start_preview(&test_obj_back);
+        assert(rc == MM_CAMERA_OK);
+
+        mm_app_set_params(&test_obj_back, CAM_INTF_PARM_AEC_ALGO_TYPE, CAM_AEC_MODE_FRAME_AVERAGE);
+
+        /* FIXME: Back to back test is unstable with a pause between start of
+           front and back camera. Need to rootcause and remove this later
+        */
         sleep(1);
 
-        CDBG_ERROR("DUAL start camera Preview for back \n");
-        if( MM_CAMERA_OK != (rc = startPreview(back_camera))) {
-                CDBG_ERROR("%s: startPreview() backcamera err=%d\n", __func__, rc);
-                goto end;
-        }
-        mm_camera_app_wait();
-        sleep(1);
+        rc = mm_app_start_preview(&test_obj_front);
+        assert(rc == MM_CAMERA_OK);
 
-        CDBG_ERROR("DUAL stop camera Rdi for front \n");
-        if( MM_CAMERA_OK != (rc = stopRdi(front_camera))) {
-                CDBG_ERROR("%s: startPreview() backcamera err=%d\n", __func__, rc);
-                goto end;
-        }
-        usleep(10*1000);
+        mm_app_set_params(&test_obj_front, CAM_INTF_PARM_AEC_ALGO_TYPE, CAM_AEC_MODE_FRAME_AVERAGE);
 
-        CDBG_ERROR("DUAL close front camera\n");
-        if( mm_app_close(front_camera) != MM_CAMERA_OK) {
-                CDBG_ERROR("%s:mm_app_close() err=%d\n",__func__, rc);
-                rc = -1;
-                goto end;
-        }
-        sleep(1);
-        CDBG_ERROR("DUAL stop camera Preview for back \n");
-        if( MM_CAMERA_OK != (rc = stopPreview(back_camera))) {
-                CDBG("%s: startPreview() err=%d\n", __func__, rc);
-                goto end;
-        }
-        usleep(10*1000);
-        CDBG_ERROR("DUAL close back camera \n");
-        if( mm_app_close(back_camera) != MM_CAMERA_OK) {
-                CDBG_ERROR("%s:mm_app_close() err=%d\n",__func__, rc);
-                rc = -1;
-                goto end;
-        }
-        CDBG_ERROR("DUAL end \n");
+        sleep(MM_QCAM_APP_TEST_PREVIEW_TIME);
 
-end:
-        if(rc == 0) {
-                printf("\nPassed\n");
-        }else{
-                printf("\nFailed\n");
-        }
-        CDBG("%s:END, rc = %d\n", __func__, rc);
-        return rc;
+        rc = mm_app_stop_preview(&test_obj_back);
+        assert(rc == MM_CAMERA_OK);
+
+        rc = mm_app_stop_preview(&test_obj_front);
+        assert(rc == MM_CAMERA_OK);
+    }
+
+    rc = mm_app_close(&test_obj_back);
+    assert(rc == MM_CAMERA_OK);
+    CDBG("BACK Camera close done!!\n");
+
+    rc = mm_app_close(&test_obj_front);
+    assert(rc == MM_CAMERA_OK);
+    CDBG("FRONT Camera close done!!\n");
+
+    CDBG_HIGH("%s:END, rc = %d\n", __func__, rc);
+    return rc;
 }
 
 /*  Test case 12436587 :*/
-
+#if 0
 int mm_app_dtc_1(mm_camera_app_t *cam_apps)
 {
         int rc = MM_CAMERA_OK;
@@ -1886,13 +1828,13 @@ end:
     CDBG("%s:END, rc = %d\n", __func__, rc);
     return rc;
 }
-
+#endif
 int mm_app_gen_dual_test_cases()
 {
     int tc = 0;
     memset(mm_app_tc, 0, sizeof(mm_app_tc));
-    if(tc < MM_QCAM_APP_TEST_NUM) mm_app_tc[tc++].f = mm_app_dtc_0;
-    if(tc < MM_QCAM_APP_TEST_NUM) mm_app_tc[tc++].f = mm_app_dtc_1;
+    if(tc < MM_QCAM_APP_TEST_NUM) mm_app_tc[tc++].f = mm_app_dtc_start_stop_preview;
+   /* if(tc < MM_QCAM_APP_TEST_NUM) mm_app_tc[tc++].f = mm_app_dtc_1;
     if(tc < MM_QCAM_APP_TEST_NUM) mm_app_tc[tc++].f = mm_app_dtc_2;
     if(tc < MM_QCAM_APP_TEST_NUM) mm_app_tc[tc++].f = mm_app_dtc_3;
     if(tc < MM_QCAM_APP_TEST_NUM) mm_app_tc[tc++].f = mm_app_dtc_4;
@@ -1904,7 +1846,7 @@ int mm_app_gen_dual_test_cases()
     if(tc < MM_QCAM_APP_TEST_NUM) mm_app_tc[tc++].f = mm_app_dtc_10;
     if(tc < MM_QCAM_APP_TEST_NUM) mm_app_tc[tc++].f = mm_app_dtc_11;
     if(tc < MM_QCAM_APP_TEST_NUM) mm_app_tc[tc++].f = mm_app_dtc_12;
-    if(tc < MM_QCAM_APP_TEST_NUM) mm_app_tc[tc++].f = mm_app_dtc_13;
+    if(tc < MM_QCAM_APP_TEST_NUM) mm_app_tc[tc++].f = mm_app_dtc_13;*/
 
     return tc;
 }
@@ -1912,22 +1854,50 @@ int mm_app_gen_dual_test_cases()
 int mm_app_dual_test_entry(mm_camera_app_t *cam_app)
 {
     int rc = MM_CAMERA_OK;
-    int i, tc = 0;
+    int i, j, k, tc = 0;
     int cam_id = 0;
 
     tc = mm_app_gen_dual_test_cases();
-    CDBG("Running %d test cases\n",tc);
-    for(i = 0; i < tc; i++) {
+    CDBG_HIGH("Running %d test cases\n", tc);
+
+    //lower 8 bits of test mode indicate, manual, automatic or menu based
+    //next 8 bits to indicate single camera or dual camera mode
+    cam_app->test_mode = cam_app->test_mode | (MM_QCAMERA_APP_DUAL_MODE << 8);
+
+     if(cam_app->test_mode & 0xFF == 1) {
+
+        CDBG_HIGH("\nRunning dual camera Automatic regression for %d test cases",tc);
+        for(k = 0; k < MM_QCAMERA_APP_UTEST_MAX_MAIN_LOOP; k++)
+        {
+            for (i = 0; i < tc; i++) {
+                for (j = 0; j < MM_QCAMERA_APP_UTEST_OUTER_LOOP; j++) {
+                    mm_app_tc[i].r = mm_app_tc[i].f(cam_app);
+                    rc = mm_app_tc[i].r;
+                    if (rc != MM_CAMERA_OK) {
+                        CDBG_ERROR("%s: test case %d (iteration %d) error = %d, abort dual testing engine!!!!\n",
+                           __func__, i, j, mm_app_tc[i].r);
+                        goto end;
+                    }
+                }
+            }
+        }
+    } else {
+        i = cam_app->test_idx;
+        CDBG_HIGH("\nRunning dual camera manual tests. Testcase number:%d ",i);
         mm_app_tc[i].r = mm_app_tc[i].f(cam_app);
-        if(mm_app_tc[i].r != MM_CAMERA_OK) {
-            printf("%s: test case %d error = %d, abort unit testing engine!!!!\n",
-                    __func__, i, mm_app_tc[i].r);
-            rc = mm_app_tc[i].r;
+        rc = mm_app_tc[i].r;
+        if (rc != MM_CAMERA_OK) {
+            CDBG_ERROR("%s: error = %d, abort dual testing engine!!!!\n",
+               __func__, mm_app_tc[i].r);
             goto end;
         }
     }
-end:
-    printf("nTOTAL_TSET_CASE = %d, NUM_TEST_RAN = %d, rc=%d\n", tc, i, rc);
+
+    end:
+    CDBG_HIGH("\nTotal testcases = %d\n, Max Outer Iterations = %d\n, Max Per Test Iterations = %d",
+        tc, MM_QCAMERA_APP_UTEST_MAX_MAIN_LOOP, MM_QCAMERA_APP_UTEST_OUTER_LOOP);
+
+    CDBG_HIGH("\nLast RC = %d\n, Outer Iteration Count = %d\n, Test Idx = %d\n, Testcase Iteration Count = %d\n\n", rc, k, i, j);
     return rc;
 }
 

@@ -32,6 +32,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <inttypes.h>
+ #include <assert.h>
 
 #include "mm_qcamera_main_menu.h"
 #include "mm_qcamera_app.h"
@@ -72,7 +73,7 @@ const CAMERA_MAIN_MENU_TBL_T camera_main_menu_tbl[] = {
   {SATURATION_GOTO_SUBMENU,                               "Saturation changes."},
   {SET_ZOOM,          "Set Digital Zoom."},
   {SET_SHARPNESS,          "Set Sharpness."},
-  {TAKE_YUV_SNAPSHOT,       "Take a snapshot"},
+  {TAKE_SINGLE_SNAPSHOT,       "Take a snapshot"},
   {TAKE_BURST_SNAPSHOT,       "Take burst snapshot"},
   {START_RECORDING,       "Start RECORDING"},
   {STOP_RECORDING,       "Stop RECORDING"},
@@ -199,7 +200,7 @@ const FLASH_MODE_TBL_T flashmodes_tbl[] = {
 static int set_fps(int fps);
 static int start_snapshot (void);
 static int stop_snapshot (void);
-static void system_dimension_set(mm_camera_test_obj_t *test_obj);
+void system_dimension_set(mm_camera_test_obj_t *test_obj);
 /*===========================================================================
  * Static global variables
  *===========================================================================*/
@@ -361,8 +362,8 @@ int next_menu(menu_id_change_t current_menu_id, char keypress, camera_action_t *
           CDBG("next_menu_id = MENU_ID_SHARPNESSCHANGE = %d\n", next_menu_id);
           break;
 
-        case TAKE_YUV_SNAPSHOT:
-          * action_id_ptr = ACTION_TAKE_YUV_SNAPSHOT;
+        case TAKE_SINGLE_SNAPSHOT:
+          * action_id_ptr = ACTION_TAKE_SINGLE_SNAPSHOT;
           printf("\n Taking YUV snapshot\n");
           break;
 
@@ -1018,18 +1019,7 @@ int decrease_saturation (void) {
 #endif
 }
 
-
-int take_yuv_snapshot(mm_camera_test_obj_t *test_obj, int is_burst_mode)
-{
-  CDBG_HIGH("\nEnter take_yuv_snapshot!!\n");
-  int rc = MM_CAMERA_OK;
-  if(MM_CAMERA_OK != (rc = mm_app_take_picture(test_obj, is_burst_mode))) {
-    CDBG_ERROR("%s: mm_app_take_picture() err=%d\n", __func__, rc);
-  }
-  return rc;
-}
-
-static void system_dimension_set(mm_camera_test_obj_t *test_obj)
+void system_dimension_set(mm_camera_test_obj_t *test_obj)
 {
     if (preview_video_resolution_flag == 0)
     {
@@ -1058,36 +1048,27 @@ static void system_dimension_set(mm_camera_test_obj_t *test_obj)
  *
  * DESCRIPTION:
  *==========================================================================*/
-int menu_based_test_main()
+int menu_based_test_main(mm_camera_app_t *cam_app)
 {
     int keep_on_going = 1;
     int rc = 0;
     int mode = 0;
 
-    mm_camera_app_t cam_app;
-    memset(&cam_app, 0, sizeof(mm_camera_app_t));
-    if((mm_app_load_hal(&cam_app) != MM_CAMERA_OK)) {
-        CDBG_ERROR("%s:mm_app_init err\n", __func__);
-        return -1;
-    }
-    printf("\nHAL Loaded successfully!!\n");
     mm_camera_test_obj_t test_obj;
     memset(&test_obj, 0, sizeof(mm_camera_test_obj_t));
 
-    printf("\n Opening Camera!!\n");
     //TODO: Remove hardcoded cam_id, take cam id from user input.
-    rc = mm_app_open(&cam_app, 0, &test_obj);
-    if (rc != MM_CAMERA_OK) {
-       CDBG_ERROR("%s:mm_app_open() err=%d\n", __func__, rc);
-       return -1;
-    }
+    rc = mm_app_open(cam_app, 0, &test_obj);
+    assert(MM_CAMERA_OK == rc);
+
+    CDBG("Camera opened successfully!!\n");
 
     do {
        keep_on_going = submain(&test_obj);
     } while ( keep_on_going );
 
-  printf("Exiting application\n");
-  return 0;
+    CDBG_HIGH("Exiting app\n");
+    return 0;
 }
 
 
@@ -1107,17 +1088,15 @@ static int submain(mm_camera_test_obj_t *test_obj)
   int action_param;
   int i;
 
-
   //set preview resolution.
   //TODO: Add other dimension related stuff here.
   system_dimension_set(test_obj);
 
   printf("\nStarting Preview!!\n");
+
   rc = mm_app_start_preview(test_obj);
-  if (rc != MM_CAMERA_OK) {
-    CDBG_ERROR("%s:mm_app_open() cam_idx=%d, err=%d\n", __func__, i, rc);
-    return -1;
-  }
+  assert(MM_CAMERA_OK == rc);
+
   //Set default values.
   //Default Auto exposure.
   mm_app_set_params(test_obj, CAM_INTF_PARM_AEC_ALGO_TYPE, CAM_AEC_MODE_FRAME_AVERAGE);
@@ -1231,16 +1210,14 @@ static int submain(mm_camera_test_obj_t *test_obj)
         decrease_sharpness(test_obj);
         break;
 
-      case ACTION_TAKE_YUV_SNAPSHOT:
-        CDBG_HIGH("\n Take YUV snapshot\n");
-        if (take_yuv_snapshot(test_obj, 0) < 0)
-          goto ERROR;
+      case ACTION_TAKE_SINGLE_SNAPSHOT:
+        CDBG("\n Selection for Single snapshot\n");
+        mm_app_take_picture(test_obj, 0);
         break;
 
       case ACTION_TAKE_BURST_SNAPSHOT:
-        CDBG_HIGH("\n Take Burst snapshot\n");
-        if (take_yuv_snapshot(test_obj, 1) < 0)
-          goto ERROR;
+        CDBG("\n Selection for Burst snapshot\n");
+        mm_app_take_picture(test_obj, 1);
         break;
 
       case ACTION_START_RECORDING:

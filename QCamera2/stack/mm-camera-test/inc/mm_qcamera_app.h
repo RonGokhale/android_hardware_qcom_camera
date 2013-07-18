@@ -54,7 +54,7 @@
 #define CAMERA_MIN_STREAMING_BUFFERS     5
 #define CAMERA_MIN_JPEG_ENCODING_BUFFERS 2
 #define CAMERA_MIN_VIDEO_BUFFERS         9
-#define CAMERA_FRAME_ID_OFFSET           1
+#define CAMERA_FRAME_ID_OFFSET           2
 
  #define CAMERA_MAX_JPEG_SESSIONS (CAMERA_MIN_JPEG_ENCODING_BUFFERS + CAMERA_MIN_STREAMING_BUFFERS + 1)
 
@@ -62,7 +62,7 @@
 #define DEFAULT_PREVIEW_WIDTH     800
 #define DEFAULT_PREVIEW_HEIGHT    480
 #define DEFAULT_PREVIEW_PADDING   CAM_PAD_TO_WORD
-#define DEFAULT_VIDEO_FORMAT      CAM_FORMAT_YUV_420_NV12
+#define DEFAULT_VIDEO_FORMAT      CAM_FORMAT_YUV_420_NV21
 #define DEFAULT_VIDEO_WIDTH       800
 #define DEFAULT_VIDEO_HEIGHT      480
 #define DEFAULT_VIDEO_PADDING     CAM_PAD_TO_2K
@@ -70,6 +70,15 @@
 #define DEFAULT_SNAPSHOT_WIDTH    1280
 #define DEFAULT_SNAPSHOT_HEIGHT   960
 #define DEFAULT_SNAPSHOT_PADDING  CAM_PAD_TO_WORD
+
+#define MM_QCAMERA_APP_UTEST_MAX_MAIN_LOOP 1
+#define MM_QCAMERA_APP_UTEST_OUTER_LOOP 1
+#define MM_QCAMERA_APP_UTEST_INNER_LOOP 1
+#define MM_QCAM_APP_TEST_NUM 128
+#define MM_QCAM_APP_TEST_PREVIEW_TIME  5 //in seconds
+
+#define MM_QCAMERA_APP_SINGLE_MODE 0
+#define MM_QCAMERA_APP_DUAL_MODE   1
 
 #ifndef TRUE
 #define TRUE 1
@@ -156,8 +165,8 @@ typedef struct {
     int32_t video_width;
     int32_t video_height;
     cam_format_t video_format;
-    uint8_t test_mode;
-    uint8_t test_idx;
+    uint32_t test_mode;
+    uint32_t test_idx;
     hal_interface_lib_t hal_lib;
     uint32_t num_rcvd_snapshot;
     uint32_t num_snapshot;
@@ -180,12 +189,10 @@ typedef struct {
 
     uint32_t current_jpeg_sess_id;
     mm_camera_app_buf_t jpeg_buf;
-
-	parm_buffer_t *params_buffer;
-
+    parm_buffer_t *params_buffer;
     mm_camera_app_t *app_handle;
-
     mm_camera_app_frame_stack jpeg_frame_queue[CAMERA_MAX_JPEG_SESSIONS];
+    uint8_t cam_id;
 } mm_camera_test_obj_t;
 
 

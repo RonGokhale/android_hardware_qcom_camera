@@ -56,7 +56,7 @@ static mm_camera_app_frame_stack * find_free_frame_slot(mm_camera_app_frame_stac
     int i;
     for (i = 0; i < size; i++) {
         if (queue[i].job_id == 0) {
-            CDBG_HIGH("%s: Index: %d", __func__, i);
+            CDBG("%s: Index: %d", __func__, i);
             return &queue[i];
         }
     }
@@ -69,7 +69,7 @@ static mm_camera_app_frame_stack * find_jobid_frame_slot(mm_camera_app_frame_sta
     int i;
     for (i = 0; i < size; i++) {
         if (queue[i].job_id == job_id) {
-            CDBG_HIGH("%s: Index: %d", __func__, i);
+            CDBG("%s: Index: %d", __func__, i);
             return &queue[i];
         }
     }
@@ -100,7 +100,10 @@ static void jpeg_encode_cb(jpeg_job_status_t status,
     CDBG("%s: Job-frame-jobid: %d, Job-frame-camera-handle: %x, Job-frame-buff[0]: %x, job-frame-numbuffs: %d",
     __func__, frame_slot->job_id, frame_slot->job_frame.camera_handle, frame_slot->job_frame.bufs[0], frame_slot->job_frame.num_bufs);
 
-    mm_app_dump_jpeg_frame(p_buf->buf_vaddr, p_buf->buf_filled_len, "jpeg_dump", "jpg", job_id);
+    mm_app_dump_jpeg_frame(p_buf->buf_vaddr, p_buf->buf_filled_len, "jpeg_dump", "jpg", job_id + (uint32_t)pme->cam->camera_handle);
+
+    //invalidate cache
+    mm_app_cache_ops(&pme->jpeg_buf.mem_info, ION_IOC_CLEAN_INV_CACHES);
 
     /* signal snapshot is done */
     mm_camera_app_done();
@@ -155,6 +158,8 @@ int start_jpeg_encode(mm_camera_test_obj_t *test_obj,
     encode_param.src_main_buf[0].format = MM_JPEG_FMT_YUV;
     encode_param.src_main_buf[0].offset = m_stream->offset;
 
+    CDBG_HIGH("%s: JPEG buffer :%x", __func__, test_obj->jpeg_buf.buf.buffer);
+
     /* fill in sink img param */
     encode_param.num_dst_bufs = 1;
     encode_param.dest_buf[0].index = 0;
@@ -162,6 +167,11 @@ int start_jpeg_encode(mm_camera_test_obj_t *test_obj,
     encode_param.dest_buf[0].buf_vaddr = (uint8_t *)test_obj->jpeg_buf.buf.buffer;
     encode_param.dest_buf[0].fd = test_obj->jpeg_buf.buf.fd;
     encode_param.dest_buf[0].format = MM_JPEG_FMT_YUV;
+
+    assert(NULL != encode_param.dest_buf[0].buf_vaddr);
+    assert(NULL != encode_param.src_main_buf[0].buf_vaddr);
+    assert(0 != encode_param.src_main_buf[0].buf_size);
+    assert(0 != encode_param.dest_buf[0].buf_size);
 
     rc = test_obj->jpeg_ops.create_session(test_obj->jpeg_hdl,
                                              &encode_param,
@@ -224,7 +234,7 @@ static void mm_app_snapshot_notify_cb(mm_camera_super_buf_t *bufs,
     mm_camera_buf_def_t *p_frame = NULL;
     mm_camera_buf_def_t *m_frame = NULL;
 
-    CDBG_HIGH("%s: BEGIN\n", __func__);
+    CDBG_HIGH("%s: Enter\n", __func__);
 
     //skip jpeg encoding if required number of jpegs are already captured
     if(pme->app_handle->num_rcvd_snapshot >= pme->app_handle->num_snapshot) {
@@ -260,7 +270,7 @@ static void mm_app_snapshot_notify_cb(mm_camera_super_buf_t *bufs,
     }
     assert(NULL != m_frame);
 
-    mm_app_dump_frame(m_frame, "main", "yuv", m_frame->frame_idx);
+    mm_app_dump_frame(m_frame, "main", "yuv", m_frame->frame_idx + (uint32_t)pme->cam->camera_handle);
 
     /* find postview stream */
     for (i = 0; i < channel->num_streams; i++) {
@@ -278,7 +288,7 @@ static void mm_app_snapshot_notify_cb(mm_camera_super_buf_t *bufs,
             }
         }
         if (NULL != p_frame) {
-            mm_app_dump_frame(p_frame, "postview", "yuv", p_frame->frame_idx);
+            mm_app_dump_frame(p_frame, "postview", "yuv", p_frame->frame_idx + (uint32_t)pme->cam->camera_handle);
             mm_app_cache_ops((mm_camera_app_meminfo_t *)p_frame->mem_info,
                      ION_IOC_CLEAN_INV_CACHES);
         }
@@ -292,13 +302,15 @@ static void mm_app_snapshot_notify_cb(mm_camera_super_buf_t *bufs,
     start_jpeg_encode(pme, m_stream, m_frame, bufs);
 
 end:
-    CDBG_HIGH("%s: END\n", __func__);
+    CDBG_HIGH("%s: Exit\n", __func__);
 }
 
 mm_camera_channel_t * mm_app_add_snapshot_channel(mm_camera_test_obj_t *test_obj)
 {
     mm_camera_channel_t *channel = NULL;
     mm_camera_stream_t *stream = NULL;
+
+    CDBG("%s: Enter\n", __func__);
 
     channel = mm_app_add_channel(test_obj,
                                  MM_CHANNEL_TYPE_SNAPSHOT,
@@ -315,6 +327,8 @@ mm_camera_channel_t * mm_app_add_snapshot_channel(mm_camera_test_obj_t *test_obj
                                         1);
     assert(NULL != stream);
 
+    CDBG("%s: Exit\n", __func__);
+
     return channel;
 }
 
@@ -328,6 +342,8 @@ mm_camera_stream_t * mm_app_add_postview_stream(mm_camera_test_obj_t *test_obj,
     int rc = MM_CAMERA_OK;
     mm_camera_stream_t *stream = NULL;
     cam_capability_t *cam_cap = (cam_capability_t *)(test_obj->cap_buf.buf.buffer);
+
+    CDBG("%s: Enter\n", __func__);
 
     stream = mm_app_add_stream(test_obj, channel);
     assert(NULL != stream);
@@ -352,7 +368,7 @@ mm_camera_stream_t * mm_app_add_postview_stream(mm_camera_test_obj_t *test_obj,
     memset(stream->s_config.stream_info, 0, sizeof(cam_stream_info_t));
     stream->s_config.stream_info->stream_type = CAM_STREAM_TYPE_POSTVIEW;
 
-    if (num_burst > 1) {
+    if (num_burst > 0) {
         stream->s_config.stream_info->streaming_mode = CAM_STREAMING_MODE_BURST;
         /* Info: There could be some frame mismatch in the frameIDs of postview
            and snapshot images. This may result in not getting callback as the
@@ -374,6 +390,8 @@ mm_camera_stream_t * mm_app_add_postview_stream(mm_camera_test_obj_t *test_obj,
     rc = mm_app_config_stream(test_obj, channel, stream, &stream->s_config);
     assert(MM_CAMERA_OK == rc);
 
+    CDBG("%s: Exit\n", __func__);
+
     return stream;
 }
 
@@ -385,6 +403,8 @@ int mm_app_start_capture(mm_camera_test_obj_t *test_obj,
     mm_camera_stream_t *s_main = NULL;
     mm_camera_stream_t *s_postview = NULL;
     mm_camera_channel_attr_t attr;
+
+    CDBG("%s: Enter\n", __func__);
 
     memset(&attr, 0, sizeof(mm_camera_channel_attr_t));
     attr.notify_mode = MM_CAMERA_SUPER_BUF_NOTIFY_CONTINUOUS;
@@ -415,18 +435,25 @@ int mm_app_start_capture(mm_camera_test_obj_t *test_obj,
     rc = mm_app_start_channel(test_obj, channel);
     assert(MM_CAMERA_OK == rc);
 
+    CDBG("%s: Exit\n", __func__);
+    //rc = mm_app_request_super_buf(test_obj, channel, num_snapshots);
+    //assert(MM_CAMERA_OK == rc);
+
     return rc;
 }
 
 int mm_app_stop_capture(mm_camera_test_obj_t *test_obj)
 {
     int rc = MM_CAMERA_OK;
+    CDBG_HIGH("%s: Enter\n", __func__);
 
     mm_camera_channel_t *channel =
     mm_app_get_channel_by_type(test_obj, MM_CHANNEL_TYPE_CAPTURE);
 
     rc = mm_app_stop_and_del_channel(test_obj, channel);
     assert(MM_CAMERA_OK == rc);
+
+    CDBG_HIGH("%s: Exit\n", __func__);
 
     return rc;
 }
@@ -437,10 +464,10 @@ int mm_app_take_picture(mm_camera_test_obj_t *test_obj, uint8_t is_burst_mode)
     int rc = MM_CAMERA_OK;
 
     test_obj->app_handle->num_rcvd_snapshot = 0;
-    test_obj->app_handle->num_snapshot = 4;
+    test_obj->app_handle->num_snapshot = 1;
 
     if (is_burst_mode)
-        test_obj->app_handle->num_snapshot = 6;
+        test_obj->app_handle->num_snapshot = 4;
 
     //stop preview before starting capture.
     rc = mm_app_stop_preview(test_obj);
