@@ -80,6 +80,7 @@ const CAMERA_MAIN_MENU_TBL_T camera_main_menu_tbl[] = {
   {BEST_SHOT,       "Set best-shot mode"},
   {LIVE_SHOT,       "Take a live snapshot"},
   {FLASH_MODES,       "Set Flash modes"},
+  {PREVIEW_FLIP,       "Set preview Flip"},
 };
 
 const PREVIEW_DIMENSION_TBL_T preview_video_dimension_tbl[] = {
@@ -157,6 +158,13 @@ const ISO_TBL_T iso_tbl[] = {
   {   ISO_400, "ISO: 400"},
   {   ISO_800, "ISO: 800"},
   {   ISO_1600, "ISO: 1600"},
+};
+
+const PREVIEW_FLIP_T preview_flip_tbl[] = {
+  {   FLIP_MODE_NONE, "Normal/Default"},
+  {   FLIP_MODE_H, "Horizontal Flip"},
+  {   FLIP_MODE_V, "Vertical Flip"},
+  {   FLIP_MODE_V_H, "Vertical and Horizontal Flip"},
 };
 
 const ZOOM_TBL_T zoom_tbl[] = {
@@ -335,6 +343,11 @@ int next_menu(menu_id_change_t current_menu_id, char keypress, camera_action_t *
         case SET_ISO:
           next_menu_id = MENU_ID_ISOCHANGE;
           CDBG("next_menu_id = MENU_ID_ISOCHANGE = %d\n", next_menu_id);
+          break;
+
+	case PREVIEW_FLIP:
+          next_menu_id = MENU_ID_PREVIEWFLIP;
+          CDBG("next_menu_id = MENU_ID_PREVIEWFLIP  = %d\n", next_menu_id);
           break;
 
         case SET_ZOOM:
@@ -518,6 +531,17 @@ int next_menu(menu_id_change_t current_menu_id, char keypress, camera_action_t *
         output_to_event <= sizeof(iso_tbl)/sizeof(iso_tbl[0])) {
           next_menu_id = MENU_ID_MAIN;
           * action_param = output_to_event;
+      } else {
+        next_menu_id = current_menu_id;
+      }
+      break;
+
+    case MENU_ID_PREVIEWFLIP:
+      * action_id_ptr = ACTION_PREVIEW_FLIP;
+      if (output_to_event > 0 &&
+        output_to_event <= sizeof(preview_flip_tbl)/sizeof(preview_flip_tbl[0])) {
+          next_menu_id = MENU_ID_MAIN;
+          * action_param = output_to_event - 1;
       } else {
         next_menu_id = current_menu_id;
       }
@@ -810,6 +834,25 @@ static void camera_preview_video_iso_change_tbl(void) {
   printf("\nPlease enter your choice for iso modes: ");
   return;
 }
+
+
+static void camera_preview_flip_tbl(void) {
+  unsigned int i;
+  printf("\n");
+  printf("==========================================================\n");
+  printf("      Camera is in preview flip change mode       \n");
+  printf("==========================================================\n\n");
+
+  char submenuNum = 'A';
+  for (i = 0 ; i < sizeof(preview_flip_tbl) /
+                   sizeof(preview_flip_tbl[0]); i++) {
+        printf("%c.  %s\n", submenuNum, preview_flip_tbl[i].preview_flip_name);
+        submenuNum++;
+  }
+  printf("\nPlease enter your choice for preview flip: ");
+  return;
+}
+
 
 static void camera_preview_video_sharpness_change_tbl(void) {
   unsigned int i;
@@ -1195,6 +1238,11 @@ static int submain(mm_camera_test_obj_t *test_obj)
         set_iso(test_obj, action_param);
         break;
 
+      case ACTION_PREVIEW_FLIP:
+        printf("Select for PREVIEW Flip changes\n");
+        flip_preview(test_obj, action_param);
+        break;
+
       case ACTION_SET_ZOOM:
         CDBG("Selection for the zoom direction changes\n");
         set_zoom(test_obj ,action_param);
@@ -1514,6 +1562,20 @@ int set_iso (mm_camera_test_obj_t *test_obj, int iso_action_param) {
     return mm_app_set_params(test_obj, CAM_INTF_PARM_BESTSHOT_MODE, type);
 }
 
+
+int flip_preview(mm_camera_test_obj_t *test_obj, int flip_action) {
+
+   int rc;
+   CDBG_HIGH("\nFlip_action=%d\n",flip_action);
+   test_obj->app_handle->flip_mode = flip_action;
+   CDBG_HIGH("Stop_Preview!!\n");
+   rc = mm_app_stop_preview(test_obj);
+   assert(rc == MM_CAMERA_OK);
+   CDBG_HIGH("Start_Preview!!\n");
+   rc = mm_app_start_preview(test_obj);
+   assert(rc == MM_CAMERA_OK);
+}
+
 /*===========================================================================
  * FUNCTION     - increase_sharpness -
  *
@@ -1691,8 +1753,9 @@ int print_current_menu (menu_id_change_t current_menu_id) {
     camera_set_bestshot_tbl();
   } else if (current_menu_id == MENU_ID_FLASHMODE) {
     camera_set_flashmode_tbl();
+  } else if (current_menu_id == MENU_ID_PREVIEWFLIP) {
+    camera_preview_flip_tbl();
   }
-
   return 0;
 }
 

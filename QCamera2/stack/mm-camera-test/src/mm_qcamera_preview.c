@@ -189,8 +189,11 @@ mm_camera_stream_t * mm_app_add_preview_stream(mm_camera_test_obj_t *test_obj,
     stream->s_config.stream_info->dim.height = test_obj->app_handle->preview_height; //DEFAULT_PREVIEW_HEIGHT;
     stream->s_config.padding_info = cam_cap->padding_info;
 
-    CDBG_HIGH("\nPreview W=%d & H=%d\n",test_obj->app_handle->preview_width,
-        test_obj->app_handle->preview_height);
+    stream->s_config.stream_info->pp_config.feature_mask = CAM_QCOM_FEATURE_FLIP;
+    stream->s_config.stream_info->pp_config.flip = test_obj->app_handle->flip_mode;
+
+    CDBG_HIGH("Preview W=%d & H=%d & Flip mode =%d",test_obj->app_handle->preview_width,
+        test_obj->app_handle->preview_height, test_obj->app_handle->flip_mode);
 
     rc = mm_app_config_stream(test_obj, channel, stream, &stream->s_config);
     assert(MM_CAMERA_OK == rc);
@@ -251,6 +254,9 @@ mm_camera_stream_t * mm_app_add_snapshot_stream(mm_camera_test_obj_t *test_obj,
     stream->s_config.stream_info->dim.width = test_obj->app_handle->snapshot_width; //DEFAULT_SNAPSHOT_WIDTH;
     stream->s_config.stream_info->dim.height = test_obj->app_handle->snapshot_height; //DEFAULT_SNAPSHOT_HEIGHT;
     stream->s_config.padding_info = cam_cap->padding_info;
+
+    stream->s_config.stream_info->pp_config.feature_mask = CAM_QCOM_FEATURE_FLIP;
+    stream->s_config.stream_info->pp_config.flip = test_obj->app_handle->flip_mode;
 
     rc = mm_app_config_stream(test_obj, channel, stream, &stream->s_config);
     assert(MM_CAMERA_OK == rc);

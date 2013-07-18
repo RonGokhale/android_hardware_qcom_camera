@@ -70,6 +70,7 @@
 #define DEFAULT_SNAPSHOT_WIDTH    1280
 #define DEFAULT_SNAPSHOT_HEIGHT   960
 #define DEFAULT_SNAPSHOT_PADDING  CAM_PAD_TO_WORD
+#define DEFAULT_FLIP_MODE         FLIP_MODE_NONE
 
 #define MM_QCAMERA_APP_UTEST_MAX_MAIN_LOOP 1
 #define MM_QCAMERA_APP_UTEST_OUTER_LOOP 1
@@ -145,6 +146,13 @@ typedef struct {
     uint16_t user_input_display_height;
 } USER_INPUT_DISPLAY_T;
 
+typedef enum {
+  FLIP_MODE_NONE = 0,
+  FLIP_MODE_H = FLIP_H,
+  FLIP_MODE_V = FLIP_V,
+  FLIP_MODE_V_H = FLIP_H | FLIP_V,
+} flip_modes;
+
 typedef struct {
   void *ptr;
   void* ptr_jpeg;
@@ -170,6 +178,7 @@ typedef struct {
     hal_interface_lib_t hal_lib;
     uint32_t num_rcvd_snapshot;
     uint32_t num_snapshot;
+    uint8_t flip_mode;
 } mm_camera_app_t;
 
 typedef struct {
