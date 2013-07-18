@@ -932,7 +932,8 @@ QCamera2HardwareInterface::QCamera2HardwareInterface(int cameraId)
       m_currentFocusState(CAM_AF_SCANNING),
       m_pPowerModule(NULL),
       mDumpFrmCnt(0),
-      mDumpSkipCnt(0)
+      mDumpSkipCnt(0),
+      mThermalLevel(QCAMERA_THERMAL_NO_ADJUSTMENT)
 {
     mCameraDevice.common.tag = HARDWARE_DEVICE_TAG;
     mCameraDevice.common.version = HARDWARE_DEVICE_API_VERSION(1, 0);
@@ -1057,7 +1058,7 @@ int QCamera2HardwareInterface::openCamera()
         gCamCapability[mCameraId]->padding_info.plane_padding = padding_info.plane_padding;
     }
 
-    mParameters.init(gCamCapability[mCameraId], mCameraHandle);
+    mParameters.init(gCamCapability[mCameraId], mCameraHandle, this);
 
     rc = m_thermalAdapter.init(this);
     if (rc != 0) {
@@ -1089,11 +1090,15 @@ int QCamera2HardwareInterface::closeCamera()
         return NO_ERROR;
     }
 
+    pthread_mutex_lock(&m_parm_lock);
+
     // set open flag to false
     mCameraOpened = false;
 
     // deinit Parameters
     mParameters.deinit();
+
+    pthread_mutex_unlock(&m_parm_lock);
 
     // exit notifier
     m_cbNotifier.exit();
@@ -1492,6 +1497,9 @@ QCameraHeapMemory *QCamera2HardwareInterface::allocateStreamInfoBuf(
             streamInfo->streaming_mode = CAM_STREAMING_MODE_BURST;
             if ( mParameters.isHDREnabled() ) {
                 streamInfo->num_of_burst = gCamCapability[mCameraId]->hdr_bracketing_setting.num_frames;
+                if (mParameters.isHDR1xFrameEnabled()) {
+                    streamInfo->num_of_burst++;
+                }
             } else {
                 streamInfo->num_of_burst = mParameters.getNumOfSnapshots();
             }
@@ -1501,6 +1509,9 @@ QCameraHeapMemory *QCamera2HardwareInterface::allocateStreamInfoBuf(
         streamInfo->streaming_mode = CAM_STREAMING_MODE_BURST;
         if ( mParameters.isHDREnabled() ) {
             streamInfo->num_of_burst = gCamCapability[mCameraId]->hdr_bracketing_setting.num_frames;
+            if (mParameters.isHDR1xFrameEnabled()) {
+                streamInfo->num_of_burst++;
+            }
         } else {
             streamInfo->num_of_burst = mParameters.getNumOfSnapshots();
         }
@@ -1990,6 +2001,10 @@ int QCamera2HardwareInterface::takePicture()
             String8 tmp;
             for ( unsigned int i = 0; i < hdrFrameCount ; i++ ) {
                 tmp.appendFormat("%d", (int8_t) gCamCapability[mCameraId]->hdr_bracketing_setting.exp_val.values[i]);
+                tmp.append(",");
+            }
+            if (mParameters.isHDR1xFrameEnabled()) {
+                tmp.appendFormat("%d", 0);
                 tmp.append(",");
             }
             if( !tmp.isEmpty() &&
@@ -2814,6 +2829,8 @@ int32_t QCamera2HardwareInterface::addPreviewChannel()
 {
     int32_t rc = NO_ERROR;
     QCameraChannel *pChannel = NULL;
+    char value[PROPERTY_VALUE_MAX];
+    bool raw_yuv = false;
 
     if (m_channels[QCAMERA_CH_TYPE_PREVIEW] != NULL) {
         // if we had preview channel before, delete it first
@@ -2856,6 +2873,20 @@ int32_t QCamera2HardwareInterface::addPreviewChannel()
         ALOGE("%s: add preview stream failed, ret = %d", __func__, rc);
         delete pChannel;
         return rc;
+    }
+
+    property_get("persist.camera.raw_yuv", value, "0");
+    raw_yuv = atoi(value) > 0 ? true : false;
+    if ( raw_yuv ) {
+        rc = addStreamToChannel(pChannel,
+                                CAM_STREAM_TYPE_RAW,
+                                preview_raw_stream_cb_routine,
+                                this);
+        if (rc != NO_ERROR) {
+            ALOGE("%s: add raw stream failed, ret = %d", __func__, rc);
+            delete pChannel;
+            return rc;
+        }
     }
 
     m_channels[QCAMERA_CH_TYPE_PREVIEW] = pChannel;
@@ -3034,6 +3065,8 @@ int32_t QCamera2HardwareInterface::addZSLChannel()
 {
     int32_t rc = NO_ERROR;
     QCameraPicChannel *pChannel = NULL;
+    char value[PROPERTY_VALUE_MAX];
+    bool raw_yuv = false;
 
     if (m_channels[QCAMERA_CH_TYPE_ZSL] != NULL) {
         // if we had ZSL channel before, delete it first
@@ -3095,6 +3128,20 @@ int32_t QCamera2HardwareInterface::addZSLChannel()
         return rc;
     }
 
+    property_get("persist.camera.raw_yuv", value, "0");
+    raw_yuv = atoi(value) > 0 ? true : false;
+    if ( raw_yuv ) {
+        rc = addStreamToChannel(pChannel,
+                                CAM_STREAM_TYPE_RAW,
+                                NULL,
+                                this);
+        if (rc != NO_ERROR) {
+            ALOGE("%s: add raw stream failed, ret = %d", __func__, rc);
+            delete pChannel;
+            return rc;
+        }
+    }
+
     m_channels[QCAMERA_CH_TYPE_ZSL] = pChannel;
     return rc;
 }
@@ -3117,6 +3164,8 @@ int32_t QCamera2HardwareInterface::addCaptureChannel()
 {
     int32_t rc = NO_ERROR;
     QCameraChannel *pChannel = NULL;
+    char value[PROPERTY_VALUE_MAX];
+    bool raw_yuv = false;
 
     if (m_channels[QCAMERA_CH_TYPE_CAPTURE] != NULL) {
         delete m_channels[QCAMERA_CH_TYPE_CAPTURE];
@@ -3170,6 +3219,20 @@ int32_t QCamera2HardwareInterface::addCaptureChannel()
         ALOGE("%s: add snapshot stream failed, ret = %d", __func__, rc);
         delete pChannel;
         return rc;
+    }
+
+    property_get("persist.camera.raw_yuv", value, "0");
+    raw_yuv = atoi(value) > 0 ? true : false;
+    if ( raw_yuv ) {
+        rc = addStreamToChannel(pChannel,
+                                CAM_STREAM_TYPE_RAW,
+                                snapshot_raw_stream_cb_routine,
+                                this);
+        if (rc != NO_ERROR) {
+            ALOGE("%s: add raw stream failed, ret = %d", __func__, rc);
+            delete pChannel;
+            return rc;
+        }
     }
 
     m_channels[QCAMERA_CH_TYPE_CAPTURE] = pChannel;
@@ -3309,8 +3372,12 @@ QCameraReprocessChannel *QCamera2HardwareInterface::addOnlineReprocChannel(
     if (mParameters.isHDREnabled()){
         pp_config.feature_mask |= CAM_QCOM_FEATURE_HDR;
         pp_config.hdr_param.hdr_enable = 1;
+        pp_config.hdr_param.hdr_need_1x = mParameters.isHDR1xFrameEnabled();
         pp_config.hdr_param.hdr_mode = CAM_HDR_MODE_MULTIFRAME;
         minStreamBufNum = gCamCapability[mCameraId]->hdr_bracketing_setting.num_frames + 1;
+        if (mParameters.isHDR1xFrameEnabled()) {
+            minStreamBufNum++;
+        }
     } else {
         pp_config.feature_mask &= ~CAM_QCOM_FEATURE_HDR;
         pp_config.hdr_param.hdr_enable = 0;
@@ -3907,28 +3974,29 @@ int32_t QCamera2HardwareInterface::processHDRData(cam_asd_hdr_scene_data_t hdr_s
 }
 
 /*===========================================================================
- * FUNCTION   : updateThermalLevel
+ * FUNCTION   : calcThermalLevel
  *
- * DESCRIPTION: update thermal level depending on thermal events
+ * DESCRIPTION: Calculates the target fps range depending on
+ *              the thermal level.
  *
  * PARAMETERS :
- *   @level   : thermal level
+ *   @level    : received thermal level
+ *   @minFPS   : minimum configured fps range
+ *   @maxFPS   : maximum configured fps range
+ *   @adjustedRange : target fps range
+ *   @skipPattern : target skip pattern
  *
  * RETURN     : int32_t type of status
  *              NO_ERROR  -- success
  *              none-zero failure code
  *==========================================================================*/
-int QCamera2HardwareInterface::updateThermalLevel(
-            qcamera_thermal_level_enum_t level)
+int QCamera2HardwareInterface::calcThermalLevel(
+            qcamera_thermal_level_enum_t level,
+            const int minFPS,
+            const int maxFPS,
+            cam_fps_range_t &adjustedRange,
+            enum msm_vfe_frame_skip_pattern &skipPattern)
 {
-    int ret = NO_ERROR;
-    cam_fps_range_t adjustedRange;
-    int minFPS, maxFPS;
-    qcamera_thermal_mode thermalMode = mParameters.getThermalMode();
-    enum msm_vfe_frame_skip_pattern skipPattern;
-
-    mParameters.getPreviewFpsRange(&minFPS, &maxFPS);
-
     switch(level) {
     case QCAMERA_THERMAL_NO_ADJUSTMENT:
         {
@@ -3993,12 +4061,79 @@ int QCamera2HardwareInterface::updateThermalLevel(
           adjustedRange.max_fps,
           skipPattern);
 
+    return NO_ERROR;
+}
+
+/*===========================================================================
+ * FUNCTION   : recalcFPSRange
+ *
+ * DESCRIPTION: adjust the configured fps range regarding
+ *              the last thermal level.
+ *
+ * PARAMETERS :
+ *   @minFPS   : minimum configured fps range
+ *   @maxFPS   : maximum configured fps range
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int QCamera2HardwareInterface::recalcFPSRange(int &minFPS, int &maxFPS)
+{
+    cam_fps_range_t adjustedRange;
+    enum msm_vfe_frame_skip_pattern skipPattern;
+    calcThermalLevel(mThermalLevel,
+                     minFPS,
+                     maxFPS,
+                     adjustedRange,
+                     skipPattern);
+    minFPS = adjustedRange.min_fps;
+    maxFPS = adjustedRange.max_fps;
+
+    return NO_ERROR;
+}
+
+/*===========================================================================
+ * FUNCTION   : updateThermalLevel
+ *
+ * DESCRIPTION: update thermal level depending on thermal events
+ *
+ * PARAMETERS :
+ *   @level   : thermal level
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int QCamera2HardwareInterface::updateThermalLevel(
+            qcamera_thermal_level_enum_t level)
+{
+    int ret = NO_ERROR;
+    cam_fps_range_t adjustedRange;
+    int minFPS, maxFPS;
+    enum msm_vfe_frame_skip_pattern skipPattern;
+
+    pthread_mutex_lock(&m_parm_lock);
+
+    if (!mCameraOpened) {
+        ALOGI("%s: Camera is not opened, no need to update camera parameters", __func__);
+        pthread_mutex_unlock(&m_parm_lock);
+        return NO_ERROR;
+    }
+
+    mParameters.getPreviewFpsRange(&minFPS, &maxFPS);
+    qcamera_thermal_mode thermalMode = mParameters.getThermalMode();
+    calcThermalLevel(level, minFPS, maxFPS, adjustedRange, skipPattern);
+    mThermalLevel = level;
+
     if (thermalMode == QCAMERA_THERMAL_ADJUST_FPS)
         ret = mParameters.adjustPreviewFpsRange(&adjustedRange);
     else if (thermalMode == QCAMERA_THERMAL_ADJUST_FRAMESKIP)
         ret = mParameters.setFrameSkip(skipPattern);
     else
         ALOGE("%s: Incorrect thermal mode %d", __func__, thermalMode);
+
+    pthread_mutex_unlock(&m_parm_lock);
 
     return ret;
 
@@ -4117,6 +4252,12 @@ bool QCamera2HardwareInterface::needReprocess()
         // RAW image, no need to reprocess
         pthread_mutex_unlock(&m_parm_lock);
         return false;
+    }
+
+    if (mParameters.isHDREnabled()) {
+        ALOGD("%s: need do reprocess for HDR", __func__);
+        pthread_mutex_unlock(&m_parm_lock);
+        return true;
     }
 
     if (isZSLMode()) {
