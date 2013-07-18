@@ -95,6 +95,9 @@ mm_camera_stream_t * mm_app_add_video_stream(mm_camera_test_obj_t *test_obj,
     stream->s_config.stream_info->dim.height = (int32_t)test_obj->app_handle->video_height; //DEFAULT_VIDEO_HEIGHT;
     stream->s_config.padding_info = cam_cap->padding_info;
 
+    stream->s_config.stream_info->pp_config.feature_mask = CAM_QCOM_FEATURE_FLIP;
+    stream->s_config.stream_info->pp_config.flip = test_obj->app_handle->flip_mode;
+
     rc = mm_app_config_stream(test_obj, channel, stream, &stream->s_config);
     assert(MM_CAMERA_OK == rc);
 

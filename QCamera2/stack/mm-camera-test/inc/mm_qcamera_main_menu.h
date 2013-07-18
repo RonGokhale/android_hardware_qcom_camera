@@ -32,6 +32,7 @@
 
 #include "mm_camera_interface.h"
 #include "mm_jpeg_interface.h"
+#include "mm_qcamera_app.h"
 
 #define VIDEO_BUFFER_SIZE       (PREVIEW_WIDTH * PREVIEW_HEIGHT * 3/2)
 #define THUMBNAIL_BUFFER_SIZE   (THUMBNAIL_WIDTH * THUMBNAIL_HEIGHT * 3/2)
@@ -67,7 +68,8 @@ typedef enum
   STOP_RECORDING = 17,
   BEST_SHOT = 18,
   LIVE_SHOT = 19,
-  FLASH_MODES = 20
+  FLASH_MODES = 20,
+  PREVIEW_FLIP = 21
 } Camera_main_menu_t;
 
 typedef enum
@@ -98,6 +100,7 @@ typedef enum
   ACTION_SET_BESTSHOT_MODE,
   ACTION_TAKE_LIVE_SNAPSHOT,
   ACTION_SET_FLASH_MODE,
+  ACTION_PREVIEW_FLIP,
 } camera_action_t;
 
 #define INVALID_KEY_PRESS 0
@@ -256,6 +259,7 @@ typedef enum
   MENU_ID_SHARPNESSCHANGE,
   MENU_ID_BESTSHOT,
   MENU_ID_FLASHMODE,
+  MENU_ID_PREVIEWFLIP,
   MENU_ID_INVALID,
 } menu_id_change_t;
 
@@ -349,6 +353,11 @@ typedef struct {
   ISO_modes iso_modes;
   char *iso_modes_name;
 } ISO_TBL_T;
+
+typedef struct {
+  flip_modes preview_flip_modes;
+  char *preview_flip_name;
+} PREVIEW_FLIP_T;
 
 typedef struct {
   Zoom_direction zoom_direction;
