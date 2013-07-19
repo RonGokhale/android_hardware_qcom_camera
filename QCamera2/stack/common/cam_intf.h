@@ -280,6 +280,7 @@ typedef enum {
 typedef enum {
     CAM_STREAM_PARAM_TYPE_DO_REPROCESS = CAM_INTF_PARM_DO_REPROCESS,
     CAM_STREAM_PARAM_TYPE_SET_BUNDLE_INFO = CAM_INTF_PARM_SET_BUNDLE,
+    CAM_STREAM_PARAM_TYPE_SET_FLIP = CAM_INTF_PARM_STREAM_FLIP,
     CAM_STREAM_PARAM_SET_STREAM_CONSUMER,
     CAM_STREAM_PARAM_TYPE_MAX
 } cam_stream_param_type_e;
@@ -298,10 +299,15 @@ typedef struct {
 } cam_reprocess_param;
 
 typedef struct {
+    uint32_t flip_mask;
+} cam_flip_mode_t;
+
+typedef struct {
     cam_stream_param_type_e type;
     union {
         cam_reprocess_param reprocess;  /* do reprocess */
         cam_bundle_config_t bundleInfo; /* set bundle info*/
+        cam_flip_mode_t flipInfo;       /* flip mode */
         cam_stream_consumer_t consumer;  /* stream consumer */
     };
 } cam_stream_parm_buffer_t;
@@ -507,6 +513,7 @@ typedef union {
     INCLUDE(CAM_INTF_META_STATS_HISTOGRAM_MODE,       uint8_t,                     1);
     INCLUDE(CAM_INTF_META_STATS_SHARPNESS_MAP_MODE,   uint8_t,                     1);
     INCLUDE(CAM_INTF_META_STATS_SHARPNESS_MAP,        cam_sharpness_map_t,         3);
+    INCLUDE(CAM_INTF_META_ASD_HDR_SCENE_DATA,      cam_asd_hdr_scene_data_t,       1);
     INCLUDE(CAM_INTF_META_PRIVATE_DATA,               char,                        MAX_METADATA_PAYLOAD_SIZE);
 
 } metadata_type_t;

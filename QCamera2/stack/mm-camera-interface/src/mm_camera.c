@@ -93,16 +93,11 @@ mm_channel_t * mm_camera_util_get_channel_by_handler(
  *==========================================================================*/
 uint8_t mm_camera_util_chip_is_a_family(void)
 {
-    int id = 0;
-    FILE *fp;
-    if ((fp = fopen("/sys/devices/system/soc/soc0/id", "r")) != NULL) {
-        fscanf(fp, "%d", &id);
-        fclose(fp);
-    }
-    if (id == 126 || id == 145)
-        return FALSE;
-    else
-        return TRUE;
+#ifdef USE_A_FAMILY
+    return TRUE;
+#else
+    return FALSE;
+#endif
 }
 
 /*===========================================================================
@@ -656,8 +651,6 @@ int32_t mm_camera_start_zsl_snapshot(mm_camera_obj_t *my_obj)
 
     rc = mm_camera_util_s_ctrl(my_obj->ctrl_fd,
              CAM_PRIV_START_ZSL_SNAPSHOT, &value);
-
-    pthread_mutex_unlock(&my_obj->cam_lock);
     return rc;
 }
 
@@ -679,7 +672,6 @@ int32_t mm_camera_stop_zsl_snapshot(mm_camera_obj_t *my_obj)
     int32_t value;
     rc = mm_camera_util_s_ctrl(my_obj->ctrl_fd,
              CAM_PRIV_STOP_ZSL_SNAPSHOT, &value);
-    pthread_mutex_unlock(&my_obj->cam_lock);
     return rc;
 }
 

@@ -271,18 +271,6 @@ int32_t QCameraPostProcessor::getJpegEncodingConfig(mm_jpeg_encode_params_t& enc
     if (encode_parm.quality <= 0) {
         encode_parm.quality = 85;
     }
-
-    // get exif data
-    if (m_pJpegExifObj != NULL) {
-        delete m_pJpegExifObj;
-        m_pJpegExifObj = NULL;
-    }
-    m_pJpegExifObj = m_parent->getExifData();
-    if (m_pJpegExifObj != NULL) {
-        encode_parm.exif_info.exif_data = m_pJpegExifObj->getEntries();
-        encode_parm.exif_info.numOfEntries = m_pJpegExifObj->getNumOfEntries();
-    }
-
     cam_frame_len_offset_t main_offset;
     memset(&main_offset, 0, sizeof(cam_frame_len_offset_t));
     main_stream->getFrameOffset(main_offset);
@@ -378,10 +366,6 @@ on_error:
         m_pJpegOutputMem->deallocate();
         delete m_pJpegOutputMem;
         m_pJpegOutputMem = NULL;
-    }
-    if (m_pJpegExifObj != NULL) {
-        delete m_pJpegExifObj;
-        m_pJpegExifObj = NULL;
     }
     ALOGV("%s : X with error %d", __func__, ret);
     return ret;
@@ -487,12 +471,18 @@ int32_t QCameraPostProcessor::processData(mm_camera_super_buf_t *frame)
     }
 
     if (m_parent->needReprocess()) {
+        //play shutter sound
+        m_parent->playShutter();
+
         ALOGD("%s: need reprocess", __func__);
         // enqueu to post proc input queue
         m_inputPPQ.enqueue((void *)frame);
     } else if (m_parent->mParameters.isNV16PictureFormat()) {
         processRawData(frame);
     } else {
+        //play shutter sound
+        m_parent->playShutter();
+
         ALOGD("%s: no need offline reprocess, sending to jpeg encoding", __func__);
         qcamera_jpeg_data_t *jpeg_job =
             (qcamera_jpeg_data_t *)malloc(sizeof(qcamera_jpeg_data_t));
@@ -590,10 +580,9 @@ int32_t QCameraPostProcessor::processJpegEvt(qcamera_jpeg_evt_payload_t *evt)
         goto end;
     }
 
-    m_parent->dumpFrameToFile(evt->out_data.buf_vaddr,
+    m_parent->dumpJpegToFile(evt->out_data.buf_vaddr,
                               evt->out_data.buf_filled_len,
-                              evt->jobId,
-                              QCAMERA_DUMP_FRM_JPEG);
+                              evt->jobId);
     ALOGD("%s: Dump jpeg_size=%d", __func__, evt->out_data.buf_filled_len);
 
     // alloc jpeg memory to pass to upper layer
@@ -1020,8 +1009,7 @@ int32_t QCameraPostProcessor::encodeData(qcamera_jpeg_data_t *jpeg_job_data,
     }
 
     // dump snapshot frame if enabled
-    m_parent->dumpFrameToFile(main_frame->buffer, main_frame->frame_len,
-                              main_frame->frame_idx, QCAMERA_DUMP_FRM_SNAPSHOT);
+    m_parent->dumpFrameToFile(main_stream, main_frame, QCAMERA_DUMP_FRM_SNAPSHOT);
 
     // send upperlayer callback for raw image
     camera_memory_t *mem = memObj->getMemory(main_frame->buf_idx, false);
@@ -1048,8 +1036,7 @@ int32_t QCameraPostProcessor::encodeData(qcamera_jpeg_data_t *jpeg_job_data,
 
     if (thumb_frame != NULL) {
         // dump thumbnail frame if enabled
-        m_parent->dumpFrameToFile(thumb_frame->buffer, thumb_frame->frame_len,
-                                  thumb_frame->frame_idx, QCAMERA_DUMP_FRM_THUMBNAIL);
+        m_parent->dumpFrameToFile(thumb_stream, thumb_frame, QCAMERA_DUMP_FRM_THUMBNAIL);
     }
 
     if (mJpegClientHandle <= 0) {
@@ -1070,7 +1057,6 @@ int32_t QCameraPostProcessor::encodeData(qcamera_jpeg_data_t *jpeg_job_data,
         }
         needNewSess = FALSE;
     }
-
     // Fill in new job
     memset(&jpg_job, 0, sizeof(mm_jpeg_job_t));
     jpg_job.job_type = JPEG_JOB_TYPE_ENCODE;
@@ -1090,6 +1076,19 @@ int32_t QCameraPostProcessor::encodeData(qcamera_jpeg_data_t *jpeg_job_data,
     jpg_job.encode_job.main_dim.src_dim = src_dim;
     jpg_job.encode_job.main_dim.dst_dim = src_dim;
     jpg_job.encode_job.main_dim.crop = crop;
+
+
+    // get exif data
+    if (m_pJpegExifObj != NULL) {
+        delete m_pJpegExifObj;
+        m_pJpegExifObj = NULL;
+    }
+    m_pJpegExifObj = m_parent->getExifData();
+    if (m_pJpegExifObj != NULL) {
+        jpg_job.encode_job.exif_info.exif_data = m_pJpegExifObj->getEntries();
+        jpg_job.encode_job.exif_info.numOfEntries =
+          m_pJpegExifObj->getNumOfEntries();
+    }
 
     // thumbnail dim
     if (m_bThumbnailNeeded == TRUE) {
@@ -1206,8 +1205,12 @@ int32_t QCameraPostProcessor::processRawImageImpl(mm_camera_super_buf_t *recvd_f
 
     if (NULL != rawMemObj && NULL != raw_mem) {
         // dump frame into file
-        m_parent->dumpFrameToFile(frame->buffer, frame->frame_len,
-                                  frame->frame_idx, QCAMERA_DUMP_FRM_RAW);
+        if (frame->stream_type == CAM_STREAM_TYPE_SNAPSHOT) {
+            // for YUV422 NV16 case
+            m_parent->dumpFrameToFile(pStream, frame, QCAMERA_DUMP_FRM_SNAPSHOT);
+        } else {
+            m_parent->dumpFrameToFile(pStream, frame, QCAMERA_DUMP_FRM_RAW);
+        }
 
         // send data callback / notify for RAW_IMAGE
         if (NULL != m_parent->mDataCb &&
@@ -1365,9 +1368,6 @@ void *QCameraPostProcessor::dataProcessRoutine(void *data)
                             (qcamera_jpeg_data_t *)pme->m_inputJpegQ.dequeue();
 
                         if (NULL != jpeg_job) {
-                            //play shutter sound
-                            pme->m_parent->playShutter();
-
                             // add into ongoing jpeg job Q
                             pme->m_ongoingJpegQ.enqueue((void *)jpeg_job);
                             ret = pme->encodeData(jpeg_job, needNewSess);
