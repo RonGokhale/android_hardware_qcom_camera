@@ -567,16 +567,19 @@ int mm_app_open(mm_camera_app_t *cam_app,
 
 int mm_app_set_params(mm_camera_test_obj_t *test_obj,
                       cam_intf_parm_type_t param_type,
-                      int32_t value)
+                      uint32_t paramLength,
+                      void *paramValue)
 {
     int rc = MM_CAMERA_OK;
+    assert(NULL != test_obj);
+    assert(NULL != paramValue);
 
-    CDBG(":%s: param_type =%d & value =%d",__func__, param_type, value);
+    CDBG(":%s: param_type =%d, param value: %s, param length =%d",__func__, param_type, paramValue, paramLength);
 
     rc = init_batch_update(test_obj->params_buffer);
     assert(MM_CAMERA_OK == rc);
 
-    rc = add_parm_entry_tobatch(test_obj->params_buffer, param_type, sizeof(value), &value);
+    rc = add_parm_entry_tobatch(test_obj->params_buffer, param_type, paramLength, paramValue);
     assert(MM_CAMERA_OK == rc);
 
     rc = commit_set_batch(test_obj);
@@ -589,6 +592,8 @@ int init_batch_update(parm_buffer_t *p_table)
 {
     int rc = MM_CAMERA_OK;
     CDBG("%s: Enter ",__func__);
+
+    assert(NULL != p_table);
 
     int32_t hal_version = CAM_HAL_V1;
 
@@ -609,6 +614,8 @@ int add_parm_entry_tobatch(parm_buffer_t *p_table,
     int rc = MM_CAMERA_OK;
     int position = paramType;
     int current, next;
+
+    CDBG("%s: Enter ",__func__);
 
     current = GET_FIRST_PARAM_ID(p_table);
     if (position == current){
@@ -633,12 +640,17 @@ int add_parm_entry_tobatch(parm_buffer_t *p_table,
         return -1;
     }
     memcpy(POINTER_OF(paramType,p_table), paramValue, paramLength);
+
+    CDBG("%s: Exit ",__func__);
     return rc;
 }
 
 int commit_set_batch(mm_camera_test_obj_t *test_obj)
 {
     int rc = MM_CAMERA_OK;
+    
+    CDBG("%s: Enter ",__func__);
+
     if (test_obj->params_buffer->first_flagged_entry < CAM_INTF_PARM_MAX) {
         CDBG("\nset_param p_buffer =%p\n",test_obj->params_buffer);
         rc = test_obj->cam->ops->set_parms(test_obj->cam->camera_handle, test_obj->params_buffer);
@@ -646,6 +658,7 @@ int commit_set_batch(mm_camera_test_obj_t *test_obj)
 
     assert(MM_CAMERA_OK == rc);
 
+    CDBG("%s: Exit ",__func__);
     return rc;
 }
 
@@ -837,7 +850,7 @@ void print_usage()
     CDBG_HIGH("\t4: mm_app_tc_start_stop_video_record");
     CDBG_HIGH("\t5: mm_app_tc_start_stop_live_snapshot");
     CDBG_HIGH("\t6: mm_app_tc_capture_regular");
-    CDBG_HIGH("\t7: mm_app_tc_capture_burst");
+    CDBG_HIGH("\t7: mm_app_tc_capture_exposure_burst");
     CDBG_HIGH("\t8: mm_app_tc_rdi_cont");
     CDBG_HIGH("\t9: mm_app_tc_rdi_burst");
 
