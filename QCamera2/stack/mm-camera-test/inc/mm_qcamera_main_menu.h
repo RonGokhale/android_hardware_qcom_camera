@@ -69,7 +69,8 @@ typedef enum
   BEST_SHOT = 18,
   LIVE_SHOT = 19,
   FLASH_MODES = 20,
-  PREVIEW_FLIP = 21
+  PREVIEW_FLIP = 21,
+  FLIP_CAMERAS = 22
 } Camera_main_menu_t;
 
 typedef enum
@@ -101,6 +102,7 @@ typedef enum
   ACTION_TAKE_LIVE_SNAPSHOT,
   ACTION_SET_FLASH_MODE,
   ACTION_PREVIEW_FLIP,
+  ACTION_FLIP_CAMERAS,
 } camera_action_t;
 
 #define INVALID_KEY_PRESS 0
@@ -260,6 +262,7 @@ typedef enum
   MENU_ID_BESTSHOT,
   MENU_ID_FLASHMODE,
   MENU_ID_PREVIEWFLIP,
+  MENU_ID_FLIPCAMERAS,
   MENU_ID_INVALID,
 } menu_id_change_t;
 

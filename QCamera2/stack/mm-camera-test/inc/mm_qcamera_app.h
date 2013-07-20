@@ -37,6 +37,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <poll.h>
+#include <stdbool.h>
 
 #include "mm_camera_interface.h"
 #include "mm_jpeg_interface.h"
@@ -71,6 +72,8 @@
 #define DEFAULT_SNAPSHOT_HEIGHT   960
 #define DEFAULT_SNAPSHOT_PADDING  CAM_PAD_TO_WORD
 #define DEFAULT_FLIP_MODE         FLIP_MODE_NONE
+
+#define MM_QCAMERA_APP_MAX_DISPLAY_WIDTH 2048
 
 #define MM_QCAMERA_APP_UTEST_MAX_MAIN_LOOP 1
 #define MM_QCAMERA_APP_UTEST_OUTER_LOOP 1
@@ -183,6 +186,7 @@ typedef struct {
     uint32_t num_rcvd_snapshot;
     uint32_t num_snapshot;
     uint8_t flip_mode;
+    bool no_display;
 } mm_camera_app_t;
 
 typedef struct {

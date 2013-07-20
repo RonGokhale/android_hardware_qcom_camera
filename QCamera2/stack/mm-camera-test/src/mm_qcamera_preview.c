@@ -42,10 +42,14 @@ static void mm_app_preview_notify_cb(mm_camera_super_buf_t *bufs,
 
     CDBG("%s: BEGIN - frame length=%d, frame idx = %d\n", __func__, frame->frame_len, frame->frame_idx);
 
-    //Passing back camera preview buffers to display thread.
-    if((pme->cam_id == 0) || (((pme->app_handle->test_mode & 0xFF00) >> 8) == MM_QCAMERA_APP_SINGLE_MODE)) {
-       rc = mm_app_dl_render(frame->fd, pme);
-       assert(rc == MM_CAMERA_OK);
+    /* render camera preview buffers to display thread if 'no display mode' is not set, and
+       callback is not from front camera in dual camera mode
+    */
+    if (pme->app_handle->no_display == false) {
+        if ((pme->cam_id == 0) || (((pme->app_handle->test_mode & 0xFF00) >> 8) == MM_QCAMERA_APP_SINGLE_MODE)) {
+            rc = mm_app_dl_render(frame->fd, pme);
+            assert(rc == MM_CAMERA_OK);
+        }
     }
 
     if (0  == frame->frame_idx % PREIVEW_FRAMEDUMP_INTERVAL) {
@@ -322,8 +326,9 @@ int mm_app_start_preview(mm_camera_test_obj_t *test_obj)
     assert(MM_CAMERA_OK == rc);
 
     //Launch display thread.
-     if((test_obj->cam_id == 0) || (((test_obj->app_handle->test_mode & 0xFF00) >> 8) == MM_QCAMERA_APP_SINGLE_MODE))
-        launch_camframe_fb_thread();
+    if (test_obj->app_handle->no_display == false)
+        if ((test_obj->cam_id == 0) || (((test_obj->app_handle->test_mode & 0xFF00) >> 8) == MM_QCAMERA_APP_SINGLE_MODE))
+            launch_camframe_fb_thread();
 
     return rc;
 }
@@ -333,15 +338,16 @@ int mm_app_stop_preview(mm_camera_test_obj_t *test_obj)
     int rc = MM_CAMERA_OK;
 
     mm_camera_channel_t *channel =
-        mm_app_get_channel_by_type(test_obj, MM_CHANNEL_TYPE_PREVIEW);
+    mm_app_get_channel_by_type(test_obj, MM_CHANNEL_TYPE_PREVIEW);
 
     rc = mm_app_stop_and_del_channel(test_obj, channel);
     assert(MM_CAMERA_OK == rc);
 
     //Release display thread.
-    //Launch display thread.
-     if((test_obj->cam_id == 0) || (((test_obj->app_handle->test_mode & 0xFF00) >> 8) == MM_QCAMERA_APP_SINGLE_MODE))
-        release_camframe_fb_thread();
+    if (test_obj->app_handle->no_display == false)
+        if ((test_obj->cam_id == 0) || (((test_obj->app_handle->test_mode & 0xFF00) >> 8) == MM_QCAMERA_APP_SINGLE_MODE))
+            release_camframe_fb_thread();
+
     return rc;
 }
 

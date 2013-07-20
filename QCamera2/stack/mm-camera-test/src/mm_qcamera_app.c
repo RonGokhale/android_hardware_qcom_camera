@@ -648,7 +648,7 @@ int add_parm_entry_tobatch(parm_buffer_t *p_table,
 int commit_set_batch(mm_camera_test_obj_t *test_obj)
 {
     int rc = MM_CAMERA_OK;
-    
+
     CDBG("%s: Enter ",__func__);
 
     if (test_obj->params_buffer->first_flagged_entry < CAM_INTF_PARM_MAX) {
@@ -665,6 +665,8 @@ int commit_set_batch(mm_camera_test_obj_t *test_obj)
 int mm_app_close(mm_camera_test_obj_t *test_obj)
 {
     uint32_t rc = MM_CAMERA_OK;
+
+    CDBG_HIGH("%s:Enter\n", __func__);
 
     if (test_obj == NULL || test_obj->cam ==NULL) {
         CDBG_ERROR("%s: cam not opened", __func__);
@@ -703,6 +705,8 @@ int mm_app_close(mm_camera_test_obj_t *test_obj)
      /* dealloc jpeg buf */
     rc = mm_app_release_bufs(1, &test_obj->jpeg_buf);
     assert(MM_CAMERA_OK == rc);
+
+    CDBG_HIGH("%s:Exit\n", __func__);
 
     return MM_CAMERA_OK;
 }
@@ -884,6 +888,7 @@ int main(int argc, char **argv)
 
     mm_camera_app_handle.test_mode = 0;
     mm_camera_app_handle.test_idx = 0;
+    mm_camera_app_handle.no_display = false;
 
     while ((c = getopt(argc, argv, "sdm:t:w:h:W:H:")) != -1) {
         switch (c) {
@@ -928,6 +933,18 @@ int main(int argc, char **argv)
     CDBG_HIGH("\nStarting Test with following configuration: \n\tpreview width: %d \n\tpreview height: %d \n\tsnapshot width: %d \n\tsnapshot height: %d\n",
         mm_camera_app_handle.preview_width, mm_camera_app_handle.preview_height,
         mm_camera_app_handle.snapshot_width, mm_camera_app_handle.snapshot_height);
+
+    //if video/preview width is greater than what display can support force no display mode
+    if((mm_camera_app_handle.video_width > MM_QCAMERA_APP_MAX_DISPLAY_WIDTH) ||
+        (mm_camera_app_handle.preview_width > MM_QCAMERA_APP_MAX_DISPLAY_WIDTH)) {
+
+        CDBG_HIGH("\t\t!! Video/Preview will not be displayed !! \n\t\tresolution exceeds max display resolution");
+        CDBG_HIGH("\nPlease check the file dump to verify output\n");
+
+        //Pause for user to see the configs printed above
+        sleep(2);
+        mm_camera_app_handle.no_display = true;
+    }
 
     //Pause for user to see the configs printed above
     sleep(1);
