@@ -41,6 +41,11 @@ typedef enum {
 } mm_jpeg_format_t;
 
 typedef struct {
+  cam_ae_params_t ae_params;
+  cam_sensor_params_t sensor_params;
+} mm_jpeg_exif_params_t;
+
+typedef struct {
   uint32_t sequence;          /* for jpeg bit streams, assembling is based on sequence. sequence starts from 0 */
   uint8_t *buf_vaddr;        /* ptr to buf */
   int fd;                    /* fd of buf */
@@ -151,6 +156,9 @@ typedef struct {
   /* buf to exif entries, caller needs to
    * take care of the memory manage with insider ptr */
   QOMX_EXIF_INFO exif_info;
+
+  /* 3a parameters */
+  mm_jpeg_exif_params_t cam_exif_params;
 
 } mm_jpeg_encode_job_t;
 
