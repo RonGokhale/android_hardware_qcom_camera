@@ -35,16 +35,45 @@ static void mm_app_video_notify_cb(mm_camera_super_buf_t *bufs,
                                    void *user_data)
 {
     char file_name[64];
-    int rc;
+    int rc, i;
+    mm_camera_test_obj_t *pme = (mm_camera_test_obj_t *)user_data;
+    mm_camera_channel_t *channel = NULL;
+    mm_camera_stream_t *v_stream = NULL;
+    cam_stream_buf_plane_info_t *buf_planes = NULL;
 
     mm_camera_buf_def_t *frame = bufs->bufs[0];
-    mm_camera_test_obj_t *pme = (mm_camera_test_obj_t *)user_data;
-
-    CDBG("%s: BEGIN - length=%d, frame idx = %d\n",
+    
+    CDBG("%s: BEGIN - frame length=%d, frame idx = %d\n",
          __func__, frame->frame_len, frame->frame_idx);
 
+    /* find channel */
+    for (i = 0; i < MM_CHANNEL_TYPE_MAX; i++) {
+        if (pme->channels[i].ch_id == bufs->ch_id) {
+            channel = &pme->channels[i];
+            break;
+        }
+    }
+    assert(NULL != channel);
+
+    /* find video stream */
+    for (i = 0; i < channel->num_streams; i++) {
+        if (channel->streams[i].s_config.stream_info->stream_type == CAM_STREAM_TYPE_VIDEO) {
+            v_stream = &channel->streams[i];
+            break;
+        }
+    }
+    assert(NULL != v_stream);
+
+    //extract buf planes to get stride and scanlines
+    buf_planes = &(v_stream->s_config.stream_info->buf_planes);
+    
+    //CDBG_HIGH("%s: Y offset: %d, CbCr offset: %d", __func__, buf_planes->plane_info.sp.y_offset, buf_planes->plane_info.sp.cbcr_offset);
+    CDBG("%s: Frame length: %d, Num planes: %d", __func__, buf_planes->plane_info.frame_len, buf_planes->plane_info.num_planes);    
+    CDBG("%s: Y stride: %d  Y scanlines: %d", __func__, buf_planes->plane_info.mp[0].stride, buf_planes->plane_info.mp[0].scanline);
+    CDBG("%s: UV stride: %d  UV scanlines: %d", __func__, buf_planes->plane_info.mp[1].stride, buf_planes->plane_info.mp[1].scanline);
+
     if (0  == frame->frame_idx % PREIVEW_FRAMEDUMP_INTERVAL) {
-        snprintf(file_name, sizeof(file_name), "V_C%d", pme->cam->camera_handle);
+        snprintf(file_name, sizeof(file_name), "v_c%d_%d_%d", pme->cam->camera_handle, buf_planes->plane_info.mp[0].stride, buf_planes->plane_info.mp[0].scanline);
         mm_app_dump_frame(frame, file_name, "yuv", frame->frame_idx);
     }
 
@@ -133,6 +162,8 @@ int mm_app_start_record_preview(mm_camera_test_obj_t *test_obj)
     mm_camera_channel_t *v_ch = NULL;
     mm_camera_channel_t *s_ch = NULL;
 
+    CDBG_HIGH("%s: Enter", __func__);
+
     p_ch = mm_app_add_preview_channel(test_obj);
     assert(NULL != p_ch);
 
@@ -147,6 +178,8 @@ int mm_app_start_record_preview(mm_camera_test_obj_t *test_obj)
 
     //Launch display thread.
     launch_camframe_fb_thread();
+
+    CDBG_HIGH("%s: Exit", __func__);
 
     return rc;
 }
@@ -193,11 +226,11 @@ int mm_app_start_record(mm_camera_test_obj_t *test_obj)
 int mm_app_stop_record(mm_camera_test_obj_t *test_obj)
 {
     int rc = MM_CAMERA_OK;
-    mm_camera_channel_t *v_ch = NULL;
+    mm_camera_channel_t *channel = NULL;
 
-    v_ch = mm_app_get_channel_by_type(test_obj, MM_CHANNEL_TYPE_VIDEO);
+    channel = mm_app_get_channel_by_type(test_obj, MM_CHANNEL_TYPE_VIDEO);
 
-    rc = mm_app_stop_channel(test_obj, v_ch);
+    rc = mm_app_stop_channel(test_obj, channel);
     assert(MM_CAMERA_OK == rc);
 
     return rc;

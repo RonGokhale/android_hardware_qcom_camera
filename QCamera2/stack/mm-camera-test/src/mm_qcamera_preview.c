@@ -35,12 +35,46 @@ static void mm_app_preview_notify_cb(mm_camera_super_buf_t *bufs,
                                      void *user_data)
 {
     char file_name[64];
-    int rc;
+    int rc, i;
 
     mm_camera_buf_def_t *frame = bufs->bufs[0];
     mm_camera_test_obj_t *pme = (mm_camera_test_obj_t *)user_data;
+    mm_camera_channel_t *channel = NULL;
+    mm_camera_stream_t *p_stream = NULL;
+    cam_stream_buf_plane_info_t *buf_planes = NULL;
 
     CDBG("%s: BEGIN - frame length=%d, frame idx = %d\n", __func__, frame->frame_len, frame->frame_idx);
+
+    /* find channel */
+    for (i = 0; i < MM_CHANNEL_TYPE_MAX; i++) {
+        if (pme->channels[i].ch_id == bufs->ch_id) {
+            channel = &pme->channels[i];
+            break;
+        }
+    }
+    assert(NULL != channel);
+
+    /* find video stream */
+    for (i = 0; i < channel->num_streams; i++) {
+        if (channel->streams[i].s_config.stream_info->stream_type == CAM_STREAM_TYPE_PREVIEW) {
+            p_stream = &channel->streams[i];
+            break;
+        }
+    }
+    assert(NULL != p_stream);
+
+    //extract buf planes to get stride and scanlines
+    buf_planes = &(p_stream->s_config.stream_info->buf_planes);
+    
+    //CDBG_HIGH("%s: Y offset: %d, CbCr offset: %d", __func__, buf_planes->plane_info.sp.y_offset, buf_planes->plane_info.sp.cbcr_offset);
+    CDBG("%s: Frame length: %d, Num planes: %d", __func__, buf_planes->plane_info.frame_len, buf_planes->plane_info.num_planes);    
+    CDBG("%s: Y stride: %d  Y scanlines: %d", __func__, buf_planes->plane_info.mp[0].stride, buf_planes->plane_info.mp[0].scanline);
+    CDBG("%s: UV stride: %d  UV scanlines: %d", __func__, buf_planes->plane_info.mp[1].stride, buf_planes->plane_info.mp[1].scanline);
+
+    if (0  == frame->frame_idx % PREIVEW_FRAMEDUMP_INTERVAL) {
+        snprintf(file_name, sizeof(file_name), "p_c%d_%d_%d", pme->cam->camera_handle, buf_planes->plane_info.mp[0].stride, buf_planes->plane_info.mp[0].scanline);
+        mm_app_dump_frame(frame, file_name, "yuv", frame->frame_idx);
+    }
 
     /* render camera preview buffers to display thread if 'no display mode' is not set, and
        callback is not from front camera in dual camera mode
@@ -50,11 +84,6 @@ static void mm_app_preview_notify_cb(mm_camera_super_buf_t *bufs,
             rc = mm_app_dl_render(frame->fd, pme);
             assert(rc == MM_CAMERA_OK);
         }
-    }
-
-    if (0  == frame->frame_idx % PREIVEW_FRAMEDUMP_INTERVAL) {
-        snprintf(file_name, sizeof(file_name), "P_C%d", pme->cam->camera_handle);
-        mm_app_dump_frame(frame, file_name, "yuv", frame->frame_idx);
     }
 
     rc = pme->cam->ops->qbuf(bufs->camera_handle, bufs->ch_id, frame);
@@ -290,27 +319,7 @@ mm_camera_channel_t * mm_app_add_preview_channel(mm_camera_test_obj_t *test_obj)
     return channel;
 }
 
-int mm_app_stop_and_del_channel(mm_camera_test_obj_t *test_obj,
-                                mm_camera_channel_t *channel)
-{
-    int rc = MM_CAMERA_OK;
-    mm_camera_stream_t *stream = NULL;
-    uint8_t i;
 
-    rc = mm_app_stop_channel(test_obj, channel);
-    assert(MM_CAMERA_OK == rc);
-
-    for (i = 0; i < channel->num_streams; i++) {
-        stream = &channel->streams[i];
-        rc = mm_app_del_stream(test_obj, channel, stream);
-        assert(MM_CAMERA_OK == rc);
-    }
-
-    rc = mm_app_del_channel(test_obj, channel);
-    assert(MM_CAMERA_OK == rc);
-
-    return rc;
-}
 
 int mm_app_start_preview(mm_camera_test_obj_t *test_obj)
 {

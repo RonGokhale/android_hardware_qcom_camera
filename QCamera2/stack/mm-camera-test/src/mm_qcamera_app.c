@@ -823,6 +823,28 @@ int mm_app_stop_channel(mm_camera_test_obj_t *test_obj,
                                             channel->ch_id);
 }
 
+int mm_app_stop_and_del_channel(mm_camera_test_obj_t *test_obj,
+                                mm_camera_channel_t *channel)
+{
+    int rc = MM_CAMERA_OK;
+    mm_camera_stream_t *stream = NULL;
+    uint8_t i;
+
+    rc = mm_app_stop_channel(test_obj, channel);
+    assert(MM_CAMERA_OK == rc);
+
+    for (i = 0; i < channel->num_streams; i++) {
+        stream = &channel->streams[i];
+        rc = mm_app_del_stream(test_obj, channel, stream);
+        assert(MM_CAMERA_OK == rc);
+    }
+
+    rc = mm_app_del_channel(test_obj, channel);
+    assert(MM_CAMERA_OK == rc);
+
+    return rc;
+}
+
 int mm_app_request_super_buf(mm_camera_test_obj_t *test_obj,
                          mm_camera_channel_t *channel,
                          uint32_t num_buf_requested)
@@ -910,10 +932,12 @@ int main(int argc, char **argv)
 
             case 'w':
             mm_camera_app_handle.preview_width = atoi(optarg);
+            mm_camera_app_handle.video_width = atoi(optarg);
             break;
 
             case 'h':
             mm_camera_app_handle.preview_height = atoi(optarg);
+            mm_camera_app_handle.video_height = atoi(optarg);
             break;
 
             case 'W':

@@ -234,96 +234,57 @@ int mm_app_tc_start_stop_live_snapshot(mm_camera_app_t *cam_app)
     int rc = MM_CAMERA_OK;
     int i, j;
     mm_camera_test_obj_t test_obj;
+    cam_app->num_rcvd_snapshot = 0;
 
     CDBG_HIGH("\n Verifying start/stop live snapshot...\n");
     for (i = 0; i < cam_app->num_cameras; i++) {
         memset(&test_obj, 0, sizeof(mm_camera_test_obj_t));
+
         rc = mm_app_open(cam_app, i, &test_obj);
-        if (rc != MM_CAMERA_OK) {
-            CDBG_ERROR("%s:mm_app_open() cam_idx=%d, err=%d\n",
-                       __func__, i, rc);
-            break;
-        }
+        assert(MM_CAMERA_OK == rc);
 
         rc = mm_app_start_record_preview(&test_obj);
-        if (rc != MM_CAMERA_OK) {
-            CDBG_ERROR("%s:mm_app_start_record_preview() cam_idx=%d, err=%d\n",
-                       __func__, i, rc);
-            mm_app_close(&test_obj);
-            break;
-        }
+        assert(MM_CAMERA_OK == rc);
 
-        sleep(1);
+        //Set exposure to frame average for better quality preview
+        uint32_t param = CAM_AEC_MODE_FRAME_AVERAGE;
+        mm_app_set_params(&test_obj, CAM_INTF_PARM_AEC_ALGO_TYPE, sizeof(param), &param);
+
+        sleep(MM_QCAM_APP_TEST_PREVIEW_TIME);
 
         rc = mm_app_start_record(&test_obj);
-        if (rc != MM_CAMERA_OK) {
-            CDBG_ERROR("%s:mm_app_start_record() cam_idx=%d, err=%d\n",
-                       __func__, i, rc);
-            mm_app_stop_record_preview(&test_obj);
-            mm_app_close(&test_obj);
-            break;
-        }
+        assert(MM_CAMERA_OK == rc);
 
-        sleep(1);
+        sleep(MM_QCAM_APP_TEST_PREVIEW_TIME);
 
         for (j = 0; j < MM_QCAMERA_APP_UTEST_INNER_LOOP; j++) {
+
+            //set number of required snapshots to 1
+            cam_app->num_snapshot = 1;
+
             rc = mm_app_start_live_snapshot(&test_obj);
-            if (rc != MM_CAMERA_OK) {
-                CDBG_ERROR("%s:mm_app_start_live_snapshot() cam_idx=%d, err=%d\n",
-                           __func__, i, rc);
-                break;
-            }
+            assert(MM_CAMERA_OK == rc);
 
             /* wait for jpeg is done */
             mm_camera_app_wait();
 
             rc = mm_app_stop_live_snapshot(&test_obj);
-            if (rc != MM_CAMERA_OK) {
-                CDBG_ERROR("%s:mm_app_stop_live_snapshot() cam_idx=%d, err=%d\n",
-                           __func__, i, rc);
-                break;
-            }
-        }
-        if (rc != MM_CAMERA_OK) {
-            CDBG_ERROR("%s:start/stop live snapshot cam_idx=%d, err=%d\n",
-                       __func__, i, rc);
-            mm_app_stop_record(&test_obj);
-            mm_app_stop_record_preview(&test_obj);
-            mm_app_close(&test_obj);
-            break;
+            assert(MM_CAMERA_OK == rc);
+
+            //reset received snapshot count to 0 for next loop
+            cam_app->num_rcvd_snapshot = 0;
         }
 
         rc = mm_app_stop_record(&test_obj);
-        if (rc != MM_CAMERA_OK) {
-            CDBG_ERROR("%s:mm_app_stop_record() cam_idx=%d, err=%d\n",
-                       __func__, i, rc);
-            mm_app_stop_record_preview(&test_obj);
-            mm_app_close(&test_obj);
-            break;
-        }
-
-        sleep(1);
+        assert(MM_CAMERA_OK == rc);
 
         rc = mm_app_stop_record_preview(&test_obj);
-        if (rc != MM_CAMERA_OK) {
-            CDBG_ERROR("%s:mm_app_stop_record_preview() cam_idx=%d, err=%d\n",
-                       __func__, i, rc);
-            mm_app_close(&test_obj);
-            break;
-        }
+        assert(MM_CAMERA_OK == rc);
 
         rc = mm_app_close(&test_obj);
-        if (rc != MM_CAMERA_OK) {
-            CDBG_ERROR("%s:mm_app_close() cam_idx=%d, err=%d\n",
-                       __func__, i, rc);
-            break;
-        }
+        assert(MM_CAMERA_OK == rc);
     }
-    if (rc == MM_CAMERA_OK) {
-        CDBG_LOW("\nPassed\n");
-    } else {
-        CDBG_LOW("\nFailed\n");
-    }
+
     CDBG_HIGH("%s:END, rc = %d\n", __func__, rc);
     return rc;
 }
