@@ -65,9 +65,9 @@ static void mm_app_preview_notify_cb(mm_camera_super_buf_t *bufs,
 
     //extract buf planes to get stride and scanlines
     buf_planes = &(p_stream->s_config.stream_info->buf_planes);
-    
+
     //CDBG_HIGH("%s: Y offset: %d, CbCr offset: %d", __func__, buf_planes->plane_info.sp.y_offset, buf_planes->plane_info.sp.cbcr_offset);
-    CDBG("%s: Frame length: %d, Num planes: %d", __func__, buf_planes->plane_info.frame_len, buf_planes->plane_info.num_planes);    
+    CDBG("%s: Frame length: %d, Num planes: %d", __func__, buf_planes->plane_info.frame_len, buf_planes->plane_info.num_planes);
     CDBG("%s: Y stride: %d  Y scanlines: %d", __func__, buf_planes->plane_info.mp[0].stride, buf_planes->plane_info.mp[0].scanline);
     CDBG("%s: UV stride: %d  UV scanlines: %d", __func__, buf_planes->plane_info.mp[1].stride, buf_planes->plane_info.mp[1].scanline);
 
@@ -319,8 +319,6 @@ mm_camera_channel_t * mm_app_add_preview_channel(mm_camera_test_obj_t *test_obj)
     return channel;
 }
 
-
-
 int mm_app_start_preview(mm_camera_test_obj_t *test_obj)
 {
     int rc = MM_CAMERA_OK;
@@ -334,10 +332,7 @@ int mm_app_start_preview(mm_camera_test_obj_t *test_obj)
     rc = mm_app_start_channel(test_obj, channel);
     assert(MM_CAMERA_OK == rc);
 
-    //Launch display thread.
-    if (test_obj->app_handle->no_display == false)
-        if ((test_obj->cam_id == 0) || (((test_obj->app_handle->test_mode & 0xFF00) >> 8) == MM_QCAMERA_APP_SINGLE_MODE))
-            launch_camframe_fb_thread();
+    launch_camframe_fb_thread();
 
     return rc;
 }
@@ -352,10 +347,7 @@ int mm_app_stop_preview(mm_camera_test_obj_t *test_obj)
     rc = mm_app_stop_and_del_channel(test_obj, channel);
     assert(MM_CAMERA_OK == rc);
 
-    //Release display thread.
-    if (test_obj->app_handle->no_display == false)
-        if ((test_obj->cam_id == 0) || (((test_obj->app_handle->test_mode & 0xFF00) >> 8) == MM_QCAMERA_APP_SINGLE_MODE))
-            release_camframe_fb_thread();
+    release_camframe_fb_thread();
 
     return rc;
 }
