@@ -87,9 +87,15 @@ int mm_app_load_hal(mm_camera_app_t *my_cam_app)
 {
     memset(&my_cam_app->hal_lib, 0, sizeof(hal_interface_lib_t));
     my_cam_app->hal_lib.ptr = dlopen("libmmcamera_interface.so", RTLD_NOW);
+    if( NULL == my_cam_app->hal_lib.ptr) {
+        CDBG_ERROR("%s: dlopen error: %s", __func__, dlerror());
+    }
     assert(NULL != my_cam_app->hal_lib.ptr);
 
     my_cam_app->hal_lib.ptr_jpeg = dlopen("libmmjpeg_interface.so", RTLD_NOW);
+    if( NULL == my_cam_app->hal_lib.ptr_jpeg) {
+        CDBG_ERROR("%s: dlopen error: %s", __func__, dlerror());
+    }
     assert(NULL != my_cam_app->hal_lib.ptr_jpeg);
 
     *(void **)&(my_cam_app->hal_lib.get_num_of_cameras) =
