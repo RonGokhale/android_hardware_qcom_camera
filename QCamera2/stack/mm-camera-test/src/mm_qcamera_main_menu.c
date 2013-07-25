@@ -51,10 +51,7 @@
 #define MAX_NUM_FORMAT        32
 #define ZOOM_STEP             2
 #define ZOOM_MIN_VALUE        0
-#define EXPOSURE_COMPENSATION_MAXIMUM_NUMERATOR 12
-#define EXPOSURE_COMPENSATION_MINIMUM_NUMERATOR -12
-#define EXPOSURE_COMPENSATION_DEFAULT_NUMERATOR 0
-#define EXPOSURE_COMPENSATION_DENOMINATOR 6
+
 /*===========================================================================
  * Defines
  *===========================================================================*/
@@ -81,6 +78,7 @@ const CAMERA_MAIN_MENU_TBL_T camera_main_menu_tbl[] = {
     {LIVE_SHOT,       "Take a live snapshot"},
     {FLASH_MODES,       "Set Flash modes"},
     {PREVIEW_FLIP,       "Set preview Flip"},
+    {FLIP_CAMERAS,       "Flip front and back camera"}
 };
 
 const PREVIEW_DIMENSION_TBL_T preview_video_dimension_tbl[] = {
@@ -226,15 +224,13 @@ int brightness = 0;
 int contrast = 0;
 int saturation = 0;
 int sharpness = 0;
-
-//TODO: find new method to calculate ev.
-//int32_t ev_numerator = EXPOSURE_COMPENSATION_DEFAULT_NUMERATOR;
+int cam_id = 0;
+int ev_value = 0;
 
 //TODO:
 //fps_mode_t fps_mode = FPS_MODE_FIXED;
 int zoom_level;
 int zoom_max_value;
-int cam_id;
 int is_rec = 0;
 
 //TODO: find correct values of Contrast defines.
@@ -259,6 +255,10 @@ int is_rec = 0;
 #define CAMERA_MAX_SHARPNESS 10
 #define CAMERA_DEF_SHARPNESS 5
 #define CAMERA_SHARPNESS_STEP 1
+
+#define CAMERA_MAX_EXPOSURE 12
+#define CAMERA_MIN_EXPOSURE -12
+#define CAMERA_EXPOSURE_STEP 1
 
 static int submain();
 
@@ -389,10 +389,17 @@ int next_menu(menu_id_change_t current_menu_id, char keypress, camera_action_t *
                     * action_id_ptr = ACTION_START_RECORDING;
                     CDBG("Start recording\n");
                     break;
+
                 case STOP_RECORDING:
                     * action_id_ptr = ACTION_STOP_RECORDING;
                     CDBG("Stop recording\n");
                     break;
+
+                case FLIP_CAMERAS:
+                    * action_id_ptr = ACTION_FLIP_CAMERAS;
+                    CDBG("Flipping between front and back camera\n");
+                    break;
+
                 default:
                     next_menu_id = MENU_ID_MAIN;
                     CDBG("next_menu_id = MENU_ID_MAIN = %d\n", next_menu_id);
@@ -996,27 +1003,16 @@ int increase_brightness (mm_camera_test_obj_t *test_obj)
  * DESCRIPTION:
  * ===========================================================================*/
 
-int increase_EV (void)
+int increase_EV (mm_camera_test_obj_t *test_obj)
 {
-#if 0
-    int rc = 0;
-    int32_t value = 0;
-    rc = cam_config_is_parm_supported(cam_id, MM_CAMERA_PARM_EXPOSURE_COMPENSATION);
-    if (!rc) {
-        printf("MM_CAMERA_PARM_EXPOSURE_COMPENSATION mode is not supported for this sensor");
-        return -1;
+    ev_value += 1;
+
+    if(ev_value >= CAMERA_MAX_EXPOSURE) {
+        ev_value = CAMERA_MAX_EXPOSURE;
+        CDBG_HIGH("%s: Reached Max exposure: %d. Cannot increase further", __func__, ev_value);
     }
-    ev_numerator += 1;
-    if (ev_numerator >= EXPOSURE_COMPENSATION_MINIMUM_NUMERATOR &&
-        ev_numerator <= EXPOSURE_COMPENSATION_MAXIMUM_NUMERATOR) {
-        int16_t  numerator16 = (int16_t)(ev_numerator & 0x0000ffff);
-        uint16_t denominator16 = EXPOSURE_COMPENSATION_DENOMINATOR;
-        value = numerator16 << 16 | denominator16;
-    } else {
-        printf("Reached max EV.\n");
-    }
-    return mm_app_set_config_parm(cam_id, MM_CAMERA_PARM_EXPOSURE_COMPENSATION, value);
-#endif
+
+    return mm_app_set_params(test_obj, CAM_INTF_PARM_EXPOSURE_COMPENSATION, sizeof(ev_value), &ev_value);
 }
 
 /*===========================================================================
@@ -1024,27 +1020,16 @@ int increase_EV (void)
  *
  * DESCRIPTION:
  * ===========================================================================*/
-int decrease_EV (void)
+int decrease_EV (mm_camera_test_obj_t *test_obj)
 {
-#if 0
-    int rc = 0;
-    int32_t  value = 0;
-    rc = cam_config_is_parm_supported(cam_id, MM_CAMERA_PARM_EXPOSURE_COMPENSATION);
-    if (!rc) {
-        printf("MM_CAMERA_PARM_EXPOSURE_COMPENSATION mode is not supported for this sensor");
-        return -1;
+    ev_value -= 1;
+
+    if(ev_value < CAMERA_MIN_EXPOSURE) {
+        ev_value = CAMERA_MIN_EXPOSURE;
+        CDBG_HIGH("%s: Reached Min exposure: %d Cannot decrease further", __func__, ev_value);
     }
-    ev_numerator -= 1;
-    if (ev_numerator >= EXPOSURE_COMPENSATION_MINIMUM_NUMERATOR &&
-        ev_numerator <= EXPOSURE_COMPENSATION_MAXIMUM_NUMERATOR) {
-        int16_t  numerator16 = (int16_t)(ev_numerator & 0x0000ffff);
-        uint16_t denominator16 = EXPOSURE_COMPENSATION_DENOMINATOR;
-        value = numerator16 << 16 | denominator16;
-    } else {
-        printf("Reached min EV.\n");
-    }
-    return mm_app_set_config_parm(cam_id, MM_CAMERA_PARM_EXPOSURE_COMPENSATION, value);
-#endif
+
+    return mm_app_set_params(test_obj, CAM_INTF_PARM_EXPOSURE_COMPENSATION, sizeof(ev_value), &ev_value);
 }
 
 /*===========================================================================
@@ -1052,17 +1037,18 @@ int decrease_EV (void)
  *
  * DESCRIPTION:
  * ===========================================================================*/
-int increase_saturation (void)
+int increase_saturation (mm_camera_test_obj_t *test_obj)
 {
-#if 0
     saturation += CAMERA_SATURATION_STEP;
+
     if (saturation > CAMERA_MAX_SATURATION) {
         saturation = CAMERA_MAX_SATURATION;
-        printf("Reached max saturation. \n");
+        CDBG_HIGH("%s: Reached max saturation: %d", __func__, saturation);
     }
-    printf("Increase Saturation to %d\n", saturation);
-    return mm_app_set_config_parm(cam_id, MM_CAMERA_PARM_SATURATION, saturation);
-#endif
+
+    CDBG("%s:Increase Saturation to %d", __func__, saturation);
+
+    return mm_app_set_params(test_obj, CAM_INTF_PARM_SATURATION, sizeof(saturation), &saturation);
 }
 
 /*===========================================================================
@@ -1070,17 +1056,18 @@ int increase_saturation (void)
  *
  * DESCRIPTION:
  * ===========================================================================*/
-int decrease_saturation (void)
+int decrease_saturation (mm_camera_test_obj_t *test_obj)
 {
-#if 0
     saturation -= CAMERA_SATURATION_STEP;
+
     if (saturation < CAMERA_MIN_SATURATION) {
         saturation = CAMERA_MIN_SATURATION;
-        printf("Reached min saturation. \n");
+        CDBG_HIGH("%s: Reached min saturation: %d", __func__), saturation;
     }
-    printf("Dcrease Saturation to %d\n", saturation);
-    return mm_app_set_config_parm(cam_id, MM_CAMERA_PARM_SATURATION, saturation);
-#endif
+
+    CDBG("Decrease Saturation to %d", __func__, saturation);
+
+    return mm_app_set_params(test_obj, CAM_INTF_PARM_SATURATION, sizeof(saturation), &saturation);
 }
 
 void system_dimension_set(mm_camera_test_obj_t *test_obj)
@@ -1119,14 +1106,17 @@ int menu_based_test_main(mm_camera_app_t *cam_app)
     mm_camera_test_obj_t test_obj;
     memset(&test_obj, 0, sizeof(mm_camera_test_obj_t));
 
-    //TODO: Remove hardcoded cam_id, take cam id from user input.
-    rc = mm_app_open(cam_app, 0, &test_obj);
-    assert(MM_CAMERA_OK == rc);
-
-    CDBG("Camera opened successfully!!\n");
-
     do {
+        rc = mm_app_open(cam_app, cam_id, &test_obj);
+        assert(MM_CAMERA_OK == rc);
+
+        CDBG("Camera opened successfully!!\n");
+
         keep_on_going = submain(&test_obj);
+
+        rc = mm_app_close(&test_obj);
+        assert(rc == MM_CAMERA_OK);
+
     } while ( keep_on_going );
 
     CDBG_HIGH("Exiting app\n");
@@ -1144,7 +1134,6 @@ static int submain(mm_camera_test_obj_t *test_obj)
     int rc = 0;
     int back_mainflag = 0;
     char tc_buf[3];
-    int stop_preview = 1;
     menu_id_change_t current_menu_id = MENU_ID_MAIN, next_menu_id;
     camera_action_t action_id;
     int action_param;
@@ -1158,7 +1147,7 @@ static int submain(mm_camera_test_obj_t *test_obj)
 
     rc = mm_app_start_preview(test_obj);
     assert(MM_CAMERA_OK == rc);
-    
+
     uint32_t param = CAM_AEC_MODE_FRAME_AVERAGE;
     //Default Auto exposure.
     mm_app_set_params(test_obj, CAM_INTF_PARM_AEC_ALGO_TYPE, sizeof(param), &param);
@@ -1180,15 +1169,10 @@ static int submain(mm_camera_test_obj_t *test_obj)
         switch (action_id) {
             case ACTION_STOP_CAMERA:
                 CDBG("ACTION_STOP_CAMERA \n");
-                mm_app_stop_preview(test_obj);
                 break;
 
             case ACTION_PREVIEW_VIDEO_RESOLUTION:
                 back_mainflag = 1;
-                //   CDBG ("stopP: camfd = %d", camfd);
-                //   if (stop_video() != 0) {
-                //     goto ERROR;
-                //   }
                 CDBG("Selection for the preview/video resolution change\n");
                 preview_video_resolution (test_obj, action_param);
                 break;
@@ -1230,22 +1214,22 @@ static int submain(mm_camera_test_obj_t *test_obj)
 
             case ACTION_EV_INCREASE:
                 CDBG("Selection for the EV increase\n");
-                increase_EV ();
+                increase_EV (test_obj);
                 break;
 
             case ACTION_EV_DECREASE:
                 CDBG("Selection for the EV decrease\n");
-                decrease_EV ();
+                decrease_EV (test_obj);
                 break;
 
             case ACTION_SATURATION_INCREASE:
                 CDBG("Selection for the EV increase\n");
-                increase_saturation ();
+                increase_saturation (test_obj);
                 break;
 
             case ACTION_SATURATION_DECREASE:
                 CDBG("Selection for the EV decrease\n");
-                decrease_saturation ();
+                decrease_saturation (test_obj);
                 break;
 
             case ACTION_TOGGLE_AFR:
@@ -1259,8 +1243,15 @@ static int submain(mm_camera_test_obj_t *test_obj)
                 break;
 
             case ACTION_PREVIEW_FLIP:
-                printf("Select for PREVIEW Flip changes\n");
+                CDBG("Select for PREVIEW Flip changes\n");
                 flip_preview(test_obj, action_param);
+                back_mainflag = 1;
+                break;
+
+            case ACTION_FLIP_CAMERAS:
+                CDBG("Select front back camera flip\n");
+                flip_cameras(test_obj, action_param);
+                back_mainflag = 1;
                 break;
 
             case ACTION_SET_ZOOM:
@@ -1336,8 +1327,14 @@ static int submain(mm_camera_test_obj_t *test_obj)
         CDBG("action_id = %d\n", action_id);
 
     } while ((action_id != ACTION_STOP_CAMERA) &&
-             (action_id != ACTION_PREVIEW_VIDEO_RESOLUTION));
+             (action_id != ACTION_PREVIEW_VIDEO_RESOLUTION) &&
+             (action_id != ACTION_PREVIEW_FLIP) &&
+             (action_id != ACTION_FLIP_CAMERAS));
+
     action_id = ACTION_NO_ACTION;
+
+    rc = mm_app_stop_preview(test_obj);
+    assert(MM_CAMERA_OK == rc);
 
     return back_mainflag;
 
@@ -1371,8 +1368,16 @@ int preview_video_resolution (mm_camera_test_obj_t *test_obj, int preview_video_
               input_display.user_input_display_width, input_display.user_input_display_height);
 
     preview_video_resolution_flag = 1;
-    //stopping preview before resolution change.
-    mm_app_stop_preview(test_obj);
+
+    //if video/preview width is greater than what display can support force no display mode
+    if(input_display.user_input_display_width > MM_QCAMERA_APP_MAX_DISPLAY_WIDTH) {
+        CDBG_HIGH("\nVideo/Preview will not be displayed as the resolution exceeds max display supported width");
+        CDBG_HIGH("Please check the file dump to verify output\n");
+        test_obj->app_handle->no_display = true;
+    } else {
+        test_obj->app_handle->no_display = false;
+    }
+
     return 0;
 
 ERROR:
@@ -1423,7 +1428,7 @@ int set_whitebalance (mm_camera_test_obj_t *test_obj, int wb_action_param)
         default:
             break;
     }
-    return mm_app_set_params(test_obj, CAM_INTF_PARM_WHITE_BALANCE, sizeof(type), &type);    
+    return mm_app_set_params(test_obj, CAM_INTF_PARM_WHITE_BALANCE, sizeof(type), &type);
 }
 
 
@@ -1467,8 +1472,8 @@ int set_exp_metering (mm_camera_test_obj_t *test_obj, int exp_metering_action_pa
         default:
             break;
     }
-    
-    return mm_app_set_params(test_obj, CAM_INTF_PARM_AEC_ALGO_TYPE, sizeof(type), &type);    
+
+    return mm_app_set_params(test_obj, CAM_INTF_PARM_AEC_ALGO_TYPE, sizeof(type), &type);
 }
 
 int get_ctrl_value (int ctrl_value_mode_param)
@@ -1539,8 +1544,8 @@ int set_zoom (mm_camera_test_obj_t *test_obj, int zoom_action_param)
         CDBG("%s: Invalid zoom_action_param value\n", __func__);
         return -EINVAL;
     }
-    
-    return mm_app_set_params(test_obj, CAM_INTF_PARM_ZOOM, sizeof(zoom_level), &zoom_level);    
+
+    return mm_app_set_params(test_obj, CAM_INTF_PARM_ZOOM, sizeof(zoom_level), &zoom_level);
 }
 
 /*===========================================================================
@@ -1583,24 +1588,28 @@ int set_iso (mm_camera_test_obj_t *test_obj, int iso_action_param)
         default:
             break;
     }
-    
-    return mm_app_set_params(test_obj, CAM_INTF_PARM_ISO, sizeof(type), &type); 
+
+    return mm_app_set_params(test_obj, CAM_INTF_PARM_ISO, sizeof(type), &type);
 }
 
 
-int flip_preview(mm_camera_test_obj_t *test_obj, int flip_action)
+void flip_preview(mm_camera_test_obj_t *test_obj, int flip_action)
 {
 
-    int rc;
-    CDBG_HIGH("\nFlip_action=%d\n", flip_action);
+    CDBG("\nFlip_action=%d\n", flip_action);
     test_obj->app_handle->flip_mode = flip_action;
-    CDBG_HIGH("Stop_Preview!!\n");
-    rc = mm_app_stop_preview(test_obj);
-    assert(rc == MM_CAMERA_OK);
-    CDBG_HIGH("Start_Preview!!\n");
-    rc = mm_app_start_preview(test_obj);
-    assert(rc == MM_CAMERA_OK);
 }
+
+void flip_cameras(mm_camera_test_obj_t *test_obj, int flip_action)
+{
+    CDBG("Flip_action = %d\n", flip_action);
+
+    if (test_obj->app_handle->num_cameras == 2)
+        cam_id = !cam_id;
+    else
+        CDBG_HIGH("%s: Cannot flip. Only one camera present", __func__);
+}
+
 
 /*===========================================================================
  * FUNCTION     - increase_sharpness -
@@ -1615,8 +1624,8 @@ int increase_sharpness (mm_camera_test_obj_t *test_obj)
         printf("Reached max SHARPNESS. \n");
     }
     printf("Increase Sharpness to %d\n", sharpness);
-    
-    return mm_app_set_params(test_obj, CAM_INTF_PARM_SHARPNESS, sizeof(sharpness), &sharpness);    
+
+    return mm_app_set_params(test_obj, CAM_INTF_PARM_SHARPNESS, sizeof(sharpness), &sharpness);
 }
 
 /*===========================================================================
@@ -1633,7 +1642,7 @@ int decrease_sharpness (mm_camera_test_obj_t *test_obj)
     }
     printf("Decrease Sharpness to %d\n", sharpness);
 
-    return mm_app_set_params(test_obj, CAM_INTF_PARM_SHARPNESS, sizeof(sharpness), &sharpness);    
+    return mm_app_set_params(test_obj, CAM_INTF_PARM_SHARPNESS, sizeof(sharpness), &sharpness);
 }
 
 int set_flash_mode (mm_camera_test_obj_t *test_obj, int action_param)
@@ -1659,8 +1668,8 @@ int set_flash_mode (mm_camera_test_obj_t *test_obj, int action_param)
         default:
             break;
     }
-    
-    return mm_app_set_params(test_obj, CAM_INTF_PARM_LED_MODE, sizeof(type), &type);    
+
+    return mm_app_set_params(test_obj, CAM_INTF_PARM_LED_MODE, sizeof(type), &type);
 }
 
 int set_bestshot_mode(mm_camera_test_obj_t *test_obj, int action_param)
@@ -1750,8 +1759,8 @@ int set_bestshot_mode(mm_camera_test_obj_t *test_obj, int action_param)
         default:
             break;
     }
-    
-    return mm_app_set_params(test_obj, CAM_INTF_PARM_BESTSHOT_MODE, sizeof(type), &type);   
+
+    return mm_app_set_params(test_obj, CAM_INTF_PARM_BESTSHOT_MODE, sizeof(type), &type);
 }
 /*===========================================================================
  * FUNCTION     - print_current_menu -

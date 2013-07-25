@@ -63,7 +63,6 @@ struct mdp_overlay overlay;
 int vid_buf_front_id, vid_buf_back_id;
 static unsigned char need_init = 1;
 int num_of_ready_frames = 0;
-int cam_id = 0;
 
 static pthread_cond_t  sub_thread_ready_cond  = PTHREAD_COND_INITIALIZER;
 static pthread_mutex_t sub_thread_ready_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -223,6 +222,8 @@ void release_camframe_fb_thread(void)
   camframe_fb_exit = 1;
   need_init = 1;
 
+  CDBG("%s: Enter", __func__);
+
   /* Notify the camframe fb thread to wake up */
   if (cam_frame_fb_thread_id != 0) {
      pthread_mutex_lock(&camframe_fb_mutex);
@@ -234,6 +235,8 @@ void release_camframe_fb_thread(void)
      }
      close(fb_fd);
   }
+
+  CDBG("%s: Exit", __func__);
 }
 
 /* Sends signal to control thread to indicate that the cam frame fb
