@@ -34,10 +34,6 @@
 #include "mm_jpeg_interface.h"
 #include "mm_qcamera_app.h"
 
-#define VIDEO_BUFFER_SIZE       (PREVIEW_WIDTH * PREVIEW_HEIGHT * 3/2)
-#define THUMBNAIL_BUFFER_SIZE   (THUMBNAIL_WIDTH * THUMBNAIL_HEIGHT * 3/2)
-#define SNAPSHOT_BUFFER_SIZE    (PICTURE_WIDTH * PICTURE_HEIGHT * 3/2)
-
 /*===========================================================================
  * Macro
  *===========================================================================*/
@@ -70,7 +66,8 @@ typedef enum
   LIVE_SHOT = 19,
   FLASH_MODES = 20,
   PREVIEW_FLIP = 21,
-  FLIP_CAMERAS = 22
+  FLIP_CAMERAS = 22,
+  SET_JPEG_QUALITY = 23,
 } Camera_main_menu_t;
 
 typedef enum
@@ -103,6 +100,7 @@ typedef enum
   ACTION_SET_FLASH_MODE,
   ACTION_PREVIEW_FLIP,
   ACTION_FLIP_CAMERAS,
+  ACTION_SET_JPEG_QUALITY,
 } camera_action_t;
 
 #define INVALID_KEY_PRESS 0
@@ -150,6 +148,14 @@ typedef enum
 #define HD1080_WIDTH   1920
 #define HD1080_HEIGHT  1080
 
+#define HD720VDIS_WIDTH    1536
+#define HD720VDIS_HEIGHT    864
+#define HD720_PLUSVDIS_WIDTH    1728
+#define HD720_PLUSVDIS_HEIGHT   1296
+#define HD1080VDIS_WIDTH   2304
+#define HD1080VDIS_HEIGHT  1296
+
+
 typedef enum
 {
   RESOLUTION_MIN         = 1,
@@ -159,15 +165,12 @@ typedef enum
   WVGA                   = 4,
   WVGA_PLUS              = 5,
   HD720                  = 6,
-  HD720_PLUS             = 7,
-  HD1080                 = 8,
-  RESOLUTION_PREVIEW_VIDEO_MAX = HD1080,
-  WXGA                   = 9,
-  MP1                    = 10,
-  MP2                    = 11,
-  MP3                    = 12,
-  MP5                    = 13,
-  RESOLUTION_MAX         = MP5,
+  HD720VDIS              = 7,
+  HD720_PLUS             = 8,
+  HD720_PLUSVDIS         = 9,
+  HD1080                 = 10,
+  HD1080VDIS             = 11,
+  RESOLUTION_PREVIEW_VIDEO_MAX = HD1080VDIS,
 } Camera_Resolution;
 
 

@@ -913,6 +913,7 @@ int main(int argc, char **argv)
     mm_camera_app_handle.video_width = DEFAULT_VIDEO_WIDTH;
     mm_camera_app_handle.video_height = DEFAULT_VIDEO_HEIGHT;
     mm_camera_app_handle.flip_mode = DEFAULT_FLIP_MODE;
+    mm_camera_app_handle.jpeg_quality = DEFAULT_JPEG_QUALITY;
 
     mm_camera_app_handle.test_mode = 0;
     mm_camera_app_handle.test_idx = 0;

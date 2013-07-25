@@ -143,7 +143,7 @@ int start_jpeg_encode(mm_camera_test_obj_t *test_obj,
     encode_param.jpeg_cb = jpeg_encode_cb;
 
     encode_param.encode_thumbnail = 0;
-    encode_param.quality = 85;
+    encode_param.quality = test_obj->app_handle->jpeg_quality;
     encode_param.color_format = get_jpeg_color_format(DEFAULT_SNAPSHOT_FORMAT);
     encode_param.thumb_color_format = get_jpeg_color_format(DEFAULT_PREVIEW_FORMAT);
 

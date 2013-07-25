@@ -38,9 +38,6 @@
 #include "mm_qcamera_app.h"
 #include "mm_qcamera_dbg.h"
 
-#define VIDEO_BUFFER_SIZE       (PREVIEW_WIDTH * PREVIEW_HEIGHT * 3/2)
-#define THUMBNAIL_BUFFER_SIZE   (THUMBNAIL_WIDTH * THUMBNAIL_HEIGHT * 3/2)
-#define SNAPSHOT_BUFFER_SIZE    (PICTURE_WIDTH * PICTURE_HEIGHT * 3/2)
 /*===========================================================================
  * Macro
  *===========================================================================*/
@@ -78,7 +75,8 @@ const CAMERA_MAIN_MENU_TBL_T camera_main_menu_tbl[] = {
     {LIVE_SHOT,       "Take a live snapshot"},
     {FLASH_MODES,       "Set Flash modes"},
     {PREVIEW_FLIP,       "Set preview Flip"},
-    {FLIP_CAMERAS,       "Flip front and back camera"}
+    {FLIP_CAMERAS,       "Flip front and back camera"},
+    {SET_JPEG_QUALITY,       "Set quality for JPEG files"},
 };
 
 const PREVIEW_DIMENSION_TBL_T preview_video_dimension_tbl[] = {
@@ -88,8 +86,11 @@ const PREVIEW_DIMENSION_TBL_T preview_video_dimension_tbl[] = {
     {  WVGA,  WVGA_WIDTH,  WVGA_HEIGHT,  "WVGA",  "Preview/Video Resolution: WVGA <800x480>"},
     {  WVGA_PLUS,  WVGA_PLUS_WIDTH,  WVGA_PLUS_HEIGHT,  "WVGA_PLUS",  "Preview/Video Resolution: WVGA_PLUS <960x720>"},
     {  HD720, HD720_WIDTH, HD720_HEIGHT,  "HD720", "Preview/Video Resolution: HD720 <1280x720>"},
+    {  HD720VDIS, HD720VDIS_WIDTH, HD720VDIS_HEIGHT,  "HD720VDIS", "Preview/Video Resolution: HD720VDIS <1536x864>"},
     {  HD720_PLUS, HD720_PLUS_WIDTH, HD720_PLUS_HEIGHT,  "HD720_PLUS", "Preview/Video Resolution: HD720_PLUS <1440x1080>"},
+    {  HD720_PLUSVDIS, HD720_PLUSVDIS_WIDTH, HD720_PLUSVDIS_HEIGHT,  "HD720_PLUSVDIS", "Preview/Video Resolution: HD720_PLUSVDIS <1728x1296>"},
     {  HD1080, HD1080_WIDTH, HD1080_HEIGHT,  "HD1080", "Preview/Video Resolution: HD1080 <1920x1080>"},
+    {  HD1080VDIS, HD1080VDIS_WIDTH, HD1080VDIS_HEIGHT,  "HD1080VDIS", "Preview/Video Resolution: HD1080VIDS <2304x1296>"},
 };
 
 const CAMERA_BRIGHTNESS_TBL_T brightness_change_tbl[] = {
@@ -398,6 +399,11 @@ int next_menu(menu_id_change_t current_menu_id, char keypress, camera_action_t *
                 case FLIP_CAMERAS:
                     * action_id_ptr = ACTION_FLIP_CAMERAS;
                     CDBG("Flipping between front and back camera\n");
+                    break;
+
+                case SET_JPEG_QUALITY:
+                    * action_id_ptr = ACTION_SET_JPEG_QUALITY;
+                    CDBG("Set JPEG quality\n");
                     break;
 
                 default:
@@ -1062,7 +1068,7 @@ int decrease_saturation (mm_camera_test_obj_t *test_obj)
 
     if (saturation < CAMERA_MIN_SATURATION) {
         saturation = CAMERA_MIN_SATURATION;
-        CDBG_HIGH("%s: Reached min saturation: %d", __func__), saturation;
+        CDBG_HIGH("%s: Reached min saturation: %d", __func__, saturation);
     }
 
     CDBG("Decrease Saturation to %d", __func__, saturation);
@@ -1070,26 +1076,16 @@ int decrease_saturation (mm_camera_test_obj_t *test_obj)
     return mm_app_set_params(test_obj, CAM_INTF_PARM_SATURATION, sizeof(saturation), &saturation);
 }
 
-void system_dimension_set(mm_camera_test_obj_t *test_obj)
+void set_jpeg_quality (mm_camera_test_obj_t *test_obj)
 {
-    if (preview_video_resolution_flag == 0) {
-        //Default preview resolution.
-        test_obj->app_handle->preview_format = DEFAULT_PREVIEW_FORMAT;
+    printf("\nEnter JPEG Quality Value between 1 - 100: ");
+    scanf("%d", &(test_obj->app_handle->jpeg_quality));
 
-        test_obj->app_handle->preview_width = WVGA_PLUS_WIDTH;
-        test_obj->app_handle->preview_height = WVGA_PLUS_HEIGHT;
-        test_obj->app_handle->snapshot_format = DEFAULT_SNAPSHOT_FORMAT;
-        test_obj->app_handle->snapshot_width = DEFAULT_SNAPSHOT_WIDTH;
-        test_obj->app_handle->snapshot_height = DEFAULT_SNAPSHOT_HEIGHT;
-
-        test_obj->app_handle->video_format = DEFAULT_VIDEO_FORMAT;
-
-        test_obj->app_handle->video_width = DEFAULT_VIDEO_WIDTH;
-        test_obj->app_handle->video_height = DEFAULT_VIDEO_HEIGHT;
-    } else {
-        test_obj->app_handle->preview_width = input_display.user_input_display_width;
-        test_obj->app_handle->preview_height = input_display.user_input_display_height;
+    if(test_obj->app_handle->jpeg_quality < 1 || test_obj->app_handle->jpeg_quality > 100) {
+     CDBG_HIGH("%s: Wrong JPEG quality value: %d, resetting to default", __func__, test_obj->app_handle->jpeg_quality);
+     test_obj->app_handle->jpeg_quality = DEFAULT_JPEG_QUALITY;
     }
+
 }
 
 /*===========================================================================
@@ -1139,11 +1135,23 @@ static int submain(mm_camera_test_obj_t *test_obj)
     int action_param;
     int i;
 
-    //set preview resolution.
-    //TODO: Add other dimension related stuff here.
-    system_dimension_set(test_obj);
+    //update preview width and height if user updated it
+    if (preview_video_resolution_flag == 1) {
+        test_obj->app_handle->preview_width = input_display.user_input_display_width;
+        test_obj->app_handle->preview_height = input_display.user_input_display_height;
+    } else {
+        input_display.user_input_display_width = test_obj->app_handle->preview_width;
+        input_display.user_input_display_height = test_obj->app_handle->preview_height;
+    }
 
-    printf("\nStarting Preview!!\n");
+    //if video/preview width is greater than what display can support force no display mode
+    if(input_display.user_input_display_width > MM_QCAMERA_APP_MAX_DISPLAY_WIDTH) {
+        CDBG_HIGH("\n\t!!Video/Preview will not be displayed!!\nThe resolution exceeds max display supported width");
+        CDBG_HIGH("Please check the file dump to verify output\n");
+        test_obj->app_handle->no_display = true;
+    } else {
+        test_obj->app_handle->no_display = false;
+    }
 
     rc = mm_app_start_preview(test_obj);
     assert(MM_CAMERA_OK == rc);
@@ -1254,6 +1262,11 @@ static int submain(mm_camera_test_obj_t *test_obj)
                 back_mainflag = 1;
                 break;
 
+            case ACTION_SET_JPEG_QUALITY:
+                CDBG("Select front back camera flip\n");
+                set_jpeg_quality(test_obj);
+                break;
+
             case ACTION_SET_ZOOM:
                 CDBG("Selection for the zoom direction changes\n");
                 set_zoom(test_obj , action_param);
@@ -1280,46 +1293,35 @@ static int submain(mm_camera_test_obj_t *test_obj)
                 break;
 
             case ACTION_START_RECORDING:
-                CDBG("Start recording action\n");
-#if 0
-                if (mm_app_start_video(cam_id) < 0)
-                    goto ERROR;
-                is_rec = 1;
-#endif
+                //CDBG_HIGH("Start recording action\n");
+                printf("\n!Not implemented. Pls use manual mode to test this feature!\n");
+
                 break;
             case ACTION_STOP_RECORDING:
-                CDBG("Stop recording action\n");
-#if 0
-                if (is_rec) {
-                    if (mm_app_stop_video(cam_id) < 0)
-                        goto ERROR;
-                    is_rec = 0;
-                }
-#endif
+                //CDBG("Stop recording action\n");
+                printf("\n!Not implemented. Pls use manual mode to test this feature!\n");
                 break;
+
             case ACTION_SET_BESTSHOT_MODE:
                 CDBG("Selection for bestshot\n");
                 set_bestshot_mode(test_obj, action_param);
                 break;
+
             case ACTION_TAKE_LIVE_SNAPSHOT:
-                printf("Selection for live shot\n");
-#if 0
-                if (is_rec)
-                    mm_app_take_live_snapshot(cam_id);
-                else
-                    printf("\n !!! Use live snapshot option while recording only !!!\n");
-#endif
+                printf("\n!Not implemented. Pls use manual mode to test this feature!\n");
                 break;
+
             case ACTION_SET_FLASH_MODE:
-                printf("\n Selection for flashmode\n");
+                CDBG("\n Selection for flashmode\n");
                 set_flash_mode(test_obj, action_param);
                 break;
+
             case ACTION_NO_ACTION:
-                printf("Go back to main menu");
+                CDBG("Go back to main menu");
                 break;
 
             default:
-                printf("\n\n!!!!!WRONG INPUT: %d!!!!\n", action_id);
+                CDBG("\n\n!!!!!WRONG INPUT: %d!!!!\n", action_id);
                 break;
         }
 
@@ -1352,31 +1354,22 @@ ERROR:
 int preview_video_resolution (mm_camera_test_obj_t *test_obj, int preview_video_action_param)
 {
     char *resolution_name;
-    CDBG_HIGH("\n Selecting the action for preview/video resolution = %d \n", preview_video_action_param);
+    CDBG(" Selecting the action for preview/video resolution = %d ", preview_video_action_param);
     resolution_name = set_preview_video_dimension_tbl(preview_video_action_param,
                       & input_display.user_input_display_width,
                       & input_display.user_input_display_height);
 
-    CDBG_HIGH("\n Selected preview/video resolution is %s\n", resolution_name);
+    CDBG("Selected preview/video resolution is %s", resolution_name);
 
     if (resolution_name == NULL) {
         CDBG("main:%d set_preview_dimension failed!\n", __LINE__);
         goto ERROR;
     }
 
-    CDBG_HIGH("\n Selected Preview Resolution: display_width = %d, display_height = %d\n",
+    CDBG_HIGH("\nSelected Preview Resolution: display_width = %d, display_height = %d",
               input_display.user_input_display_width, input_display.user_input_display_height);
 
     preview_video_resolution_flag = 1;
-
-    //if video/preview width is greater than what display can support force no display mode
-    if(input_display.user_input_display_width > MM_QCAMERA_APP_MAX_DISPLAY_WIDTH) {
-        CDBG_HIGH("\nVideo/Preview will not be displayed as the resolution exceeds max display supported width");
-        CDBG_HIGH("Please check the file dump to verify output\n");
-        test_obj->app_handle->no_display = true;
-    } else {
-        test_obj->app_handle->no_display = false;
-    }
 
     return 0;
 

@@ -111,13 +111,16 @@ void overlay_set_params(struct mdp_blit_req *blit_param)
   overlay.flags = blit_param->flags;
   overlay.is_fg = 1;
 
-  CDBG("src.width %d height %d; src_rect.x %d y %d w %d h %d; dst_rect.x %d y %d w %d h %d\n",
+
+  rc = ioctl(fb_fd, MSMFB_OVERLAY_SET, &overlay);
+  if (rc < 0) {
+    CDBG_ERROR("%s: Display overlay set failed. IOCTL return: %d, src.width %d height %d; src_rect.x %d y %d w %d h %d; dst_rect.x %d y %d w %d h %d\n",
+    __func__, rc,
     overlay.src.width, overlay.src.height,
     overlay.src_rect.x, overlay.src_rect.y, overlay.src_rect.w, overlay.src_rect.h,
     overlay.dst_rect.x, overlay.dst_rect.y, overlay.dst_rect.w, overlay.dst_rect.h
    );
-
-  rc = ioctl(fb_fd, MSMFB_OVERLAY_SET, &overlay);
+  }
   assert(rc >= 0);
 
   if (need_init) {
@@ -126,7 +129,7 @@ void overlay_set_params(struct mdp_blit_req *blit_param)
     need_init = 0;
   }
 
-  return rc;
+  return;
 }
 
 void notify_camframe_fb_thread()
@@ -178,7 +181,7 @@ void *camframe_fb_thread(void *data)
 
       rc = ioctl(fb_fd, MSMFB_OVERLAY_PLAY, &ov_front);
       if (rc < 0) {
-         CDBG_HIGH("ERROR: MSMFB_OVERLAY_PAY failed! rc=%d\n",rc);
+         CDBG_HIGH("ERROR: MSMFB_OVERLAY_PLAY failed! rc=%d\n",rc);
       }
 
       rc = ioctl(fb_fd, FBIOPAN_DISPLAY, &vinfo);
@@ -198,22 +201,23 @@ void *camframe_fb_thread(void *data)
   return;
 }
 
-void launch_camframe_fb_thread(void)
+void launch_camframe_fb_thread()
 {
-
   is_camframe_fb_thread_ready = 0;
   camframe_fb_exit = 0;
-  CDBG("%s: Enter. Camera FB thread ready:%d", __func__, is_camframe_fb_thread_ready);
+  CDBG_HIGH("%s: Enter. Camera FB thread ready:%d", __func__, is_camframe_fb_thread_ready);
 
   pthread_create(&cam_frame_fb_thread_id, NULL, camframe_fb_thread, NULL);
 
   pthread_mutex_lock(&sub_thread_ready_mutex);
+
   if (!is_camframe_fb_thread_ready) {
     pthread_cond_wait(&sub_thread_ready_cond, &sub_thread_ready_mutex);
   }
+
   pthread_mutex_unlock(&sub_thread_ready_mutex);
 
-  CDBG("%s: Exit. Camera FB thread ready:%d", __func__, is_camframe_fb_thread_ready);
+  CDBG_HIGH("%s: Exit. Camera FB thread ready:%d", __func__, is_camframe_fb_thread_ready);
   return ;
 }
 
@@ -222,7 +226,7 @@ void release_camframe_fb_thread(void)
   camframe_fb_exit = 1;
   need_init = 1;
 
-  CDBG("%s: Enter", __func__);
+  CDBG_HIGH("%s: Enter", __func__);
 
   /* Notify the camframe fb thread to wake up */
   if (cam_frame_fb_thread_id != 0) {
@@ -236,7 +240,7 @@ void release_camframe_fb_thread(void)
      close(fb_fd);
   }
 
-  CDBG("%s: Exit", __func__);
+  CDBG_HIGH("%s: Exit", __func__);
 }
 
 /* Sends signal to control thread to indicate that the cam frame fb
