@@ -39,6 +39,7 @@
 #include <utils/Mutex.h>
 #include <utils/Condition.h>
 #endif
+
 #include <QCameraParameters.h>
 
 #include "QCameraQueue.h"
@@ -64,6 +65,19 @@ struct encoder_media_buffer_type {
    MetaBufferType buffer_type;
    native_handle *meta_handle;
 };
+#endif
+
+#ifndef _ANDROID_
+enum MetaBufferType {
+   kMetadataBufferTypeCameraSource  = 0,
+   kMetadataBufferTypeGrallocSource = 1,
+};
+
+struct encoder_media_buffer_type {
+   MetaBufferType buffer_type;
+   native_handle *meta_handle;
+};
+
 #endif
 
 #if DISABLE_DEBUG_LOG

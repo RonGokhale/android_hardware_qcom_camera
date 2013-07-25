@@ -28,12 +28,24 @@
 */
 
 #include <utils/Errors.h>
+<<<<<<< HEAD
 #if defined(USE_DLOG)
   #include <dlog/dlog.h>
 #elif defined(_ANDROID_)
 #include <utils/Log.h>
 #endif
 #include <stdlib.h>
+=======
+
+#if defined(USE_DLOG)
+  #include <dlog/dlog.h>
+#elif defined(_ANDROID_)
+  #include <utils/Log.h>
+#endif
+
+#include <stdlib.h>
+
+>>>>>>> b647872... QCamera2: Adapt HAL to non Android Linux platform
 #include "QCameraQueue.h"
 
 namespace qcamera {

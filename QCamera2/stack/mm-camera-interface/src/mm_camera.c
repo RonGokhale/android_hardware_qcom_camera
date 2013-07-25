@@ -534,6 +534,7 @@ int32_t mm_camera_set_parms(mm_camera_obj_t *my_obj,
 {
     int32_t rc = -1;
     int32_t value = 0;
+    CDBG_ERROR("%s:%d",__func__,__LINE__);
     if (parms !=  NULL) {
         rc = mm_camera_util_s_ctrl(my_obj->ctrl_fd, CAM_PRIV_PARM, &value);
     }
@@ -589,6 +590,7 @@ int32_t mm_camera_do_auto_focus(mm_camera_obj_t *my_obj)
 {
     int32_t rc = -1;
     int32_t value = 0;
+    CDBG_ERROR("%s:%d",__func__,__LINE__);
     rc = mm_camera_util_s_ctrl(my_obj->ctrl_fd, CAM_PRIV_DO_AUTO_FOCUS, &value);
     pthread_mutex_unlock(&my_obj->cam_lock);
     return rc;
@@ -610,6 +612,7 @@ int32_t mm_camera_cancel_auto_focus(mm_camera_obj_t *my_obj)
 {
     int32_t rc = -1;
     int32_t value = 0;
+    CDBG_ERROR("%s:%d",__func__,__LINE__);
     rc = mm_camera_util_s_ctrl(my_obj->ctrl_fd, CAM_PRIV_CANCEL_AUTO_FOCUS, &value);
     pthread_mutex_unlock(&my_obj->cam_lock);
     return rc;
@@ -633,6 +636,7 @@ int32_t mm_camera_prepare_snapshot(mm_camera_obj_t *my_obj,
 {
     int32_t rc = -1;
     int32_t value = do_af_flag;
+    CDBG_ERROR("%s:%d",__func__,__LINE__);
     rc = mm_camera_util_s_ctrl(my_obj->ctrl_fd, CAM_PRIV_PREPARE_SNAPSHOT, &value);
     pthread_mutex_unlock(&my_obj->cam_lock);
     return rc;
@@ -655,6 +659,7 @@ int32_t mm_camera_start_zsl_snapshot(mm_camera_obj_t *my_obj)
     int32_t rc = -1;
     int32_t value = 0;
 
+    CDBG_ERROR("%s:%d",__func__,__LINE__);
     rc = mm_camera_util_s_ctrl(my_obj->ctrl_fd,
              CAM_PRIV_START_ZSL_SNAPSHOT, &value);
     return rc;
@@ -676,6 +681,7 @@ int32_t mm_camera_stop_zsl_snapshot(mm_camera_obj_t *my_obj)
 {
     int32_t rc = -1;
     int32_t value;
+    CDBG_ERROR("%s:%d",__func__,__LINE__);
     rc = mm_camera_util_s_ctrl(my_obj->ctrl_fd,
              CAM_PRIV_STOP_ZSL_SNAPSHOT, &value);
     return rc;

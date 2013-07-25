@@ -40,6 +40,10 @@
 #include <gralloc_priv.h>
 #endif
 
+#ifdef _ANDROID_
+#include <gralloc_priv.h>
+#endif
+
 #define ASPECT_TOLERANCE 0.001
 #define FLIP_V_H (FLIP_H | FLIP_V)
 
@@ -6495,8 +6499,10 @@ int QCameraParameters::getPreviewHalPixelFormat() const
         halPixelFormat = HAL_PIXEL_FORMAT_YCrCb_420_SP;
         break;
     }
+
     ALOGE("%s: format %d\n", __func__, halPixelFormat);
     return halPixelFormat;
+
 }
 #endif
 

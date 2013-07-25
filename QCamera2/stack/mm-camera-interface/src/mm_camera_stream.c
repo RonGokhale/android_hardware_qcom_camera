@@ -1037,6 +1037,7 @@ int32_t mm_stream_set_parm(mm_stream_t *my_obj,
     int32_t rc = -1;
     int32_t value = 0;
     if (in_value != NULL) {
+        CDBG_ERROR("%s:%d",__func__,__LINE__);
         rc = mm_camera_util_s_ctrl(my_obj->fd, CAM_PRIV_STREAM_PARM, &value);
     }
     return rc;
@@ -1091,6 +1092,7 @@ int32_t mm_stream_do_action(mm_stream_t *my_obj,
     int32_t rc = -1;
     int32_t value = 0;
     if (in_value != NULL) {
+        CDBG_ERROR("%s:%d",__func__,__LINE__);
         rc = mm_camera_util_s_ctrl(my_obj->fd, CAM_PRIV_STREAM_PARM, &value);
     }
     return rc;
@@ -2739,6 +2741,7 @@ int32_t mm_stream_sync_info(mm_stream_t *my_obj)
     rc = mm_stream_calc_offset(my_obj);
 
     if (rc == 0) {
+        CDBG_ERROR("%s:%d",__func__,__LINE__);
         rc = mm_camera_util_s_ctrl(my_obj->fd,
                                    CAM_PRIV_STREAM_INFO_SYNC,
                                    &value);
