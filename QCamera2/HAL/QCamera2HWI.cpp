@@ -2026,7 +2026,8 @@ int QCamera2HardwareInterface::takePicture()
 
         // start snapshot
         if (mParameters.isJpegPictureFormat() ||
-            mParameters.isNV16PictureFormat() ) {
+            mParameters.isNV16PictureFormat() ||
+            mParameters.isNV21PictureFormat()) {
             rc = addCaptureChannel();
             if (rc == NO_ERROR) {
                 // start postprocessor
@@ -2096,7 +2097,8 @@ int QCamera2HardwareInterface::cancelPicture()
 
         // normal capture case
         if (mParameters.isJpegPictureFormat() ||
-            mParameters.isNV16PictureFormat() ) {
+            mParameters.isNV16PictureFormat() ||
+            mParameters.isNV21PictureFormat()) {
             stopChannel(QCAMERA_CH_TYPE_CAPTURE);
             delChannel(QCAMERA_CH_TYPE_CAPTURE);
         } else {
@@ -4249,7 +4251,8 @@ bool QCamera2HardwareInterface::isCACEnabled()
 bool QCamera2HardwareInterface::needReprocess()
 {
     pthread_mutex_lock(&m_parm_lock);
-    if (!mParameters.isJpegPictureFormat()) {
+    if (!mParameters.isJpegPictureFormat() &&
+        !mParameters.isNV21PictureFormat()) {
         // RAW image, no need to reprocess
         pthread_mutex_unlock(&m_parm_lock);
         return false;
@@ -4303,7 +4306,8 @@ bool QCamera2HardwareInterface::needReprocess()
 bool QCamera2HardwareInterface::needRotationReprocess()
 {
     pthread_mutex_lock(&m_parm_lock);
-    if (!mParameters.isJpegPictureFormat()) {
+    if (!mParameters.isJpegPictureFormat() &&
+        !mParameters.isNV21PictureFormat()) {
         // RAW image, no need to reprocess
         pthread_mutex_unlock(&m_parm_lock);
         return false;
