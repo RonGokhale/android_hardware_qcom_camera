@@ -515,6 +515,61 @@ int mm_app_open(mm_camera_app_t *cam_app,
                                      test_obj->cap_buf.mem_info.size);
     assert(rc == MM_CAMERA_OK);
 
+    rc = test_obj->cam->ops->query_capability(test_obj->cam->camera_handle);
+    assert(rc == MM_CAMERA_OK);
+
+    //copy camera capability
+    memcpy(&test_obj->cam_capability, test_obj->cap_buf.buf.buffer,
+                                        sizeof(cam_capability_t));
+
+    /* Reset snapshot dimensions if it exceeds max capability, else set to what user has
+       configured */
+
+    if ((cam_app->snapshot_width_user > test_obj->cam_capability.picture_sizes_tbl[0].width) ||
+    (cam_app->snapshot_height_user > test_obj->cam_capability.picture_sizes_tbl[0].height)) {
+
+        CDBG_HIGH("\n\t!!%s: Max snapshot dimension supported is only: %dx%d!! \
+        resetting the snapshot to above dimension\n", __func__,        \
+        test_obj->cam_capability.picture_sizes_tbl[0].width,            \
+        test_obj->cam_capability.picture_sizes_tbl[0].height);
+
+        cam_app->snapshot_width = test_obj->cam_capability.picture_sizes_tbl[0].width;
+        cam_app->snapshot_height = test_obj->cam_capability.picture_sizes_tbl[0].height;
+    } else {
+        cam_app->snapshot_width = cam_app->snapshot_width_user;
+        cam_app->snapshot_height = cam_app->snapshot_height_user;
+    }
+
+    if ((cam_app->preview_width_user > test_obj->cam_capability.preview_sizes_tbl[0].width) ||
+    (cam_app->preview_height_user > test_obj->cam_capability.preview_sizes_tbl[0].height)) {
+
+        CDBG_HIGH("\n\t!!%s: Max preview dimension supported is only: %dx%d!! \
+        resetting the preview to above dimension\n", __func__,        \
+        test_obj->cam_capability.preview_sizes_tbl[0].width,           \
+        test_obj->cam_capability.preview_sizes_tbl[0].height);
+
+        cam_app->preview_width = test_obj->cam_capability.preview_sizes_tbl[0].width;
+        cam_app->preview_height = test_obj->cam_capability.preview_sizes_tbl[0].height;
+    } else {
+        cam_app->preview_width = cam_app->preview_width_user ;
+        cam_app->preview_height = cam_app->preview_height_user;
+    }
+
+    if ((cam_app->video_width_user > test_obj->cam_capability.video_sizes_tbl[0].width) ||
+    (cam_app->video_height_user > test_obj->cam_capability.video_sizes_tbl[0].height)) {
+
+        CDBG_HIGH("\n\t!!%s: Max video dimension supported is only: %dx%d!! \
+        resetting the video to above dimension\n", __func__,        \
+        test_obj->cam_capability.video_sizes_tbl[0].width,           \
+        test_obj->cam_capability.video_sizes_tbl[0].height);
+
+        cam_app->video_width = test_obj->cam_capability.video_sizes_tbl[0].width;
+        cam_app->video_height = test_obj->cam_capability.video_sizes_tbl[0].height;
+    } else {
+        cam_app->video_width = cam_app->video_width_user;
+        cam_app->video_height = cam_app->video_height_user;
+    }
+
     /* alloc ion mem for getparm buf */
     memset(&offset_info, 0, sizeof(offset_info));
     offset_info.frame_len = sizeof(parm_buffer_t);
@@ -902,16 +957,16 @@ int main(int argc, char **argv)
     //initialize defaults for tests
     memset(&mm_camera_app_handle, 0, sizeof(mm_camera_app_t));
     mm_camera_app_handle.preview_format = DEFAULT_PREVIEW_FORMAT;
-    mm_camera_app_handle.preview_width = DEFAULT_PREVIEW_WIDTH;
-    mm_camera_app_handle.preview_height = DEFAULT_PREVIEW_HEIGHT;
+    mm_camera_app_handle.preview_width_user = DEFAULT_PREVIEW_WIDTH;
+    mm_camera_app_handle.preview_height_user = DEFAULT_PREVIEW_HEIGHT;
 
     mm_camera_app_handle.snapshot_format = DEFAULT_SNAPSHOT_FORMAT;
-    mm_camera_app_handle.snapshot_width = DEFAULT_SNAPSHOT_WIDTH;
-    mm_camera_app_handle.snapshot_height = DEFAULT_SNAPSHOT_HEIGHT;
+    mm_camera_app_handle.snapshot_width_user = DEFAULT_SNAPSHOT_WIDTH;
+    mm_camera_app_handle.snapshot_height_user = DEFAULT_SNAPSHOT_HEIGHT;
 
     mm_camera_app_handle.video_format = DEFAULT_VIDEO_FORMAT;
-    mm_camera_app_handle.video_width = DEFAULT_VIDEO_WIDTH;
-    mm_camera_app_handle.video_height = DEFAULT_VIDEO_HEIGHT;
+    mm_camera_app_handle.video_width_user = DEFAULT_VIDEO_WIDTH;
+    mm_camera_app_handle.video_height_user = DEFAULT_VIDEO_HEIGHT;
     mm_camera_app_handle.flip_mode = DEFAULT_FLIP_MODE;
     mm_camera_app_handle.jpeg_quality = DEFAULT_JPEG_QUALITY;
 
@@ -938,21 +993,21 @@ int main(int argc, char **argv)
             break;
 
             case 'w':
-            mm_camera_app_handle.preview_width = atoi(optarg);
-            mm_camera_app_handle.video_width = atoi(optarg);
+            mm_camera_app_handle.preview_width_user = atoi(optarg);
+            mm_camera_app_handle.video_width_user = atoi(optarg);
             break;
 
             case 'h':
-            mm_camera_app_handle.preview_height = atoi(optarg);
-            mm_camera_app_handle.video_height = atoi(optarg);
+            mm_camera_app_handle.preview_height_user = atoi(optarg);
+            mm_camera_app_handle.video_height_user = atoi(optarg);
             break;
 
             case 'W':
-            mm_camera_app_handle.snapshot_width = atoi(optarg);
+            mm_camera_app_handle.snapshot_width_user = atoi(optarg);
             break;
 
             case 'H':
-            mm_camera_app_handle.snapshot_height = atoi(optarg);
+            mm_camera_app_handle.snapshot_height_user = atoi(optarg);
             break;
 
             default:
@@ -962,12 +1017,12 @@ int main(int argc, char **argv)
     }
 
     CDBG_HIGH("\nStarting Test with following configuration: \n\tpreview width: %d \n\tpreview height: %d \n\tsnapshot width: %d \n\tsnapshot height: %d\n",
-        mm_camera_app_handle.preview_width, mm_camera_app_handle.preview_height,
-        mm_camera_app_handle.snapshot_width, mm_camera_app_handle.snapshot_height);
+        mm_camera_app_handle.preview_width_user, mm_camera_app_handle.preview_height_user,
+        mm_camera_app_handle.snapshot_width_user, mm_camera_app_handle.snapshot_height_user);
 
     //if video/preview width is greater than what display can support force no display mode
-    if((mm_camera_app_handle.video_width > MM_QCAMERA_APP_MAX_DISPLAY_WIDTH) ||
-        (mm_camera_app_handle.preview_width > MM_QCAMERA_APP_MAX_DISPLAY_WIDTH)) {
+    if((mm_camera_app_handle.video_width_user > MM_QCAMERA_APP_MAX_DISPLAY_WIDTH) ||
+        (mm_camera_app_handle.preview_width_user > MM_QCAMERA_APP_MAX_DISPLAY_WIDTH)) {
 
         CDBG_HIGH("\t\t!! Video/Preview will not be displayed !! \n\t\tresolution exceeds max display resolution");
         CDBG_HIGH("\nPlease check the file dump to verify output\n");
