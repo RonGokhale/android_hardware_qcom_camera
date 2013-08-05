@@ -225,7 +225,7 @@ mm_camera_stream_t * mm_app_add_preview_stream(mm_camera_test_obj_t *test_obj,
     stream->s_config.stream_info->pp_config.feature_mask = CAM_QCOM_FEATURE_FLIP;
     stream->s_config.stream_info->pp_config.flip = test_obj->app_handle->flip_mode;
 
-    CDBG_HIGH("Preview W=%d & H=%d & Flip mode =%d",test_obj->app_handle->preview_width,
+    CDBG("%s: Preview W=%d & H=%d & Flip mode =%d", __func__, test_obj->app_handle->preview_width,
         test_obj->app_handle->preview_height, test_obj->app_handle->flip_mode);
 
     rc = mm_app_config_stream(test_obj, channel, stream, &stream->s_config);

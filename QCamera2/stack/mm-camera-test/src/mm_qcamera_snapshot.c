@@ -88,7 +88,7 @@ static void jpeg_encode_cb(jpeg_job_status_t status,
     mm_camera_app_frame_stack *frame_slot;
     mm_camera_test_obj_t *pme = (mm_camera_test_obj_t *)user_data;
 
-    CDBG_HIGH("%s: Enter\n", __func__);
+    CDBG("%s: Enter\n", __func__);
 
     assert(NULL != pme);
     assert(NULL != p_buf);
@@ -125,7 +125,7 @@ static void jpeg_encode_cb(jpeg_job_status_t status,
         }
     }
 
-    CDBG_HIGH("%s: Exit\n", __func__);
+    CDBG("%s: Exit\n", __func__);
 }
 
 int start_jpeg_encode(mm_camera_test_obj_t *test_obj,
@@ -137,7 +137,7 @@ int start_jpeg_encode(mm_camera_test_obj_t *test_obj,
     mm_camera_app_frame_stack *frame_slot;
     int rc = 0;
 
-    CDBG_HIGH("%s: Start", __func__);
+    CDBG("%s: Start", __func__);
 
     memset(&encode_param, 0, sizeof(mm_jpeg_encode_params_t));
     encode_param.jpeg_cb = jpeg_encode_cb;
@@ -158,7 +158,7 @@ int start_jpeg_encode(mm_camera_test_obj_t *test_obj,
     encode_param.src_main_buf[0].format = MM_JPEG_FMT_YUV;
     encode_param.src_main_buf[0].offset = m_stream->offset;
 
-    CDBG_HIGH("%s: JPEG buffer :%x", __func__, test_obj->jpeg_buf.buf.buffer);
+    CDBG("%s: JPEG input buffer - frame len: %d, frame_offset: %d", __func__, m_frame->frame_len, m_stream->offset);
 
     /* fill in sink img param */
     encode_param.num_dst_bufs = 1;
@@ -219,7 +219,7 @@ int start_jpeg_encode(mm_camera_test_obj_t *test_obj,
         __func__, frame_slot->job_id, recvd_frame->camera_handle, recvd_frame->bufs[0], recvd_frame->num_bufs);
 
 end:
-    CDBG_HIGH("%s: End", __func__);
+    CDBG("%s: End", __func__);
     return rc;
 }
 
@@ -234,11 +234,11 @@ static void mm_app_snapshot_notify_cb(mm_camera_super_buf_t *bufs,
     mm_camera_buf_def_t *p_frame = NULL;
     mm_camera_buf_def_t *m_frame = NULL;
 
-    CDBG_HIGH("%s: Enter\n", __func__);
+    CDBG("%s: Enter\n", __func__);
 
     //skip jpeg encoding if required number of jpegs are already captured
     if(pme->app_handle->num_rcvd_snapshot >= pme->app_handle->num_snapshot) {
-        CDBG_HIGH("%s: JPEG encoding skipped. Received snapshot: %d, Required snapshots: %d",
+        CDBG("%s: JPEG encoding skipped. Received snapshot: %d, Required snapshots: %d",
             __func__, pme->app_handle->num_rcvd_snapshot, pme->app_handle->num_snapshot);
         goto end;
     }
@@ -302,7 +302,7 @@ static void mm_app_snapshot_notify_cb(mm_camera_super_buf_t *bufs,
     start_jpeg_encode(pme, m_stream, m_frame, bufs);
 
 end:
-    CDBG_HIGH("%s: Exit\n", __func__);
+    CDBG("%s: Exit\n", __func__);
 }
 
 mm_camera_channel_t * mm_app_add_snapshot_channel(mm_camera_test_obj_t *test_obj)
@@ -445,7 +445,7 @@ int mm_app_start_capture(mm_camera_test_obj_t *test_obj,
 int mm_app_stop_capture(mm_camera_test_obj_t *test_obj)
 {
     int rc = MM_CAMERA_OK;
-    CDBG_HIGH("%s: Enter\n", __func__);
+    CDBG("%s: Enter\n", __func__);
 
     mm_camera_channel_t *channel =
     mm_app_get_channel_by_type(test_obj, MM_CHANNEL_TYPE_CAPTURE);
@@ -453,7 +453,7 @@ int mm_app_stop_capture(mm_camera_test_obj_t *test_obj)
     rc = mm_app_stop_and_del_channel(test_obj, channel);
     assert(MM_CAMERA_OK == rc);
 
-    CDBG_HIGH("%s: Exit\n", __func__);
+    CDBG("%s: Exit\n", __func__);
 
     return rc;
 }

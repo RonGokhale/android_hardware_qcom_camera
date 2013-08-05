@@ -40,29 +40,23 @@ int mm_app_tc_open_close(mm_camera_app_t *cam_app)
     int i;
     mm_camera_test_obj_t test_obj;
 
-    CDBG_HIGH("\n Verifying open/close cameras...\n");
+    CDBG_HIGH("\n%s: Verifying open/close cameras...\n",__func__);
+
     for (i = 0; i < cam_app->num_cameras; i++) {
         memset(&test_obj, 0, sizeof(mm_camera_test_obj_t));
+
+        CDBG_HIGH("%s: Starting test case with Camera: %d", __func__, i);
+
         rc = mm_app_open(cam_app, i, &test_obj);
-        if (rc != MM_CAMERA_OK) {
-            CDBG_ERROR("%s:mm_app_open() cam_idx=%d, err=%d\n",
-                       __func__, i, rc);
-            break;
-        }
+        assert(rc == MM_CAMERA_OK);
+
         sleep(1);
+
         rc = mm_app_close(&test_obj);
-        if (rc != MM_CAMERA_OK) {
-            CDBG_ERROR("%s:mm_app_close() cam_idx=%d, err=%d\n",
-                       __func__, i, rc);
-            break;
-        }
+        assert(rc == MM_CAMERA_OK);
     }
-    if (rc == MM_CAMERA_OK) {
-        CDBG_LOW("\nPassed\n");
-    } else {
-        CDBG_LOW("\nFailed\n");
-    }
-    CDBG_HIGH("%s:END, rc = %d\n", __func__, rc);
+
+    CDBG_HIGH("%s: END, rc = %d", __func__, rc);
     return rc;
 }
 
@@ -72,10 +66,12 @@ int mm_app_tc_start_stop_preview(mm_camera_app_t *cam_app)
     int i, j;
     mm_camera_test_obj_t test_obj;
 
-    CDBG_HIGH("\n Verifying start/stop preview...\n");
+    CDBG_HIGH("\n%s: Verifying start/stop preview...\n", __func__);
 
     for (i = 0; i < cam_app->num_cameras; i++) {
         memset(&test_obj, 0, sizeof(mm_camera_test_obj_t));
+
+        CDBG_HIGH("%s: Starting test case with Camera: %d", __func__, i);
         rc = mm_app_open(cam_app, i, &test_obj);
         assert(rc == MM_CAMERA_OK);
 
@@ -97,7 +93,7 @@ int mm_app_tc_start_stop_preview(mm_camera_app_t *cam_app)
         assert(rc == MM_CAMERA_OK);
     }
 
-    CDBG_HIGH("%s:END, rc = %d\n", __func__, rc);
+    CDBG_HIGH("\n%s: END, rc = %d", __func__, rc);
     return rc;
 }
 
@@ -107,45 +103,28 @@ int mm_app_tc_start_stop_zsl(mm_camera_app_t *cam_app)
     int i, j;
     mm_camera_test_obj_t test_obj;
 
-    CDBG_HIGH("\n Verifying start/stop zsl...\n");
+    CDBG_HIGH("\n%s: Verifying start/stop zsl...\n", __func__);
+
     for (i = 0; i < cam_app->num_cameras; i++) {
         memset(&test_obj, 0, sizeof(mm_camera_test_obj_t));
         rc = mm_app_open(cam_app, i, &test_obj);
-        if (rc != MM_CAMERA_OK) {
-            CDBG_ERROR("%s:mm_app_open() cam_idx=%d, err=%d\n",
-                       __func__, i, rc);
-            break;
-        }
+        assert(rc == MM_CAMERA_OK);
 
         for (j = 0; j < MM_QCAMERA_APP_UTEST_INNER_LOOP; j++) {
             rc = mm_app_start_preview_zsl(&test_obj);
-            if (rc != MM_CAMERA_OK) {
-                CDBG_ERROR("%s: mm_app_start_preview_zsl() cam_idx=%d, err=%d\n",
-                           __func__, i, rc);
-                break;
-            }
+            assert(rc == MM_CAMERA_OK);
+
             sleep(MM_QCAM_APP_TEST_PREVIEW_TIME);
+
             rc = mm_app_stop_preview_zsl(&test_obj);
-            if (rc != MM_CAMERA_OK) {
-                CDBG_ERROR("%s: mm_app_stop_preview_zsl() cam_idx=%d, err=%d\n",
-                           __func__, i, rc);
-                break;
-            }
+            assert(rc == MM_CAMERA_OK);
         }
 
         rc = mm_app_close(&test_obj);
-        if (rc != MM_CAMERA_OK) {
-            CDBG_ERROR("%s:mm_app_close() cam_idx=%d, err=%d\n",
-                       __func__, i, rc);
-            break;
-        }
+        assert(rc == MM_CAMERA_OK);
     }
-    if (rc == MM_CAMERA_OK) {
-        CDBG_LOW("\nPassed\n");
-    } else {
-        CDBG_LOW("\nFailed\n");
-    }
-    CDBG_HIGH("%s:END, rc = %d\n", __func__, rc);
+
+    CDBG_HIGH("\n%s: END, rc = %d", __func__, rc);
     return rc;
 }
 
@@ -155,10 +134,11 @@ int mm_app_tc_start_stop_video_preview(mm_camera_app_t *cam_app)
     int i, j;
     mm_camera_test_obj_t test_obj;
 
-    CDBG_HIGH("\n Verifying start/stop video preview...\n");
+    CDBG_HIGH("\n%s: Verifying start/stop video preview...\n", __func__);
     for (i = 0; i < cam_app->num_cameras; i++) {
         memset(&test_obj, 0, sizeof(mm_camera_test_obj_t));
 
+        CDBG_HIGH("%s: Starting test case with Camera: %d", __func__, i);
         rc = mm_app_open(cam_app, i, &test_obj);
         assert(MM_CAMERA_OK == rc);
 
@@ -182,7 +162,7 @@ int mm_app_tc_start_stop_video_preview(mm_camera_app_t *cam_app)
 
     }
 
-    CDBG_HIGH("%s:END, rc = %d\n", __func__, rc);
+    CDBG_HIGH("\n%s: END, rc = %d", __func__, rc);
     return rc;
 }
 
@@ -192,10 +172,11 @@ int mm_app_tc_start_stop_video_record(mm_camera_app_t *cam_app)
     int i, j;
     mm_camera_test_obj_t test_obj;
 
-    CDBG_HIGH("\n Verifying start/stop recording...\n");
+    CDBG_HIGH("\n%s: Verifying start/stop recording...\n", __func__);
     for (i = 0; i < cam_app->num_cameras; i++) {
         memset(&test_obj, 0, sizeof(mm_camera_test_obj_t));
 
+        CDBG_HIGH("%s: Starting test case with Camera: %d", __func__, i);
         rc = mm_app_open(cam_app, i, &test_obj);
         assert(MM_CAMERA_OK == rc);
 
@@ -225,7 +206,7 @@ int mm_app_tc_start_stop_video_record(mm_camera_app_t *cam_app)
         assert(MM_CAMERA_OK == rc);
     }
 
-    CDBG_HIGH("%s:END, rc = %d\n", __func__, rc);
+    CDBG_HIGH("\n%s: END, rc = %d", __func__, rc);
     return rc;
 }
 
@@ -236,10 +217,11 @@ int mm_app_tc_start_stop_live_snapshot(mm_camera_app_t *cam_app)
     mm_camera_test_obj_t test_obj;
     cam_app->num_rcvd_snapshot = 0;
 
-    CDBG_HIGH("\n Verifying start/stop live snapshot...\n");
+    CDBG_HIGH("\n%s:Verifying start/stop live snapshot...\n", __func__);
     for (i = 0; i < cam_app->num_cameras; i++) {
         memset(&test_obj, 0, sizeof(mm_camera_test_obj_t));
 
+        CDBG_HIGH("%s: Starting test case with Camera: %d", __func__, i);
         rc = mm_app_open(cam_app, i, &test_obj);
         assert(MM_CAMERA_OK == rc);
 
@@ -285,7 +267,7 @@ int mm_app_tc_start_stop_live_snapshot(mm_camera_app_t *cam_app)
         assert(MM_CAMERA_OK == rc);
     }
 
-    CDBG_HIGH("%s:END, rc = %d\n", __func__, rc);
+    CDBG_HIGH("\n%s: END, rc = %d", __func__, rc);
     return rc;
 }
 
@@ -297,13 +279,14 @@ int mm_app_tc_capture_regular(mm_camera_app_t *cam_app)
 
     cam_app->num_snapshot = 1;
 
-    CDBG_HIGH(":%s: \n Verifying capture...\n", __func__);
+    CDBG_HIGH("\n%s: Verifying capture...\n", __func__);
 
     for (i = 0; i < cam_app->num_cameras; i++) {
         memset(&test_obj, 0, sizeof(mm_camera_test_obj_t));
 
         cam_app->num_rcvd_snapshot = 0;
 
+        CDBG_HIGH("%s: Starting test case with Camera: %d", __func__, i);
         rc = mm_app_open(cam_app, i, &test_obj);
         assert(MM_CAMERA_OK == rc);
 
@@ -327,11 +310,12 @@ int mm_app_tc_capture_regular(mm_camera_app_t *cam_app)
             //wait till required snapshots are captured
             do {
                 mm_camera_app_wait();
-                CDBG_HIGH("%s: current snapshot count:%d, required count: %d", __func__, cam_app->num_rcvd_snapshot, cam_app->num_snapshot);
+                CDBG("%s: current snapshot count:%d, required count: %d", __func__, cam_app->num_rcvd_snapshot, cam_app->num_snapshot);
             } while (cam_app->num_rcvd_snapshot < cam_app->num_snapshot);
 
             rc = mm_app_stop_capture(&test_obj);
             assert(MM_CAMERA_OK == rc);
+
         }
 
         rc = mm_app_close(&test_obj);
@@ -339,7 +323,7 @@ int mm_app_tc_capture_regular(mm_camera_app_t *cam_app)
 
     }
 
-    CDBG_HIGH("%s:END, rc = %d\n", __func__, rc);
+    CDBG_HIGH("\n%s: END, rc = %d", __func__, rc);
     return rc;
 }
 
@@ -354,13 +338,14 @@ int mm_app_tc_capture_exposure_burst(mm_camera_app_t *cam_app)
 
     cam_exp_bracketing_t exp_bracket;
 
-    CDBG_HIGH(":%s: \n Verifying exposure bracketing burst capture...\n", __func__);
+    CDBG_HIGH("\n%s: Verifying exposure bracketing burst capture...\n", __func__);
 
     for (i = 0; i < cam_app->num_cameras; i++) {
         memset(&test_obj, 0, sizeof(mm_camera_test_obj_t));
 
         cam_app->num_rcvd_snapshot = 0;
 
+        CDBG_HIGH("%s: Starting test case with Camera: %d", __func__, i);
         rc = mm_app_open(cam_app, i, &test_obj);
         assert(MM_CAMERA_OK == rc);
 
@@ -408,7 +393,7 @@ int mm_app_tc_capture_exposure_burst(mm_camera_app_t *cam_app)
 
     }
 
-    CDBG_HIGH("%s:END, rc = %d\n", __func__, rc);
+    CDBG_HIGH("\n%s: END, rc = %d", __func__, rc);
     return rc;
 }
 
@@ -418,7 +403,7 @@ int mm_app_tc_rdi_burst(mm_camera_app_t *cam_app)
     int i, j;
     mm_camera_test_obj_t test_obj;
 
-    CDBG_HIGH("\n Verifying rdi burst (3) capture...\n");
+    CDBG_HIGH("\n%s: Verifying rdi burst (3) capture...\n", __func__);
     for (i = 0; i < cam_app->num_cameras; i++) {
         memset(&test_obj, 0, sizeof(mm_camera_test_obj_t));
         rc = mm_app_open(cam_app, i, &test_obj);
@@ -459,7 +444,7 @@ int mm_app_tc_rdi_burst(mm_camera_app_t *cam_app)
     } else {
         CDBG_LOW("\nFailed\n");
     }
-    CDBG_HIGH("%s:END, rc = %d\n", __func__, rc);
+    CDBG_HIGH("\n%s: END, rc = %d", __func__, rc);
     return rc;
 }
 
@@ -469,7 +454,7 @@ int mm_app_tc_rdi_cont(mm_camera_app_t *cam_app)
     int i, j;
     mm_camera_test_obj_t test_obj;
 
-    CDBG_HIGH("\n Verifying rdi continuous capture...\n");
+    CDBG_HIGH("\n%s: Verifying rdi continuous capture...\n", __func__);
     for (i = 0; i < cam_app->num_cameras; i++) {
         memset(&test_obj, 0, sizeof(mm_camera_test_obj_t));
         rc = mm_app_open(cam_app, i, &test_obj);
@@ -510,7 +495,7 @@ int mm_app_tc_rdi_cont(mm_camera_app_t *cam_app)
     } else {
         CDBG_LOW("\nFailed\n");
     }
-    CDBG_HIGH("%s:END, rc = %d\n", __func__, rc);
+    CDBG_HIGH("\n%s: END, rc = %d", __func__, rc);
     return rc;
 }
 
@@ -526,8 +511,8 @@ int mm_app_gen_test_cases()
     if (tc < MM_QCAM_APP_TEST_NUM) mm_app_tc[tc++].f = mm_app_tc_start_stop_live_snapshot;
     if (tc < MM_QCAM_APP_TEST_NUM) mm_app_tc[tc++].f = mm_app_tc_capture_regular;
     if (tc < MM_QCAM_APP_TEST_NUM) mm_app_tc[tc++].f = mm_app_tc_capture_exposure_burst;
-    if (tc < MM_QCAM_APP_TEST_NUM) mm_app_tc[tc++].f = mm_app_tc_rdi_cont;
-    if (tc < MM_QCAM_APP_TEST_NUM) mm_app_tc[tc++].f = mm_app_tc_rdi_burst;
+    // if (tc < MM_QCAM_APP_TEST_NUM) mm_app_tc[tc++].f = mm_app_tc_rdi_cont;
+    // if (tc < MM_QCAM_APP_TEST_NUM) mm_app_tc[tc++].f = mm_app_tc_rdi_burst;
 
     return tc;
 }
@@ -543,7 +528,7 @@ int mm_app_unit_test_entry(mm_camera_app_t *cam_app)
     //next 8 bits to indicate single camera or dual camera mode
     cam_app->test_mode = cam_app->test_mode | (MM_QCAMERA_APP_SINGLE_MODE << 8);
 
-    if (cam_app->test_mode && 0xFF == 1) {
+    if ((cam_app->test_mode & 0xFF) == 2) {
 
         CDBG_HIGH("\nRunning single camera Automatic regression for %d test cases", tc);
         for (k = 0; k < MM_QCAMERA_APP_UTEST_MAX_MAIN_LOOP; k++) {
@@ -561,7 +546,13 @@ int mm_app_unit_test_entry(mm_camera_app_t *cam_app)
         }
     } else {
         i = cam_app->test_idx;
-        CDBG_HIGH("\nRunning single camera manual tests. Testcase number:%d ", i);
+
+        if(i > tc || i < 0) {
+            CDBG_HIGH("\n!!%s: Only %d testcases exist. Enter testcase number between 0 and %d!!", __func__, tc, tc);
+            goto end;
+        }
+
+        CDBG_HIGH("\nRunning single camera manual tests. Testcase number: %d ", i);
         mm_app_tc[i].r = mm_app_tc[i].f(cam_app);
         rc = mm_app_tc[i].r;
         if (rc != MM_CAMERA_OK) {

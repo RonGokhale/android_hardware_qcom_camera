@@ -111,7 +111,7 @@ int mm_app_load_hal(mm_camera_app_t *my_cam_app)
     assert(NULL != my_cam_app->hal_lib.jpeg_open);
 
     my_cam_app->num_cameras = my_cam_app->hal_lib.get_num_of_cameras();
-    CDBG_HIGH("%s: num_cameras = %d\n", __func__, my_cam_app->num_cameras);
+    CDBG_HIGH("%s: num_cameras = %d", __func__, my_cam_app->num_cameras);
 
     return MM_CAMERA_OK;
 }
@@ -491,7 +491,7 @@ int mm_app_open(mm_camera_app_t *cam_app,
     int32_t rc;
     cam_frame_len_offset_t offset_info;
 
-    CDBG_HIGH("%s:Enter\n", __func__);
+    CDBG("%s:Enter\n", __func__);
 
     test_obj->cam = cam_app->hal_lib.mm_camera_open(cam_id);
     assert(NULL != test_obj->cam);
@@ -531,8 +531,7 @@ int mm_app_open(mm_camera_app_t *cam_app,
                                      test_obj->parm_buf.mem_info.size);
     assert(rc == MM_CAMERA_OK);
 
-    test_obj->params_buffer = (parm_buffer_t*) test_obj->parm_buf.mem_info.data;
-    CDBG("\n%s params_buffer=%p\n",__func__,test_obj->params_buffer);
+    test_obj->params_buffer = (parm_buffer_t*) test_obj->parm_buf.mem_info.data;    
 
     rc = test_obj->cam->ops->register_event_notify(test_obj->cam->camera_handle,
                                                    notify_evt_cb,
@@ -566,7 +565,7 @@ int mm_app_open(mm_camera_app_t *cam_app,
     //init jpeg frame queue structure to 0
     memset(test_obj->jpeg_frame_queue, 0, sizeof(mm_camera_app_frame_stack) * CAMERA_MAX_JPEG_SESSIONS);
 
-    CDBG_HIGH("%s:Exit\n", __func__);
+    CDBG("%s:Exit\n", __func__);
 
     return rc;
 }
@@ -672,7 +671,7 @@ int mm_app_close(mm_camera_test_obj_t *test_obj)
 {
     uint32_t rc = MM_CAMERA_OK;
 
-    CDBG_HIGH("%s:Enter\n", __func__);
+    CDBG("%s:Enter\n", __func__);
 
     if (test_obj == NULL || test_obj->cam ==NULL) {
         CDBG_ERROR("%s: cam not opened", __func__);
@@ -712,7 +711,7 @@ int mm_app_close(mm_camera_test_obj_t *test_obj)
     rc = mm_app_release_bufs(1, &test_obj->jpeg_buf);
     assert(MM_CAMERA_OK == rc);
 
-    CDBG_HIGH("%s:Exit\n", __func__);
+    CDBG("%s:Exit\n", __func__);
 
     return MM_CAMERA_OK;
 }
@@ -882,9 +881,7 @@ void print_usage()
     CDBG_HIGH("\t4: mm_app_tc_start_stop_video_record");
     CDBG_HIGH("\t5: mm_app_tc_start_stop_live_snapshot");
     CDBG_HIGH("\t6: mm_app_tc_capture_regular");
-    CDBG_HIGH("\t7: mm_app_tc_capture_exposure_burst");
-    CDBG_HIGH("\t8: mm_app_tc_rdi_cont");
-    CDBG_HIGH("\t9: mm_app_tc_rdi_burst");
+    CDBG_HIGH("\t7: mm_app_tc_capture_exposure_burst");    
 
     CDBG_HIGH("\nDual Camera testcases are");
     CDBG_HIGH("\t0 : mm_app_dtc_start_stop_preview");
