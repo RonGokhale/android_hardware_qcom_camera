@@ -176,6 +176,14 @@ typedef struct {
 
 typedef struct {
     uint16_t num_cameras;
+
+    int32_t preview_width_user;
+    int32_t preview_height_user;
+    int32_t snapshot_width_user;
+    int32_t snapshot_height_user;
+    int32_t video_width_user;
+    int32_t video_height_user;
+
     int32_t preview_width;
     int32_t preview_height;
     cam_format_t preview_format;
@@ -217,6 +225,7 @@ typedef struct {
     mm_camera_app_t *app_handle;
     mm_camera_app_frame_stack jpeg_frame_queue[CAMERA_MAX_JPEG_SESSIONS];
     uint8_t cam_id;
+    cam_capability_t cam_capability;
 } mm_camera_test_obj_t;
 
 
