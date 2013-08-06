@@ -51,6 +51,10 @@
 #define ISP_PIX_BUF_NUM 9
 #define STATS_BUF_NUM 4
 #define RDI_BUF_NUM 8
+#define FACEPROC_DUMP 1
+#define META_BUF_NUM 1
+
+#define MAP_TO_DRIVER_COORDINATE(val, base, scale, offset) (val * scale / base + offset)
 
 #define CAMERA_MIN_STREAMING_BUFFERS     5
 #define CAMERA_MIN_JPEG_ENCODING_BUFFERS 2

@@ -77,6 +77,7 @@ const CAMERA_MAIN_MENU_TBL_T camera_main_menu_tbl[] = {
     {PREVIEW_FLIP,       "Set preview Flip"},
     {FLIP_CAMERAS,       "Flip front and back camera"},
     {SET_JPEG_QUALITY,       "Set quality for JPEG files"},
+    {SET_FACE_DETECTION,       "Enable/Disable Face Detection"},
 };
 
 const PREVIEW_DIMENSION_TBL_T preview_video_dimension_tbl[] = {
@@ -227,6 +228,7 @@ int saturation = 0;
 int sharpness = 0;
 int cam_id = 0;
 int ev_value = 0;
+int fd_enabled = 0;
 
 //TODO:
 //fps_mode_t fps_mode = FPS_MODE_FIXED;
@@ -404,6 +406,11 @@ int next_menu(menu_id_change_t current_menu_id, char keypress, camera_action_t *
                 case SET_JPEG_QUALITY:
                     * action_id_ptr = ACTION_SET_JPEG_QUALITY;
                     CDBG("Set JPEG quality\n");
+                    break;
+
+                case SET_FACE_DETECTION:
+                    * action_id_ptr = ACTION_SET_FACE_DETECTION;
+                    CDBG("Set Face Detection\n");
                     break;
 
                 default:
@@ -1088,6 +1095,24 @@ void set_jpeg_quality (mm_camera_test_obj_t *test_obj)
 
 }
 
+void set_face_detection(mm_camera_test_obj_t *test_obj)
+{
+    CDBG("%s: Enter", __func__);
+    int face_detect_mask = 0;
+    fd_enabled = !fd_enabled;
+    // set face detection mask
+    if (fd_enabled) {
+        face_detect_mask |= CAM_FACE_PROCESS_MASK_DETECTION;
+    } else {
+        face_detect_mask = 0;
+    }
+    cam_fd_set_parm_t fd_set_parm;
+    memset(&fd_set_parm, 0, sizeof(cam_fd_set_parm_t));
+    fd_set_parm.fd_mode = face_detect_mask;
+    mm_app_set_params(test_obj, CAM_INTF_PARM_FD, sizeof(fd_set_parm), &fd_set_parm);
+    CDBG("%s: Exit", __func__);
+}
+
 /*===========================================================================
  * FUNCTION    - main -
  *
@@ -1265,6 +1290,11 @@ static int submain(mm_camera_test_obj_t *test_obj)
             case ACTION_SET_JPEG_QUALITY:
                 CDBG("Select front back camera flip\n");
                 set_jpeg_quality(test_obj);
+                break;
+
+            case ACTION_SET_FACE_DETECTION:
+                CDBG("Select face detection\n");
+                set_face_detection(test_obj);
                 break;
 
             case ACTION_SET_ZOOM:

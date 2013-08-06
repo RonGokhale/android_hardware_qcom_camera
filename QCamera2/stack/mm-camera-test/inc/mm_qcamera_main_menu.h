@@ -68,6 +68,7 @@ typedef enum
   PREVIEW_FLIP = 21,
   FLIP_CAMERAS = 22,
   SET_JPEG_QUALITY = 23,
+  SET_FACE_DETECTION = 24,
 } Camera_main_menu_t;
 
 typedef enum
@@ -101,6 +102,7 @@ typedef enum
   ACTION_PREVIEW_FLIP,
   ACTION_FLIP_CAMERAS,
   ACTION_SET_JPEG_QUALITY,
+  ACTION_SET_FACE_DETECTION,
 } camera_action_t;
 
 #define INVALID_KEY_PRESS 0

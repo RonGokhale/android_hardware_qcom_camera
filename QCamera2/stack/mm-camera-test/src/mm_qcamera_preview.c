@@ -31,6 +31,13 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "mm_qcamera_app.h"
 #include <assert.h>
 
+static void mm_app_metadata_notify_cb(mm_camera_super_buf_t *bufs, void *user_data);
+mm_camera_stream_t * mm_app_add_metadata_stream(mm_camera_test_obj_t *test_obj,
+                                             mm_camera_channel_t *channel,
+                                             mm_camera_buf_notify_t stream_cb,
+                                             void *userdata,
+                                             uint8_t num_bufs);
+
 static void mm_app_preview_notify_cb(mm_camera_super_buf_t *bufs,
                                      void *user_data)
 {
@@ -300,23 +307,158 @@ mm_camera_stream_t * mm_app_add_snapshot_stream(mm_camera_test_obj_t *test_obj,
 mm_camera_channel_t * mm_app_add_preview_channel(mm_camera_test_obj_t *test_obj)
 {
     mm_camera_channel_t *channel = NULL;
-    mm_camera_stream_t *stream = NULL;
+    mm_camera_stream_t *p_stream = NULL;
+    mm_camera_stream_t *m_stream = NULL;
 
-    channel = mm_app_add_channel(test_obj,
-                                 MM_CHANNEL_TYPE_PREVIEW,
-                                 NULL,
-                                 NULL,
-                                 NULL);
+    channel = mm_app_add_channel(
+        test_obj,
+        MM_CHANNEL_TYPE_PREVIEW,
+        NULL,
+        NULL,
+        NULL);
     assert (NULL != channel);
 
-    stream = mm_app_add_preview_stream(test_obj,
-                                       channel,
-                                       mm_app_preview_notify_cb,
-                                       (void *)test_obj,
-                                       PREVIEW_BUF_NUM);
-    assert(NULL != stream);
+    p_stream = mm_app_add_preview_stream(
+        test_obj,
+        channel,
+        mm_app_preview_notify_cb,
+        (void *)test_obj,
+        PREVIEW_BUF_NUM);
+    assert(NULL != p_stream);
+
+    m_stream = mm_app_add_metadata_stream(
+        test_obj,
+        channel,
+        mm_app_metadata_notify_cb,
+        (void *)test_obj,
+        META_BUF_NUM);
+    assert(NULL != m_stream);
 
     return channel;
+}
+
+int32_t dump_face_detection_result(cam_face_detection_data_t *fd_data, mm_camera_test_obj_t *test_obj)
+{
+    int i =0;
+    cam_dimension_t display_dim;
+    display_dim.width = test_obj->app_handle->preview_width;
+    display_dim.height = test_obj->app_handle->preview_height;
+    CDBG_HIGH("Number of Faces detected fd_data->num_faces_detected=%d\n", fd_data->num_faces_detected);
+    if (fd_data->num_faces_detected > 0) {
+        for (i = 0; i < fd_data->num_faces_detected; i++) {
+        CDBG("############## DUMP Facedetect Properties ############\n");
+        CDBG("fd_data->faces[i].score=%d\n", fd_data->faces[i].score);
+        CDBG("left coordinate=%d\n", MAP_TO_DRIVER_COORDINATE(fd_data->faces[i].face_boundary.left, display_dim.width, 2000, -1000));
+        CDBG("top coordinate=%d\n", MAP_TO_DRIVER_COORDINATE(fd_data->faces[i].face_boundary.top, display_dim.height, 2000, -1000));
+        CDBG("right coordinate=%d\n", MAP_TO_DRIVER_COORDINATE(fd_data->faces[i].face_boundary.width, display_dim.width, 2000, 0));
+        CDBG("bottom coordinate=%d\n", MAP_TO_DRIVER_COORDINATE(fd_data->faces[i].face_boundary.height, display_dim.height, 2000, 0));
+        CDBG("Center of left eye coordinate[0]=%d\n", MAP_TO_DRIVER_COORDINATE(fd_data->faces[i].left_eye_center.x, display_dim.width, 2000, -1000));
+        CDBG("Center of left eye coordinate[1]=%d\n", MAP_TO_DRIVER_COORDINATE(fd_data->faces[i].left_eye_center.y, display_dim.height, 2000, -1000));
+        CDBG("Center of right eye coordinate[0]=%d\n", MAP_TO_DRIVER_COORDINATE(fd_data->faces[i].right_eye_center.x, display_dim.width, 2000, -1000));
+        CDBG("Center of right eye coordinate[1]=%d\n", MAP_TO_DRIVER_COORDINATE(fd_data->faces[i].right_eye_center.y, display_dim.height, 2000, -1000));
+        CDBG("Center of mouth coordinate[0]=%d\n", MAP_TO_DRIVER_COORDINATE(fd_data->faces[i].mouth_center.x, display_dim.width, 2000, -1000));
+        CDBG("Center of mouth coordinate[1]=%d\n", MAP_TO_DRIVER_COORDINATE(fd_data->faces[i].mouth_center.y, display_dim.height, 2000, -1000));
+        CDBG("smile_degree=%d\n", fd_data->faces[i].smile_degree);
+        CDBG("smile_confidence=%d\n", fd_data->faces[i].smile_confidence);
+        CDBG("blink_detected=%d\n", fd_data->faces[i].blink_detected);
+        CDBG("face_recognised=%d\n", fd_data->faces[i].face_recognised);
+        CDBG("gaze_angle=%d\n", fd_data->faces[i].gaze_angle);
+        // upscale by 2 to recover from demaen downscaling
+        CDBG("updown_dir=%d\n", fd_data->faces[i].updown_dir * 2 );
+        CDBG("leftright_dir =%d\n", fd_data->faces[i].leftright_dir * 2 );
+        CDBG("roll_dir=%d\n", fd_data->faces[i].roll_dir * 2 );
+        CDBG("uleft_blink=%d\n", fd_data->faces[i].left_blink);
+        CDBG("right_blink=%d\n", fd_data->faces[i].right_blink);
+        CDBG("left_right_gaze =%d\n", fd_data->faces[i].left_right_gaze);
+        CDBG("top_bottom_gaze =%d\n", fd_data->faces[i].top_bottom_gaze);
+       }
+    }
+    return MM_CAMERA_OK;
+}
+
+static void mm_app_metadata_notify_cb(mm_camera_super_buf_t *bufs,
+                                   void *user_data)
+{
+    char file_name[64];
+    int rc;
+
+    mm_camera_buf_def_t *frame = bufs->bufs[0];
+    cam_metadata_info_t *pMetaData = (cam_metadata_info_t *)frame->buffer;
+    mm_camera_test_obj_t *pme = (mm_camera_test_obj_t *)user_data;
+
+    CDBG("%s: BEGIN - length=%d, frame idx = %d frame->buffer =%x\n",
+         __func__, frame->frame_len, frame->frame_idx, frame->buffer);
+
+    CDBG("pMetaData->is_faces_valid =%d \n", pMetaData->is_faces_valid);
+
+    if (pMetaData->is_faces_valid) {
+        if (pMetaData->faces_data.num_faces_detected > MAX_ROI) {
+            CDBG_ERROR("%s: Invalid number of faces %d\n",
+                __func__, pMetaData->faces_data.num_faces_detected);
+        } else {
+            // process face detection result
+            CDBG("%s: Number of faces detected %d\n",__func__,pMetaData->faces_data.num_faces_detected);
+#if(FACEPROC_DUMP)
+                int32_t rc = dump_face_detection_result(&(pMetaData->faces_data), pme);
+                if (rc != MM_CAMERA_OK) {
+                    CDBG_ERROR("%s: face detection dump failed\n", __func__);
+                }
+#endif
+         }
+    }
+
+    rc = pme->cam->ops->qbuf(bufs->camera_handle, bufs->ch_id, frame);
+    assert(rc == MM_CAMERA_OK);
+
+    mm_app_cache_ops((mm_camera_app_meminfo_t *)frame->mem_info,
+                     ION_IOC_INV_CACHES);
+
+    CDBG("%s: END\n", __func__);
+}
+
+
+mm_camera_stream_t * mm_app_add_metadata_stream(mm_camera_test_obj_t *test_obj,
+                                             mm_camera_channel_t *channel,
+                                             mm_camera_buf_notify_t stream_cb,
+                                             void *userdata,
+                                             uint8_t num_bufs)
+{
+    int rc = MM_CAMERA_OK;
+    mm_camera_stream_t *stream = NULL;
+    cam_capability_t *cam_cap = (cam_capability_t *)(test_obj->cap_buf.buf.buffer);
+
+    stream = mm_app_add_stream(test_obj, channel);
+    assert(NULL != stream);
+    stream->s_config.mem_vtbl.get_bufs = mm_app_stream_initbuf;
+    stream->s_config.mem_vtbl.put_bufs = mm_app_stream_deinitbuf;
+    stream->s_config.mem_vtbl.clean_invalidate_buf =
+      mm_app_stream_clean_invalidate_buf;
+    stream->s_config.mem_vtbl.invalidate_buf = mm_app_stream_invalidate_buf;
+    stream->s_config.mem_vtbl.user_data = (void *)stream;
+    stream->s_config.stream_cb = stream_cb;
+    stream->s_config.userdata = userdata;
+
+    uint8_t min_bufs = CAMERA_MIN_STREAMING_BUFFERS + CAMERA_MIN_VIDEO_BUFFERS + 1;
+
+    if(num_bufs < min_bufs)
+        stream->num_of_bufs = min_bufs;
+    else
+        stream->num_of_bufs = num_bufs;
+
+    stream->s_config.stream_info = (cam_stream_info_t *)stream->s_info_buf.buf.buffer;
+    memset(stream->s_config.stream_info, 0, sizeof(cam_stream_info_t));
+    stream->s_config.stream_info->stream_type = CAM_STREAM_TYPE_METADATA;
+    stream->s_config.stream_info->streaming_mode = CAM_STREAMING_MODE_CONTINUOUS;
+    stream->s_config.stream_info->fmt = test_obj->app_handle->preview_format;
+    stream->s_config.stream_info->dim.width = test_obj->app_handle->preview_width;
+    stream->s_config.stream_info->dim.height = test_obj->app_handle->preview_height;
+    stream->s_config.padding_info = cam_cap->padding_info;
+
+    stream->s_config.stream_info->pp_config.feature_mask = CAM_QCOM_FEATURE_FLIP;
+    stream->s_config.stream_info->pp_config.flip = test_obj->app_handle->flip_mode;
+    rc = mm_app_config_stream(test_obj, channel, stream, &stream->s_config);
+    assert(MM_CAMERA_OK == rc);
+    return stream;
 }
 
 int mm_app_start_preview(mm_camera_test_obj_t *test_obj)
@@ -324,7 +466,6 @@ int mm_app_start_preview(mm_camera_test_obj_t *test_obj)
     int rc = MM_CAMERA_OK;
     mm_camera_channel_t *channel = NULL;
     mm_camera_stream_t *stream = NULL;
-    uint8_t i;
 
     channel =  mm_app_add_preview_channel(test_obj);
     assert(NULL != channel);
