@@ -205,7 +205,7 @@ void launch_camframe_fb_thread()
 {
   is_camframe_fb_thread_ready = 0;
   camframe_fb_exit = 0;
-  CDBG_HIGH("%s: Enter. Camera FB thread ready:%d", __func__, is_camframe_fb_thread_ready);
+  CDBG("%s: Enter. Camera FB thread ready:%d", __func__, is_camframe_fb_thread_ready);
 
   pthread_create(&cam_frame_fb_thread_id, NULL, camframe_fb_thread, NULL);
 
@@ -217,7 +217,7 @@ void launch_camframe_fb_thread()
 
   pthread_mutex_unlock(&sub_thread_ready_mutex);
 
-  CDBG_HIGH("%s: Exit. Camera FB thread ready:%d", __func__, is_camframe_fb_thread_ready);
+  CDBG("%s: Exit. Camera FB thread ready:%d", __func__, is_camframe_fb_thread_ready);
   return ;
 }
 
@@ -226,7 +226,7 @@ void release_camframe_fb_thread(void)
   camframe_fb_exit = 1;
   need_init = 1;
 
-  CDBG_HIGH("%s: Enter", __func__);
+  CDBG("%s: Enter", __func__);
 
   /* Notify the camframe fb thread to wake up */
   if (cam_frame_fb_thread_id != 0) {
@@ -240,7 +240,7 @@ void release_camframe_fb_thread(void)
      close(fb_fd);
   }
 
-  CDBG_HIGH("%s: Exit", __func__);
+  CDBG("%s: Exit", __func__);
 }
 
 /* Sends signal to control thread to indicate that the cam frame fb

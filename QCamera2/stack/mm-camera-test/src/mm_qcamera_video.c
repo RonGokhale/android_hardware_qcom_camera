@@ -162,7 +162,7 @@ int mm_app_start_record_preview(mm_camera_test_obj_t *test_obj)
     mm_camera_channel_t *v_ch = NULL;
     mm_camera_channel_t *s_ch = NULL;
 
-    CDBG_HIGH("%s: Enter", __func__);
+    CDBG("%s: Enter", __func__);
 
     p_ch = mm_app_add_preview_channel(test_obj);
     assert(NULL != p_ch);
@@ -179,7 +179,7 @@ int mm_app_start_record_preview(mm_camera_test_obj_t *test_obj)
     //Launch display thread.
     launch_camframe_fb_thread();
 
-    CDBG_HIGH("%s: Exit", __func__);
+    CDBG("%s: Exit", __func__);
 
     return rc;
 }
