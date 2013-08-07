@@ -266,7 +266,7 @@ int QCamera2HardwareInterface::start_preview(struct camera_device *device)
         ALOGE("NULL camera device");
         return BAD_VALUE;
     }
-    ALOGD("[KPI Perf] %s: E", __func__);
+    ALOGE("[KPI Perf] %s: E PROFILE_START_PREVIEW", __func__);
     hw->lockAPI();
     qcamera_sm_evt_enum_t evt = QCAMERA_SM_EVT_START_PREVIEW;
     if (hw->isNoDisplayMode()) {
@@ -278,6 +278,7 @@ int QCamera2HardwareInterface::start_preview(struct camera_device *device)
         ret = hw->m_apiResult.status;
     }
     hw->unlockAPI();
+    hw->m_bPreviewStarted = true;
     ALOGD("[KPI Perf] %s: X", __func__);
     return ret;
 }
@@ -300,7 +301,7 @@ void QCamera2HardwareInterface::stop_preview(struct camera_device *device)
         ALOGE("NULL camera device");
         return;
     }
-    ALOGD("[KPI Perf] %s: E", __func__);
+    ALOGE("[KPI Perf] %s: E PROFILE_STOP_PREVIEW", __func__);
     hw->lockAPI();
     int32_t ret = hw->processAPI(QCAMERA_SM_EVT_STOP_PREVIEW, NULL);
     if (ret == NO_ERROR) {
@@ -398,7 +399,7 @@ int QCamera2HardwareInterface::start_recording(struct camera_device *device)
         ALOGE("NULL camera device");
         return BAD_VALUE;
     }
-    ALOGD("[KPI Perf] %s: E", __func__);
+    ALOGE("[KPI Perf] %s: E PROFILE_START_RECORDING", __func__);
     hw->lockAPI();
     ret = hw->processAPI(QCAMERA_SM_EVT_START_RECORDING, NULL);
     if (ret == NO_ERROR) {
@@ -406,6 +407,7 @@ int QCamera2HardwareInterface::start_recording(struct camera_device *device)
         ret = hw->m_apiResult.status;
     }
     hw->unlockAPI();
+    hw->m_bRecordStarted = true;
     ALOGD("[KPI Perf] %s: X", __func__);
     return ret;
 }
@@ -428,7 +430,7 @@ void QCamera2HardwareInterface::stop_recording(struct camera_device *device)
         ALOGE("NULL camera device");
         return;
     }
-    ALOGD("[KPI Perf] %s: E", __func__);
+    ALOGE("[KPI Perf] %s: E PROFILE_STOP_RECORDING", __func__);
     hw->lockAPI();
     int32_t ret = hw->processAPI(QCAMERA_SM_EVT_STOP_RECORDING, NULL);
     if (ret == NO_ERROR) {
@@ -520,7 +522,7 @@ int QCamera2HardwareInterface::auto_focus(struct camera_device *device)
         ALOGE("NULL camera device");
         return BAD_VALUE;
     }
-    ALOGD("[KPI Perf] %s : E", __func__);
+    ALOGE("[KPI Perf] %s : E PROFILE_AUTO_FOCUS", __func__);
     hw->lockAPI();
     ret = hw->processAPI(QCAMERA_SM_EVT_START_AUTO_FOCUS, NULL);
     if (ret == NO_ERROR) {
@@ -586,7 +588,7 @@ int QCamera2HardwareInterface::take_picture(struct camera_device *device)
         ALOGE("NULL camera device");
         return BAD_VALUE;
     }
-    ALOGD("[KPI Perf] %s: E", __func__);
+    ALOGE("[KPI Perf] %s: E PROFILE_TAKE_PICTURE", __func__);
     hw->lockAPI();
 
     /* Prepare snapshot in case LED needs to be flashed */
@@ -929,11 +931,14 @@ QCamera2HardwareInterface::QCamera2HardwareInterface(int cameraId)
       m_thermalAdapter(QCameraThermalAdapter::getInstance()),
       m_cbNotifier(this),
       m_bShutterSoundPlayed(false),
+      m_bPreviewStarted(false),
+      m_bRecordStarted(false),
       m_currentFocusState(CAM_AF_SCANNING),
       m_pPowerModule(NULL),
       mDumpFrmCnt(0),
       mDumpSkipCnt(0),
-      mThermalLevel(QCAMERA_THERMAL_NO_ADJUSTMENT)
+      mThermalLevel(QCAMERA_THERMAL_NO_ADJUSTMENT),
+      mHDRSceneEnabled(false)
 {
     mCameraDevice.common.tag = HARDWARE_DEVICE_TAG;
     mCameraDevice.common.version = HARDWARE_DEVICE_API_VERSION(1, 0);
@@ -1000,7 +1005,7 @@ int QCamera2HardwareInterface::openCamera(struct hw_device_t **hw_device)
         *hw_device = NULL;
         return PERMISSION_DENIED;
     }
-
+    ALOGE("[KPI Perf] %s: E PROFILE_OPEN_CAMERA camera id %d", __func__,mCameraId);
     rc = openCamera();
     if (rc == NO_ERROR)
         *hw_device = &mCameraDevice.common;
@@ -1026,7 +1031,6 @@ int QCamera2HardwareInterface::openCamera()
         ALOGE("Failure: Camera already opened");
         return ALREADY_EXISTS;
     }
-
     mCameraHandle = camera_open(mCameraId);
     if (!mCameraHandle) {
         ALOGE("camera_open failed.");
@@ -2646,6 +2650,35 @@ int32_t QCamera2HardwareInterface::processZoomEvent(cam_crop_data_t &crop_info)
 }
 
 /*===========================================================================
+ * FUNCTION   : processHDRData
+ *
+ * DESCRIPTION: process HDR scene events
+ *
+ * PARAMETERS :
+ *   @hdr_scene : HDR scene event data
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCamera2HardwareInterface::processHDRData(cam_asd_hdr_scene_data_t hdr_scene)
+{
+    int rc = NO_ERROR;
+
+    if (hdr_scene.is_hdr_scene) {
+        mHDRSceneEnabled = true;
+    } else {
+        mHDRSceneEnabled = false;
+    }
+
+    ALOGD("%s : hdr_scene_data: processHDRData: %d",
+          __func__,
+          hdr_scene.is_hdr_scene);
+
+  return rc;
+}
+
+/*===========================================================================
  * FUNCTION   : processPrepSnapshotDone
  *
  * DESCRIPTION: process prep snapshot done event
@@ -3931,49 +3964,6 @@ int32_t QCamera2HardwareInterface::processHistogramStats(cam_hist_stats_t &stats
         histBuffer->release(histBuffer);
     }
     return NO_ERROR;
-}
-
-/*===========================================================================
- * FUNCTION   : processHDRData
- *
- * DESCRIPTION: process incoming hdr algo data
- *
- * PARAMETERS :
- *   @confidence : hdr algo confidence level
- *
- * RETURN     : int32_t type of status
- *              NO_ERROR  -- success
- *              none-zero failure code
- *==========================================================================*/
-int32_t QCamera2HardwareInterface::processHDRData(cam_asd_hdr_scene_data_t hdr_scene)
-{
-    int rc = NO_ERROR;
-
-    if ( msgTypeEnabled(CAMERA_MSG_META_DATA) ) {
-        camera_memory_t *hdrBuffer = mGetMemory(-1,
-                                                 sizeof(cam_asd_hdr_scene_data_t),
-                                                 1,
-                                                 mCallbackCookie);
-        if ( NULL == hdrBuffer ) {
-            ALOGE("%s: Not enough memory for auto hdr data",
-                  __func__);
-            return NO_MEMORY;
-        }
-
-        memcpy(hdrBuffer->data, &hdr_scene, sizeof(cam_asd_hdr_scene_data_t));
-        qcamera_callback_argm_t cbArg;
-        memset(&cbArg, 0, sizeof(qcamera_callback_argm_t));
-        cbArg.cb_type = QCAMERA_DATA_CALLBACK;
-        cbArg.msg_type = CAMERA_MSG_META_DATA;
-        cbArg.data = hdrBuffer;
-        cbArg.user_data = hdrBuffer;
-        cbArg.cookie = this;
-        cbArg.release_cb = releaseCameraMemory;
-        m_cbNotifier.notifyCallback(cbArg);
-
-    }
-
-    return rc;
 }
 
 /*===========================================================================
