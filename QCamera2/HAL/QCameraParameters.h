@@ -45,6 +45,13 @@ static const char ExifUndefinedPrefix[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
 #define EXIF_ASCII_PREFIX_SIZE           8   //(sizeof(ExifAsciiPrefix))
 #define FOCAL_LENGTH_DECIMAL_PRECISION   100
 
+class QCameraAdjustFPS
+{
+public:
+    virtual int recalcFPSRange(int &minFPS, int &maxFPS) = 0;
+    virtual ~QCameraAdjustFPS() {}
+};
+
 class QCameraParameters: public CameraParameters
 {
 public:
@@ -355,7 +362,7 @@ public:
     void setTouchIndexAf(int x, int y);
     void getTouchIndexAf(int *x, int *y);
 
-    int32_t init(cam_capability_t *, mm_camera_vtbl_t *);
+    int32_t init(cam_capability_t *, mm_camera_vtbl_t *, QCameraAdjustFPS *);
     void deinit();
     int32_t assign(QCameraParameters& params);
     int32_t initDefaultParameters();
@@ -422,6 +429,7 @@ public:
     void setAFRunning(bool bflag) {m_bAFRunning = bflag;};
     bool isAFRunning() {return m_bAFRunning;};
     bool isHDREnabled() {return m_bHDREnabled;};
+    bool isHDR1xFrameEnabled() {return m_bHDR1xFrameEnabled;}
 
     bool isPreviewFlipChanged() { return m_bPreviewFlipChanged; };
     bool isVideoFlipChanged() { return m_bVideoFlipChanged; };
@@ -607,6 +615,8 @@ private:
     qcamera_thermal_mode m_ThermalMode; // adjust fps vs adjust frameskip
     cam_dimension_t m_LiveSnapshotSize; // live snapshot size
     bool m_bHDREnabled;             // if HDR is enabled
+    QCameraAdjustFPS *m_AdjustFPS;
+    bool m_bHDR1xFrameEnabled;          // if frame with exposure compensation 0 during HDR is enabled
 
     DefaultKeyedVector<String8,String8> m_tempMap; // map for temororily store parameters to be set
 };

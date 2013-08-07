@@ -29,6 +29,7 @@
 
 #define LOG_TAG "QCamera2HWI"
 
+#include <time.h>
 #include <fcntl.h>
 #include <utils/Errors.h>
 #include <utils/Timers.h>
@@ -56,6 +57,9 @@ void QCamera2HardwareInterface::zsl_channel_cb(mm_camera_super_buf_t *recvd_fram
                                                void *userdata)
 {
     ALOGD("[KPI Perf] %s: E",__func__);
+    char value[PROPERTY_VALUE_MAX];
+    bool dump_raw = false;
+    bool dump_yuv = false;
     QCamera2HardwareInterface *pme = (QCamera2HardwareInterface *)userdata;
     if (pme == NULL ||
         pme->mCameraHandle == NULL ||
@@ -80,6 +84,40 @@ void QCamera2HardwareInterface::zsl_channel_cb(mm_camera_super_buf_t *recvd_fram
         return;
     }
     *frame = *recvd_frame;
+
+    // DUMP RAW if available
+    property_get("persist.camera.zsl_raw", value, "0");
+    dump_raw = atoi(value) > 0 ? true : false;
+    if ( dump_raw ) {
+        for ( int i= 0 ; i < recvd_frame->num_bufs ; i++ ) {
+            if ( recvd_frame->bufs[i]->stream_type == CAM_STREAM_TYPE_RAW ) {
+                mm_camera_buf_def_t * raw_frame = recvd_frame->bufs[i];
+                QCameraStream *pStream = pChannel->getStreamByHandle(raw_frame->stream_id);
+                if ( NULL != pStream ) {
+                    pme->dumpFrameToFile(pStream, raw_frame, QCAMERA_DUMP_FRM_RAW);
+                }
+                break;
+            }
+        }
+    }
+    //
+
+    // DUMP YUV before reprocess if needed
+    property_get("persist.camera.zsl_yuv", value, "0");
+    dump_yuv = atoi(value) > 0 ? true : false;
+    if ( dump_yuv ) {
+        for ( int i= 0 ; i < recvd_frame->num_bufs ; i++ ) {
+            if ( recvd_frame->bufs[i]->stream_type == CAM_STREAM_TYPE_SNAPSHOT ) {
+                mm_camera_buf_def_t * yuv_frame = recvd_frame->bufs[i];
+                QCameraStream *pStream = pChannel->getStreamByHandle(yuv_frame->stream_id);
+                if ( NULL != pStream ) {
+                    pme->dumpFrameToFile(pStream, yuv_frame, QCAMERA_DUMP_FRM_SNAPSHOT);
+                }
+                break;
+            }
+        }
+    }
+    //
 
     // send to postprocessor
     pme->m_postprocessor.processData(frame);
@@ -641,6 +679,112 @@ void QCamera2HardwareInterface::raw_stream_cb_routine(mm_camera_super_buf_t * su
 }
 
 /*===========================================================================
+ * FUNCTION   : preview_raw_stream_cb_routine
+ *
+ * DESCRIPTION: helper function to handle raw frame during standard preview
+ *
+ * PARAMETERS :
+ *   @super_frame : received super buffer
+ *   @stream      : stream object
+ *   @userdata    : user data ptr
+ *
+ * RETURN    : None
+ *
+ * NOTE      : caller passes the ownership of super_frame, it's our
+ *             responsibility to free super_frame once it's done.
+ *==========================================================================*/
+void QCamera2HardwareInterface::preview_raw_stream_cb_routine(mm_camera_super_buf_t * super_frame,
+                                                              QCameraStream * stream,
+                                                              void * userdata)
+{
+    ALOGD("[KPI Perf] %s : BEGIN", __func__);
+    int i = -1;
+    char value[PROPERTY_VALUE_MAX];
+    bool dump_raw = false;
+
+    QCamera2HardwareInterface *pme = (QCamera2HardwareInterface *)userdata;
+    if (pme == NULL ||
+        pme->mCameraHandle == NULL ||
+        pme->mCameraHandle->camera_handle != super_frame->camera_handle){
+        ALOGE("%s: camera obj not valid", __func__);
+        // simply free super frame
+        free(super_frame);
+        return;
+    }
+
+    property_get("persist.camera.preview_raw", value, "0");
+    dump_raw = atoi(value) > 0 ? true : false;
+
+    for ( i= 0 ; i < super_frame->num_bufs ; i++ ) {
+        if ( super_frame->bufs[i]->stream_type == CAM_STREAM_TYPE_RAW ) {
+            mm_camera_buf_def_t * raw_frame = super_frame->bufs[i];
+            if ( NULL != stream && (dump_raw) ) {
+                pme->dumpFrameToFile(stream, raw_frame, QCAMERA_DUMP_FRM_RAW);
+            }
+            stream->bufDone(super_frame->bufs[i]->buf_idx);
+            break;
+        }
+    }
+
+    free(super_frame);
+
+    ALOGD("[KPI Perf] %s : END", __func__);
+}
+
+/*===========================================================================
+ * FUNCTION   : snapshot_raw_stream_cb_routine
+ *
+ * DESCRIPTION: helper function to handle raw frame during standard capture
+ *
+ * PARAMETERS :
+ *   @super_frame : received super buffer
+ *   @stream      : stream object
+ *   @userdata    : user data ptr
+ *
+ * RETURN    : None
+ *
+ * NOTE      : caller passes the ownership of super_frame, it's our
+ *             responsibility to free super_frame once it's done.
+ *==========================================================================*/
+void QCamera2HardwareInterface::snapshot_raw_stream_cb_routine(mm_camera_super_buf_t * super_frame,
+                                                               QCameraStream * stream,
+                                                               void * userdata)
+{
+    ALOGD("[KPI Perf] %s : BEGIN", __func__);
+    int i = -1;
+    char value[PROPERTY_VALUE_MAX];
+    bool dump_raw = false;
+
+    QCamera2HardwareInterface *pme = (QCamera2HardwareInterface *)userdata;
+    if (pme == NULL ||
+        pme->mCameraHandle == NULL ||
+        pme->mCameraHandle->camera_handle != super_frame->camera_handle){
+        ALOGE("%s: camera obj not valid", __func__);
+        // simply free super frame
+        free(super_frame);
+        return;
+    }
+
+    property_get("persist.camera.snapshot_raw", value, "0");
+    dump_raw = atoi(value) > 0 ? true : false;
+
+    for ( i= 0 ; i < super_frame->num_bufs ; i++ ) {
+        if ( super_frame->bufs[i]->stream_type == CAM_STREAM_TYPE_RAW ) {
+            mm_camera_buf_def_t * raw_frame = super_frame->bufs[i];
+            if ( NULL != stream && (dump_raw) ) {
+                pme->dumpFrameToFile(stream, raw_frame, QCAMERA_DUMP_FRM_RAW);
+            }
+            stream->bufDone(super_frame->bufs[i]->buf_idx);
+            break;
+        }
+    }
+
+    free(super_frame);
+
+    ALOGD("[KPI Perf] %s : END", __func__);
+}
+
+/*===========================================================================
  * FUNCTION   : metadata_stream_cb_routine
  *
  * DESCRIPTION: helper function to handle metadata frame from metadata stream
@@ -954,6 +1098,13 @@ void QCamera2HardwareInterface::dumpFrameToFile(QCameraStream *stream,
                 }
                 if (mDumpFrmCnt >= 0 && mDumpFrmCnt <= frm_num) {
                     char buf[32];
+                    char timeBuf[128];
+                    time_t current_time;
+                    struct tm * timeinfo;
+
+
+                    time (&current_time);
+                    timeinfo = localtime (&current_time);
                     memset(buf, 0, sizeof(buf));
 
                     cam_dimension_t dim;
@@ -964,34 +1115,36 @@ void QCamera2HardwareInterface::dumpFrameToFile(QCameraStream *stream,
                     memset(&offset, 0, sizeof(cam_frame_len_offset_t));
                     stream->getFrameOffset(offset);
 
+                    strftime (timeBuf, sizeof(timeBuf),"/data/%Y%m%d%H%M%S_", timeinfo);
+                    String8 filePath(timeBuf);
                     switch (dump_type) {
                     case QCAMERA_DUMP_FRM_PREVIEW:
                         {
-                            snprintf(buf, sizeof(buf), "/data/%dp_%dx%d_%d.yuv",
+                            snprintf(buf, sizeof(buf), "%dp_%dx%d_%d.yuv",
                                      mDumpFrmCnt, dim.width, dim.height, frame->frame_idx);
                         }
                         break;
                     case QCAMERA_DUMP_FRM_THUMBNAIL:
                         {
-                            snprintf(buf, sizeof(buf), "/data/%dt_%dx%d_%d.yuv",
+                            snprintf(buf, sizeof(buf), "%dt_%dx%d_%d.yuv",
                                      mDumpFrmCnt, dim.width, dim.height, frame->frame_idx);
                         }
                         break;
                     case QCAMERA_DUMP_FRM_SNAPSHOT:
                         {
-                            snprintf(buf, sizeof(buf), "/data/%ds_%dx%d_%d.yuv",
+                            snprintf(buf, sizeof(buf), "%ds_%dx%d_%d.yuv",
                                      mDumpFrmCnt, dim.width, dim.height, frame->frame_idx);
                         }
                         break;
                     case QCAMERA_DUMP_FRM_VIDEO:
                         {
-                            snprintf(buf, sizeof(buf), "/data/%dv_%dx%d_%d.yuv",
+                            snprintf(buf, sizeof(buf), "%dv_%dx%d_%d.yuv",
                                      mDumpFrmCnt, dim.width, dim.height, frame->frame_idx);
                         }
                         break;
                     case QCAMERA_DUMP_FRM_RAW:
                         {
-                            snprintf(buf, sizeof(buf), "/data/%dr_%dx%d_%d.raw",
+                            snprintf(buf, sizeof(buf), "%dr_%dx%d_%d.raw",
                                      mDumpFrmCnt, offset.mp[0].stride,
                                      offset.mp[0].scanline, frame->frame_idx);
                         }
@@ -1002,7 +1155,8 @@ void QCamera2HardwareInterface::dumpFrameToFile(QCameraStream *stream,
                         return;
                     }
 
-                    int file_fd = open(buf, O_RDWR | O_CREAT, 0777);
+                    filePath.append(buf);
+                    int file_fd = open(filePath.string(), O_RDWR | O_CREAT, 0777);
                     if (file_fd > 0) {
                         void *data = NULL;
                         int written_len = 0;
