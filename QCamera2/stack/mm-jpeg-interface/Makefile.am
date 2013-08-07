@@ -17,7 +17,8 @@ libmmjpeg_interface_la_SOURCES += src/mm_jpeg_exif.c
 libmmjpeg_interface_la_SOURCES += src/mm_jpeg.c
 libmmjpeg_interface_la_SOURCES += src/mm_jpeg_interface.c
 libmmjpeg_interface_la_SOURCES += src/mm_jpeg_ionbuf.c
-
+libmmjpeg_interface_la_SOURCES += src/mm_jpegdec_interface.c
+libmmjpeg_interface_la_SOURCES += src/mm_jpegdec.c
 
 libmmjpeg_interface_la_LDFLAGS := -shared
 libmmjpeg_interface_la_LIBADD := -ldl -lqomx_core -lm
