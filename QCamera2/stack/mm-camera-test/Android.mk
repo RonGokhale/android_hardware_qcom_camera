@@ -1,3 +1,4 @@
+ifeq ($(call is-vendor-board-platform,QCOM),true)
 OLD_LOCAL_PATH := $(LOCAL_PATH)
 LOCAL_PATH:=$(call my-dir)
 
@@ -17,12 +18,15 @@ endif
 LOCAL_CFLAGS += -D_ANDROID_
 
 LOCAL_SRC_FILES:= \
+        src/mm_qcamera_main_menu.c \
         src/mm_qcamera_app.c \
         src/mm_qcamera_unit_test.c \
         src/mm_qcamera_video.c \
         src/mm_qcamera_preview.c \
         src/mm_qcamera_snapshot.c \
-        src/mm_qcamera_rdi.c
+        src/mm_qcamera_rdi.c \
+        src/mm_qcamera_reprocess.c\
+        src/mm_qcamera_queue.c
 #        src/mm_qcamera_dual_test.c \
 
 LOCAL_C_INCLUDES:=$(LOCAL_PATH)/inc
@@ -83,7 +87,9 @@ LOCAL_MODULE_TAGS := optional
 
 LOCAL_MODULE:= mm-qcamera-app
 include $(BUILD_EXECUTABLE)
+endif
 
+ifeq ($(call is-vendor-board-platform,QCOM),true)
 # Build tuning library
 include $(CLEAR_VARS)
 
@@ -100,12 +106,15 @@ endif
 LOCAL_CFLAGS += -D_ANDROID_
 
 LOCAL_SRC_FILES:= \
+        src/mm_qcamera_main_menu.c \
         src/mm_qcamera_app.c \
         src/mm_qcamera_unit_test.c \
         src/mm_qcamera_video.c \
         src/mm_qcamera_preview.c \
         src/mm_qcamera_snapshot.c \
-        src/mm_qcamera_rdi.c
+        src/mm_qcamera_rdi.c \
+        src/mm_qcamera_reprocess.c\
+        src/mm_qcamera_queue.c
 #        src/mm_qcamera_dual_test.c \
 
 LOCAL_C_INCLUDES:=$(LOCAL_PATH)/inc
@@ -166,3 +175,4 @@ LOCAL_MODULE_TAGS := optional
 
 LOCAL_MODULE:= libmm-qcamera
 include $(BUILD_SHARED_LIBRARY)
+endif

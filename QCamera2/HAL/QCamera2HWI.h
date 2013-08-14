@@ -218,6 +218,10 @@ public:
     virtual QCameraMemory *allocateStreamBuf(cam_stream_type_t stream_type,
                                              int size,
                                              uint8_t &bufferCnt);
+    virtual int32_t allocateMoreStreamBuf(QCameraMemory *mem_obj,
+                                          int size,
+                                          uint8_t &bufferCnt);
+
     virtual QCameraHeapMemory *allocateStreamInfoBuf(cam_stream_type_t stream_type);
 
     // Implementation of QCameraThermalCallback
@@ -292,6 +296,7 @@ private:
     bool isCACEnabled();
     bool needReprocess();
     bool needRotationReprocess();
+    bool needScaleReprocess();
     void debugShowVideoFPS();
     void debugShowPreviewFPS();
     void dumpJpegToFile(const void *data, uint32_t size, int index);
@@ -308,6 +313,7 @@ private:
     int32_t processAutoFocusEvent(cam_auto_focus_data_t &focus_data);
     int32_t processZoomEvent(cam_crop_data_t &crop_info);
     int32_t processPrepSnapshotDoneEvent(cam_prep_snapshot_state_t prep_snapshot_state);
+    int32_t processASDUpdate(cam_auto_scene_t scene);
     int32_t processJpegNotify(qcamera_jpeg_evt_payload_t *jpeg_job);
     int32_t processHDRData(cam_asd_hdr_scene_data_t hdr_scene);
 
