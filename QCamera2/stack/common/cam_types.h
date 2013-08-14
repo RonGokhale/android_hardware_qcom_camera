@@ -49,6 +49,7 @@
 #define MAX_ROI 5
 #define MAX_STREAM_NUM_IN_BUNDLE 4
 #define MAX_NUM_STREAMS          8
+#define MAX_SCALE_SIZES_CNT 8
 
 typedef enum {
     CAM_HAL_V1 = 1,
@@ -537,6 +538,12 @@ typedef struct {
     uint8_t ttype;
 } tune_actuator_t;
 
+typedef struct {
+    uint8_t module;
+    uint8_t type;
+    int32_t value;
+} tune_cmd_t;
+
 typedef enum {
     CAM_AEC_ROI_OFF,
     CAM_AEC_ROI_ON
@@ -711,6 +718,16 @@ typedef struct {
     uint32_t max_frame_idx;
 } cam_frame_idx_range_t;
 
+typedef enum {
+  S_NORMAL = 0,
+  S_SCENERY,
+  S_PORTRAIT,
+  S_PORTRAIT_BACKLIGHT,
+  S_SCENERY_BACKLIGHT,
+  S_BACKLIGHT,
+  S_MAX,
+} cam_auto_scene_t;
+
 typedef  struct {
     float aperture_value;
 } cam_sensor_params_t;
@@ -719,6 +736,58 @@ typedef struct {
     float exp_time;
     int iso_value;
 } cam_ae_params_t;
+
+typedef struct {
+    float     exp_time;
+    uint32_t  luma;
+    int32_t   exp_index;
+    float     lux_index;
+    float     real_gain;
+} cam_ae_eztuing_params_t;
+
+typedef struct {
+    float    r_gain;
+    float    g_gain;
+    float    b_gain;
+    uint32_t color_temp;
+    int      decision;
+    int      samp_decision[64];
+} cam_awb_eztuing_params_t;
+
+typedef struct {
+    int peak_location_index;
+} cam_af_eztuing_params_t;
+
+typedef struct {
+    int      forced;
+    uint32_t force_linecount_value;
+} cam_aec_lc_params_t;
+
+typedef struct {
+    int   forced;
+    float force_gain_value;
+} cam_aec_gain_params_t;
+
+typedef struct {
+    int   forced;
+    float force_exp_value;
+} cam_aec_exp_params_t;
+
+typedef struct {
+    int      forced;
+    uint32_t force_snap_linecount_value;
+} cam_aec_snap_lc_params_t;
+
+typedef struct {
+    int   forced;
+    float force_snap_gain_value;
+} cam_aec_snap_gain_params_t;
+
+typedef struct {
+    int   forced;
+    float force_snap_exp_value;
+} cam_aec_snap_exp_params_t;
+
 
 typedef  struct {
     uint8_t is_stats_valid;               /* if histgram data is valid */
@@ -745,6 +814,8 @@ typedef  struct {
 
     uint32_t is_hdr_scene_data_valid;
     cam_asd_hdr_scene_data_t hdr_scene_data;
+    uint8_t is_asd_decision_valid;
+    cam_auto_scene_t scene; //scene type as decided by ASD
 
     char private_metadata[MAX_METADATA_PAYLOAD_SIZE];
 
@@ -752,6 +823,41 @@ typedef  struct {
     uint8_t is_ae_params_valid;
     cam_ae_params_t ae_params;
 
+    /* AE eztuning parameters */
+    uint8_t is_ae_eztuing_params_valid;
+    cam_ae_eztuing_params_t ae_eztuing_params;
+
+    /* AWB eztuing parameters*/
+    uint8_t is_awb_eztuing_params_valid;
+    cam_awb_eztuing_params_t awb_eztuing_params;
+
+    /* AF eztuing parameters*/
+    uint8_t is_af_eztuing_params_valid;
+    cam_af_eztuing_params_t af_eztuing_params;
+
+    /* AEC force linecount eztuning parameters */
+    uint8_t is_aec_force_linecount_eztuing_params_valid;
+    cam_aec_lc_params_t aec_force_linecount_eztuing_params;
+
+    /* AEC force gain eztuing parameters*/
+    uint8_t is_aec_force_gain_eztuing_params_valid;
+    cam_aec_gain_params_t aec_force_gain_eztuing_params;
+
+    /* AEC force exp eztuing parameters*/
+    uint8_t is_aec_force_exp_eztuing_params_valid;
+    cam_aec_exp_params_t aec_force_exp_eztuing_params;
+
+    /* AEC force snap linecount eztuning parameters */
+    uint8_t is_aec_force_snap_linecount_eztuing_params_valid;
+    cam_aec_snap_lc_params_t aec_force_snap_linecount_eztuing_params;
+
+    /* AEC force snap gain eztuing parameters*/
+    uint8_t is_aec_force_snap_gain_eztuing_params_valid;
+    cam_aec_snap_gain_params_t aec_force_snap_gain_eztuing_params;
+
+    /* AEC force snap exp eztuing parameters*/
+    uint8_t is_aec_snap_force_exp_eztuing_params_valid;
+    cam_aec_snap_exp_params_t aec_force_snap_exp_eztuing_params;
     /* sensor parameters */
     uint8_t is_sensor_params_valid;
     cam_sensor_params_t sensor_params;
@@ -806,6 +912,7 @@ typedef enum {
     CAM_INTF_PARM_LOCK_CAF,
     CAM_INTF_PARM_VIDEO_HDR,
     CAM_INTF_PARM_ROTATION,
+    CAM_INTF_PARM_SCALE,
     CAM_INTF_META_CROP_DATA,
     CAM_INTF_META_PREP_SNAPSHOT_DONE,
     CAM_INTF_META_GOOD_FRAME_IDX_RANGE,
@@ -814,11 +921,24 @@ typedef enum {
     CAM_INTF_PARM_SET_AUTOFOCUSTUNING,
     CAM_INTF_PARM_GET_AFTUNE,
     CAM_INTF_PARM_SET_RELOAD_AFTUNE,
+    CAM_INTF_PARM_SET_VFE_COMMAND,
+    CAM_INTF_PARM_SET_PP_COMMAND,
 
     /* stream based parameters */
     CAM_INTF_PARM_DO_REPROCESS,
     CAM_INTF_PARM_SET_BUNDLE,
     CAM_INTF_PARM_STREAM_FLIP,
+    CAM_INTF_PARM_GET_OUTPUT_CROP,
+
+    CAM_INTF_PARM_AEC_ENABLE,
+    CAM_INTF_PARM_AWB_ENABLE,
+    CAM_INTF_PARM_AF_ENABLE,
+    CAM_INTF_PARM_AEC_FORCE_LC,
+    CAM_INTF_PARM_AEC_FORCE_GAIN,
+    CAM_INTF_PARM_AEC_FORCE_EXP,
+    CAM_INTF_PARM_AEC_FORCE_SNAP_LC,
+    CAM_INTF_PARM_AEC_FORCE_SNAP_GAIN,
+    CAM_INTF_PARM_AEC_FORCE_SNAP_EXP,
 
     /* specific to HAL3 */
     /* Whether the metadata maps to a valid frame number */
@@ -1077,6 +1197,7 @@ typedef struct {
 #define CAM_QCOM_FEATURE_SHARPNESS      (1<<7)
 #define CAM_QCOM_FEATURE_VIDEO_HDR      (1<<8)
 #define CAM_QCOM_FEATURE_CAC            (1<<9)
+#define CAM_QCOM_FEATURE_SCALE          (1<<10)
 
 // Counter clock wise
 typedef enum {
@@ -1114,6 +1235,11 @@ typedef struct {
 } cam_hdr_param_t;
 
 typedef struct {
+    int32_t output_width;
+    int32_t output_height;
+} cam_scale_param_t;
+
+typedef struct {
     /* reprocess feature mask */
     uint32_t feature_mask;
 
@@ -1124,6 +1250,7 @@ typedef struct {
     uint32_t flip;
     int32_t sharpness;
     cam_hdr_param_t hdr_param;
+    cam_scale_param_t scale_param;
 } cam_pp_feature_config_t;
 
 typedef struct {

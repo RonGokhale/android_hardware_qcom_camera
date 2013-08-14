@@ -89,7 +89,7 @@ static void mm_app_preview_notify_cb(mm_camera_super_buf_t *bufs,
     mm_camera_buf_def_t *frame = bufs->bufs[0];
     mm_camera_test_obj_t *pme = (mm_camera_test_obj_t *)user_data;
 
-    CDBG("%s: BEGIN - length=%d, frame idx = %d\n",
+    CDBG_ERROR("%s: BEGIN - length=%d, frame idx = %d\n",
          __func__, frame->frame_len, frame->frame_idx);
 
     /* find channel */
@@ -129,7 +129,11 @@ static void mm_app_preview_notify_cb(mm_camera_super_buf_t *bufs,
       mm_app_dump_frame(frame, file_name, "yuv", frame->frame_idx);
     }
 #endif
-
+    if (pme->user_preview_cb) {
+        printf("%s call back %d\n", __func__, __LINE__);
+        CDBG_ERROR("[DBG] %s, user defined own preview cb. calling it...", __func__);
+        pme->user_preview_cb(frame);
+    }
     if (MM_CAMERA_OK != pme->cam->ops->qbuf(bufs->camera_handle,
                                             bufs->ch_id,
                                             frame)) {
@@ -234,13 +238,30 @@ static void mm_app_zsl_notify_cb(mm_camera_super_buf_t *bufs,
         return;
     }
 
-    CDBG("%s: ZSL CB with fb_fd = %d, m_frame = 0x%x, p_frame = 0x%x \n", __func__, pme->fb_fd, (uint32_t )m_frame, (uint32_t )p_frame);
+    CDBG("%s: ZSL CB with fb_fd = %d, m_frame = 0x%x, p_frame = 0x%x \n",
+         __func__,
+         pme->fb_fd,
+         (uint32_t )m_frame,
+         (uint32_t )p_frame);
 
     if ( 0 < pme->fb_fd ) {
         mm_app_overlay_display(pme, p_frame->fd);
-    } else {
+    }/* else {
         mm_app_dump_frame(p_frame, "zsl_preview", "yuv", p_frame->frame_idx);
         mm_app_dump_frame(m_frame, "zsl_main", "yuv", m_frame->frame_idx);
+    }*/
+
+    if ( pme->enable_reproc && ( NULL != pme->reproc_stream ) ) {
+        rc = mm_app_do_reprocess(pme,
+                                 m_frame,
+                                 md_frame->buf_idx,
+                                 bufs,
+                                 md_stream);
+        if (MM_CAMERA_OK != rc ) {
+            CDBG_ERROR("%s: reprocess failed rc = %d", __func__, rc);
+        }
+
+        return;
     }
 
     if ( pme->encodeJpeg ) {
@@ -370,13 +391,15 @@ mm_camera_stream_t * mm_app_add_preview_stream(mm_camera_test_obj_t *test_obj,
     stream->s_config.stream_info->streaming_mode = CAM_STREAMING_MODE_CONTINUOUS;
     stream->s_config.stream_info->fmt = DEFAULT_PREVIEW_FORMAT;
 
-    if ( test_obj->buffer_width == 0 || test_obj->buffer_height == 0 ) {
-      stream->s_config.stream_info->dim.width = DEFAULT_PREVIEW_WIDTH;
-      stream->s_config.stream_info->dim.height = DEFAULT_PREVIEW_HEIGHT;
+    if ((test_obj->preview_resolution.user_input_display_width == 0) ||
+           ( test_obj->preview_resolution.user_input_display_height == 0)) {
+        stream->s_config.stream_info->dim.width = DEFAULT_PREVIEW_WIDTH;
+        stream->s_config.stream_info->dim.height = DEFAULT_PREVIEW_HEIGHT;
     } else {
-        stream->s_config.stream_info->dim.width = test_obj->buffer_width;
-        stream->s_config.stream_info->dim.height = test_obj->buffer_height;
+        stream->s_config.stream_info->dim.width = test_obj->preview_resolution.user_input_display_width;
+        stream->s_config.stream_info->dim.height = test_obj->preview_resolution.user_input_display_height;
     }
+
     stream->s_config.padding_info = cam_cap->padding_info;
 
     rc = mm_app_config_stream(test_obj, channel, stream, &stream->s_config);
@@ -665,12 +688,40 @@ int mm_app_start_preview_zsl(mm_camera_test_obj_t *test_obj)
         return rc;
     }
 
+    if ( test_obj->enable_reproc ) {
+        if ( NULL == mm_app_add_reprocess_channel(test_obj, s_main) ) {
+            CDBG_ERROR("%s: Reprocess channel failed to initialize \n", __func__);
+            mm_app_del_stream(test_obj, channel, s_preview);
+#ifdef USE_METADATA_STREAM
+            mm_app_del_stream(test_obj, channel, s_metadata);
+#endif
+            mm_app_del_stream(test_obj, channel, s_main);
+            mm_app_del_channel(test_obj, channel);
+            return rc;
+        }
+        rc = mm_app_start_reprocess(test_obj);
+        if (MM_CAMERA_OK != rc) {
+            CDBG_ERROR("%s: reprocess start failed rc=%d\n", __func__, rc);
+            mm_app_del_stream(test_obj, channel, s_preview);
+#ifdef USE_METADATA_STREAM
+            mm_app_del_stream(test_obj, channel, s_metadata);
+#endif
+            mm_app_del_stream(test_obj, channel, s_main);
+            mm_app_del_channel(test_obj, channel);
+            return rc;
+        }
+    }
+
     return rc;
 }
 
 int mm_app_stop_preview_zsl(mm_camera_test_obj_t *test_obj)
 {
     int rc = MM_CAMERA_OK;
+
+    if ( test_obj->enable_reproc ) {
+        rc |= mm_app_stop_reprocess(test_obj);
+    }
 
     mm_camera_channel_t *channel =
         mm_app_get_channel_by_type(test_obj, MM_CHANNEL_TYPE_ZSL);
@@ -679,6 +730,8 @@ int mm_app_stop_preview_zsl(mm_camera_test_obj_t *test_obj)
     if (MM_CAMERA_OK != rc) {
         CDBG_ERROR("%s:Stop Preview failed rc=%d\n", __func__, rc);
     }
+
+
 
     return rc;
 }
@@ -782,8 +835,6 @@ int mm_app_initialize_fb(mm_camera_test_obj_t *test_obj)
     }
 
     munmap(fb_base, test_obj->slice_size);
-    //
-
     test_obj->data_overlay.id = MSMFB_NEW_REQUEST;
     rc = ioctl(test_obj->fb_fd, MSMFB_OVERLAY_SET, &test_obj->data_overlay);
     if (rc < 0) {

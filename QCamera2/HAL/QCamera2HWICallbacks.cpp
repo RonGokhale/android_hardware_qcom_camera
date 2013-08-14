@@ -231,6 +231,12 @@ void QCamera2HardwareInterface::capture_channel_cb_routine(mm_camera_super_buf_t
 void QCamera2HardwareInterface::postproc_channel_cb_routine(mm_camera_super_buf_t *recvd_frame,
                                                             void *userdata)
 {
+    int32_t rc = 0;
+    QCameraStream *pStream = NULL;
+    QCameraStream *pSrcStream = NULL;
+    QCameraStream *pThmbStream = NULL;
+    QCameraStream *pThmbSrcStream = NULL;
+
     ALOGD("[KPI Perf] %s: E", __func__);
     QCamera2HardwareInterface *pme = (QCamera2HardwareInterface *)userdata;
     if (pme == NULL ||
@@ -248,6 +254,119 @@ void QCamera2HardwareInterface::postproc_channel_cb_routine(mm_camera_super_buf_
         return;
     }
     *frame = *recvd_frame;
+
+    QCameraReprocessChannel *pChannel = pme->m_postprocessor.getReprocChannel();
+    if (pChannel == NULL ||
+        pChannel->getMyHandle() != recvd_frame->ch_id) {
+        ALOGE("%s: Reprocess channel doesn't exist, return here", __func__);
+        return;
+    }
+
+    for ( int i= 0 ; i < recvd_frame->num_bufs ; i++ ) {
+         if ( recvd_frame->bufs[i]->stream_type == CAM_STREAM_TYPE_OFFLINE_PROC ) {
+             mm_camera_buf_def_t * raw_frame = recvd_frame->bufs[i];
+             pStream = pChannel->getStreamByHandle(raw_frame->stream_id);
+             if (pStream != NULL) {
+                 if (pStream->isTypeOf(CAM_STREAM_TYPE_SNAPSHOT)
+                     || pStream->isOrignalTypeOf(CAM_STREAM_TYPE_SNAPSHOT)) {
+                         break;
+                 } else {
+                     pStream = NULL;
+                 }
+             }
+         }
+    }
+
+    if (pStream == NULL) {
+        ALOGE("%s: Reprocessing stream not found", __func__);
+    }
+
+    for ( int i= 0 ; i < recvd_frame->num_bufs ; i++ ) {
+         if ( recvd_frame->bufs[i]->stream_type == CAM_STREAM_TYPE_OFFLINE_PROC ) {
+             mm_camera_buf_def_t * raw_frame = recvd_frame->bufs[i];
+             pThmbStream = pChannel->getStreamByHandle(raw_frame->stream_id);
+             if (pThmbStream != NULL) {
+               if (pThmbStream->isTypeOf(CAM_STREAM_TYPE_PREVIEW) ||
+                   pThmbStream->isTypeOf(CAM_STREAM_TYPE_POSTVIEW) ||
+                   pThmbStream->isOrignalTypeOf(CAM_STREAM_TYPE_PREVIEW) ||
+                   pThmbStream->isOrignalTypeOf(CAM_STREAM_TYPE_POSTVIEW)) {
+                         break;
+                 } else {
+                   pThmbStream = NULL;
+                 }
+             }
+         }
+    }
+
+    if (pThmbStream == NULL) {
+        ALOGE("%s: Reprocessing stream not found", __func__);
+    }
+
+    for (int i = 0; i < recvd_frame->num_bufs; i++) {
+        pSrcStream =
+            pChannel->getStreamByHandle(recvd_frame->bufs[i]->stream_id);
+        if (pSrcStream != NULL) {
+            if (pSrcStream->isTypeOf(CAM_STREAM_TYPE_SNAPSHOT)
+                || pSrcStream->isOrignalTypeOf(CAM_STREAM_TYPE_SNAPSHOT)) {
+                    break;
+            } else {
+                pSrcStream = NULL;
+            }
+        }
+    }
+
+    if (pSrcStream == NULL) {
+        ALOGE("%s: Snapshot stream doesn't exist, return here", __func__);
+    }
+
+    for (int i = 0; i < recvd_frame->num_bufs; i++) {
+      pThmbSrcStream =
+            pChannel->getStreamByHandle(recvd_frame->bufs[i]->stream_id);
+        if (pThmbSrcStream != NULL) {
+          if (pThmbSrcStream->isTypeOf(CAM_STREAM_TYPE_PREVIEW) ||
+              pThmbSrcStream->isTypeOf(CAM_STREAM_TYPE_POSTVIEW) ||
+              pThmbSrcStream->isOrignalTypeOf(CAM_STREAM_TYPE_PREVIEW) ||
+              pThmbSrcStream->isOrignalTypeOf(CAM_STREAM_TYPE_POSTVIEW)) {
+                  break;
+            } else {
+              pThmbSrcStream = NULL;
+            }
+        }
+    }
+
+    if (pThmbSrcStream == NULL) {
+        ALOGE("%s: Thumbnail stream doesn't exist, return here", __func__);
+    }
+
+    if (pStream && pSrcStream && pThmbStream && pThmbSrcStream) {
+        cam_stream_parm_buffer_t param;
+        memset(&param, 0, sizeof(cam_stream_parm_buffer_t));
+        param.type = CAM_STREAM_PARAM_TYPE_GET_OUTPUT_CROP;
+
+        rc = pStream->getParameter(param);
+        if (rc != NO_ERROR) {
+            ALOGE("%s: stream setParameter for reprocess failed", __func__);
+        } else {
+           for (int i = 0; i < param.outputCrop.num_of_streams; i++) {
+               if (param.outputCrop.crop_info[i].stream_id
+                   == pStream->getMyServerID()) {
+                       pSrcStream->setCropInfo(param.outputCrop.crop_info[i].crop);
+               }
+           }
+        }
+
+        rc = pThmbStream->getParameter(param);
+        if (rc != NO_ERROR) {
+            ALOGE("%s: stream setParameter for reprocess failed", __func__);
+        } else {
+           for (int i = 0; i < param.outputCrop.num_of_streams; i++) {
+               if (param.outputCrop.crop_info[i].stream_id
+                   == pThmbStream->getMyServerID()) {
+                       pThmbSrcStream->setCropInfo(param.outputCrop.crop_info[i].crop);
+               }
+           }
+        }
+    }
 
     // send to postprocessor
     pme->m_postprocessor.processPPData(frame);
@@ -321,6 +440,7 @@ void QCamera2HardwareInterface::preview_stream_cb_routine(mm_camera_super_buf_t 
     }
 
     // Display the buffer.
+    ALOGV("%p displayBuffer %d E", pme, idx);
     int dequeuedIdx = memory->displayBuffer(idx);
     if (dequeuedIdx < 0 || dequeuedIdx >= memory->getCnt()) {
         ALOGD("%s: Invalid dequeued buffer index %d from display",
@@ -954,6 +1074,25 @@ void QCamera2HardwareInterface::metadata_stream_cb_routine(mm_camera_super_buf_t
     /*Update Sensor info*/
     if (pMetaData->is_sensor_params_valid) {
         pme->mExifParams.sensor_params = pMetaData->sensor_params;
+    }
+
+    if (pMetaData->is_asd_decision_valid) {
+        qcamera_sm_internal_evt_payload_t *payload =
+            (qcamera_sm_internal_evt_payload_t *)malloc(sizeof(qcamera_sm_internal_evt_payload_t));
+        if (NULL != payload) {
+            memset(payload, 0, sizeof(qcamera_sm_internal_evt_payload_t));
+            payload->evt_type = QCAMERA_INTERNAL_EVT_ASD_UPDATE;
+            payload->asd_data = pMetaData->scene;
+            int32_t rc = pme->processEvt(QCAMERA_SM_EVT_EVT_INTERNAL, payload);
+            if (rc != NO_ERROR) {
+                ALOGE("%s: processEvt prep_snapshot failed", __func__);
+                free(payload);
+                payload = NULL;
+
+            }
+        } else {
+            ALOGE("%s: No memory for prep_snapshot qcamera_sm_internal_evt_payload_t", __func__);
+        }
     }
 
     stream->bufDone(frame->buf_idx);
