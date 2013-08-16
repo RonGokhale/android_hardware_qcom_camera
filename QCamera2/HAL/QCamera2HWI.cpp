@@ -1457,6 +1457,34 @@ QCameraMemory *QCamera2HardwareInterface::allocateStreamBuf(cam_stream_type_t st
 }
 
 /*===========================================================================
+ * FUNCTION   : allocateMoreStreamBuf
+ *
+ * DESCRIPTION: alocate more stream buffers from the memory object
+ *
+ * PARAMETERS :
+ *   @mem_obj      : memory object ptr
+ *   @size         : size of buffer
+ *   @bufferCnt    : [IN/OUT] additional number of buffers to be allocated.
+ *                   output will be the number of total buffers
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCamera2HardwareInterface::allocateMoreStreamBuf(QCameraMemory *mem_obj,
+                                                         int size,
+                                                         uint8_t &bufferCnt)
+{
+    int rc = NO_ERROR;
+
+    if (bufferCnt > 0) {
+        rc = mem_obj->allocateMore(bufferCnt, size);
+        bufferCnt = mem_obj->getCnt();
+    }
+    return rc;
+}
+
+/*===========================================================================
  * FUNCTION   : allocateStreamInfoBuf
  *
  * DESCRIPTION: alocate stream info buffer
@@ -1490,6 +1518,7 @@ QCameraHeapMemory *QCamera2HardwareInterface::allocateStreamInfoBuf(
     streamInfo->stream_type = stream_type;
     rc = mParameters.getStreamFormat(stream_type, streamInfo->fmt);
     rc = mParameters.getStreamDimension(stream_type, streamInfo->dim);
+    streamInfo->num_bufs = getBufNumRequired(stream_type);
 
     streamInfo->streaming_mode = CAM_STREAMING_MODE_CONTINUOUS;
     switch (stream_type) {
@@ -2175,12 +2204,40 @@ char* QCamera2HardwareInterface::getParameters()
 {
     char* strParams = NULL;
     String8 str;
+
+    int cur_width, cur_height;
+
+    //Need take care Scale picture size
+    if(mParameters.m_reprocScaleParam.isScaleEnabled() &&
+        mParameters.m_reprocScaleParam.isUnderScaling()){
+        int scale_width, scale_height;
+
+        mParameters.m_reprocScaleParam.getPicSizeFromAPK(scale_width,scale_height);
+        mParameters.getPictureSize(&cur_width, &cur_height);
+
+        String8 pic_size;
+        char buffer[32];
+        snprintf(buffer, sizeof(buffer), "%dx%d", scale_width, scale_height);
+        pic_size.append(buffer);
+        mParameters.set(CameraParameters::KEY_PICTURE_SIZE, pic_size);
+    }
+
     str = mParameters.flatten( );
     strParams = (char *)malloc(sizeof(char)*(str.length()+1));
     if(strParams != NULL){
         memset(strParams, 0, sizeof(char)*(str.length()+1));
         strncpy(strParams, str.string(), str.length());
         strParams[str.length()] = 0;
+    }
+
+    if(mParameters.m_reprocScaleParam.isScaleEnabled() &&
+        mParameters.m_reprocScaleParam.isUnderScaling()){
+        //need set back picture size
+        String8 pic_size;
+        char buffer[32];
+        snprintf(buffer, sizeof(buffer), "%dx%d", cur_width, cur_height);
+        pic_size.append(buffer);
+        mParameters.set(CameraParameters::KEY_PICTURE_SIZE, pic_size);
     }
     return strParams;
 }
@@ -2704,6 +2761,64 @@ int32_t QCamera2HardwareInterface::processPrepSnapshotDoneEvent(
 }
 
 /*===========================================================================
+ * FUNCTION   : processASDUpdate
+ *
+ * DESCRIPTION: process ASD update event
+ *
+ * PARAMETERS :
+ *   @scene: selected scene mode
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCamera2HardwareInterface::processASDUpdate(cam_auto_scene_t scene)
+{
+    //set ASD parameter
+    mParameters.set(QCameraParameters::KEY_SELECTED_AUTO_SCENE, mParameters.getASDStateString(scene));
+
+    size_t data_len = sizeof(cam_auto_scene_t);
+    size_t buffer_len = 1 *sizeof(int)       //meta type
+                      + 1 *sizeof(int)       //data len
+                      + data_len;            //data
+    camera_memory_t *asdBuffer = mGetMemory(-1,
+                                             buffer_len,
+                                             1,
+                                             mCallbackCookie);
+    if ( NULL == asdBuffer ) {
+        ALOGE("%s: Not enough memory for histogram data", __func__);
+        return NO_MEMORY;
+    }
+
+    int *pASDData = (int *)asdBuffer->data;
+    if (pASDData == NULL) {
+        ALOGE("%s: memory data ptr is NULL", __func__);
+        return UNKNOWN_ERROR;
+    }
+
+    pASDData[0] = CAMERA_META_DATA_ASD;
+    pASDData[1] = data_len;
+    pASDData[2] = scene;
+
+    qcamera_callback_argm_t cbArg;
+    memset(&cbArg, 0, sizeof(qcamera_callback_argm_t));
+    cbArg.cb_type = QCAMERA_DATA_CALLBACK;
+    cbArg.msg_type = CAMERA_MSG_META_DATA;
+    cbArg.data = asdBuffer;
+    cbArg.user_data = asdBuffer;
+    cbArg.cookie = this;
+    cbArg.release_cb = releaseCameraMemory;
+    int32_t rc = m_cbNotifier.notifyCallback(cbArg);
+    if (rc != NO_ERROR) {
+        ALOGE("%s: fail sending notification", __func__);
+        asdBuffer->release(asdBuffer);
+    }
+    return NO_ERROR;
+
+}
+
+
+/*===========================================================================
  * FUNCTION   : processJpegNotify
  *
  * DESCRIPTION: process jpeg event
@@ -2833,11 +2948,16 @@ int32_t QCamera2HardwareInterface::addStreamToChannel(QCameraChannel *pChannel,
         return NO_MEMORY;
     }
     uint8_t minStreamBufNum = getBufNumRequired(streamType);
+    bool bDynAllocBuf = false;
+    if (isZSLMode() && streamType == CAM_STREAM_TYPE_SNAPSHOT) {
+        bDynAllocBuf = true;
+    }
     rc = pChannel->addStream(*this,
                              pStreamInfo,
                              minStreamBufNum,
                              &gCamCapability[mCameraId]->padding_info,
-                             streamCB, userData);
+                             streamCB, userData,
+                             bDynAllocBuf);
     if (rc != NO_ERROR) {
         ALOGE("%s: add stream type (%d) failed, ret = %d",
               __func__, streamType, rc);
@@ -3230,7 +3350,6 @@ int32_t QCamera2HardwareInterface::addCaptureChannel()
         return rc;
     }
 
-
     // meta data stream always coexists with snapshot in regular capture case
     rc = addStreamToChannel(pChannel, CAM_STREAM_TYPE_METADATA,
                             metadata_stream_cb_routine, this);
@@ -3419,6 +3538,12 @@ QCameraReprocessChannel *QCamera2HardwareInterface::addOnlineReprocChannel(
         pp_config.hdr_param.hdr_enable = 0;
     }
 
+    if(needScaleReprocess()){
+        pp_config.feature_mask |= CAM_QCOM_FEATURE_SCALE;
+        mParameters.m_reprocScaleParam.getPicSizeFromAPK(
+              pp_config.scale_param.output_width, pp_config.scale_param.output_height);
+    }
+
     ALOGD("%s: After pproc config check, ret = %x", __func__, pp_config.feature_mask);
 
     rc = pChannel->addReprocStreamsFromSource(*this,
@@ -3495,7 +3620,7 @@ QCameraReprocessChannel *QCamera2HardwareInterface::addOfflineReprocChannel(
     rc = pChannel->addStream(*this,
                              pStreamInfo, img_config.num_of_bufs,
                              &gCamCapability[mCameraId]->padding_info,
-                             stream_cb, userdata);
+                             stream_cb, userdata, false);
 
     if (rc != NO_ERROR) {
         ALOGE("%s: add reprocess stream failed, ret = %d", __func__, rc);
@@ -4279,6 +4404,16 @@ bool QCamera2HardwareInterface::needReprocess()
             return true;
         }
     }
+
+    if ((gCamCapability[mCameraId]->qcom_supported_feature_mask & CAM_QCOM_FEATURE_SCALE) > 0 &&
+        mParameters.m_reprocScaleParam.isScaleEnabled() &&
+        mParameters.m_reprocScaleParam.isUnderScaling()) {
+        // Reproc Scale is enaled and also need Scaling to current Snapshot
+        ALOGD("%s: need do reprocess for scale", __func__);
+        pthread_mutex_unlock(&m_parm_lock);
+        return true;
+    }
+
     pthread_mutex_unlock(&m_parm_lock);
     return false;
 }
@@ -4316,6 +4451,39 @@ bool QCamera2HardwareInterface::needRotationReprocess()
     pthread_mutex_unlock(&m_parm_lock);
     return false;
 }
+
+/*===========================================================================
+ * FUNCTION   : needScaleReprocess
+ *
+ * DESCRIPTION: if scale needs to be done by reprocess in pp
+ *
+ * PARAMETERS : none
+ *
+ * RETURN     : true: needed
+ *              false: no need
+ *==========================================================================*/
+bool QCamera2HardwareInterface::needScaleReprocess()
+{
+    pthread_mutex_lock(&m_parm_lock);
+    if (!mParameters.isJpegPictureFormat()) {
+        // RAW image, no need to reprocess
+        pthread_mutex_unlock(&m_parm_lock);
+        return false;
+    }
+
+    if ((gCamCapability[mCameraId]->qcom_supported_feature_mask & CAM_QCOM_FEATURE_SCALE) > 0 &&
+        mParameters.m_reprocScaleParam.isScaleEnabled() &&
+        mParameters.m_reprocScaleParam.isUnderScaling()) {
+        // Reproc Scale is enaled and also need Scaling to current Snapshot
+        ALOGD("%s: need do reprocess for scale", __func__);
+        pthread_mutex_unlock(&m_parm_lock);
+        return true;
+    }
+
+    pthread_mutex_unlock(&m_parm_lock);
+    return false;
+}
+
 
 /*===========================================================================
  * FUNCTION   : getThumbnailSize
