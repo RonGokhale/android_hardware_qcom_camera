@@ -1178,12 +1178,11 @@ static int submain(mm_camera_test_obj_t *test_obj)
         test_obj->app_handle->no_display = false;
     }
 
-    rc = mm_app_start_preview(test_obj);
+    rc = mm_app_set_default_params(test_obj);
     assert(MM_CAMERA_OK == rc);
 
-    uint32_t param = CAM_AEC_MODE_FRAME_AVERAGE;
-    //Default Auto exposure.
-    mm_app_set_params(test_obj, CAM_INTF_PARM_AEC_ALGO_TYPE, sizeof(param), &param);
+    rc = mm_app_start_preview(test_obj);
+    assert(MM_CAMERA_OK == rc);
 
 
     do {
@@ -1686,7 +1685,7 @@ int set_flash_mode (mm_camera_test_obj_t *test_obj, int action_param)
             break;
         case FLASH_MODE_TORCH:
             printf("\n FLASH_MODE_TORCH\n");
-            type = CAM_ISO_MODE_100;
+            type = CAM_FLASH_MODE_TORCH;
             break;
         default:
             break;
