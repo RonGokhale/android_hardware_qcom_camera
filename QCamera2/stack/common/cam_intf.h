@@ -271,6 +271,9 @@ typedef struct{
     uint8_t supported_ae_modes_cnt;
     cam_ae_mode_type supported_ae_modes[CAM_AE_MODE_MAX];
 
+    /* picture sizes need scale*/
+    uint8_t scale_picture_sizes_cnt;
+    cam_dimension_t scale_picture_sizes[MAX_SCALE_SIZES_CNT];
 } cam_capability_t;
 
 typedef enum {
@@ -284,6 +287,7 @@ typedef enum {
     CAM_STREAM_PARAM_TYPE_SET_BUNDLE_INFO = CAM_INTF_PARM_SET_BUNDLE,
     CAM_STREAM_PARAM_TYPE_SET_FLIP = CAM_INTF_PARM_STREAM_FLIP,
     CAM_STREAM_PARAM_SET_STREAM_CONSUMER,
+    CAM_STREAM_PARAM_TYPE_GET_OUTPUT_CROP = CAM_INTF_PARM_GET_OUTPUT_CROP,
     CAM_STREAM_PARAM_TYPE_MAX
 } cam_stream_param_type_e;
 
@@ -310,7 +314,8 @@ typedef struct {
         cam_reprocess_param reprocess;  /* do reprocess */
         cam_bundle_config_t bundleInfo; /* set bundle info*/
         cam_flip_mode_t flipInfo;       /* flip mode */
-        cam_stream_consumer_t consumer;  /* stream consumer */
+        cam_stream_consumer_t consumer; /* stream consumer */
+        cam_crop_data_t outputCrop;     /* output crop for current frame */
     };
 } cam_stream_parm_buffer_t;
 
@@ -332,6 +337,9 @@ typedef struct {
        dim, and padding_info(from stream config). Info including:
        offset_x, offset_y, stride, scanline, plane offset */
     cam_stream_buf_plane_info_t buf_planes;
+
+    /* number of stream bufs will be allocated */
+    uint8_t num_bufs;
 
     /* streaming type */
     cam_streaming_mode_t streaming_mode;
@@ -379,9 +387,12 @@ typedef union {
     INCLUDE(CAM_INTF_PARM_ANTIBANDING,              int32_t,                     1);
     INCLUDE(CAM_INTF_PARM_EXPOSURE_COMPENSATION,    int32_t,                     1);
     INCLUDE(CAM_INTF_PARM_AEC_LOCK,                 int32_t,                     1);
+    INCLUDE(CAM_INTF_PARM_AEC_ENABLE,               int32_t,                     1);
     INCLUDE(CAM_INTF_PARM_FPS_RANGE,                cam_fps_range_t,             1);
     INCLUDE(CAM_INTF_PARM_FOCUS_MODE,               uint8_t,                     1);
     INCLUDE(CAM_INTF_PARM_AWB_LOCK,                 int32_t,                     1);
+    INCLUDE(CAM_INTF_PARM_AWB_ENABLE,               int32_t,                     1);
+    INCLUDE(CAM_INTF_PARM_AF_ENABLE,                int32_t,                     1);
     INCLUDE(CAM_INTF_PARM_WHITE_BALANCE,            int32_t,                     1);
     INCLUDE(CAM_INTF_PARM_EFFECT,                   int32_t,                     1);
     INCLUDE(CAM_INTF_PARM_BESTSHOT_MODE,            int32_t,                     1);
@@ -418,6 +429,19 @@ typedef union {
     INCLUDE(CAM_INTF_PARM_HDR_NEED_1X,              int32_t,                     1);
     INCLUDE(CAM_INTF_PARM_LOCK_CAF,                 int32_t,                     1);
     INCLUDE(CAM_INTF_PARM_VIDEO_HDR,                int32_t,                     1);
+    INCLUDE(CAM_INTF_PARM_GET_CHROMATIX,            tune_chromatix_t,            1);
+    INCLUDE(CAM_INTF_PARM_SET_RELOAD_CHROMATIX,     tune_chromatix_t,            1);
+    INCLUDE(CAM_INTF_PARM_GET_AFTUNE,               tune_autofocus_t,            1);
+    INCLUDE(CAM_INTF_PARM_SET_RELOAD_AFTUNE,        tune_autofocus_t,            1);
+    INCLUDE(CAM_INTF_PARM_SET_AUTOFOCUSTUNING,      tune_actuator_t,             1);
+    INCLUDE(CAM_INTF_PARM_SET_VFE_COMMAND,          tune_cmd_t,                  1);
+    INCLUDE(CAM_INTF_PARM_SET_PP_COMMAND,           tune_cmd_t,                  1);
+    INCLUDE(CAM_INTF_PARM_AEC_FORCE_LC,             cam_aec_lc_params_t,         1);
+    INCLUDE(CAM_INTF_PARM_AEC_FORCE_GAIN,           cam_aec_gain_params_t,       1);
+    INCLUDE(CAM_INTF_PARM_AEC_FORCE_EXP,            cam_aec_exp_params_t,        1);
+    INCLUDE(CAM_INTF_PARM_AEC_FORCE_SNAP_LC,        cam_aec_snap_lc_params_t,    1);
+    INCLUDE(CAM_INTF_PARM_AEC_FORCE_SNAP_GAIN,      cam_aec_snap_gain_params_t,  1);
+    INCLUDE(CAM_INTF_PARM_AEC_FORCE_SNAP_EXP,       cam_aec_snap_exp_params_t,   1);
 
     /* HAL3 sepcific */
     INCLUDE(CAM_INTF_META_FRAME_NUMBER,             uint32_t,                    1);

@@ -52,6 +52,54 @@ public:
     virtual ~QCameraAdjustFPS() {}
 };
 
+class QCameraParameters;
+class QCameraReprocScaleParam{
+public:
+    QCameraReprocScaleParam(QCameraParameters *parent);
+    virtual ~QCameraReprocScaleParam();
+
+    virtual void setScaleEnable(bool enabled);
+    virtual int32_t setScaleSizeTbl(uint8_t scale_cnt, cam_dimension_t *scale_tbl, uint8_t org_cnt, cam_dimension_t *org_tbl);
+    virtual int32_t setValidatePicSize(int &width, int &height);
+
+    virtual bool isScaleEnabled();
+    virtual bool isUnderScaling();
+
+
+    virtual uint8_t getScaleSizeTblCnt();
+    virtual cam_dimension_t *getScaledSizeTbl();
+    virtual uint8_t getTotalSizeTblCnt();
+    virtual cam_dimension_t *getTotalSizeTbl();
+    virtual int32_t getPicSizeFromAPK(int &width, int &height);
+    virtual int32_t getPicSizeSetted(int &width, int &height);
+
+private:
+    bool isScalePicSize(int width, int height);
+    bool isValidatePicSize(int width, int height);
+    int32_t setSensorSupportedPicSize();
+    uint8_t checkScaleSizeTable(uint8_t scale_cnt, cam_dimension_t *scale_tbl, uint8_t org_cnt, cam_dimension_t *org_tbl);
+
+    QCameraParameters *mParent;
+    bool mScaleEnabled;
+    bool mIsUnderScaling;   //if in scale status
+    bool mScaleDirection;   // 0: Upscaling; 1: Downscaling
+
+    // picture size cnt that need scale operation
+    uint8_t mNeedScaleCnt;
+    cam_dimension_t mNeedScaledSizeTbl[MAX_SCALE_SIZES_CNT];
+
+    // sensor supported size cnt and table
+    uint8_t mSensorSizeTblCnt;
+    cam_dimension_t *mSensorSizeTbl;
+
+    // Total size cnt (sensor supported + need scale cnt)
+    uint8_t mTotalSizeTblCnt;
+    cam_dimension_t mTotalSizeTbl[MAX_SIZES_CNT];
+
+    cam_dimension_t mPicSizeFromAPK;   // dimension that APK is expected
+    cam_dimension_t mPicSizeSetted;    // dimension that config vfe
+};
+
 class QCameraParameters: public CameraParameters
 {
 public:
@@ -344,6 +392,8 @@ public:
     static const char FLIP_MODE_H[];
     static const char FLIP_MODE_VH[];
 
+    static const char KEY_SELECTED_AUTO_SCENE[];
+
     enum {
         CAMERA_ORIENTATION_UNKNOWN = 0,
         CAMERA_ORIENTATION_PORTRAIT = 1,
@@ -353,6 +403,9 @@ public:
         const char *const desc;
         int val;
     } QCameraMap;
+
+    friend class QCameraReprocScaleParam;
+    QCameraReprocScaleParam m_reprocScaleParam;
 
     void getSupportedHfrSizes(Vector<Size> &sizes);
     void setPreviewFrameRateMode(const char *mode);
@@ -419,6 +472,7 @@ public:
     int32_t adjustPreviewFpsRange(cam_fps_range_t *fpsRange);
     bool isJpegPictureFormat() {return (mPictureFormat == CAM_FORMAT_JPEG);};
     bool isNV16PictureFormat() {return (mPictureFormat == CAM_FORMAT_YUV_422_NV16);};
+    bool isNV21PictureFormat() {return (mPictureFormat == CAM_FORMAT_YUV_420_NV21);};
     cam_denoise_process_type_t getWaveletDenoiseProcessPlate();
     int32_t getLiveSnapshotSize(cam_dimension_t &dim) {dim = m_LiveSnapshotSize; return NO_ERROR;};
     int getFlipMode(cam_stream_type_t streamType);
@@ -430,11 +484,14 @@ public:
     bool isAFRunning() {return m_bAFRunning;};
     bool isHDREnabled() {return m_bHDREnabled;};
     bool isHDR1xFrameEnabled() {return m_bHDR1xFrameEnabled;}
+    bool isYUVFrameInfoNeeded();
+    const char*getFrameFmtString(cam_format_t fmt);
 
     bool isPreviewFlipChanged() { return m_bPreviewFlipChanged; };
     bool isVideoFlipChanged() { return m_bVideoFlipChanged; };
     bool isSnapshotFlipChanged() { return m_bSnapshotFlipChanged; };
 
+    const char *getASDStateString(cam_auto_scene_t scene);
 private:
     int32_t setPreviewSize(const QCameraParameters& );
     int32_t setVideoSize(const QCameraParameters& );

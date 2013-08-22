@@ -110,6 +110,7 @@ public:
     int32_t processPPData(mm_camera_super_buf_t *frame);
     int32_t processJpegEvt(qcamera_jpeg_evt_payload_t *evt);
     int32_t getJpegPaddingReq(cam_padding_info_t &padding_info);
+    QCameraReprocessChannel * getReprocChannel() {return m_pReprocChannel;};
 
 private:
     int32_t sendDataNotify(int32_t msg_type,
@@ -136,6 +137,8 @@ private:
     static void releaseOngoingPPData(void *data, void *user_data);
 
     static void *dataProcessRoutine(void *data);
+
+    int32_t setYUVFrameInfo(mm_camera_super_buf_t *recvd_frame);
 
 private:
     QCamera2HardwareInterface *m_parent;
