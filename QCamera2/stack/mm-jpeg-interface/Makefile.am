@@ -26,3 +26,7 @@ libmmjpeg_interface_la_LIBADD := -ldl -lqomx_core -lm
 dirs :=
 SUBDIRS = $(dirs)
 
+if USE_DLOG
+libmmjpeg_interface_la_CFLAGS += -DUSE_DLOG @DLOG_CFLAGS@	
+libmmjpeg_interface_la_LIBADD += @DLOG_LIBS@
+endif

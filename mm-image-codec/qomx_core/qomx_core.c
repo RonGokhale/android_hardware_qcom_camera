@@ -25,17 +25,33 @@ WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
 OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
 
+
+#if defined(USE_DLOG)
+  #include <dlog/dlog.h> 
+#elif defined(_ANDROID_) 
+  #include <utils/Log.h>
+#else
+    #include <stdio.h>
+#endif
+
+#undef CDBG
+#undef LOGE
+#undef LOGD
+#define LOG_DEBUG
+
 #define LOG_NDEBUG 0
 #define LOG_NIDEBUG 0
 #define LOG_TAG "qomx_image_core"
 //#include <utils/Log.h>
 
 #include "qomx_core.h"
-
 #define BUFF_SIZE 255
 
-#define ALOGE(fmt, args...) fprintf(stderr, fmt, ##args)
-#define ALOGD(fmt, args...) fprintf(stderr, fmt, ##args)
+#if !defined(USE_DLOG) &&  !defined(_ANDROID_)
+  #define ALOGE(fmt, args...) fprintf(stderr, ""fmt"\n", ##args)
+  #define ALOGD(fmt, args...) fprintf(stderr, ""fmt"\n", ##args)
+#endif  
+
 static omx_core_t *g_omxcore;
 static pthread_mutex_t g_omxcore_lock = PTHREAD_MUTEX_INITIALIZER;
 static int g_omxcore_cnt = 0;
@@ -93,7 +109,7 @@ OMX_API OMX_ERRORTYPE OMX_APIENTRY OMX_Init()
     rc = OMX_ErrorInsufficientResources;
   }
   pthread_mutex_unlock(&g_omxcore_lock);
-  ALOGE("%s:%d] Complete %d", __func__, __LINE__, comp_cnt);
+  ALOGD("%s:%d] Complete %d", __func__, __LINE__, comp_cnt);
   return rc;
 }
 
@@ -117,7 +133,7 @@ OMX_API OMX_ERRORTYPE OMX_APIENTRY OMX_Deinit()
     g_omxcore_cnt--;
   }
 
-  ALOGE("%s:%d] Complete", __func__, __LINE__);
+  ALOGD("%s:%d] Complete", __func__, __LINE__);
   pthread_mutex_unlock(&g_omxcore_lock);
   return OMX_ErrorNone;
 }
@@ -235,7 +251,7 @@ OMX_API OMX_ERRORTYPE OMX_APIENTRY OMX_GetHandle(
 
   /* Call the function from the address to create the obj */
   p_obj = (*p_core_comp->get_instance)();
-  ALOGE("%s:%d] get instance pts is %p", __func__, __LINE__, p_obj);
+  ALOGD("%s:%d] get instance pts is %p", __func__, __LINE__, p_obj);
   if (NULL == p_obj) {
     ALOGE("%s:%d] Error cannot create object", __func__, __LINE__);
     rc = OMX_ErrorInvalidComponent;
@@ -259,7 +275,7 @@ OMX_API OMX_ERRORTYPE OMX_APIENTRY OMX_GetHandle(
 
   p_comp->SetCallbacks(p_comp, callBacks, appData);
   pthread_mutex_unlock(&g_omxcore_lock);
-  ALOGE("%s:%d] Success", __func__, __LINE__);
+  ALOGD("%s:%d] Success", __func__, __LINE__);
   return OMX_ErrorNone;
 
 error:
@@ -269,7 +285,7 @@ error:
     p_core_comp->lib_handle = NULL;
   }
   pthread_mutex_unlock(&g_omxcore_lock);
-  ALOGE("%s:%d] Error %d", __func__, __LINE__, rc);
+  ALOGD("%s:%d] Error %d", __func__, __LINE__, rc);
   return rc;
 }
 
@@ -289,7 +305,7 @@ static int get_idx_from_handle(OMX_IN OMX_HANDLETYPE *ahComp, int *aCompIdx,
     for (j = 0; j < OMX_COMP_MAX_INSTANCES; j++) {
       if ((OMX_COMPONENTTYPE *)g_omxcore->component[i].handle[j] ==
         (OMX_COMPONENTTYPE *)ahComp) {
-        ALOGE("%s:%d] comp_idx %d inst_idx %d", __func__, __LINE__, i, j);
+        ALOGD("%s:%d] comp_idx %d inst_idx %d", __func__, __LINE__, i, j);
         *aCompIdx = i;
         *aInstIdx = j;
         return TRUE;
@@ -330,7 +346,7 @@ OMX_API OMX_ERRORTYPE OMX_APIENTRY OMX_FreeHandle(
   OMX_COMPONENTTYPE *p_comp = NULL;
   omx_core_component_t *p_core_comp = NULL;
 
-  ALOGE("%s:%d] ", __func__, __LINE__);
+  ALOGD("%s:%d] ", __func__, __LINE__);
   if (hComp == NULL) {
     return OMX_ErrorBadParameter;
   }
@@ -365,6 +381,6 @@ OMX_API OMX_ERRORTYPE OMX_APIENTRY OMX_FreeHandle(
     ALOGE("%s:%d] Error Component is still Active", __func__, __LINE__);
   }
   pthread_mutex_unlock(&g_omxcore_lock);
-  ALOGE("%s:%d] Success", __func__, __LINE__);
+  ALOGD("%s:%d] Success", __func__, __LINE__);
   return rc;
 }

@@ -32,3 +32,8 @@ mm_qcamera_app_SOURCES += src/mm_qcamera_display.c
 
 mm_qcamera_app_LDADD := -ldl
 mm_qcamera_app_LDADD += ../../../QCamera2/stack/mm-camera-interface/libmmcamera_interface.la
+
+if USE_DLOG
+mm_qcamera_app_CFLAGS += -DUSE_DLOG @DLOG_CFLAGS@	
+mm_qcamera_app_LDADD += @DLOG_LIBS@
+endif
