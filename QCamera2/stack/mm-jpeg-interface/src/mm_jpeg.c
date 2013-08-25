@@ -218,7 +218,8 @@ OMX_ERRORTYPE mm_jpeg_session_change_state(mm_jpeg_job_session_t* p_session,
     return OMX_ErrorIncorrectStateTransition;
   }
   CDBG("%s:%d] ", __func__, __LINE__);
-  if (OMX_ErrorNone != p_session->error_flag) {
+  if ((OMX_ErrorNone != p_session->error_flag) &&
+      (OMX_ErrorOverflow != p_session->error_flag)) {
     CDBG_ERROR("%s:%d] Error %d", __func__, __LINE__, p_session->error_flag);
     pthread_mutex_unlock(&p_session->lock);
     return p_session->error_flag;
@@ -1049,6 +1050,7 @@ static OMX_ERRORTYPE mm_jpeg_configure_job_params(
   }
   work_buffer.fd = p_session->work_buffer.p_pmem_fd;
   work_buffer.vaddr = p_session->work_buffer.addr;
+  work_buffer.length = p_session->work_buffer.size;
   CDBG_ERROR("%s:%d] Work buffer %d %p", __func__, __LINE__,
     work_buffer.fd, work_buffer.vaddr);
 
@@ -2013,8 +2015,8 @@ OMX_ERRORTYPE mm_jpeg_fbd(OMX_HANDLETYPE hComponent,
   uint32_t i = 0;
   int rc = 0;
   mm_jpeg_output_t output_buf;
-
   CDBG("%s:%d] count %d ", __func__, __LINE__, p_session->fbd_count);
+  ALOGE("[KPI Perf] : PROFILE_JPEG_FBD");
 
   pthread_mutex_lock(&p_session->lock);
 
@@ -2070,7 +2072,7 @@ OMX_ERRORTYPE mm_jpeg_event_handler(OMX_HANDLETYPE hComponent,
   }
 
   if (eEvent == OMX_EventError) {
-    p_session->error_flag = OMX_ErrorHardware;
+    p_session->error_flag = nData2;
     if (p_session->encoding == OMX_TRUE) {
       CDBG("%s:%d] Error during encoding", __func__, __LINE__);
 
