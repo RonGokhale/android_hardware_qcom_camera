@@ -332,6 +332,38 @@ static int32_t mm_camera_intf_prepare_snapshot(uint32_t camera_handle,
 }
 
 /*===========================================================================
+ * FUNCTION   : mm_camera_intf_unprepare_snapshot
+ *
+ * DESCRIPTION: unprepare hardware for snapshot
+ *
+ * PARAMETERS :
+ *   @camera_handle: camera handle
+ *   @ch_id        : channel handle
+ *
+ * RETURN     : int32_t type of status
+ *              0  -- success
+ *              -1 -- failure
+ *==========================================================================*/
+static int32_t mm_camera_intf_unprepare_snapshot(uint32_t camera_handle,
+                                                 uint32_t ch_id)
+{
+    int32_t rc = -1;
+    mm_camera_obj_t * my_obj = NULL;
+
+    pthread_mutex_lock(&g_intf_lock);
+    my_obj = mm_camera_util_get_camera_by_handler(camera_handle);
+
+    if(my_obj) {
+        pthread_mutex_lock(&my_obj->cam_lock);
+        pthread_mutex_unlock(&g_intf_lock);
+        rc = mm_camera_unprepare_snapshot(my_obj, ch_id);
+    } else {
+        pthread_mutex_unlock(&g_intf_lock);
+    }
+    return rc;
+}
+
+/*===========================================================================
  * FUNCTION   : mm_camera_intf_close
  *
  * DESCRIPTION: close a camera by its handle
@@ -1262,6 +1294,7 @@ static mm_camera_ops_t mm_camera_ops = {
     .do_auto_focus = mm_camera_intf_do_auto_focus,
     .cancel_auto_focus = mm_camera_intf_cancel_auto_focus,
     .prepare_snapshot = mm_camera_intf_prepare_snapshot,
+    .unprepare_snapshot = mm_camera_intf_unprepare_snapshot,
     .map_buf = mm_camera_intf_map_buf,
     .unmap_buf = mm_camera_intf_unmap_buf,
     .add_channel = mm_camera_intf_add_channel,

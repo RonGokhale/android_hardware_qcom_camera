@@ -68,7 +68,7 @@ public:
     QCameraStream *getStreamByIndex(uint8_t index);
     QCameraStream *getStreamByServerID(uint32_t serverID);
     int32_t UpdateStreamBasedParameters(QCameraParameters &param);
-
+    int32_t unprepareSnapshot();
 protected:
     uint32_t m_camHandle;
     mm_camera_ops_t *m_camOps;
