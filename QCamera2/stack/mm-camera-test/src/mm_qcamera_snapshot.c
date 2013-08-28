@@ -469,6 +469,12 @@ int mm_app_take_picture(mm_camera_test_obj_t *test_obj, uint8_t is_burst_mode)
     if (is_burst_mode)
         test_obj->app_handle->num_snapshot = 4;
 
+
+    test_obj->cam->ops->prepare_snapshot(test_obj->cam->camera_handle, false);
+    CDBG("%s:Wait for prepare snapshot!!\n",__func__);
+    //wait for prepare snapshot done.
+    mm_camera_app_wait();
+
     //stop preview before starting capture.
     rc = mm_app_stop_preview(test_obj);
     assert(rc == MM_CAMERA_OK);

@@ -406,6 +406,11 @@ static void mm_app_metadata_notify_cb(mm_camera_super_buf_t *bufs,
 #endif
          }
     }
+    if (pMetaData->is_prep_snapshot_done_valid) {
+       CDBG("%s: Prepare SnapShot done !!\n",__func__);
+       //Notify for prepare snapshot done.
+       mm_camera_app_done();
+    }
 
     rc = pme->cam->ops->qbuf(bufs->camera_handle, bufs->ch_id, frame);
     assert(rc == MM_CAMERA_OK);

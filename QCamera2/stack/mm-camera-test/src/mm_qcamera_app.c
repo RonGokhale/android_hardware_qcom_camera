@@ -43,7 +43,6 @@ static pthread_mutex_t app_mutex;
 static int thread_status = 0;
 static pthread_cond_t app_cond_v;
 
-
 #define MM_QCAMERA_APP_NANOSEC_SCALE 1000000000
 
 int mm_camera_app_timedwait(uint8_t seconds)
@@ -620,7 +619,87 @@ int mm_app_open(mm_camera_app_t *cam_app,
     //init jpeg frame queue structure to 0
     memset(test_obj->jpeg_frame_queue, 0, sizeof(mm_camera_app_frame_stack) * CAMERA_MAX_JPEG_SESSIONS);
 
+    rc = init_batch_update(test_obj->params_buffer);
+    assert(MM_CAMERA_OK == rc);
+
     CDBG("%s:Exit\n", __func__);
+
+    return rc;
+}
+
+int mm_app_set_default_params(mm_camera_test_obj_t *test_obj)
+{
+    CDBG_HIGH("%s: Enter", __func__);
+    int rc = MM_CAMERA_OK;
+
+    //Default Focus mode.
+    uint32_t param = CAM_FOCUS_MODE_AUTO;
+    rc = mm_app_set_params(test_obj, CAM_INTF_PARM_FOCUS_MODE, sizeof(param), &param);
+    assert(MM_CAMERA_OK == rc);
+
+    //Default Auto exposure.
+    param = CAM_AEC_MODE_FRAME_AVERAGE;
+    rc = mm_app_set_params(test_obj, CAM_INTF_PARM_AEC_ALGO_TYPE, sizeof(param), &param);
+    assert(MM_CAMERA_OK == rc);
+
+    //Default Focus Algo.
+    param = CAM_FOCUS_ALGO_AUTO;
+    rc = mm_app_set_params(test_obj, CAM_INTF_PARM_FOCUS_ALGO_TYPE, sizeof(param), &param);
+    assert(MM_CAMERA_OK == rc);
+
+    //Default exposure compensation.
+    param = 0;
+    rc = mm_app_set_params(test_obj, CAM_INTF_PARM_EXPOSURE_COMPENSATION,sizeof(param), &param);
+    assert(MM_CAMERA_OK == rc);
+
+    //Default WB.
+    param = CAM_WB_MODE_AUTO;
+    rc = mm_app_set_params(test_obj, CAM_INTF_PARM_WHITE_BALANCE, sizeof(param), &param);
+    assert(MM_CAMERA_OK == rc);
+
+    //Default antibanding.
+    param = CAM_ANTIBANDING_MODE_OFF;
+    rc = mm_app_set_params(test_obj, CAM_INTF_PARM_ANTIBANDING, sizeof(param), &param);
+    assert(MM_CAMERA_OK == rc);
+
+    //Default scene effect.
+    param = CAM_EFFECT_MODE_OFF;
+    rc = mm_app_set_params(test_obj, CAM_INTF_PARM_EFFECT, sizeof(param), &param);
+    assert(MM_CAMERA_OK == rc);
+
+    //Defautt ISO mode.
+    param = CAM_ISO_MODE_AUTO;
+    rc = mm_app_set_params(test_obj, CAM_INTF_PARM_ISO, sizeof(param), &param);
+    assert(MM_CAMERA_OK == rc);
+
+    //Default exp bracket.
+    cam_exp_bracketing_t expBracket;
+    memset(&expBracket, 0, sizeof(expBracket));
+    expBracket.mode = CAM_EXP_BRACKETING_OFF;
+    rc = mm_app_set_params(test_obj, CAM_INTF_PARM_HDR, sizeof(param), &param);
+    assert(MM_CAMERA_OK == rc);
+
+    //Default MCE.
+    param = 1;
+    rc = mm_app_set_params(test_obj, CAM_INTF_PARM_MCE, sizeof(param), &param);
+    assert(MM_CAMERA_OK == rc);
+
+    //Default DIS.
+    param = 0;
+    rc = mm_app_set_params(test_obj, CAM_INTF_PARM_DIS_ENABLE, sizeof(param), &param);
+    assert(MM_CAMERA_OK == rc);
+
+    //Default ASD.
+    rc = mm_app_set_params(test_obj, CAM_INTF_PARM_ASD_ENABLE, sizeof(param), &param);
+    assert(MM_CAMERA_OK == rc);
+
+    //Aec Lock.
+    rc = mm_app_set_params(test_obj, CAM_INTF_PARM_AEC_LOCK, sizeof(param), &param);
+    assert(MM_CAMERA_OK == rc);
+
+    //Awb Lock.
+    rc = mm_app_set_params(test_obj, CAM_INTF_PARM_AWB_LOCK, sizeof(param), &param);
+    assert(MM_CAMERA_OK == rc);
 
     return rc;
 }
@@ -635,9 +714,6 @@ int mm_app_set_params(mm_camera_test_obj_t *test_obj,
     assert(NULL != paramValue);
 
     CDBG(":%s: param_type =%d, param value: %s, param length =%d",__func__, param_type, paramValue, paramLength);
-
-    rc = init_batch_update(test_obj->params_buffer);
-    assert(MM_CAMERA_OK == rc);
 
     rc = add_parm_entry_tobatch(test_obj->params_buffer, param_type, paramLength, paramValue);
     assert(MM_CAMERA_OK == rc);
