@@ -62,6 +62,19 @@ else
 	BUILD_JPEG=false
 fi
 
+AC_ARG_WITH([dlog],	
+      AC_HELP_STRING([--with-dlog],
+         [enable dlog, building HLOS systems which use dlog]))
+
+if (test "x${with_dlog}" = "xyes"); then
+      AC_DEFINE(ENABLE_USEDLOG, 1, [Define if HLOS systems uses dlog])
+      PKG_CHECK_MODULES(DLOG, [dlog])	
+      AC_SUBST(DLOG_CFLAGS)
+      AC_SUBST(DLOG_LIBS)
+fi
+
+AM_CONDITIONAL(USE_DLOG, test "x${with_dlog}" = "xyes")
+
 AC_ARG_ENABLE([debug],
 	[AS_HELP_STRING([--enable-debug],[Build with debug flags and options])],
 	[DEBUG=$enableval],

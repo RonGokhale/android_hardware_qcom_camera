@@ -46,3 +46,7 @@ libmmcamera_interface_la_LIBADD := -ldl -lpthread
 dirs :=
 SUBDIRS = $(dirs)
 
+if USE_DLOG
+libmmcamera_interface_la_CFLAGS += -DUSE_DLOG @DLOG_CFLAGS@	
+libmmcamera_interface_la_LIBADD += @DLOG_LIBS@
+endif

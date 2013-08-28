@@ -30,41 +30,46 @@
 #ifndef __MM_CAMERA_DBG_H__
 #define __MM_CAMERA_DBG_H__
 
+#if defined(USE_DLOG)
+  #include <dlog/dlog.h> 
+#elif defined(_ANDROID_) 
+  #include <utils/Log.h>
+#else
+    #include <stdio.h>
+#endif
+
 #undef CDBG
 #undef LOGE
+#undef LOGD
 //#define LOG_DEBUG
 
 #ifndef LOG_DEBUG
   #define CDBG(fmt, args...) do{}while(0)
-  #ifdef _ANDROID_
+  #if defined(_ANDROID_) || defined (USE_DLOG)
     #undef LOG_NIDEBUG
     #undef LOG_TAG
     #define LOG_NIDEBUG 0
-    #define LOG_TAG "mm-camera-intf"
-    #include <utils/Log.h>
-  #else
-    #include <stdio.h>
+    #define LOG_TAG "mm-camera-intf"  
+  #else    
     #define LOGE(fmt, args...) do {} while (0)
   #endif
 #else
-  #ifdef _ANDROID_
+  #if defined(_ANDROID_) || defined (USE_DLOG)
     #undef LOG_NIDEBUG
     #undef LOG_TAG
     #define LOG_NIDEBUG 0
-    #define LOG_TAG "mm-camera-intf"
-    #include <utils/Log.h>
-    #define CDBG(fmt, args...) ALOGE(fmt, ##args)
-  #else
-    #include <stdio.h>
+    #define LOG_TAG "mm-camera-intf"    
+    #define CDBG(fmt, args...) ALOGV(fmt, ##args)
+  #else    
     #define CDBG(fmt, args...) fprintf(stderr, ""fmt"\n", ##args)
     #define LOGE(fmt, args...) fprintf(stderr, ""fmt"\n", ##args)
   #endif
 #endif
 
-#ifdef _ANDROID_
-  #define CDBG_HIGH(fmt, args...)  ALOGE(fmt, ##args)
+#if defined(_ANDROID_) || defined (USE_DLOG)
+  #define CDBG_HIGH(fmt, args...)  ALOGI(fmt, ##args)
   #define CDBG_ERROR(fmt, args...)  ALOGE(fmt, ##args)
-  #define CDBG_LOW(fmt, args...) ALOGE(fmt, ##args)
+  #define CDBG_LOW(fmt, args...) ALOGD(fmt, ##args)
 #else
   #define ALOGE(fmt, args...) fprintf(stderr, ""fmt"\n", ##args)
   #define CDBG_HIGH(fmt, args...) fprintf(stderr, ""fmt"\n", ##args)

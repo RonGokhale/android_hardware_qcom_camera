@@ -17,3 +17,8 @@ libqomx_core_la_SOURCES := qomx_core/qomx_core.c
 #LOCAL_SHARED_LIBRARIES := libcutils libdl
 libqomx_core_la_LDFLAGS := -shared
 libqomx_core_la_LIBADD := -ldl -lrt
+
+if USE_DLOG
+libqomx_core_la_CFLAGS += -DUSE_DLOG @DLOG_CFLAGS@	
+libqomx_core_la_LIBADD += @DLOG_LIBS@
+endif
