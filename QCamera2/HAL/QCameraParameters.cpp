@@ -104,6 +104,7 @@ const char QCameraParameters::KEY_QC_SUPPORTED_FLIP_MODES[] = "flip-mode-values"
 const char QCameraParameters::KEY_QC_VIDEO_HDR[] = "video-hdr";
 const char QCameraParameters::KEY_QC_SUPPORTED_VIDEO_HDR_MODES[] = "video-hdr-values";
 const char QCameraParameters::KEY_QC_SNAPSHOT_BURST_NUM[] = "snapshot-burst-num";
+const char QCameraParameters::KEY_QC_SNAPSHOT_FD_DATA[] = "snapshot-fd-data-enable";
 
 // Values for effect settings.
 const char QCameraParameters::EFFECT_EMBOSS[] = "emboss";
@@ -281,6 +282,8 @@ const char QCameraParameters::FLIP_MODE_V[] = "flip-v";
 const char QCameraParameters::FLIP_MODE_H[] = "flip-h";
 const char QCameraParameters::FLIP_MODE_VH[] = "flip-vh";
 
+const char QCameraParameters::KEY_SELECTED_AUTO_SCENE[] = "selected-auto-scene";
+
 static const char* portrait = "portrait";
 static const char* landscape = "landscape";
 
@@ -315,6 +318,7 @@ const QCameraParameters::QCameraMap QCameraParameters::PREVIEW_FORMATS_MAP[] = {
 
 const QCameraParameters::QCameraMap QCameraParameters::PICTURE_TYPES_MAP[] = {
     {PIXEL_FORMAT_JPEG,                          CAM_FORMAT_JPEG},
+    {PIXEL_FORMAT_YUV420SP,                      CAM_FORMAT_YUV_420_NV21},
     {PIXEL_FORMAT_YUV422SP,                      CAM_FORMAT_YUV_422_NV16},
     {QC_PIXEL_FORMAT_YUV_RAW_8BIT_YUYV,          CAM_FORMAT_YUV_RAW_8BIT_YUYV},
     {QC_PIXEL_FORMAT_YUV_RAW_8BIT_YVYU,          CAM_FORMAT_YUV_RAW_8BIT_YVYU},
@@ -538,6 +542,7 @@ const QCameraParameters::QCameraMap QCameraParameters::FLIP_MODES_MAP[] = {
  *==========================================================================*/
 QCameraParameters::QCameraParameters()
     : CameraParameters(),
+      m_reprocScaleParam(this),
       m_pCapability(NULL),
       m_pCamOpsTbl(NULL),
       m_pParamHeap(NULL),
@@ -569,6 +574,9 @@ QCameraParameters::QCameraParameters()
       m_bHDREnabled(false),
       m_AdjustFPS(NULL),
       m_bHDR1xFrameEnabled(true),
+      m_HDRSceneEnabled(false),
+      m_bHDRThumbnailProcessNeeded(true),
+      m_bHDR1xExtraBufferNeeded(true),
       m_tempMap()
 {
     char value[32];
@@ -603,6 +611,7 @@ QCameraParameters::QCameraParameters()
  *==========================================================================*/
 QCameraParameters::QCameraParameters(const String8 &params)
     : CameraParameters(params),
+    m_reprocScaleParam(this),
     m_pCapability(NULL),
     m_pCamOpsTbl(NULL),
     m_pParamHeap(NULL),
@@ -632,6 +641,9 @@ QCameraParameters::QCameraParameters(const String8 &params)
     m_bHDREnabled(false),
     m_AdjustFPS(NULL),
     m_bHDR1xFrameEnabled(true),
+    m_HDRSceneEnabled(false),
+    m_bHDRThumbnailProcessNeeded(true),
+    m_bHDR1xExtraBufferNeeded(true),
     m_tempMap()
 {
     memset(&m_LiveSnapshotSize, 0, sizeof(m_LiveSnapshotSize));
@@ -1024,9 +1036,26 @@ int32_t QCameraParameters::setPictureSize(const QCameraParameters& params)
     ALOGV("Requested picture size %d x %d", width, height);
 
     // Validate the picture size
-    for (size_t i = 0; i < m_pCapability->picture_sizes_tbl_cnt; ++i) {
-        if (width ==  m_pCapability->picture_sizes_tbl[i].width
-           && height ==  m_pCapability->picture_sizes_tbl[i].height) {
+    if(!m_reprocScaleParam.isScaleEnabled()){
+        for (size_t i = 0; i < m_pCapability->picture_sizes_tbl_cnt; ++i) {
+            if (width ==  m_pCapability->picture_sizes_tbl[i].width
+               && height ==  m_pCapability->picture_sizes_tbl[i].height) {
+                // check if need to restart preview in case of picture size change
+                int old_width, old_height;
+                CameraParameters::getPictureSize(&old_width, &old_height);
+                if ((m_bZslMode || m_bRecordingHint) &&
+                    (width != old_width || height != old_height)) {
+                    m_bNeedRestart = true;
+                }
+
+                // set the new value
+                CameraParameters::setPictureSize(width, height);
+                return NO_ERROR;
+            }
+        }
+    }else{
+        //should use scaled picture size table to validate
+        if(m_reprocScaleParam.setValidatePicSize(width, height) == NO_ERROR){
             // check if need to restart preview in case of picture size change
             int old_width, old_height;
             CameraParameters::getPictureSize(&old_width, &old_height);
@@ -1036,7 +1065,10 @@ int32_t QCameraParameters::setPictureSize(const QCameraParameters& params)
             }
 
             // set the new value
-            CameraParameters::setPictureSize(width, height);
+            char val[32];
+            sprintf(val, "%dx%d", width, height);
+            updateParamEntry(KEY_PICTURE_SIZE, val);
+            ALOGV("%s: %s", __func__, val);
             return NO_ERROR;
         }
     }
@@ -1782,6 +1814,34 @@ int32_t QCameraParameters::setAntibanding(const QCameraParameters& params)
 }
 
 /*===========================================================================
+ * FUNCTION   : setStatsDebugMask
+ *
+ * DESCRIPTION: get the value from persist file in Stats module that will
+ *              control funtionality in the module
+ *
+ * PARAMETERS : none
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraParameters::setStatsDebugMask()
+{
+    uint32_t mask = 0;
+    char value[PROPERTY_VALUE_MAX];
+
+    property_get("persist.camera.stats.debug.mask", value, "0");
+    mask = (uint32_t)atoi(value);
+
+    ALOGE("%s: ctrl mask :%d", __func__, mask);
+
+    return AddSetParmEntryToBatch(m_pParamBuf,
+                                  CAM_INTF_PARM_STATS_DEBUG_MASK,
+                                  sizeof(mask),
+                                  &mask);
+}
+
+/*===========================================================================
  * FUNCTION   : setSceneDetect
  *
  * DESCRIPTION: set scenen detect value from user setting
@@ -2209,6 +2269,10 @@ int32_t QCameraParameters::setSceneMode(const QCameraParameters& params)
             }
 
             if (strcmp(str, SCENE_MODE_HDR) == 0) {
+                if ((m_pCapability->qcom_supported_feature_mask & CAM_QCOM_FEATURE_HDR) == 0){
+                    ALOGD("%s: HDR is not supported",__func__);
+                    return NO_ERROR;
+                }
                 m_bHDREnabled = true;
             } else {
                 m_bHDREnabled = false;
@@ -2283,8 +2347,7 @@ int32_t QCameraParameters::setSelectableZoneAf(const QCameraParameters& params)
  *==========================================================================*/
 int32_t QCameraParameters::setAEBracket(const QCameraParameters& params)
 {
-    const char *scene_mode = params.get(KEY_SCENE_MODE);
-    if (scene_mode != NULL && strcmp(scene_mode, SCENE_MODE_HDR) == 0) {
+    if (isHDREnabled()) {
         ALOGE("%s: scene mode is HDR, overwrite AE bracket setting to off", __func__);
         return setAEBracket(AE_BRACKET_OFF);
     }
@@ -2434,45 +2497,35 @@ int32_t QCameraParameters::setNumOfSnapshot()
     int nBurstNum = getBurstNum();
     uint8_t nExpnum = 0;
 
-    if (isHDREnabled()) {
-        /* According to Android SDK, only one snapshot,
-         * but OEM might have different requirement */
-        if (m_bHDR1xFrameEnabled) {
-            nExpnum = 2; // HDR needs both 1X and processed img
-        } else {
-            nExpnum = 1; // HDR only needs processed img
-        }
-    } else {
-        const char *bracket_str = get(KEY_QC_AE_BRACKET_HDR);
-        if (bracket_str != NULL && strlen(bracket_str) > 0) {
-            int value = lookupAttr(BRACKETING_MODES_MAP,
-                                   sizeof(BRACKETING_MODES_MAP)/sizeof(QCameraMap),
-                                   bracket_str);
-            switch (value) {
-            case CAM_EXP_BRACKETING_ON:
-                {
-                    nExpnum = 0;
-                    const char *str_val = get(KEY_QC_CAPTURE_BURST_EXPOSURE);
-                    if ((str_val != NULL) && (strlen(str_val) > 0)) {
-                        char prop[PROPERTY_VALUE_MAX];
-                        memset(prop, 0, sizeof(prop));
-                        strcpy(prop, str_val);
-                        char *saveptr = NULL;
-                        char *token = strtok_r(prop, ",", &saveptr);
-                        while (token != NULL) {
-                            token = strtok_r(NULL, ",", &saveptr);
-                            nExpnum++;
-                        }
-                    }
-                    if (nExpnum == 0) {
-                        nExpnum = 1;
+    const char *bracket_str = get(KEY_QC_AE_BRACKET_HDR);
+    if (bracket_str != NULL && strlen(bracket_str) > 0) {
+        int value = lookupAttr(BRACKETING_MODES_MAP,
+                               sizeof(BRACKETING_MODES_MAP)/sizeof(QCameraMap),
+                               bracket_str);
+        switch (value) {
+        case CAM_EXP_BRACKETING_ON:
+            {
+                nExpnum = 0;
+                const char *str_val = get(KEY_QC_CAPTURE_BURST_EXPOSURE);
+                if ((str_val != NULL) && (strlen(str_val) > 0)) {
+                    char prop[PROPERTY_VALUE_MAX];
+                    memset(prop, 0, sizeof(prop));
+                    strcpy(prop, str_val);
+                    char *saveptr = NULL;
+                    char *token = strtok_r(prop, ",", &saveptr);
+                    while (token != NULL) {
+                        token = strtok_r(NULL, ",", &saveptr);
+                        nExpnum++;
                     }
                 }
-                break;
-            default:
-                nExpnum = 1;
-                break;
+                if (nExpnum == 0) {
+                    nExpnum = 1;
+                }
             }
+            break;
+        default:
+            nExpnum = 1 + getNumOfExtraHDROutBufsIfNeeded();
+            break;
         }
     }
 
@@ -2780,6 +2833,32 @@ int32_t QCameraParameters::setBurstNum(const QCameraParameters& params)
     return NO_ERROR;
 }
 
+/*===========================================================================
+ * FUNCTION   : setSnapshotFDReq
+ *
+ * DESCRIPTION: set requirement of Face Detection Metadata in Snapshot mode.
+ *
+ * PARAMETERS :
+ *   @params  : user setting parameters
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraParameters::setSnapshotFDReq(const QCameraParameters& params)
+{
+    char prop[32];
+    const char *str = params.get(KEY_QC_SNAPSHOT_FD_DATA);
+
+    if(str != NULL){
+        set(KEY_QC_SNAPSHOT_FD_DATA, str);
+    }else{
+        memset(prop, 0, sizeof(prop));
+        property_get("persist.camera.snapshot.fd", prop, "0");
+        set(KEY_QC_SNAPSHOT_FD_DATA, prop);
+    }
+    return NO_ERROR;
+}
 
 /*===========================================================================
  * FUNCTION   : updateParameters
@@ -2856,9 +2935,11 @@ int32_t QCameraParameters::updateParameters(QCameraParameters& params,
     if ((rc = setFlip(params)))                         final_rc = rc;
     if ((rc = setVideoHDR(params)))                     final_rc = rc;
     if ((rc = setBurstNum(params)))                     final_rc = rc;
+    if ((rc = setSnapshotFDReq(params)))                final_rc = rc;
 
     // update live snapshot size after all other parameters are set
     if ((rc = setLiveSnapshotSize(params)))             final_rc = rc;
+    if ((rc = setStatsDebugMask()))                     final_rc = rc;
 
 UPDATE_PARAM_DONE:
     needRestart = m_bNeedRestart;
@@ -2968,6 +3049,28 @@ int32_t QCameraParameters::initDefaultParameters()
            m_pCapability->picture_sizes_tbl[m_pCapability->picture_sizes_tbl_cnt-1].height);
     } else {
         ALOGE("%s: supported picture sizes cnt is 0 or exceeds max!!!", __func__);
+    }
+
+    // Need check if scale should be enabled
+    if (m_pCapability->scale_picture_sizes_cnt > 0 &&
+        m_pCapability->scale_picture_sizes_cnt <= MAX_SCALE_SIZES_CNT){
+        //get scale size, enable scaling. And re-set picture size table with scale sizes
+        m_reprocScaleParam.setScaleEnable(true);
+        int rc_s = m_reprocScaleParam.setScaleSizeTbl(
+            m_pCapability->scale_picture_sizes_cnt, m_pCapability->scale_picture_sizes,
+            m_pCapability->picture_sizes_tbl_cnt, m_pCapability->picture_sizes_tbl);
+        if(rc_s == NO_ERROR){
+            cam_dimension_t *totalSizeTbl = m_reprocScaleParam.getTotalSizeTbl();
+            uint8_t totalSizeCnt = m_reprocScaleParam.getTotalSizeTblCnt();
+            String8 pictureSizeValues = createSizesString(totalSizeTbl, totalSizeCnt);
+            set(KEY_SUPPORTED_PICTURE_SIZES, pictureSizeValues.string());
+            ALOGE("%s: scaled supported pic sizes: %s", __func__, pictureSizeValues.string());
+        }else{
+            m_reprocScaleParam.setScaleEnable(false);
+            ALOGE("%s: reset scaled picture size table failed.", __func__);
+        }
+    }else{
+        m_reprocScaleParam.setScaleEnable(false);
     }
 
     // Set supported thumbnail sizes
@@ -3238,6 +3341,7 @@ int32_t QCameraParameters::initDefaultParameters()
     setAEBracket(AE_BRACKET_OFF);
 
     // Set Denoise
+    if ((m_pCapability->qcom_supported_feature_mask & CAM_QCOM_FEATURE_DENOISE2D) > 0){
     String8 denoiseValues = createValuesStringFromMap(
        DENOISE_ON_OFF_MODES_MAP, sizeof(DENOISE_ON_OFF_MODES_MAP) / sizeof(QCameraMap));
     set(KEY_QC_SUPPORTED_DENOISE, denoiseValues.string());
@@ -3246,6 +3350,7 @@ int32_t QCameraParameters::initDefaultParameters()
 #else
     setWaveletDenoise(DENOISE_OFF);
 #endif
+    }
 
     // Set feature enable/disable
     String8 enableDisableValues = createValuesStringFromMap(
@@ -3284,13 +3389,22 @@ int32_t QCameraParameters::initDefaultParameters()
     m_bHDREnabled = false;
     m_bHDR1xFrameEnabled = true;
 
+    m_bHDRThumbnailProcessNeeded = true;
+    m_bHDR1xExtraBufferNeeded = true;
+    for (uint32_t i=0; i<m_pCapability->hdr_bracketing_setting.num_frames; i++) {
+        if (0 == m_pCapability->hdr_bracketing_setting.exp_val.values[i]) {
+            m_bHDR1xExtraBufferNeeded = false;
+            break;
+        }
+    }
+
     //Set Face Detection
     set(KEY_QC_SUPPORTED_FACE_DETECTION, onOffValues);
     set(KEY_QC_FACE_DETECTION, VALUE_OFF);
 
     //Set Face Recognition
-    set(KEY_QC_SUPPORTED_FACE_RECOGNITION, onOffValues);
-    set(KEY_QC_FACE_RECOGNITION, VALUE_OFF);
+    //set(KEY_QC_SUPPORTED_FACE_RECOGNITION, onOffValues);
+    //set(KEY_QC_FACE_RECOGNITION, VALUE_OFF);
 
     //Set ZSL
     set(KEY_QC_SUPPORTED_ZSL_MODES, onOffValues);
@@ -3334,9 +3448,6 @@ int32_t QCameraParameters::initDefaultParameters()
 
     // Set default Camera mode
     set(KEY_QC_CAMERA_MODE, 0);
-
-    // TODO: hardcode for now until mctl add support for min_num_pp_bufs
-    m_pCapability->min_num_pp_bufs = 3;
 
     int32_t rc = commitParameters();
     if (rc == NO_ERROR) {
@@ -3442,6 +3553,8 @@ void QCameraParameters::deinit()
     m_AdjustFPS = NULL;
 
     m_tempMap.clear();
+
+    m_bInited = false;
 }
 
 /*===========================================================================
@@ -4772,6 +4885,11 @@ cam_denoise_process_type_t QCameraParameters::getWaveletDenoiseProcessPlate()
  *==========================================================================*/
 int32_t QCameraParameters::setWaveletDenoise(const char *wnrStr)
 {
+    if ((m_pCapability->qcom_supported_feature_mask & CAM_QCOM_FEATURE_DENOISE2D) == 0){
+        ALOGD("%s: WNR is not supported",__func__);
+        return NO_ERROR;
+    }
+
     if (wnrStr != NULL) {
         int value = lookupAttr(DENOISE_ON_OFF_MODES_MAP,
                                sizeof(DENOISE_ON_OFF_MODES_MAP)/sizeof(QCameraMap),
@@ -5026,6 +5144,22 @@ int QCameraParameters::getFlipMode(cam_stream_type_t type)
 }
 
 /*===========================================================================
+ * FUNCTION   : isSnapshotFDNeeded
+ *
+ * DESCRIPTION: check whether Face Detection Metadata is needed
+ *
+ * PARAMETERS : none
+ *
+ * RETURN     : bool type of status
+ *              0 - need
+ *              1 - not need
+ *==========================================================================*/
+bool QCameraParameters::isSnapshotFDNeeded()
+{
+    return getInt(KEY_QC_SNAPSHOT_FD_DATA);
+}
+
+/*===========================================================================
  * FUNCTION   : getStreamDimension
  *
  * DESCRIPTION: get stream dimension by its type
@@ -5252,50 +5386,47 @@ uint8_t QCameraParameters::getNumOfSnapshots()
 }
 
 /*===========================================================================
- * FUNCTION   : getNumOfExtraHDRBufsIfNeeded
+ * FUNCTION   : getNumOfExtraHDRInBufsIfNeeded
  *
- * DESCRIPTION: get number of extra buffers needed by HDR if HDR is enabled
- *
- * PARAMETERS : none
- *
- * RETURN     : number of extra buffer needed by HDR; 0 if not HDR enabled
- *==========================================================================*/
-uint8_t QCameraParameters::getNumOfExtraHDRBufsIfNeeded()
-{
-    uint8_t numOfBufs = 0;
-    const char *scene_mode = get(KEY_SCENE_MODE);
-    if (scene_mode != NULL && strcmp(scene_mode, SCENE_MODE_HDR) == 0) {
-        // HDR mode
-        numOfBufs = getBurstNum() * m_pCapability->min_num_hdr_bufs;
-    }
-    return numOfBufs;
-}
-
-/*===========================================================================
- * FUNCTION   : getNumOfHDRBufsIfNeeded
- *
- * DESCRIPTION: get number of buffers needed by HDR if HDR is enabled
+ * DESCRIPTION: get number of extra input buffers needed by HDR
  *
  * PARAMETERS : none
  *
- * RETURN     : number of buffer needed by HDR; 0 if not HDR enabled
+ * RETURN     : number of extra buffers needed by HDR; 0 if not HDR enabled
  *==========================================================================*/
-uint8_t QCameraParameters::getNumOfHDRBufsIfNeeded()
+uint8_t QCameraParameters::getNumOfExtraHDRInBufsIfNeeded()
 {
     uint8_t numOfBufs = 0;
 
     if (isHDREnabled()) {
-        // HDR mode
-        if (m_bHDR1xFrameEnabled) {
-            numOfBufs = 2; // HDR needs both 1X and processed img
-        } else {
-            numOfBufs = 1; // HDR only needs processed img
+        numOfBufs += m_pCapability->hdr_bracketing_setting.num_frames;
+        if (isHDR1xFrameEnabled() && isHDR1xExtraBufferNeeded()) {
+            numOfBufs++;
         }
-
-        numOfBufs += m_pCapability->min_num_hdr_bufs;
-
+        numOfBufs--; // Only additional buffers need to be returned
     }
-    return numOfBufs;
+
+    return numOfBufs * getBurstNum();
+}
+
+/*===========================================================================
+ * FUNCTION   : getNumOfExtraHDROutBufsIfNeeded
+ *
+ * DESCRIPTION: get number of extra output buffers needed by HDR
+ *
+ * PARAMETERS : none
+ *
+ * RETURN     : number of extra buffers needed by HDR; 0 if not HDR enabled
+ *==========================================================================*/
+uint8_t QCameraParameters::getNumOfExtraHDROutBufsIfNeeded()
+{
+    uint8_t numOfBufs = 0;
+
+    if (isHDREnabled() && isHDR1xFrameEnabled()) {
+        numOfBufs++;
+    }
+
+    return numOfBufs * getBurstNum();
 }
 
 /*===========================================================================
@@ -5810,7 +5941,7 @@ int32_t QCameraParameters::setFaceDetection(bool enabled)
     fd_set_parm.fd_mode = faceProcMask;
     fd_set_parm.num_fd = requested_faces;
 
-    ALOGD("[KPI Perf] %s: Face detection value = %d num_fd = %d",
+    ALOGE("[KPI Perf] %s: PROFILE_FACE_DETECTION_VALUE = %d num_fd = %d",
           __func__, faceProcMask,requested_faces);
     if(initBatchUpdate(m_pParamBuf) < 0 ) {
         ALOGE("%s:Failed to initialize group update table", __func__);
@@ -5921,6 +6052,38 @@ int32_t QCameraParameters::setFrameSkip(enum msm_vfe_frame_skip_pattern pattern)
     }
 
     return rc;
+}
+
+/*===========================================================================
+ * FUNCTION   : getASDStateString
+ *
+ * DESCRIPTION: get ASD result in string format
+ *
+ * PARAMETERS :
+ *   @scene : selected scene mode
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+ const char *QCameraParameters::getASDStateString(cam_auto_scene_t scene)
+{
+    switch (scene) {
+      case S_NORMAL :
+        return "Normal";
+      case S_SCENERY:
+        return "Scenery";
+      case S_PORTRAIT:
+        return "Portrait";
+      case S_PORTRAIT_BACKLIGHT:
+        return "Portrait-Backlight";
+      case S_SCENERY_BACKLIGHT:
+        return "Scenery-Backlight";
+      case S_BACKLIGHT:
+        return "Backlight";
+      default:
+        return "<Unknown!>";
+      }
 }
 
 /*===========================================================================
@@ -6088,6 +6251,48 @@ bool QCameraParameters::validateCameraAreas(cam_area_t *areas, int num_areas)
         }
     }
     return true;
+}
+
+/*===========================================================================
+ * FUNCTION   : isYUVFrameInfoNeeded
+ *
+ * DESCRIPTION: In AE-Bracket mode, we need set yuv buffer information for up-layer
+ *
+ * PARAMETERS : none
+ *
+ * RETURN     : true: needed
+ *              false: no need
+ *==========================================================================*/
+bool QCameraParameters::isYUVFrameInfoNeeded()
+{
+    //In AE-Bracket mode, we need set raw buffer information for up-layer
+    if(!isNV21PictureFormat() && !isNV16PictureFormat()){
+        return false;
+    }
+    const char *aecBracketStr =  get(KEY_QC_AE_BRACKET_HDR);
+
+    int value = lookupAttr(BRACKETING_MODES_MAP,
+                   sizeof(BRACKETING_MODES_MAP)/sizeof(QCameraMap),
+                           aecBracketStr);
+    ALOGD("%s: aecBracketStr=%s, value=%d.", __func__, aecBracketStr, value);
+    return (value == CAM_EXP_BRACKETING_ON);
+}
+
+/*===========================================================================
+ * FUNCTION   : getFrameFmtString
+ *
+ * DESCRIPTION: get string name of frame format
+ *
+ * PARAMETERS :
+ *   @frame   : frame format
+ *
+ * RETURN     : string name of frame format
+ *==========================================================================*/
+const char *QCameraParameters::getFrameFmtString(cam_format_t fmt)
+{
+    return lookupNameByValue(PICTURE_TYPES_MAP,
+                             sizeof(PICTURE_TYPES_MAP)/sizeof(QCameraMap),
+                             fmt);
 }
 
 /*===========================================================================
@@ -6314,5 +6519,455 @@ int32_t QCameraParameters::commitParamChanges()
 
     return NO_ERROR;
 }
+
+/*===========================================================================
+ * FUNCTION   : QCameraReprocScaleParam
+ *
+ * DESCRIPTION: constructor of QCameraReprocScaleParam
+ *
+ * PARAMETERS : none
+ *
+ * RETURN     : none
+ *==========================================================================*/
+QCameraReprocScaleParam::QCameraReprocScaleParam(QCameraParameters *parent)
+  : mParent(parent),
+    mScaleEnabled(false),
+    mIsUnderScaling(false),
+    mScaleDirection(0),
+    mNeedScaleCnt(0),
+    mSensorSizeTblCnt(0),
+    mSensorSizeTbl(NULL),
+    mTotalSizeTblCnt(0)
+{
+    mPicSizeFromAPK.width = 0;
+    mPicSizeFromAPK.height = 0;
+    mPicSizeSetted.width = 0;
+    mPicSizeSetted.height = 0;
+    memset(mNeedScaledSizeTbl, 0, sizeof(mNeedScaledSizeTbl));
+    memset(mTotalSizeTbl, 0, sizeof(mTotalSizeTbl));
+}
+
+/*===========================================================================
+ * FUNCTION   : ~~QCameraReprocScaleParam
+ *
+ * DESCRIPTION: destructor of QCameraReprocScaleParam
+ *
+ * PARAMETERS : none
+ *
+ * RETURN     : none
+ *==========================================================================*/
+QCameraReprocScaleParam::~QCameraReprocScaleParam()
+{
+    //do nothing now.
+}
+
+/*===========================================================================
+ * FUNCTION   : setScaledSizeTbl
+ *
+ * DESCRIPTION: re-set picture size table with dimensions that need scaling if Reproc Scale is enabled
+ *
+ * PARAMETERS :
+ *   @scale_cnt   : count of picture sizes that want scale
+ *   @scale_tbl    : picture size table that want scale
+ *   @org_cnt     : sensor supported picture size count
+ *   @org_tbl      : sensor supported picture size table
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraReprocScaleParam::setScaleSizeTbl(uint8_t scale_cnt, cam_dimension_t *scale_tbl, uint8_t org_cnt, cam_dimension_t *org_tbl)
+{
+    int32_t rc = NO_ERROR;
+    int i;
+    mNeedScaleCnt = 0;
+
+    if(!mScaleEnabled || scale_cnt <=0 || scale_tbl == NULL || org_cnt <=0 || org_tbl == NULL){
+        return BAD_VALUE;    // Do not need scale, so also need not reset picture size table
+    }
+
+    mSensorSizeTblCnt = org_cnt;
+    mSensorSizeTbl = org_tbl;
+    mNeedScaleCnt = checkScaleSizeTable(scale_cnt, scale_tbl, org_cnt, org_tbl);
+    if(mNeedScaleCnt <= 0){
+        ALOGE("%s: do not have picture sizes need scaling.", __func__);
+        return BAD_VALUE;
+    }
+
+    if(mNeedScaleCnt + org_cnt > MAX_SIZES_CNT){
+        ALOGE("%s: picture size list exceed the max count.", __func__);
+        return BAD_VALUE;
+    }
+
+    //get the total picture size table
+    mTotalSizeTblCnt = mNeedScaleCnt + org_cnt;
+    for(i = 0; i < mNeedScaleCnt; i++){
+        mTotalSizeTbl[i].width = mNeedScaledSizeTbl[i].width;
+        mTotalSizeTbl[i].height = mNeedScaledSizeTbl[i].height;
+        ALOGD("%s: scale picture size: i =%d, width=%d, height=%d.", __func__,
+            i, mTotalSizeTbl[i].width, mTotalSizeTbl[i].height);
+    }
+    for(; i < mTotalSizeTblCnt; i++){
+        mTotalSizeTbl[i].width = org_tbl[i-mNeedScaleCnt].width;
+        mTotalSizeTbl[i].height = org_tbl[i-mNeedScaleCnt].height;
+        ALOGD("%s: sensor supportted picture size: i =%d, width=%d, height=%d.", __func__,
+            i, mTotalSizeTbl[i].width, mTotalSizeTbl[i].height);
+    }
+    return rc;
+}
+
+/*===========================================================================
+ * FUNCTION   : getScaledSizeTblCnt
+ *
+ * DESCRIPTION: get picture size cnt that need scale
+ *
+ * PARAMETERS : none
+ *
+ * RETURN     : uint8_t type of picture size count
+ *==========================================================================*/
+uint8_t QCameraReprocScaleParam::getScaleSizeTblCnt()
+{
+    return mNeedScaleCnt;
+}
+
+/*===========================================================================
+ * FUNCTION   : getScaledSizeTbl
+ *
+ * DESCRIPTION: get picture size table that need scale
+ *
+ * PARAMETERS :  none
+ *
+ * RETURN     : cam_dimension_t list of picture size table
+ *==========================================================================*/
+cam_dimension_t *QCameraReprocScaleParam::getScaledSizeTbl()
+{
+    if(!mScaleEnabled)
+        return NULL;
+
+    return mNeedScaledSizeTbl;
+}
+
+/*===========================================================================
+ * FUNCTION   : setScaleEnable
+ *
+ * DESCRIPTION: enable or disable Reproc Scale
+ *
+ * PARAMETERS :
+ *   @enabled : enable: 1; disable 0
+ *
+ * RETURN     : none
+ *==========================================================================*/
+void QCameraReprocScaleParam::setScaleEnable(bool enabled)
+{
+    mScaleEnabled = enabled;
+}
+
+/*===========================================================================
+ * FUNCTION   : isScaleEnabled
+ *
+ * DESCRIPTION: check if Reproc Scale is enabled
+ *
+ * PARAMETERS :  none
+ *
+ * RETURN     : bool type of status
+ *==========================================================================*/
+bool QCameraReprocScaleParam::isScaleEnabled()
+{
+    return mScaleEnabled;
+}
+
+/*===========================================================================
+ * FUNCTION   : isScalePicSize
+ *
+ * DESCRIPTION: check if current picture size is from Scale Table
+ *
+ * PARAMETERS :
+ *   @width     : current picture width
+ *   @height    : current picture height
+ *
+ * RETURN     : bool type of status
+ *==========================================================================*/
+bool QCameraReprocScaleParam::isScalePicSize(int width, int height)
+{
+    //Check if the picture size is in scale table
+    if(mNeedScaleCnt <= 0)
+        return FALSE;
+
+    for(int i = 0; i < mNeedScaleCnt; i++){
+        if(mNeedScaledSizeTbl[i].width == width
+            && mNeedScaledSizeTbl[i].height == height){
+            //found match
+            return TRUE;
+        }
+    }
+
+    ALOGE("%s: Not in scale picture size table.", __func__);
+    return FALSE;
+}
+
+/*===========================================================================
+ * FUNCTION   : isValidatePicSize
+ *
+ * DESCRIPTION: check if current picture size is validate
+ *
+ * PARAMETERS :
+ *   @width     : current picture width
+ *   @height    : current picture height
+ *
+ * RETURN     : bool type of status
+ *==========================================================================*/
+bool QCameraReprocScaleParam::isValidatePicSize(int width, int height)
+{
+    int i = 0;
+
+    for(i = 0; i < mSensorSizeTblCnt; i++){
+        if(mSensorSizeTbl[i].width == width
+            && mSensorSizeTbl[i].height== height){
+            return TRUE;
+        }
+    }
+
+    for(i = 0; i < mNeedScaleCnt; i++){
+        if(mNeedScaledSizeTbl[i].width == width
+            && mNeedScaledSizeTbl[i].height== height){
+            return TRUE;
+        }
+    }
+
+    ALOGE("%s: Invalidate input picture size.", __func__);
+    return FALSE;
+}
+
+/*===========================================================================
+ * FUNCTION   : setSensorSupportedPicSize
+ *
+ * DESCRIPTION: set sensor supported picture size.
+ *    For Snapshot stream size configuration, we need use sensor supported size.
+ *    We will use CPP to do Scaling based on output Snapshot stream.
+ *
+ * PARAMETERS : none
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraReprocScaleParam::setSensorSupportedPicSize()
+{
+    //will find a suitable picture size (here we leave a prossibility to add other scale requirement)
+    //Currently we only focus on upscaling, and checkScaleSizeTable() has guaranteed the dimension ratio.
+
+    if(!mIsUnderScaling || mSensorSizeTblCnt <= 0)
+        return BAD_VALUE;
+
+    //We just get the max sensor supported size here.
+    mPicSizeSetted.width = mSensorSizeTbl[0].width;
+    mPicSizeSetted.height = mSensorSizeTbl[0].height;
+
+    return NO_ERROR;
+}
+
+
+/*===========================================================================
+ * FUNCTION   : setValidatePicSize
+ *
+ * DESCRIPTION: set sensor supported size and change scale status.
+ *
+ * PARAMETERS :
+ *   @width    : input picture width
+ *   @height   : input picture height
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraReprocScaleParam::setValidatePicSize(int &width,int &height)
+{
+    if(!mScaleEnabled)
+        return BAD_VALUE;
+
+    mIsUnderScaling = FALSE; //default: not under scale
+
+    if(isScalePicSize(width, height)){
+        // input picture size need scaling operation. Record size from APK and setted
+        mIsUnderScaling = TRUE;
+        mPicSizeFromAPK.width = width;
+        mPicSizeFromAPK.height = height;
+
+        if(setSensorSupportedPicSize() != NO_ERROR)
+            return BAD_VALUE;
+
+        //re-set picture size to sensor supported size
+        width = mPicSizeSetted.width;
+        height = mPicSizeSetted.height;
+        ALOGD("%s: mPicSizeFromAPK- with=%d, height=%d, mPicSizeSetted- with =%d, height=%d.",
+            __func__, mPicSizeFromAPK.width, mPicSizeFromAPK.height, mPicSizeSetted.width, mPicSizeSetted.height);
+    }else{
+        mIsUnderScaling = FALSE;
+        //no scale is needed for input picture size
+        if(!isValidatePicSize(width, height)){
+            ALOGE("%s: invalidate input picture size.", __func__);
+            return BAD_VALUE;
+        }
+        mPicSizeSetted.width = width;
+        mPicSizeSetted.height = height;
+    }
+
+    ALOGD("%s: X. mIsUnderScaling=%d, width=%d, height=%d.", __func__, mIsUnderScaling, width, height);
+    return NO_ERROR;
+}
+
+/*===========================================================================
+ * FUNCTION   : getPicSizeFromAPK
+ *
+ * DESCRIPTION: get picture size that get from APK
+ *
+ * PARAMETERS :
+ *   @width     : input width
+ *   @height    : input height
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraReprocScaleParam::getPicSizeFromAPK(int &width, int &height)
+{
+    if(!mIsUnderScaling)
+        return BAD_VALUE;
+
+    width = mPicSizeFromAPK.width;
+    height = mPicSizeFromAPK.height;
+    return NO_ERROR;
+}
+
+/*===========================================================================
+ * FUNCTION   : getPicSizeSetted
+ *
+ * DESCRIPTION: get picture size that setted into mm-camera
+ *
+ * PARAMETERS :
+ *   @width     : input width
+ *   @height    : input height
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraReprocScaleParam::getPicSizeSetted(int &width, int &height)
+{
+    width = mPicSizeSetted.width;
+    height = mPicSizeSetted.height;
+    return NO_ERROR;
+}
+
+/*===========================================================================
+ * FUNCTION   : isUnderScaling
+ *
+ * DESCRIPTION: check if we are in Reproc Scaling requirment
+ *
+ * PARAMETERS :  none
+ *
+ * RETURN     : bool type of status
+ *==========================================================================*/
+bool QCameraReprocScaleParam::isUnderScaling()
+{
+    return mIsUnderScaling;
+}
+
+/*===========================================================================
+ * FUNCTION   : checkScaleSizeTable
+ *
+ * DESCRIPTION: check PICTURE_SIZE_NEED_SCALE to choose
+ *
+ * PARAMETERS :
+ *   @scale_cnt   : count of picture sizes that want scale
+ *   @scale_tbl    : picture size table that want scale
+ *   @org_cnt     : sensor supported picture size count
+ *   @org_tbl      : sensor supported picture size table
+ *
+ * RETURN     : bool type of status
+ *==========================================================================*/
+uint8_t QCameraReprocScaleParam::checkScaleSizeTable(uint8_t scale_cnt, cam_dimension_t *scale_tbl, uint8_t org_cnt, cam_dimension_t *org_tbl)
+{
+    uint8_t stbl_cnt = 0;
+    uint8_t temp_cnt = 0;
+    int i = 0;
+    if(scale_cnt <=0 || scale_tbl == NULL || org_tbl == NULL || org_cnt <= 0)
+        return stbl_cnt;
+
+    //get validate scale size table. Currently we only support:
+    // 1. upscale. The scale size must larger than max sensor supported size
+    // 2. Scale dimension ratio must be same as the max sensor supported size.
+    temp_cnt = scale_cnt;
+    for(i = scale_cnt-1; i >= 0; i--){
+        if(scale_tbl[i].width > org_tbl[0].width ||
+            (scale_tbl[i].width == org_tbl[0].width &&
+             scale_tbl[i].height > org_tbl[0].height)){
+            //get the smallest scale size
+            break;
+        }
+        temp_cnt--;
+    }
+
+    //check dimension ratio
+    double supported_ratio = (double)org_tbl[0].width/ (double)org_tbl[0].height;
+    for(i = 0; i < temp_cnt; i++){
+        double cur_ratio = (double)scale_tbl[i].width/ (double)scale_tbl[i].height;
+        if(fabs(supported_ratio - cur_ratio) > ASPECT_TOLERANCE){
+            continue;
+        }
+        mNeedScaledSizeTbl[stbl_cnt].width = scale_tbl[i].width;
+        mNeedScaledSizeTbl[stbl_cnt].height= scale_tbl[i].height;
+        stbl_cnt++;
+    }
+
+    return stbl_cnt;
+}
+
+/*===========================================================================
+ * FUNCTION   : getTotalSizeTblCnt
+ *
+ * DESCRIPTION: get total picture size count after adding dimensions that need scaling
+ *
+ * PARAMETERS : none
+ *
+ * RETURN     : uint8_t type of picture size count
+ *==========================================================================*/
+uint8_t QCameraReprocScaleParam::getTotalSizeTblCnt()
+{
+    return mTotalSizeTblCnt;
+}
+
+/*===========================================================================
+ * FUNCTION   : getTotalSizeTbl
+ *
+ * DESCRIPTION: get picture size table after adding dimensions that need scaling
+ *
+ * PARAMETERS :  none
+ *
+ * RETURN     : cam_dimension_t list of picture size table
+ *==========================================================================*/
+cam_dimension_t *QCameraReprocScaleParam::getTotalSizeTbl()
+{
+    if(!mScaleEnabled)
+        return NULL;
+
+    return mTotalSizeTbl;
+}
+
+/*===========================================================================
+ * FUNCTION   : isHDREnabled
+ *
+ * DESCRIPTION: if HDR is enabled
+ *
+ * PARAMETERS : none
+ *
+ * RETURN     : true: needed
+ *              false: no need
+ *==========================================================================*/
+bool QCameraParameters::isHDREnabled()
+{
+    return (m_bHDREnabled || m_HDRSceneEnabled);
+}
+
 
 }; // namespace qcamera

@@ -27,6 +27,7 @@
  *
  */
 
+#include <ctype.h>
 #include <cutils/properties.h>
 #include <fcntl.h>
 #include <dlfcn.h>
@@ -65,8 +66,8 @@ int mm_camera_app_wait()
     pthread_mutex_lock(&app_mutex);
     if(FALSE == thread_status){
         pthread_cond_wait(&app_cond_v, &app_mutex);
-        thread_status = FALSE;
     }
+    thread_status = FALSE;
     pthread_mutex_unlock(&app_mutex);
     return rc;
 }
@@ -240,16 +241,20 @@ void mm_app_dump_frame(mm_camera_buf_def_t *frame,
     char file_name[64];
     int file_fd;
     int i;
+    int offset = 0;
     if ( frame != NULL) {
-        snprintf(file_name, sizeof(file_name), "/data/%s_%d.%s", name, frame_idx, ext);
+        snprintf(file_name, sizeof(file_name), "/data/test/%s_%04d.%s", name, frame_idx, ext);
         file_fd = open(file_name, O_RDWR | O_CREAT, 0777);
         if (file_fd < 0) {
             CDBG_ERROR("%s: cannot open file %s \n", __func__, file_name);
         } else {
             for (i = 0; i < frame->num_planes; i++) {
+                CDBG("%s: saving file from address: 0x%x, data offset: %d, length: %d \n", __func__,
+                          (uint32_t )frame->buffer, frame->planes[i].data_offset, frame->planes[i].length);
                 write(file_fd,
-                      (uint8_t *)frame->buffer + frame->planes[i].data_offset,
+                      (uint8_t *)frame->buffer + offset,
                       frame->planes[i].length);
+                offset +=  frame->planes[i].length;
             }
 
             close(file_fd);
@@ -260,10 +265,10 @@ void mm_app_dump_frame(mm_camera_buf_def_t *frame,
 
 void mm_app_dump_jpeg_frame(const void * data, uint32_t size, char* name, char* ext, int index)
 {
-    char buf[32];
+    char buf[64];
     int file_fd;
     if ( data != NULL) {
-        snprintf(buf, sizeof(buf), "/data/%s_%d.%s", name, index, ext);
+        snprintf(buf, sizeof(buf), "/data/test/%s_%d.%s", name, index, ext);
         CDBG("%s: %s size =%d, jobId=%d", __func__, buf, size, index);
         file_fd = open(buf, O_RDWR | O_CREAT, 0777);
         write(file_fd, data, size);
@@ -274,7 +279,8 @@ void mm_app_dump_jpeg_frame(const void * data, uint32_t size, char* name, char* 
 int mm_app_alloc_bufs(mm_camera_app_buf_t* app_bufs,
                       cam_frame_len_offset_t *frame_offset_info,
                       uint8_t num_bufs,
-                      uint8_t is_streambuf)
+                      uint8_t is_streambuf,
+                      size_t multipleOf)
 {
     int i, j;
     int ion_type = 0x1 << CAMERA_ION_FALLBACK_HEAP_ID;
@@ -284,7 +290,15 @@ int mm_app_alloc_bufs(mm_camera_app_buf_t* app_bufs,
     }
 
     for (i = 0; i < num_bufs ; i++) {
-        app_bufs[i].mem_info.size = frame_offset_info->frame_len;
+        if ( 0 < multipleOf ) {
+            size_t m = frame_offset_info->frame_len / multipleOf;
+            if ( ( frame_offset_info->frame_len % multipleOf ) != 0 ) {
+                m++;
+            }
+            app_bufs[i].mem_info.size = m * multipleOf;
+        } else {
+            app_bufs[i].mem_info.size = frame_offset_info->frame_len;
+        }
         mm_app_allocate_ion_memory(&app_bufs[i], ion_type);
 
         app_bufs[i].buf.buf_idx = i;
@@ -341,8 +355,13 @@ int mm_app_stream_initbuf(cam_frame_len_offset_t *frame_offset_info,
     int i, rc;
 
     stream->offset = *frame_offset_info;
-    CDBG("%s: alloc buf for stream_id %d, len=%d",
-         __func__, stream->s_id, frame_offset_info->frame_len);
+
+    CDBG("%s: alloc buf for stream_id %d, len=%d, num planes: %d, offset: %d",
+         __func__,
+         stream->s_id,
+         frame_offset_info->frame_len,
+         frame_offset_info->num_planes,
+         frame_offset_info->mp[1].offset);
 
     pBufs = (mm_camera_buf_def_t *)malloc(sizeof(mm_camera_buf_def_t) * stream->num_of_bufs);
     reg_flags = (uint8_t *)malloc(sizeof(uint8_t) * stream->num_of_bufs);
@@ -360,7 +379,8 @@ int mm_app_stream_initbuf(cam_frame_len_offset_t *frame_offset_info,
     rc = mm_app_alloc_bufs(&stream->s_bufs[0],
                            frame_offset_info,
                            stream->num_of_bufs,
-                           1);
+                           1,
+                           stream->multipleOf);
 
     if (rc != MM_CAMERA_OK) {
         CDBG_ERROR("%s: mm_stream_alloc_bufs err = %d", __func__, rc);
@@ -479,9 +499,11 @@ int mm_app_open(mm_camera_app_t *cam_app,
     /* alloc ion mem for capability buf */
     memset(&offset_info, 0, sizeof(offset_info));
     offset_info.frame_len = sizeof(cam_capability_t);
+
     rc = mm_app_alloc_bufs(&test_obj->cap_buf,
                            &offset_info,
                            1,
+                           0,
                            0);
     if (rc != MM_CAMERA_OK) {
         CDBG_ERROR("%s:alloc buf for capability error\n", __func__);
@@ -504,6 +526,7 @@ int mm_app_open(mm_camera_app_t *cam_app,
     rc = mm_app_alloc_bufs(&test_obj->parm_buf,
                            &offset_info,
                            1,
+                           0,
                            0);
     if (rc != MM_CAMERA_OK) {
         CDBG_ERROR("%s:alloc buf for getparm_buf error\n", __func__);
@@ -519,6 +542,8 @@ int mm_app_open(mm_camera_app_t *cam_app,
         CDBG_ERROR("%s:map getparm_buf error\n", __func__);
         goto error_after_getparm_buf_alloc;
     }
+    test_obj->params_buffer = (parm_buffer_t*) test_obj->parm_buf.mem_info.data;
+    CDBG_HIGH("\n%s params_buffer=%p\n",__func__,test_obj->params_buffer);
 
     rc = test_obj->cam->ops->register_event_notify(test_obj->cam->camera_handle,
                                                    notify_evt_cb,
@@ -535,7 +560,6 @@ int mm_app_open(mm_camera_app_t *cam_app,
         rc = -MM_CAMERA_E_GENERAL;
         goto error_after_getparm_buf_map;
     }
-
     memset(&test_obj->jpeg_ops, 0, sizeof(mm_jpeg_ops_t));
     test_obj->jpeg_hdl = cam_app->hal_lib.jpeg_open(&test_obj->jpeg_ops);
     if (test_obj->jpeg_hdl == 0) {
@@ -559,6 +583,94 @@ error_after_cap_buf_alloc:
 error_after_cam_open:
     test_obj->cam->ops->close_camera(test_obj->cam->camera_handle);
     test_obj->cam = NULL;
+    return rc;
+}
+
+int add_parm_entry_tobatch(parm_buffer_t *p_table,
+                           cam_intf_parm_type_t paramType,
+                           uint32_t paramLength,
+                           void *paramValue)
+{
+    int rc = MM_CAMERA_OK;
+    int position = paramType;
+    int current, next;
+
+    current = GET_FIRST_PARAM_ID(p_table);
+    if (position == current){
+        //DO NOTHING
+    } else if (position < current){
+        SET_NEXT_PARAM_ID(position, p_table, current);
+        SET_FIRST_PARAM_ID(p_table, position);
+    } else {
+        /* Search for the position in the linked list where we need to slot in*/
+        while (position > GET_NEXT_PARAM_ID(current, p_table))
+            current = GET_NEXT_PARAM_ID(current, p_table);
+
+        /*If node already exists no need to alter linking*/
+        if (position != GET_NEXT_PARAM_ID(current, p_table)) {
+            next = GET_NEXT_PARAM_ID(current, p_table);
+            SET_NEXT_PARAM_ID(current, p_table, position);
+            SET_NEXT_PARAM_ID(position, p_table, next);
+        }
+    }
+    if (paramLength > sizeof(parm_type_t)) {
+        CDBG_ERROR("%s:Size of input larger than max entry size",__func__);
+        return -1;
+    }
+    memcpy(POINTER_OF(paramType,p_table), paramValue, paramLength);
+    return rc;
+}
+
+int init_batch_update(parm_buffer_t *p_table)
+{
+    int rc = MM_CAMERA_OK;
+    CDBG_HIGH("\nEnter %s\n",__func__);
+    int32_t hal_version = CAM_HAL_V1;
+
+    memset(p_table, 0, sizeof(parm_buffer_t));
+    p_table->first_flagged_entry = CAM_INTF_PARM_MAX;
+    rc = add_parm_entry_tobatch(p_table, CAM_INTF_PARM_HAL_VERSION,sizeof(hal_version), &hal_version);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: add_parm_entry_tobatch failed !!", __func__);
+    }
+    return rc;
+}
+
+int commit_set_batch(mm_camera_test_obj_t *test_obj)
+{
+    int rc = MM_CAMERA_OK;
+    if (test_obj->params_buffer->first_flagged_entry < CAM_INTF_PARM_MAX) {
+        CDBG_HIGH("\n set_param p_buffer =%p\n",test_obj->params_buffer);
+        rc = test_obj->cam->ops->set_parms(test_obj->cam->camera_handle, test_obj->params_buffer);
+    }
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: cam->ops->set_parms failed !!", __func__);
+    }
+    return rc;
+}
+
+
+int mm_app_set_params(mm_camera_test_obj_t *test_obj,
+                      cam_intf_parm_type_t param_type,
+                      int32_t value)
+{
+    CDBG_HIGH("\nEnter mm_app_set_params!! param_type =%d & value =%d\n",param_type, value);
+    int rc = MM_CAMERA_OK;
+    rc = init_batch_update(test_obj->params_buffer);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: init_batch_update failed !!", __func__);
+        return rc;
+    }
+    rc = add_parm_entry_tobatch(test_obj->params_buffer, param_type, sizeof(value), &value);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: add_parm_entry_tobatch failed !!", __func__);
+        return rc;
+    }
+    rc = commit_set_batch(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: commit_set_batch failed !!", __func__);
+        return rc;
+    }
     return rc;
 }
 
@@ -661,12 +773,16 @@ mm_camera_stream_t * mm_app_add_stream(mm_camera_test_obj_t *test_obj,
         return NULL;
     }
 
+    stream->multipleOf = test_obj->slice_size;
+
     /* alloc ion mem for stream_info buf */
     memset(&offset_info, 0, sizeof(offset_info));
     offset_info.frame_len = sizeof(cam_stream_info_t);
+
     rc = mm_app_alloc_bufs(&stream->s_info_buf,
                            &offset_info,
                            1,
+                           0,
                            0);
     if (rc != MM_CAMERA_OK) {
         CDBG_ERROR("%s:alloc buf for stream_info error\n", __func__);
@@ -748,37 +864,1169 @@ int mm_app_stop_channel(mm_camera_test_obj_t *test_obj,
                                             channel->ch_id);
 }
 
-int main(int argc, char **argv)
+int initBatchUpdate(mm_camera_test_obj_t *test_obj)
 {
-    int c;
-    int rc;
-    int run_tc = 0;
-    int run_dual_tc = 0;
-    mm_camera_app_t my_cam_app;
+    parm_buffer_t *parm_buf = ( parm_buffer_t * ) test_obj->parm_buf.mem_info.data;
+    memset(parm_buf, 0, sizeof(parm_buffer_t));
+    parm_buf->first_flagged_entry = CAM_INTF_PARM_MAX;
+    return MM_CAMERA_OK;
+}
 
-    CDBG("\nCamera Test Application\n");
+int AddSetParmEntryToBatch(mm_camera_test_obj_t *test_obj,
+                           cam_intf_parm_type_t paramType,
+                           uint32_t paramLength,
+                           void *paramValue)
+{
+    int position = paramType;
+    int current, next;
 
-    while ((c = getopt(argc, argv, "tdh")) != -1) {
-        switch (c) {
-           case 't':
-               run_tc = 1;
-               break;
-           case 'd':
-               run_dual_tc = 1;
-               break;
-           case 'h':
-           default:
-               printf("usage: %s [-t] [-d] \n", argv[0]);
-               printf("-t:   Unit test        \n");
-               printf("-d:   Dual camera test \n");
-               return 0;
+    parm_buffer_t *p_table = ( parm_buffer_t * ) test_obj->parm_buf.mem_info.data;
+    /*************************************************************************
+    *                 Code to take care of linking next flags                *
+    *************************************************************************/
+    current = GET_FIRST_PARAM_ID(p_table);
+    if (position == current){
+        //DO NOTHING
+    } else if (position < current){
+        SET_NEXT_PARAM_ID(position, p_table, current);
+        SET_FIRST_PARAM_ID(p_table, position);
+    } else {
+        /* Search for the position in the linked list where we need to slot in*/
+        while (position > GET_NEXT_PARAM_ID(current, p_table))
+            current = GET_NEXT_PARAM_ID(current, p_table);
+
+        /*If node already exists no need to alter linking*/
+        if (position != GET_NEXT_PARAM_ID(current, p_table)) {
+            next = GET_NEXT_PARAM_ID(current, p_table);
+            SET_NEXT_PARAM_ID(current, p_table, position);
+            SET_NEXT_PARAM_ID(position, p_table, next);
         }
     }
 
+    /*************************************************************************
+    *                   Copy contents into entry                             *
+    *************************************************************************/
+
+    if (paramLength > sizeof(parm_type_t)) {
+        ALOGE("%s:Size of input larger than max entry size",__func__);
+        return MM_CAMERA_E_GENERAL;
+    }
+    memcpy(POINTER_OF(paramType,p_table), paramValue, paramLength);
+    return MM_CAMERA_OK;
+}
+
+int ReadSetParmEntryToBatch(mm_camera_test_obj_t *test_obj,
+                           cam_intf_parm_type_t paramType,
+                           uint32_t paramLength,
+                           void *paramValue)
+{
+    parm_buffer_t *p_table = ( parm_buffer_t * ) test_obj->parm_buf.mem_info.data;
+    memcpy(paramValue, POINTER_OF(paramType,p_table), paramLength);
+    return MM_CAMERA_OK;
+}
+
+int commitSetBatch(mm_camera_test_obj_t *test_obj)
+{
+    int rc = MM_CAMERA_OK;
+    parm_buffer_t *p_table = ( parm_buffer_t * ) test_obj->parm_buf.mem_info.data;
+    if (p_table->first_flagged_entry < CAM_INTF_PARM_MAX) {
+        rc = test_obj->cam->ops->set_parms(test_obj->cam->camera_handle, p_table);
+    }
+    return rc;
+}
+
+
+int commitGetBatch(mm_camera_test_obj_t *test_obj)
+{
+    int rc = MM_CAMERA_OK;
+    parm_buffer_t *p_table = ( parm_buffer_t * ) test_obj->parm_buf.mem_info.data;
+    if (p_table->first_flagged_entry < CAM_INTF_PARM_MAX) {
+        rc = test_obj->cam->ops->get_parms(test_obj->cam->camera_handle, p_table);
+    }
+    return rc;
+}
+
+int setAecLock(mm_camera_test_obj_t *test_obj, int value)
+{
+    int rc = MM_CAMERA_OK;
+
+    rc = initBatchUpdate(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch camera parameter update failed\n", __func__);
+        goto ERROR;
+    }
+
+    printf("%s: Setting AECLock value %d \n", __func__, value);
+    rc = AddSetParmEntryToBatch(test_obj,
+                                CAM_INTF_PARM_AEC_LOCK,
+                                sizeof(value),
+                                &value);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: AEC Lock parameter not added to batch\n", __func__);
+        goto ERROR;
+    }
+
+    rc = commitSetBatch(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch parameters commit failed\n", __func__);
+        goto ERROR;
+    }
+
+ERROR:
+    return rc;
+}
+
+int setAecEnable(mm_camera_test_obj_t *test_obj, int value)
+{
+    int rc = MM_CAMERA_OK;
+
+    rc = initBatchUpdate(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch camera parameter update failed\n", __func__);
+        goto ERROR;
+    }
+    printf("%s: Setting AEC Enable value %d \n", __func__, value);
+    rc = AddSetParmEntryToBatch(test_obj,
+                                CAM_INTF_PARM_AEC_ENABLE,
+                                sizeof(value),
+                                &value);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: AEC Enable parameter not added to batch\n", __func__);
+        goto ERROR;
+    }
+
+    rc = commitSetBatch(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch parameters commit failed\n", __func__);
+        goto ERROR;
+    }
+
+ERROR:
+    return rc;
+}
+
+int setAwbEnable(mm_camera_test_obj_t *test_obj, int value)
+{
+    int rc = MM_CAMERA_OK;
+
+    rc = initBatchUpdate(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch camera parameter update failed\n", __func__);
+        goto ERROR;
+    }
+
+    printf("%s: Setting AWB Enable value %d \n", __func__, value);
+    rc = AddSetParmEntryToBatch(test_obj,
+                                CAM_INTF_PARM_AWB_ENABLE,
+                                sizeof(value),
+                                &value);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: AWB Enable parameter not added to batch\n", __func__);
+        goto ERROR;
+    }
+
+    rc = commitSetBatch(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch parameters commit failed\n", __func__);
+        goto ERROR;
+    }
+
+ERROR:
+    return rc;
+}
+
+int setAfEnable(mm_camera_test_obj_t *test_obj, int value)
+{
+    int rc = MM_CAMERA_OK;
+
+    rc = initBatchUpdate(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch camera parameter update failed\n", __func__);
+        goto ERROR;
+    }
+
+    printf("%s: Setting AF Enable value %d \n", __func__, value);
+    rc = AddSetParmEntryToBatch(test_obj,
+                                CAM_INTF_PARM_AF_ENABLE,
+                                sizeof(value),
+                                &value);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: AF Enable parameter not added to batch\n", __func__);
+        goto ERROR;
+    }
+
+    rc = commitSetBatch(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch parameters commit failed\n", __func__);
+        goto ERROR;
+    }
+
+ERROR:
+    return rc;
+}
+
+int setAecForceLinecount(mm_camera_test_obj_t *test_obj, cam_aec_lc_params_t *value)
+{
+    int rc = MM_CAMERA_OK;
+
+    rc = initBatchUpdate(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch camera parameter update failed\n", __func__);
+        goto ERROR;
+    }
+
+    rc = AddSetParmEntryToBatch(test_obj,
+                                CAM_INTF_PARM_AEC_FORCE_LC,
+                                sizeof(cam_aec_lc_params_t),
+                                &value);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: AEC_EZ_FORCE_LINECOUNT parameter not added to batch\n", __func__);
+        goto ERROR;
+    }
+
+    rc = commitSetBatch(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch parameters commit failed\n", __func__);
+        goto ERROR;
+    }
+
+ERROR:
+    return rc;
+}
+
+int setAecForceGain(mm_camera_test_obj_t *test_obj, cam_aec_gain_params_t *value)
+{
+    int rc = MM_CAMERA_OK;
+
+    rc = initBatchUpdate(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch camera parameter update failed\n", __func__);
+        goto ERROR;
+    }
+
+    rc = AddSetParmEntryToBatch(test_obj,
+                                CAM_INTF_PARM_AEC_FORCE_GAIN,
+                                sizeof(cam_aec_gain_params_t),
+                                &value);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: AEC_EZ_FORCE_GAIN parameter not added to batch\n", __func__);
+        goto ERROR;
+    }
+
+    rc = commitSetBatch(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch parameters commit failed\n", __func__);
+        goto ERROR;
+    }
+
+ERROR:
+    return rc;
+}
+
+int setAecForceExp(mm_camera_test_obj_t *test_obj, cam_aec_exp_params_t *value)
+{
+    int rc = MM_CAMERA_OK;
+
+    rc = initBatchUpdate(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch camera parameter update failed\n", __func__);
+        goto ERROR;
+    }
+
+    rc = AddSetParmEntryToBatch(test_obj,
+                                CAM_INTF_PARM_AEC_FORCE_EXP,
+                                sizeof(cam_aec_exp_params_t),
+                                &value);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: AEC_EZ_FORCE_EXP parameter not added to batch\n", __func__);
+        goto ERROR;
+    }
+
+    rc = commitSetBatch(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch parameters commit failed\n", __func__);
+        goto ERROR;
+    }
+
+ERROR:
+    return rc;
+}
+
+int setAecForceSnapLinecount(mm_camera_test_obj_t *test_obj, cam_aec_snap_lc_params_t *value)
+{
+    int rc = MM_CAMERA_OK;
+
+    rc = initBatchUpdate(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch camera parameter update failed\n", __func__);
+        goto ERROR;
+    }
+
+    rc = AddSetParmEntryToBatch(test_obj,
+                                CAM_INTF_PARM_AEC_FORCE_SNAP_LC,
+                                sizeof(cam_aec_snap_lc_params_t),
+                                &value);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: AEC_EZ_FORCE_SNAPSHOT_LINECOUNT parameter not added to batch\n", __func__);
+        goto ERROR;
+    }
+
+    rc = commitSetBatch(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch parameters commit failed\n", __func__);
+        goto ERROR;
+    }
+
+ERROR:
+    return rc;
+}
+
+int setAecForceSnapGain(mm_camera_test_obj_t *test_obj, cam_aec_snap_gain_params_t *value)
+{
+    int rc = MM_CAMERA_OK;
+
+    rc = initBatchUpdate(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch camera parameter update failed\n", __func__);
+        goto ERROR;
+    }
+
+    rc = AddSetParmEntryToBatch(test_obj,
+                                CAM_INTF_PARM_AEC_FORCE_SNAP_GAIN,
+                                sizeof(cam_aec_snap_gain_params_t),
+                                &value);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: AEC_EZ_FORCE_SNAPSHOT_GAIN parameter not added to batch\n", __func__);
+        goto ERROR;
+    }
+
+    rc = commitSetBatch(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch parameters commit failed\n", __func__);
+        goto ERROR;
+    }
+
+ERROR:
+    return rc;
+}
+
+int setAecForceSnapExp(mm_camera_test_obj_t *test_obj, cam_aec_snap_exp_params_t *value)
+{
+    int rc = MM_CAMERA_OK;
+
+    rc = initBatchUpdate(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch camera parameter update failed\n", __func__);
+        goto ERROR;
+    }
+
+    rc = AddSetParmEntryToBatch(test_obj,
+                                CAM_INTF_PARM_AEC_FORCE_SNAP_EXP,
+                                sizeof(cam_aec_snap_exp_params_t),
+                                &value);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: AEC_EZ_FORCE_SNAPSHOT_EXP parameter not added to batch\n", __func__);
+        goto ERROR;
+    }
+
+    rc = commitSetBatch(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch parameters commit failed\n", __func__);
+        goto ERROR;
+    }
+
+ERROR:
+    return rc;
+}
+
+
+
+int setAwbLock(mm_camera_test_obj_t *test_obj, int value)
+{
+    int rc = MM_CAMERA_OK;
+
+    rc = initBatchUpdate(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch camera parameter update failed\n", __func__);
+        goto ERROR;
+    }
+
+    printf("%s: Setting AWB Lock value %d \n", __func__, value);
+    rc = AddSetParmEntryToBatch(test_obj,
+                                CAM_INTF_PARM_AWB_LOCK,
+                                sizeof(value),
+                                &value);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: AWB Lock parameter not added to batch\n", __func__);
+        goto ERROR;
+    }
+
+    rc = commitSetBatch(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch parameters commit failed\n", __func__);
+        goto ERROR;
+    }
+
+ERROR:
+    return rc;
+}
+
+int getChromatix(mm_camera_test_obj_t *test_obj, tune_chromatix_t *value)
+{
+    int rc = MM_CAMERA_OK;
+
+    rc = initBatchUpdate(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch camera parameter update failed\n", __func__);
+        goto ERROR;
+    }
+
+    rc = AddSetParmEntryToBatch(test_obj,
+                                CAM_INTF_PARM_GET_CHROMATIX,
+                                sizeof(tune_chromatix_t),
+                                value);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: getChromatixPointer not added to batch\n", __func__);
+        goto ERROR;
+    }
+
+    rc = commitGetBatch(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch parameters commit failed\n", __func__);
+        goto ERROR;
+    }
+
+    rc = ReadSetParmEntryToBatch(test_obj,
+                                CAM_INTF_PARM_GET_CHROMATIX,
+                                sizeof(tune_chromatix_t),
+                                value);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: getChromatixPointer not able to read\n", __func__);
+        goto ERROR;
+    }
+ERROR:
+    return rc;
+}
+
+int setReloadChromatix(mm_camera_test_obj_t *test_obj, tune_chromatix_t *value)
+{
+    int rc = MM_CAMERA_OK;
+
+    rc = initBatchUpdate(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch camera parameter update failed\n", __func__);
+        goto ERROR;
+    }
+
+    rc = AddSetParmEntryToBatch(test_obj,
+                                CAM_INTF_PARM_SET_RELOAD_CHROMATIX,
+                                sizeof(tune_chromatix_t),
+                                value);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: getChromatixPointer not added to batch\n", __func__);
+        goto ERROR;
+    }
+
+    rc = commitSetBatch(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch parameters commit failed\n", __func__);
+        goto ERROR;
+    }
+ERROR:
+    return rc;
+}
+
+int getAutofocusParams(mm_camera_test_obj_t *test_obj, tune_autofocus_t *value)
+{
+    int rc = MM_CAMERA_OK;
+
+    rc = initBatchUpdate(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch camera parameter update failed\n", __func__);
+        goto ERROR;
+    }
+
+    rc = AddSetParmEntryToBatch(test_obj,
+                                CAM_INTF_PARM_GET_AFTUNE,
+                                sizeof(tune_autofocus_t),
+                                value);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: getChromatixPointer not added to batch\n", __func__);
+        goto ERROR;
+    }
+
+    rc = commitGetBatch(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch parameters commit failed\n", __func__);
+        goto ERROR;
+    }
+
+    rc = ReadSetParmEntryToBatch(test_obj,
+                                CAM_INTF_PARM_GET_AFTUNE,
+                                sizeof(tune_autofocus_t),
+                                value);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: getAutofocusParams not able to read\n", __func__);
+        goto ERROR;
+    }
+ERROR:
+    return rc;
+}
+
+int setReloadAutofocusParams(mm_camera_test_obj_t *test_obj, tune_autofocus_t *value)
+{
+    int rc = MM_CAMERA_OK;
+
+    rc = initBatchUpdate(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch camera parameter update failed\n", __func__);
+        goto ERROR;
+    }
+
+    rc = AddSetParmEntryToBatch(test_obj,
+                                CAM_INTF_PARM_SET_RELOAD_AFTUNE,
+                                sizeof(tune_autofocus_t),
+                                value);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: setReloadAutofocusParams not added to batch\n", __func__);
+        goto ERROR;
+    }
+
+    rc = commitSetBatch(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch parameters commit failed\n", __func__);
+        goto ERROR;
+    }
+ERROR:
+    return rc;
+}
+
+int setAutoFocusTuning(mm_camera_test_obj_t *test_obj, tune_actuator_t *value)
+{
+    int rc = MM_CAMERA_OK;
+
+    rc = initBatchUpdate(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch camera parameter update failed\n", __func__);
+        goto ERROR;
+    }
+
+    rc = AddSetParmEntryToBatch(test_obj,
+                                CAM_INTF_PARM_SET_AUTOFOCUSTUNING,
+                                sizeof(tune_actuator_t),
+                                value);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: AutoFocus Tuning not added to batch\n", __func__);
+        goto ERROR;
+    }
+
+    rc = commitSetBatch(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch parameters commit failed\n", __func__);
+        goto ERROR;
+    }
+
+ERROR:
+    return rc;
+}
+
+int setVfeCommand(mm_camera_test_obj_t *test_obj, tune_cmd_t *value)
+{
+    int rc = MM_CAMERA_OK;
+
+    rc = initBatchUpdate(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch camera parameter update failed\n", __func__);
+        goto ERROR;
+    }
+
+    rc = AddSetParmEntryToBatch(test_obj,
+                                CAM_INTF_PARM_SET_VFE_COMMAND,
+                                sizeof(tune_cmd_t),
+                                value);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: VFE Command not added to batch\n", __func__);
+        goto ERROR;
+    }
+
+    rc = commitSetBatch(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch parameters commit failed\n", __func__);
+        goto ERROR;
+    }
+
+ERROR:
+    return rc;
+}
+
+int setPPCommand(mm_camera_test_obj_t *test_obj, tune_cmd_t *value)
+{
+    int rc = MM_CAMERA_OK;
+
+    rc = initBatchUpdate(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch camera parameter update failed\n", __func__);
+        goto ERROR;
+    }
+
+    rc = AddSetParmEntryToBatch(test_obj,
+                                CAM_INTF_PARM_SET_PP_COMMAND,
+                                sizeof(tune_cmd_t),
+                                value);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: PP Command not added to batch\n", __func__);
+        goto ERROR;
+    }
+
+    rc = commitSetBatch(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch parameters commit failed\n", __func__);
+        goto ERROR;
+    }
+
+ERROR:
+    return rc;
+}
+
+int setFocusMode(mm_camera_test_obj_t *test_obj, cam_focus_mode_type mode)
+{
+    int rc = MM_CAMERA_OK;
+
+    rc = initBatchUpdate(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch camera parameter update failed\n", __func__);
+        goto ERROR;
+    }
+
+    uint32_t value = mode;
+
+    rc = AddSetParmEntryToBatch(test_obj,
+                                CAM_INTF_PARM_FOCUS_MODE,
+                                sizeof(value),
+                                &value);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Focus mode parameter not added to batch\n", __func__);
+        goto ERROR;
+    }
+
+    rc = commitSetBatch(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch parameters commit failed\n", __func__);
+        goto ERROR;
+    }
+
+ERROR:
+    return rc;
+}
+
+int setEVCompensation(mm_camera_test_obj_t *test_obj, int ev)
+{
+    int rc = MM_CAMERA_OK;
+
+    cam_capability_t *camera_cap = NULL;
+
+    camera_cap = (cam_capability_t *) test_obj->cap_buf.mem_info.data;
+    if ( (ev >= camera_cap->exposure_compensation_min) &&
+         (ev <= camera_cap->exposure_compensation_max) ) {
+
+        rc = initBatchUpdate(test_obj);
+        if (rc != MM_CAMERA_OK) {
+            CDBG_ERROR("%s: Batch camera parameter update failed\n", __func__);
+            goto ERROR;
+        }
+
+        uint32_t value = ev;
+
+        rc = AddSetParmEntryToBatch(test_obj,
+                                    CAM_INTF_PARM_EXPOSURE_COMPENSATION,
+                                    sizeof(value),
+                                    &value);
+        if (rc != MM_CAMERA_OK) {
+            CDBG_ERROR("%s: EV compensation parameter not added to batch\n", __func__);
+            goto ERROR;
+        }
+
+        rc = commitSetBatch(test_obj);
+        if (rc != MM_CAMERA_OK) {
+            CDBG_ERROR("%s: Batch parameters commit failed\n", __func__);
+            goto ERROR;
+        }
+
+        CDBG_ERROR("%s: EV compensation set to: %d", __func__, value);
+    } else {
+        CDBG_ERROR("%s: Invalid EV compensation", __func__);
+        return -EINVAL;
+    }
+
+ERROR:
+    return rc;
+}
+
+int setAntibanding(mm_camera_test_obj_t *test_obj, cam_antibanding_mode_type antibanding)
+{
+    int rc = MM_CAMERA_OK;
+
+    rc = initBatchUpdate(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch camera parameter update failed\n", __func__);
+        goto ERROR;
+    }
+
+    uint32_t value = antibanding;
+
+    rc = AddSetParmEntryToBatch(test_obj,
+                                CAM_INTF_PARM_ANTIBANDING,
+                                sizeof(value),
+                                &value);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Antibanding parameter not added to batch\n", __func__);
+        goto ERROR;
+    }
+
+    rc = commitSetBatch(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch parameters commit failed\n", __func__);
+        goto ERROR;
+    }
+
+    CDBG_ERROR("%s: Antibanding set to: %d", __func__, value);
+
+ERROR:
+    return rc;
+}
+
+int setWhiteBalance(mm_camera_test_obj_t *test_obj, cam_wb_mode_type mode)
+{
+    int rc = MM_CAMERA_OK;
+
+    rc = initBatchUpdate(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch camera parameter update failed\n", __func__);
+        goto ERROR;
+    }
+
+    uint32_t value = mode;
+
+    rc = AddSetParmEntryToBatch(test_obj,
+                                CAM_INTF_PARM_WHITE_BALANCE,
+                                sizeof(value),
+                                &value);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: White balance parameter not added to batch\n", __func__);
+        goto ERROR;
+    }
+
+    rc = commitSetBatch(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch parameters commit failed\n", __func__);
+        goto ERROR;
+    }
+
+    CDBG_ERROR("%s: White balance set to: %d", __func__, value);
+
+ERROR:
+    return rc;
+}
+
+int setExposureMetering(mm_camera_test_obj_t *test_obj, cam_auto_exposure_mode_type mode)
+{
+    int rc = MM_CAMERA_OK;
+
+    rc = initBatchUpdate(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch camera parameter update failed\n", __func__);
+        goto ERROR;
+    }
+
+    uint32_t value = mode;
+
+    rc = AddSetParmEntryToBatch(test_obj,
+                                CAM_INTF_PARM_EXPOSURE,
+                                sizeof(value),
+                                &value);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Exposure metering parameter not added to batch\n", __func__);
+        goto ERROR;
+    }
+
+    rc = commitSetBatch(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch parameters commit failed\n", __func__);
+        goto ERROR;
+    }
+
+    CDBG_ERROR("%s: Exposure metering set to: %d", __func__, value);
+
+ERROR:
+    return rc;
+}
+
+int setBrightness(mm_camera_test_obj_t *test_obj, int brightness)
+{
+    int rc = MM_CAMERA_OK;
+
+    rc = initBatchUpdate(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch camera parameter update failed\n", __func__);
+        goto ERROR;
+    }
+
+    int32_t value = brightness;
+
+    rc = AddSetParmEntryToBatch(test_obj,
+                                CAM_INTF_PARM_BRIGHTNESS,
+                                sizeof(value),
+                                &value);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Brightness parameter not added to batch\n", __func__);
+        goto ERROR;
+    }
+
+    rc = commitSetBatch(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch parameters commit failed\n", __func__);
+        goto ERROR;
+    }
+
+    CDBG_ERROR("%s: Brightness set to: %d", __func__, value);
+
+ERROR:
+    return rc;
+}
+
+int setContrast(mm_camera_test_obj_t *test_obj, int contrast)
+{
+    int rc = MM_CAMERA_OK;
+
+    rc = initBatchUpdate(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch camera parameter update failed\n", __func__);
+        goto ERROR;
+    }
+
+    int32_t value = contrast;
+
+    rc = AddSetParmEntryToBatch(test_obj,
+                                CAM_INTF_PARM_CONTRAST,
+                                sizeof(value),
+                                &value);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Contrast parameter not added to batch\n", __func__);
+        goto ERROR;
+    }
+
+    rc = commitSetBatch(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch parameters commit failed\n", __func__);
+        goto ERROR;
+    }
+
+    CDBG_ERROR("%s: Contrast set to: %d", __func__, value);
+
+ERROR:
+    return rc;
+}
+
+int setSaturation(mm_camera_test_obj_t *test_obj, int saturation)
+{
+    int rc = MM_CAMERA_OK;
+
+    rc = initBatchUpdate(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch camera parameter update failed\n", __func__);
+        goto ERROR;
+    }
+
+    int32_t value = saturation;
+
+    rc = AddSetParmEntryToBatch(test_obj,
+                                CAM_INTF_PARM_SATURATION,
+                                sizeof(value),
+                                &value);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Saturation parameter not added to batch\n", __func__);
+        goto ERROR;
+    }
+
+    rc = commitSetBatch(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch parameters commit failed\n", __func__);
+        goto ERROR;
+    }
+
+    CDBG_ERROR("%s: Saturation set to: %d", __func__, value);
+
+ERROR:
+    return rc;
+}
+
+int setSharpness(mm_camera_test_obj_t *test_obj, int sharpness)
+{
+    int rc = MM_CAMERA_OK;
+
+    rc = initBatchUpdate(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch camera parameter update failed\n", __func__);
+        goto ERROR;
+    }
+
+    int32_t value = sharpness;
+
+    rc = AddSetParmEntryToBatch(test_obj,
+                                CAM_INTF_PARM_SHARPNESS,
+                                sizeof(value),
+                                &value);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Sharpness parameter not added to batch\n", __func__);
+        goto ERROR;
+    }
+
+    rc = commitSetBatch(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch parameters commit failed\n", __func__);
+        goto ERROR;
+    }
+
+    CDBG_ERROR("%s: Sharpness set to: %d", __func__, value);
+
+ERROR:
+    return rc;
+}
+
+int setISO(mm_camera_test_obj_t *test_obj, cam_iso_mode_type iso)
+{
+    int rc = MM_CAMERA_OK;
+
+    rc = initBatchUpdate(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch camera parameter update failed\n", __func__);
+        goto ERROR;
+    }
+
+    int32_t value = iso;
+
+    rc = AddSetParmEntryToBatch(test_obj,
+                                CAM_INTF_PARM_ISO,
+                                sizeof(value),
+                                &value);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: ISO parameter not added to batch\n", __func__);
+        goto ERROR;
+    }
+
+    rc = commitSetBatch(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch parameters commit failed\n", __func__);
+        goto ERROR;
+    }
+
+    CDBG_ERROR("%s: ISO set to: %d", __func__, value);
+
+ERROR:
+    return rc;
+}
+
+int setZoom(mm_camera_test_obj_t *test_obj, int zoom)
+{
+    int rc = MM_CAMERA_OK;
+
+    rc = initBatchUpdate(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch camera parameter update failed\n", __func__);
+        goto ERROR;
+    }
+
+    int32_t value = zoom;
+
+    rc = AddSetParmEntryToBatch(test_obj,
+                                CAM_INTF_PARM_ZOOM,
+                                sizeof(value),
+                                &value);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Zoom parameter not added to batch\n", __func__);
+        goto ERROR;
+    }
+
+    rc = commitSetBatch(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch parameters commit failed\n", __func__);
+        goto ERROR;
+    }
+
+    CDBG_ERROR("%s: Zoom set to: %d", __func__, value);
+
+ERROR:
+    return rc;
+}
+
+
+int setScene(mm_camera_test_obj_t *test_obj, cam_scene_mode_type scene)
+{
+    int rc = MM_CAMERA_OK;
+
+    rc = initBatchUpdate(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch camera parameter update failed\n", __func__);
+        goto ERROR;
+    }
+
+    int32_t value = scene;
+
+    rc = AddSetParmEntryToBatch(test_obj,
+                                CAM_INTF_PARM_BESTSHOT_MODE,
+                                sizeof(value),
+                                &value);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Scene parameter not added to batch\n", __func__);
+        goto ERROR;
+    }
+
+    rc = commitSetBatch(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch parameters commit failed\n", __func__);
+        goto ERROR;
+    }
+
+    CDBG_ERROR("%s: Scene set to: %d", __func__, value);
+
+ERROR:
+    return rc;
+}
+
+int setFlash(mm_camera_test_obj_t *test_obj, cam_flash_mode_t flash)
+{
+    int rc = MM_CAMERA_OK;
+
+    rc = initBatchUpdate(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch camera parameter update failed\n", __func__);
+        goto ERROR;
+    }
+
+    int32_t value = flash;
+
+    rc = AddSetParmEntryToBatch(test_obj,
+                                CAM_INTF_PARM_LED_MODE,
+                                sizeof(value),
+                                &value);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Flash parameter not added to batch\n", __func__);
+        goto ERROR;
+    }
+
+    rc = commitSetBatch(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch parameters commit failed\n", __func__);
+        goto ERROR;
+    }
+
+    CDBG_ERROR("%s: Flash set to: %d", __func__, value);
+
+ERROR:
+    return rc;
+}
+
+/** tuneserver_capture
+ *    @lib_handle: the camera handle object
+ *    @dim: snapshot dimensions
+ *
+ *  makes JPEG capture
+ *
+ *  Return: >=0 on success, -1 on failure.
+ **/
+int tuneserver_capture(mm_camera_lib_handle *lib_handle,
+                       mm_camera_lib_snapshot_params *dim)
+{
+    int rc = 0;
+
+    printf("Take jpeg snapshot\n");
+
+    if ( lib_handle->stream_running ) {
+
+        if ( lib_handle->test_obj.zsl_enabled) {
+            if ( NULL != dim) {
+                if ( ( lib_handle->test_obj.buffer_width != dim->width) ||
+                     ( lib_handle->test_obj.buffer_height = dim->height ) ) {
+
+                    lib_handle->test_obj.buffer_width = dim->width;
+                    lib_handle->test_obj.buffer_height = dim->height;
+
+                    rc = mm_camera_lib_stop_stream(lib_handle);
+                    if (rc != MM_CAMERA_OK) {
+                        CDBG_ERROR("%s: mm_camera_lib_stop_stream() err=%d\n",
+                                   __func__, rc);
+                        goto EXIT;
+                    }
+
+                    rc = mm_camera_lib_start_stream(lib_handle);
+                    if (rc != MM_CAMERA_OK) {
+                        CDBG_ERROR("%s: mm_camera_lib_start_stream() err=%d\n",
+                                   __func__, rc);
+                        goto EXIT;
+                    }
+                }
+
+            }
+
+            lib_handle->test_obj.encodeJpeg = 1;
+
+            mm_camera_app_wait();
+        } else {
+            // For standard 2D capture streaming has to be disabled first
+            rc = mm_camera_lib_stop_stream(lib_handle);
+            if (rc != MM_CAMERA_OK) {
+                CDBG_ERROR("%s: mm_camera_lib_stop_stream() err=%d\n",
+                         __func__, rc);
+                goto EXIT;
+            }
+
+            if ( NULL != dim ) {
+                lib_handle->test_obj.buffer_width = dim->width;
+                lib_handle->test_obj.buffer_height = dim->height;
+            }
+            rc = mm_app_start_capture(&lib_handle->test_obj, 1);
+            if (rc != MM_CAMERA_OK) {
+                CDBG_ERROR("%s: mm_app_start_capture() err=%d\n",
+                         __func__, rc);
+                goto EXIT;
+            }
+
+            mm_camera_app_wait();
+
+            rc = mm_app_stop_capture(&lib_handle->test_obj);
+            if (rc != MM_CAMERA_OK) {
+                CDBG_ERROR("%s: mm_app_stop_capture() err=%d\n",
+                         __func__, rc);
+                goto EXIT;
+            }
+
+            // Restart streaming after capture is done
+            rc = mm_camera_lib_start_stream(lib_handle);
+            if (rc != MM_CAMERA_OK) {
+                CDBG_ERROR("%s: mm_camera_lib_start_stream() err=%d\n",
+                         __func__, rc);
+                goto EXIT;
+            }
+        }
+    }
+
+EXIT:
+
+    return rc;
+}
+
+int mm_app_start_regression_test(int run_tc)
+{
+    int rc = MM_CAMERA_OK;
+    mm_camera_app_t my_cam_app;
+
+    CDBG("\nCamera Test Application\n");
     memset(&my_cam_app, 0, sizeof(mm_camera_app_t));
-    if((mm_app_load_hal(&my_cam_app) != MM_CAMERA_OK)) {
-        CDBG_ERROR("%s:mm_app_init err\n", __func__);
-        return -1;
+
+    rc = mm_app_load_hal(&my_cam_app);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: mm_app_load_hal failed !!", __func__);
+        return rc;
     }
 
     if(run_tc) {
@@ -795,7 +2043,715 @@ int main(int argc, char **argv)
         exit(rc);
     }
 #endif
-    /* Clean up and exit. */
-    CDBG("Exiting test app\n");
+    return rc;
+}
+
+int32_t mm_camera_load_tuninglibrary(mm_camera_tuning_lib_params_t *tuning_param)
+{
+  void *(*tuning_open_lib)(void) = NULL;
+
+  tuning_param->lib_handle = dlopen("libmmcamera_tuning.so", RTLD_NOW);
+  if (!tuning_param->lib_handle) {
+    CDBG_ERROR("%s Failed opening libmmcamera_tuning.so\n", __func__);
+    return -EINVAL;
+  }
+
+  *(void **)&tuning_open_lib  = dlsym(tuning_param->lib_handle,
+    "open_tuning_lib");
+  if (!tuning_open_lib) {
+    CDBG_ERROR("%s Failed symbol libmmcamera_tuning.so\n", __func__);
+    return -EINVAL;
+  }
+
+  tuning_param->func_tbl = (mm_camera_tune_func_t *)tuning_open_lib();
+  if (!tuning_param->func_tbl) {
+    CDBG_ERROR("%s Failed opening library func table ptr\n", __func__);
+    return -EINVAL;
+  }
+
+  CDBG_ERROR("tuning_param->func_tbl =%p",tuning_param->func_tbl);
+
+  CDBG("exit");
+  return 0;
+}
+
+int mm_camera_lib_open(mm_camera_lib_handle *handle, int cam_id)
+{
+    int rc = MM_CAMERA_OK;
+
+    if ( NULL == handle ) {
+        CDBG_ERROR(" %s : Invalid handle", __func__);
+        rc = MM_CAMERA_E_INVALID_INPUT;
+        goto EXIT;
+    }
+
+    memset(handle, 0, sizeof(mm_camera_lib_handle));
+    rc = mm_app_load_hal(&handle->app_ctx);
+    if( MM_CAMERA_OK != rc ) {
+        CDBG_ERROR("%s:mm_app_init err\n", __func__);
+        goto EXIT;
+    }
+
+    handle->test_obj.buffer_width = DEFAULT_PREVIEW_WIDTH;
+    handle->test_obj.buffer_height = DEFAULT_PREVIEW_HEIGHT;
+    handle->test_obj.buffer_format = DEFAULT_SNAPSHOT_FORMAT;
+    handle->current_params.stream_width = DEFAULT_SNAPSHOT_WIDTH;
+    handle->current_params.stream_height = DEFAULT_SNAPSHOT_HEIGHT;
+    handle->current_params.af_mode = CAM_FOCUS_MODE_AUTO; // Default to auto focus mode
+    rc = mm_app_open(&handle->app_ctx, cam_id, &handle->test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s:mm_app_open() cam_idx=%d, err=%d\n",
+                   __func__, cam_id, rc);
+        goto EXIT;
+    }
+
+    rc = mm_app_initialize_fb(&handle->test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: mm_app_initialize_fb() cam_idx=%d, err=%d\n",
+                   __func__, cam_id, rc);
+        goto EXIT;
+    }
+
+EXIT:
+
+    return rc;
+}
+
+int mm_camera_lib_start_stream(mm_camera_lib_handle *handle)
+{
+    int rc = MM_CAMERA_OK;
+
+    if ( NULL == handle ) {
+        CDBG_ERROR(" %s : Invalid handle", __func__);
+        rc = MM_CAMERA_E_INVALID_INPUT;
+        goto EXIT;
+    }
+
+    if ( handle->test_obj.zsl_enabled ) {
+        rc = mm_app_start_preview_zsl(&handle->test_obj);
+        if (rc != MM_CAMERA_OK) {
+            CDBG_ERROR("%s: mm_app_start_preview_zsl() err=%d\n",
+                       __func__, rc);
+            goto EXIT;
+        }
+    } else {
+        handle->test_obj.enable_reproc = ENABLE_REPROCESSING;
+        rc = mm_app_start_preview(&handle->test_obj);
+        if (rc != MM_CAMERA_OK) {
+            CDBG_ERROR("%s: mm_app_start_preview() err=%d\n",
+                       __func__, rc);
+            goto EXIT;
+        }
+    }
+
+    // Configure focus mode after stream starts
+    rc = setFocusMode(&handle->test_obj, handle->current_params.af_mode);
+    if (rc != MM_CAMERA_OK) {
+      CDBG_ERROR("%s:autofocus error\n", __func__);
+      goto EXIT;
+    }
+
+    handle->stream_running = 1;
+
+EXIT:
+    return rc;
+}
+
+int mm_camera_lib_stop_stream(mm_camera_lib_handle *handle)
+{
+    int rc = MM_CAMERA_OK;
+
+    if ( NULL == handle ) {
+        CDBG_ERROR(" %s : Invalid handle", __func__);
+        rc = MM_CAMERA_E_INVALID_INPUT;
+        goto EXIT;
+    }
+
+    if ( handle->test_obj.zsl_enabled ) {
+        rc = mm_app_stop_preview_zsl(&handle->test_obj);
+        if (rc != MM_CAMERA_OK) {
+            CDBG_ERROR("%s: mm_app_stop_preview_zsl() err=%d\n",
+                       __func__, rc);
+            goto EXIT;
+        }
+    } else {
+        rc = mm_app_stop_preview(&handle->test_obj);
+        if (rc != MM_CAMERA_OK) {
+            CDBG_ERROR("%s: mm_app_stop_preview() err=%d\n",
+                       __func__, rc);
+            goto EXIT;
+        }
+    }
+
+    handle->stream_running = 0;
+
+EXIT:
+    return rc;
+}
+
+int mm_camera_lib_get_caps(mm_camera_lib_handle *handle,
+                           cam_capability_t *caps)
+{
+    int rc = MM_CAMERA_OK;
+
+    if ( NULL == handle ) {
+        CDBG_ERROR(" %s : Invalid handle", __func__);
+        rc = MM_CAMERA_E_INVALID_INPUT;
+        goto EXIT;
+    }
+
+    if ( NULL == caps ) {
+        CDBG_ERROR(" %s : Invalid capabilities structure", __func__);
+        rc = MM_CAMERA_E_INVALID_INPUT;
+        goto EXIT;
+    }
+
+    *caps = *( (cam_capability_t *) handle->test_obj.cap_buf.mem_info.data );
+
+EXIT:
+
+    return rc;
+}
+
+
+int mm_camera_lib_send_command(mm_camera_lib_handle *handle,
+                               mm_camera_lib_commands cmd,
+                               void *in_data, void *out_data)
+{
+    int width, height;
+    int rc = MM_CAMERA_OK;
+    cam_capability_t *camera_cap = NULL;
+    mm_camera_lib_snapshot_params *dim = NULL;
+
+    if ( NULL == handle ) {
+        CDBG_ERROR(" %s : Invalid handle", __func__);
+        rc = MM_CAMERA_E_INVALID_INPUT;
+        goto EXIT;
+    }
+
+    if ( 0 == handle->stream_running ) {
+        CDBG_ERROR(" %s : Streaming is not enabled!", __func__);
+        rc = MM_CAMERA_E_INVALID_OPERATION;
+        goto EXIT;
+    }
+
+    camera_cap = (cam_capability_t *) handle->test_obj.cap_buf.mem_info.data;
+
+    switch(cmd) {
+        case MM_CAMERA_LIB_FLASH:
+            if ( NULL != in_data ) {
+                cam_flash_mode_t flash = *(( int * )in_data);
+                rc = setFlash(&handle->test_obj, flash);
+                if (rc != MM_CAMERA_OK) {
+                        CDBG_ERROR("%s: setFlash() err=%d\n",
+                                   __func__, rc);
+                        goto EXIT;
+                }
+            }
+            break;
+        case MM_CAMERA_LIB_BESTSHOT:
+            if ( NULL != in_data ) {
+                cam_scene_mode_type scene = *(( int * )in_data);
+                rc = setScene(&handle->test_obj, scene);
+                if (rc != MM_CAMERA_OK) {
+                        CDBG_ERROR("%s: setScene() err=%d\n",
+                                   __func__, rc);
+                        goto EXIT;
+                }
+            }
+            break;
+        case MM_CAMERA_LIB_ZOOM:
+            if ( NULL != in_data ) {
+                int zoom = *(( int * )in_data);
+                rc = setZoom(&handle->test_obj, zoom);
+                if (rc != MM_CAMERA_OK) {
+                        CDBG_ERROR("%s: setZoom() err=%d\n",
+                                   __func__, rc);
+                        goto EXIT;
+                }
+            }
+            break;
+        case MM_CAMERA_LIB_ISO:
+            if ( NULL != in_data ) {
+                cam_iso_mode_type iso = *(( int * )in_data);
+                rc = setISO(&handle->test_obj, iso);
+                if (rc != MM_CAMERA_OK) {
+                        CDBG_ERROR("%s: setISO() err=%d\n",
+                                   __func__, rc);
+                        goto EXIT;
+                }
+            }
+            break;
+        case MM_CAMERA_LIB_SHARPNESS:
+            if ( NULL != in_data ) {
+                int sharpness = *(( int * )in_data);
+                rc = setSharpness(&handle->test_obj, sharpness);
+                if (rc != MM_CAMERA_OK) {
+                        CDBG_ERROR("%s: setSharpness() err=%d\n",
+                                   __func__, rc);
+                        goto EXIT;
+                }
+            }
+            break;
+        case MM_CAMERA_LIB_SATURATION:
+            if ( NULL != in_data ) {
+                int saturation = *(( int * )in_data);
+                rc = setSaturation(&handle->test_obj, saturation);
+                if (rc != MM_CAMERA_OK) {
+                        CDBG_ERROR("%s: setSaturation() err=%d\n",
+                                   __func__, rc);
+                        goto EXIT;
+                }
+            }
+            break;
+        case MM_CAMERA_LIB_CONTRAST:
+            if ( NULL != in_data ) {
+                int contrast = *(( int * )in_data);
+                rc = setContrast(&handle->test_obj, contrast);
+                if (rc != MM_CAMERA_OK) {
+                        CDBG_ERROR("%s: setContrast() err=%d\n",
+                                   __func__, rc);
+                        goto EXIT;
+                }
+            }
+            break;
+        case MM_CAMERA_LIB_BRIGHTNESS:
+            if ( NULL != in_data ) {
+                int brightness = *(( int * )in_data);
+                rc = setBrightness(&handle->test_obj, brightness);
+                if (rc != MM_CAMERA_OK) {
+                        CDBG_ERROR("%s: setBrightness() err=%d\n",
+                                   __func__, rc);
+                        goto EXIT;
+                }
+            }
+            break;
+        case MM_CAMERA_LIB_EXPOSURE_METERING:
+            if ( NULL != in_data ) {
+                cam_auto_exposure_mode_type exp = *(( int * )in_data);
+                rc = setExposureMetering(&handle->test_obj, exp);
+                if (rc != MM_CAMERA_OK) {
+                        CDBG_ERROR("%s: setExposureMetering() err=%d\n",
+                                   __func__, rc);
+                        goto EXIT;
+                }
+            }
+            break;
+        case MM_CAMERA_LIB_WB:
+            if ( NULL != in_data ) {
+                cam_wb_mode_type wb = *(( int * )in_data);
+                rc = setWhiteBalance(&handle->test_obj, wb);
+                if (rc != MM_CAMERA_OK) {
+                        CDBG_ERROR("%s: setWhiteBalance() err=%d\n",
+                                   __func__, rc);
+                        goto EXIT;
+                }
+            }
+            break;
+        case MM_CAMERA_LIB_ANTIBANDING:
+            if ( NULL != in_data ) {
+                int antibanding = *(( int * )in_data);
+                rc = setAntibanding(&handle->test_obj, antibanding);
+                if (rc != MM_CAMERA_OK) {
+                        CDBG_ERROR("%s: setAntibanding() err=%d\n",
+                                   __func__, rc);
+                        goto EXIT;
+                }
+            }
+            break;
+        case MM_CAMERA_LIB_EV:
+            if ( NULL != in_data ) {
+                int ev = *(( int * )in_data);
+                rc = setEVCompensation(&handle->test_obj, ev);
+                if (rc != MM_CAMERA_OK) {
+                        CDBG_ERROR("%s: setEVCompensation() err=%d\n",
+                                   __func__, rc);
+                        goto EXIT;
+                }
+            }
+            break;
+        case MM_CAMERA_LIB_ZSL_ENABLE:
+            if ( NULL != in_data) {
+                int enable_zsl = *(( int * )in_data);
+                if ( enable_zsl != handle->test_obj.zsl_enabled ) {
+                    rc = mm_camera_lib_stop_stream(handle);
+                    if (rc != MM_CAMERA_OK) {
+                        CDBG_ERROR("%s: mm_camera_lib_stop_stream() err=%d\n",
+                                   __func__, rc);
+                        goto EXIT;
+                    }
+                    handle->test_obj.zsl_enabled = enable_zsl;
+                    rc = mm_camera_lib_start_stream(handle);
+                    if (rc != MM_CAMERA_OK) {
+                        CDBG_ERROR("%s: mm_camera_lib_start_stream() err=%d\n",
+                                   __func__, rc);
+                        goto EXIT;
+                    }
+                }
+            }
+            break;
+        case MM_CAMERA_LIB_RAW_CAPTURE:
+
+            rc = mm_camera_lib_stop_stream(handle);
+            if (rc != MM_CAMERA_OK) {
+                CDBG_ERROR("%s: mm_camera_lib_stop_stream() err=%d\n",
+                           __func__, rc);
+                goto EXIT;
+            }
+
+            width = handle->test_obj.buffer_width;
+            height = handle->test_obj.buffer_height;
+            handle->test_obj.buffer_width = camera_cap->raw_dim.width;
+            handle->test_obj.buffer_height = camera_cap->raw_dim.height;
+            handle->test_obj.buffer_format = DEFAULT_RAW_FORMAT;
+            CDBG_ERROR("%s: MM_CAMERA_LIB_RAW_CAPTURE %dx%d\n",
+                       __func__,
+                       camera_cap->raw_dim.width,
+                       camera_cap->raw_dim.height);
+            rc = mm_app_start_capture_raw(&handle->test_obj, 1);
+            if (rc != MM_CAMERA_OK) {
+                CDBG_ERROR("%s: mm_app_start_capture() err=%d\n",
+                           __func__, rc);
+                goto EXIT;
+            }
+
+            mm_camera_app_wait();
+
+            rc = mm_app_stop_capture_raw(&handle->test_obj);
+            if (rc != MM_CAMERA_OK) {
+                CDBG_ERROR("%s: mm_app_stop_capture() err=%d\n",
+                           __func__, rc);
+                goto EXIT;
+            }
+
+            handle->test_obj.buffer_width = width;
+            handle->test_obj.buffer_height = height;
+            handle->test_obj.buffer_format = DEFAULT_SNAPSHOT_FORMAT;
+            rc = mm_camera_lib_start_stream(handle);
+            if (rc != MM_CAMERA_OK) {
+                CDBG_ERROR("%s: mm_camera_lib_start_stream() err=%d\n",
+                           __func__, rc);
+                goto EXIT;
+            }
+
+            break;
+
+        case MM_CAMERA_LIB_JPEG_CAPTURE:
+            if ( NULL != in_data ) {
+                dim = ( mm_camera_lib_snapshot_params * ) in_data;
+            }
+
+            rc = tuneserver_capture(handle, dim);
+            if (rc != MM_CAMERA_OK) {
+                CDBG_ERROR("%s:capture error %d\n", __func__, rc);
+                goto EXIT;
+            }
+
+            break;
+
+        case MM_CAMERA_LIB_SET_FOCUS_MODE: {
+            cam_focus_mode_type mode = *((cam_focus_mode_type *)in_data);
+            handle->current_params.af_mode = mode;
+            rc = setFocusMode(&handle->test_obj, mode);
+            if (rc != MM_CAMERA_OK) {
+              CDBG_ERROR("%s:autofocus error\n", __func__);
+              goto EXIT;
+            }
+            break;
+        }
+
+        case MM_CAMERA_LIB_DO_AF:
+            rc = handle->test_obj.cam->ops->do_auto_focus(handle->test_obj.cam->camera_handle);
+            if (rc != MM_CAMERA_OK) {
+                CDBG_ERROR("%s:autofocus error\n", __func__);
+                goto EXIT;
+            }
+
+            break;
+
+        case MM_CAMERA_LIB_CANCEL_AF:
+            rc = handle->test_obj.cam->ops->cancel_auto_focus(handle->test_obj.cam->camera_handle);
+            if (rc != MM_CAMERA_OK) {
+                CDBG_ERROR("%s:autofocus error\n", __func__);
+                goto EXIT;
+            }
+
+            break;
+
+        case MM_CAMERA_LIB_LOCK_AWB:
+            rc = setAwbLock(&handle->test_obj, 1);
+            if (rc != MM_CAMERA_OK) {
+                CDBG_ERROR("%s: AWB locking failed\n", __func__);
+                goto EXIT;
+            }
+            break;
+
+        case MM_CAMERA_LIB_UNLOCK_AWB:
+            rc = setAwbLock(&handle->test_obj, 0);
+            if (rc != MM_CAMERA_OK) {
+                CDBG_ERROR("%s: AE unlocking failed\n", __func__);
+                goto EXIT;
+            }
+            break;
+
+        case MM_CAMERA_LIB_LOCK_AE:
+            rc = setAecLock(&handle->test_obj, 1);
+            if (rc != MM_CAMERA_OK) {
+                CDBG_ERROR("%s: AE locking failed\n", __func__);
+                goto EXIT;
+            }
+            break;
+
+        case MM_CAMERA_LIB_UNLOCK_AE:
+            rc = setAecLock(&handle->test_obj, 0);
+            if (rc != MM_CAMERA_OK) {
+                CDBG_ERROR("%s: AE unlocking failed\n", __func__);
+                goto EXIT;
+            }
+            break;
+
+        case MM_CAMERA_LIB_AEC_ENABLE:
+            rc = setAecEnable(&handle->test_obj, 1);
+            if (rc != MM_CAMERA_OK) {
+                CDBG_ERROR("%s: Enable AEC failed\n", __func__);
+                goto EXIT;
+            }
+
+            printf("AEC enabled\n");
+            break;
+
+        case MM_CAMERA_LIB_AEC_DISABLE:
+            rc = setAecEnable(&handle->test_obj, 0);
+            if (rc != MM_CAMERA_OK) {
+                CDBG_ERROR("%s: Disable AEC failed\n", __func__);
+                goto EXIT;
+            }
+
+            printf("AEC disabled\n");
+            break;
+
+        case MM_CAMERA_LIB_AWB_ENABLE:
+            rc = setAwbEnable(&handle->test_obj, 1);
+            if (rc != MM_CAMERA_OK) {
+                CDBG_ERROR("%s: Enable AWB failed\n", __func__);
+                goto EXIT;
+            }
+
+            printf("AWB enabled\n");
+            break;
+
+        case MM_CAMERA_LIB_AWB_DISABLE:
+            rc = setAwbEnable(&handle->test_obj, 0);
+            if (rc != MM_CAMERA_OK) {
+                CDBG_ERROR("%s: Disable AWB failed\n", __func__);
+                goto EXIT;
+            }
+
+            printf("AWB disabled\n");
+            break;
+
+        case MM_CAMERA_LIB_AF_ENABLE:
+            rc = setAfEnable(&handle->test_obj, 1);
+            if (rc != MM_CAMERA_OK) {
+                CDBG_ERROR("%s: Enable AF failed\n", __func__);
+                goto EXIT;
+            }
+
+            printf("AF enabled\n");
+            break;
+
+        case MM_CAMERA_LIB_AF_DISABLE:
+            rc = setAfEnable(&handle->test_obj, 0);
+            if (rc != MM_CAMERA_OK) {
+                CDBG_ERROR("%s: Disable AF failed\n", __func__);
+                goto EXIT;
+            }
+
+            printf("AF disabled\n");
+            break;
+
+        case MM_CAMERA_LIB_AEC_FORCE_LC:
+            rc = setAecForceLinecount(&handle->test_obj, (cam_aec_lc_params_t *)in_data);
+            if (rc != MM_CAMERA_OK) {
+                CDBG_ERROR("%s: AEC Force LineCount failed\n", __func__);
+                goto EXIT;
+            }
+
+            break;
+
+        case MM_CAMERA_LIB_AEC_FORCE_GAIN:
+            rc = setAecForceGain(&handle->test_obj, (cam_aec_gain_params_t *)in_data);
+            if (rc != MM_CAMERA_OK) {
+                CDBG_ERROR("%s: AEC Force Gain failed\n", __func__);
+                goto EXIT;
+            }
+
+            break;
+
+        case MM_CAMERA_LIB_AEC_FORCE_EXP:
+            rc = setAecForceExp(&handle->test_obj, (cam_aec_exp_params_t *)in_data);
+            if (rc != MM_CAMERA_OK) {
+                CDBG_ERROR("%s: AEC Force Exp failed\n", __func__);
+                goto EXIT;
+            }
+
+            break;
+
+        case MM_CAMERA_LIB_AEC_FORCE_SNAP_LC:
+            rc = setAecForceSnapLinecount(&handle->test_obj, (cam_aec_snap_lc_params_t *)in_data);
+            if (rc != MM_CAMERA_OK) {
+                CDBG_ERROR("%s: AEC Force SnapShot LineCount failed\n", __func__);
+                goto EXIT;
+            }
+
+            break;
+
+        case MM_CAMERA_LIB_AEC_FORCE_SNAP_GAIN:
+            rc = setAecForceSnapGain(&handle->test_obj, (cam_aec_snap_gain_params_t *)in_data);
+            if (rc != MM_CAMERA_OK) {
+                CDBG_ERROR("%s: AEC Force SnapShot Gain failed\n", __func__);
+                goto EXIT;
+            }
+
+            break;
+
+        case MM_CAMERA_LIB_AEC_FORCE_SNAP_EXP:
+            rc = setAecForceSnapExp(&handle->test_obj, (cam_aec_snap_exp_params_t *)in_data);
+            if (rc != MM_CAMERA_OK) {
+                CDBG_ERROR("%s: AEC Force SnapShot Exp failed\n", __func__);
+                goto EXIT;
+            }
+
+            break;
+
+       case MM_CAMERA_LIB_GET_CHROMATIX: {
+           rc = getChromatix(&handle->test_obj,
+                (tune_chromatix_t *)out_data);
+           if (rc != MM_CAMERA_OK) {
+             CDBG_ERROR("%s: getChromatix failed\n", __func__);
+             goto EXIT;
+           }
+           break;
+       }
+
+       case MM_CAMERA_LIB_SET_RELOAD_CHROMATIX: {
+           rc = setReloadChromatix(&handle->test_obj,
+             (tune_chromatix_t *)in_data);
+           if (rc != MM_CAMERA_OK) {
+             CDBG_ERROR("%s: setReloadChromatix failed\n", __func__);
+             goto EXIT;
+           }
+           break;
+       }
+
+       case MM_CAMERA_LIB_GET_AFTUNE: {
+           rc = getAutofocusParams(&handle->test_obj,
+                (tune_autofocus_t *)out_data);
+           if (rc != MM_CAMERA_OK) {
+             CDBG_ERROR("%s: getAutofocusParams failed\n", __func__);
+             goto EXIT;
+           }
+           break;
+       }
+
+       case MM_CAMERA_LIB_SET_RELOAD_AFTUNE: {
+           rc = setReloadAutofocusParams(&handle->test_obj,
+             (tune_autofocus_t *)in_data);
+           if (rc != MM_CAMERA_OK) {
+             CDBG_ERROR("%s: setReloadAutofocusParams failed\n", __func__);
+             goto EXIT;
+           }
+           break;
+       }
+
+       case MM_CAMERA_LIB_SET_AUTOFOCUS_TUNING: {
+           rc = setAutoFocusTuning(&handle->test_obj, in_data);
+           if (rc != MM_CAMERA_OK) {
+             CDBG_ERROR("%s: Set AF tuning failed\n", __func__);
+             goto EXIT;
+           }
+           break;
+       }
+
+       case MM_CAMERA_LIB_SET_VFE_COMMAND: {
+           rc = setVfeCommand(&handle->test_obj, in_data);
+           if (rc != MM_CAMERA_OK) {
+             CDBG_ERROR("%s: Set vfe command failed\n", __func__);
+             goto EXIT;
+           }
+           break;
+       }
+
+       case MM_CAMERA_LIB_SET_POSTPROC_COMMAND: {
+           rc = setPPCommand(&handle->test_obj, in_data);
+           if (rc != MM_CAMERA_OK) {
+             CDBG_ERROR("%s: Set pp command failed\n", __func__);
+             goto EXIT;
+           }
+           break;
+       }
+
+      case MM_CAMERA_LIB_NO_ACTION:
+        default:
+            break;
+    };
+
+EXIT:
+
+    return rc;
+}
+int mm_camera_lib_number_of_cameras(mm_camera_lib_handle *handle)
+{
+    int rc = 0;
+
+    if ( NULL == handle ) {
+        CDBG_ERROR(" %s : Invalid handle", __func__);
+        goto EXIT;
+    }
+
+    rc = handle->app_ctx.num_cameras;
+
+EXIT:
+
+    return rc;
+}
+
+int mm_camera_lib_close(mm_camera_lib_handle *handle)
+{
+    int rc = MM_CAMERA_OK;
+
+    if ( NULL == handle ) {
+        CDBG_ERROR(" %s : Invalid handle", __func__);
+        rc = MM_CAMERA_E_INVALID_INPUT;
+        goto EXIT;
+    }
+
+    rc = mm_app_close_fb(&handle->test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s:mm_app_close_fb() err=%d\n",
+                   __func__, rc);
+        goto EXIT;
+    }
+
+    rc = mm_app_close(&handle->test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s:mm_app_close() err=%d\n",
+                   __func__, rc);
+        goto EXIT;
+    }
+
+EXIT:
+    return rc;
+}
+
+int mm_camera_lib_set_preview_usercb(
+   mm_camera_lib_handle *handle, prev_callback cb)
+{
+    if (handle->test_obj.user_preview_cb != NULL) {
+        CDBG_ERROR("%s, already set user preview callbacks...", __func__);
+        return -1;
+    }
+    handle->test_obj.user_preview_cb = *cb;
+    printf("%s  %d pointer =%p\n", __func__, __LINE__, handle->test_obj.user_preview_cb);
     return 0;
 }
