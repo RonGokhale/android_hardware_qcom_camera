@@ -1285,6 +1285,13 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
                             CAMERA_MIN_JPEG_ENCODING_BUFFERS +
                             mParameters.getMaxUnmatchedFramesInQueue() +
                             mParameters.getNumOfExtraHDRInBufsIfNeeded();
+    int minUndequeCount = 0;
+    if (!isNoDisplayMode() && mPreviewWindow != NULL) {
+        if (mPreviewWindow->get_min_undequeued_buffer_count(mPreviewWindow,&minUndequeCount)
+            != 0) {
+            ALOGE("get_min_undequeued_buffer_count  failed");
+        }
+    }
 
     // Get buffer count for the particular stream type
     switch (stream_type) {
@@ -1296,6 +1303,7 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
                 bufferCnt = CAMERA_MIN_STREAMING_BUFFERS +
                             mParameters.getMaxUnmatchedFramesInQueue();
             }
+            bufferCnt += minUndequeCount;
         }
         break;
     case CAM_STREAM_TYPE_POSTVIEW:
@@ -1308,6 +1316,7 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
             if (bufferCnt > zslQBuffers + minCircularBufNum) {
                 bufferCnt = zslQBuffers + minCircularBufNum;
             }
+            bufferCnt += minUndequeCount;
         }
         break;
     case CAM_STREAM_TYPE_SNAPSHOT:
@@ -2986,6 +2995,51 @@ void QCamera2HardwareInterface::signalEvtResult(qcamera_api_result_t *result)
     pthread_mutex_unlock(&m_evtLock);
 }
 
+int32_t QCamera2HardwareInterface::prepareRawStream(QCameraChannel *curChannel)
+{
+    int32_t rc = NO_ERROR;
+    cam_dimension_t str_dim,max_dim;
+    QCameraChannel *pChannel;
+
+    max_dim.width = 0;
+    max_dim.height = 0;
+
+    for (int j = 0; j < QCAMERA_CH_TYPE_MAX; j++) {
+        if (m_channels[j] != NULL) {
+            pChannel = m_channels[j];
+            for (int i = 0; i < pChannel->getNumOfStreams();i++) {
+                QCameraStream *pStream = pChannel->getStreamByIndex(i);
+                if (pStream != NULL) {
+                    if (pStream->isTypeOf(CAM_STREAM_TYPE_METADATA)) {
+                        continue;
+                    }
+                    pStream->getFrameDimension(str_dim);
+                    if (str_dim.width > max_dim.width) {
+                        max_dim.width = str_dim.width;
+                    }
+                    if (str_dim.height > max_dim.height) {
+                        max_dim.height = str_dim.height;
+                    }
+                }
+            }
+        }
+    }
+
+    for (int i = 0; i < curChannel->getNumOfStreams();i++) {
+        QCameraStream *pStream = curChannel->getStreamByIndex(i);
+        if (pStream != NULL) {
+            pStream->getFrameDimension(str_dim);
+            if (str_dim.width > max_dim.width) {
+                max_dim.width = str_dim.width;
+            }
+            if (str_dim.height > max_dim.height) {
+                max_dim.height = str_dim.height;
+            }
+        }
+    }
+    rc = mParameters.updateRAW(max_dim);
+    return rc;
+}
 /*===========================================================================
  * FUNCTION   : addStreamToChannel
  *
@@ -3007,6 +3061,10 @@ int32_t QCamera2HardwareInterface::addStreamToChannel(QCameraChannel *pChannel,
                                                       void *userData)
 {
     int32_t rc = NO_ERROR;
+
+    if (streamType == CAM_STREAM_TYPE_RAW) {
+        prepareRawStream(pChannel);
+    }
     QCameraHeapMemory *pStreamInfo = allocateStreamInfoBuf(streamType);
     if (pStreamInfo == NULL) {
         ALOGE("%s: no mem for stream info buf", __func__);
