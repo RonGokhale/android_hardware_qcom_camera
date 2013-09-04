@@ -248,6 +248,8 @@ QCameraHardwareInterface(int cameraId, int mode)
       ALOGD(" %d  %d", mVideoSizes[i].width, mVideoSizes[i].height);
     }
 
+    memset(&mHistServer, 0, sizeof(mHistServer));
+
     /* set my mode - update myMode member variable due to difference in
      enum definition between upper and lower layer*/
     setMyMode(mode);
