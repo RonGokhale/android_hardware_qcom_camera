@@ -51,7 +51,7 @@
 #define MAX_NUM_STREAMS          8
 #define CHROMATIX_SIZE 21292
 #define COMMONCHROMATIX_SIZE 42044
-#define AFTUNE_SIZE 1596
+#define AFTUNE_SIZE 2000
 #define MAX_SCALE_SIZES_CNT 8
 
 typedef enum {
@@ -943,6 +943,7 @@ typedef enum {
     CAM_INTF_PARM_SET_RELOAD_AFTUNE,
     CAM_INTF_PARM_SET_VFE_COMMAND,
     CAM_INTF_PARM_SET_PP_COMMAND,
+    CAM_INTF_PARM_TINTLESS,
 
     /* stream based parameters */
     CAM_INTF_PARM_DO_REPROCESS,
