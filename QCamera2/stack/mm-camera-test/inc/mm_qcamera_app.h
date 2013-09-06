@@ -234,7 +234,7 @@ typedef struct {
     int8_t enable_CAC;
     mm_camera_queue_t pp_frames;
     mm_camera_stream_t *reproc_stream;
-    //
+    cam_metadata_info_t *metadata;
 } mm_camera_test_obj_t;
 
 typedef struct {
@@ -299,7 +299,8 @@ typedef enum {
     MM_CAMERA_LIB_ZOOM,
     MM_CAMERA_LIB_BESTSHOT,
     MM_CAMERA_LIB_FLASH,
-    MM_CAMERA_LIB_FPS_RANGE
+    MM_CAMERA_LIB_FPS_RANGE,
+    MM_CAMERA_LIB_WNR_ENABLE,
 } mm_camera_lib_commands;
 
 typedef struct {
