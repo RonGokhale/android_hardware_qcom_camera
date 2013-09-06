@@ -111,7 +111,9 @@ typedef enum {
     QCAMERA_DATA_SNAPSHOT_CALLBACK
 } qcamera_callback_type_m;
 
-typedef void (*camera_release_callback)(void *user_data, void *cookie);
+typedef void (*camera_release_callback)(void *user_data,
+                                        void *cookie,
+                                        int32_t cb_status);
 
 typedef struct {
     qcamera_callback_type_m  cb_type;    // event type
@@ -304,6 +306,8 @@ private:
     void dumpFrameToFile(QCameraStream *stream,
                          mm_camera_buf_def_t *frame,
                          int dump_type);
+    void dumpMetadataToFile(QCameraStream *stream,
+                            mm_camera_buf_def_t *frame,char *type);
     void releaseSuperBuf(mm_camera_super_buf_t *super_buf);
     void playShutter();
     void getThumbnailSize(cam_dimension_t &dim);
@@ -411,8 +415,12 @@ private:
                                             QCameraStream *stream,
                                             void *userdata);
 
-    static void releaseCameraMemory(void *data, void *cookie);
-    static void returnStreamBuffer(void *data, void *cookie);
+    static void releaseCameraMemory(void *data,
+                                    void *cookie,
+                                    int32_t cbStatus);
+    static void returnStreamBuffer(void *data,
+                                   void *cookie,
+                                   int32_t cbStatus);
     static int32_t getEffectValue(const char *effect);
 
 private:
