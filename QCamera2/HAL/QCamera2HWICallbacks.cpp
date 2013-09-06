@@ -117,6 +117,48 @@ void QCamera2HardwareInterface::zsl_channel_cb(mm_camera_super_buf_t *recvd_fram
         }
     }
     //
+    // whether need FD Metadata along with Snapshot frame in ZSL mode
+    if(pme->needFDMetadata(QCAMERA_CH_TYPE_ZSL)){
+        //Need Face Detection result for snapshot frames
+        //Get the Meta Data frames
+        mm_camera_buf_def_t *pMetaFrame = NULL;
+        for(int i = 0; i < frame->num_bufs; i++){
+            QCameraStream *pStream = pChannel->getStreamByHandle(frame->bufs[i]->stream_id);
+            if(pStream != NULL){
+                if(pStream->isTypeOf(CAM_STREAM_TYPE_METADATA)){
+                    pMetaFrame = frame->bufs[i]; //find the metadata
+                    break;
+                }
+            }
+        }
+
+        if(pMetaFrame != NULL){
+            cam_metadata_info_t *pMetaData = (cam_metadata_info_t *)pMetaFrame->buffer;
+            pMetaData->faces_data.fd_type = QCAMERA_FD_SNAPSHOT; //HARD CODE here before MCT can support
+            if(!pMetaData->is_faces_valid){
+                pMetaData->faces_data.num_faces_detected = 0;
+            }else if(pMetaData->faces_data.num_faces_detected > MAX_ROI){
+                ALOGE("%s: Invalid number of faces %d",
+                    __func__, pMetaData->faces_data.num_faces_detected);
+            }
+
+            qcamera_sm_internal_evt_payload_t *payload =
+                (qcamera_sm_internal_evt_payload_t *)malloc(sizeof(qcamera_sm_internal_evt_payload_t));
+            if (NULL != payload) {
+                memset(payload, 0, sizeof(qcamera_sm_internal_evt_payload_t));
+                payload->evt_type = QCAMERA_INTERNAL_EVT_FACE_DETECT_RESULT;
+                payload->faces_data = pMetaData->faces_data;
+                int32_t rc = pme->processEvt(QCAMERA_SM_EVT_EVT_INTERNAL, payload);
+                if (rc != NO_ERROR) {
+                    ALOGE("%s: processEvt prep_snapshot failed", __func__);
+                    free(payload);
+                    payload = NULL;
+                }
+            } else {
+                ALOGE("%s: No memory for prep_snapshot qcamera_sm_internal_evt_payload_t", __func__);
+            }
+        }
+    }
 
     // send to postprocessor
     pme->m_postprocessor.processData(frame);
@@ -953,6 +995,7 @@ void QCamera2HardwareInterface::metadata_stream_cb_routine(mm_camera_super_buf_t
             // process face detection result
             if (pMetaData->faces_data.num_faces_detected)
                 ALOGE("[KPI Perf] %s: PROFILE_NUMBER_OF_FACES_DETECTED %d",__func__,pMetaData->faces_data.num_faces_detected);
+            pMetaData->faces_data.fd_type = QCAMERA_FD_PREVIEW; //HARD CODE here before MCT can support
             qcamera_sm_internal_evt_payload_t *payload =
                 (qcamera_sm_internal_evt_payload_t *)malloc(sizeof(qcamera_sm_internal_evt_payload_t));
             if (NULL != payload) {
@@ -1426,7 +1469,7 @@ void QCameraCbNotifier::releaseNotifications(void *data, void *user_data)
 
     if ( ( NULL != arg ) && ( NULL != user_data ) ) {
         if ( arg->release_cb ) {
-            arg->release_cb(arg->user_data, arg->cookie);
+            arg->release_cb(arg->user_data, arg->cookie, FAILED_TRANSACTION);
         }
     }
 }
@@ -1475,8 +1518,10 @@ void * QCameraCbNotifier::cbNotifyRoutine(void * data)
     QCameraCbNotifier *pme = (QCameraCbNotifier *)data;
     QCameraCmdThread *cmdThread = &pme->mProcTh;
     uint8_t isSnapshotActive = FALSE;
+    bool longShotEnabled = false;
     uint32_t numOfSnapshotExpected = 0;
     uint32_t numOfSnapshotRcvd = 0;
+    int32_t cbStatus = NO_ERROR;
 
     ALOGV("%s: E", __func__);
     do {
@@ -1496,6 +1541,7 @@ void * QCameraCbNotifier::cbNotifyRoutine(void * data)
             {
                 isSnapshotActive = TRUE;
                 numOfSnapshotExpected = pme->mParent->numOfSnapshotsExpected();
+                longShotEnabled = pme->mParent->isLongshotEnabled();
                 numOfSnapshotRcvd = 0;
             }
             break;
@@ -1512,6 +1558,7 @@ void * QCameraCbNotifier::cbNotifyRoutine(void * data)
             {
                 qcamera_callback_argm_t *cb =
                     (qcamera_callback_argm_t *)pme->mDataQ.dequeue();
+                cbStatus = NO_ERROR;
                 if (NULL != cb) {
                     ALOGV("%s: cb type %d received",
                           __func__,
@@ -1566,12 +1613,14 @@ void * QCameraCbNotifier::cbNotifyRoutine(void * data)
                         case QCAMERA_DATA_SNAPSHOT_CALLBACK:
                             {
                                 if (TRUE == isSnapshotActive && pme->mDataCb ) {
-                                    numOfSnapshotRcvd++;
-                                    if (numOfSnapshotExpected > 0 &&
-                                        numOfSnapshotExpected == numOfSnapshotRcvd) {
-                                        // notify HWI that snapshot is done
-                                        pme->mParent->processSyncEvt(QCAMERA_SM_EVT_SNAPSHOT_DONE,
-                                                                     NULL);
+                                    if (!longShotEnabled) {
+                                        numOfSnapshotRcvd++;
+                                        if (numOfSnapshotExpected > 0 &&
+                                            numOfSnapshotExpected == numOfSnapshotRcvd) {
+                                            // notify HWI that snapshot is done
+                                            pme->mParent->processSyncEvt(QCAMERA_SM_EVT_SNAPSHOT_DONE,
+                                                                         NULL);
+                                        }
                                     }
                                     pme->mDataCb(cb->msg_type,
                                                  cb->data,
@@ -1586,6 +1635,7 @@ void * QCameraCbNotifier::cbNotifyRoutine(void * data)
                                 ALOGE("%s : invalid cb type %d",
                                       __func__,
                                       cb->cb_type);
+                                cbStatus = BAD_VALUE;
                             }
                             break;
                         };
@@ -1593,9 +1643,10 @@ void * QCameraCbNotifier::cbNotifyRoutine(void * data)
                         ALOGE("%s : cb message type %d not enabled!",
                               __func__,
                               cb->msg_type);
+                        cbStatus = INVALID_OPERATION;
                     }
                     if ( cb->release_cb ) {
-                        cb->release_cb(cb->user_data, cb->cookie);
+                        cb->release_cb(cb->user_data, cb->cookie, cbStatus);
                     }
                     delete cb;
                 } else {

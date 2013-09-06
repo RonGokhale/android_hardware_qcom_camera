@@ -171,7 +171,6 @@ typedef struct{
     uint32_t qcom_supported_feature_mask; /* mask of qcom specific features supported:
                                            * such as CAM_QCOM_FEATURE_SUPPORTED_FACE_DETECTION*/
     cam_padding_info_t padding_info;      /* padding information from PP */
-    int8_t min_num_hdr_bufs;              /* minimum number of buffers needed for HDR by imaging module */
     int8_t min_num_pp_bufs;               /* minimum number of buffers needed by postproc module */
     uint32_t min_required_pp_mask;        /* min required pp feature masks for ZSL.
                                            * depends on hardware limitation, i.e. for 8974,
@@ -255,6 +254,7 @@ typedef struct{
 
     uint32_t max_face_detection_count;
 
+    uint8_t histogram_supported;
     /* Number of histogram buckets supported */
     int32_t histogram_size;
     /* Maximum value possible for a histogram bucket */
@@ -442,6 +442,9 @@ typedef union {
     INCLUDE(CAM_INTF_PARM_AEC_FORCE_SNAP_LC,        cam_aec_snap_lc_params_t,    1);
     INCLUDE(CAM_INTF_PARM_AEC_FORCE_SNAP_GAIN,      cam_aec_snap_gain_params_t,  1);
     INCLUDE(CAM_INTF_PARM_AEC_FORCE_SNAP_EXP,       cam_aec_snap_exp_params_t,   1);
+    INCLUDE(CAM_INTF_PARM_MAX_DIMENSION,            cam_dimension_t,             1);
+    INCLUDE(CAM_INTF_PARM_RAW_DIMENSION,            cam_dimension_t,             1);
+    INCLUDE(CAM_INTF_PARM_TINTLESS,                 int32_t,                     1);
 
     /* HAL3 sepcific */
     INCLUDE(CAM_INTF_META_FRAME_NUMBER,             uint32_t,                    1);
@@ -484,6 +487,7 @@ typedef union {
     INCLUDE(CAM_INTF_META_TONEMAP_CURVE_RED,        cam_tonemap_curve_t,         1);
     INCLUDE(CAM_INTF_META_TONEMAP_MODE,             uint8_t,                     1);
     INCLUDE(CAM_INTF_META_FLASH_MODE,               uint8_t,                     1);
+    INCLUDE(CAM_INTF_PARM_STATS_DEBUG_MASK,         uint32_t,                    1);
 } parm_type_t;
 
 

@@ -49,6 +49,9 @@
 #define MAX_ROI 5
 #define MAX_STREAM_NUM_IN_BUNDLE 4
 #define MAX_NUM_STREAMS          8
+#define CHROMATIX_SIZE 21292
+#define COMMONCHROMATIX_SIZE 42044
+#define AFTUNE_SIZE 2000
 #define MAX_SCALE_SIZES_CNT 8
 
 typedef enum {
@@ -523,12 +526,13 @@ typedef struct {
 } cam_hdr_bracketing_info_t;
 
 typedef struct {
-    uint8_t chromatixData[21292];
-    uint8_t common_chromatixData[42044];
+    uint8_t chromatixData[CHROMATIX_SIZE];
+    uint8_t snapchromatixData[CHROMATIX_SIZE];
+    uint8_t common_chromatixData[COMMONCHROMATIX_SIZE];
 } tune_chromatix_t;
 
 typedef struct {
-    uint8_t af_tuneData[1592];
+    uint8_t af_tuneData[AFTUNE_SIZE];
 } tune_autofocus_t;
 
 typedef struct {
@@ -600,6 +604,11 @@ typedef struct {
     int num_fd;
 } cam_fd_set_parm_t;
 
+typedef enum {
+    QCAMERA_FD_PREVIEW,
+    QCAMERA_FD_SNAPSHOT
+}qcamera_face_detect_type_t;
+
 typedef struct {
     int8_t face_id;            /* unique id for face tracking within view unless view changes */
     int8_t score;              /* score of confidence (0, -100) */
@@ -625,6 +634,7 @@ typedef struct {
     uint32_t frame_id;                         /* frame index of which faces are detected */
     uint8_t num_faces_detected;                /* number of faces detected */
     cam_face_detection_info_t faces[MAX_ROI];  /* detailed information of faces detected */
+    qcamera_face_detect_type_t fd_type;        /* face detect for preview or snapshot frame*/
 } cam_face_detection_data_t;
 
 #define CAM_HISTOGRAM_STATS_SIZE 256
@@ -727,6 +737,10 @@ typedef enum {
   S_BACKLIGHT,
   S_MAX,
 } cam_auto_scene_t;
+
+typedef struct {
+   uint32_t meta_frame_id;
+} cam_meta_valid_t;
 
 typedef  struct {
     float aperture_value;
@@ -861,6 +875,10 @@ typedef  struct {
     /* sensor parameters */
     uint8_t is_sensor_params_valid;
     cam_sensor_params_t sensor_params;
+
+    /* Meta valid params */
+    uint8_t is_meta_valid;
+    cam_meta_valid_t meta_valid_params;
 } cam_metadata_info_t;
 
 typedef enum {
@@ -906,6 +924,8 @@ typedef enum {
     CAM_INTF_PARM_ASD_ENABLE,
     CAM_INTF_PARM_RECORDING_HINT,
     CAM_INTF_PARM_HDR,
+    CAM_INTF_PARM_MAX_DIMENSION,
+    CAM_INTF_PARM_RAW_DIMENSION,
     CAM_INTF_PARM_FRAMESKIP,
     CAM_INTF_PARM_ZSL_MODE,  /* indicating if it's running in ZSL mode */
     CAM_INTF_PARM_HDR_NEED_1X, /* if HDR needs 1x output */ /* 40 */
@@ -923,6 +943,7 @@ typedef enum {
     CAM_INTF_PARM_SET_RELOAD_AFTUNE,
     CAM_INTF_PARM_SET_VFE_COMMAND,
     CAM_INTF_PARM_SET_PP_COMMAND,
+    CAM_INTF_PARM_TINTLESS,
 
     /* stream based parameters */
     CAM_INTF_PARM_DO_REPROCESS,
@@ -1075,6 +1096,7 @@ typedef enum {
     CAM_INTF_META_FLASH_MODE,
     CAM_INTF_META_ASD_HDR_SCENE_DATA,
     CAM_INTF_META_PRIVATE_DATA,
+    CAM_INTF_PARM_STATS_DEBUG_MASK,
 
     CAM_INTF_PARM_MAX
 } cam_intf_parm_type_t;
@@ -1198,6 +1220,7 @@ typedef struct {
 #define CAM_QCOM_FEATURE_VIDEO_HDR      (1<<8)
 #define CAM_QCOM_FEATURE_CAC            (1<<9)
 #define CAM_QCOM_FEATURE_SCALE          (1<<10)
+#define CAM_QCOM_FEATURE_EFFECT         (1<<11)
 
 // Counter clock wise
 typedef enum {
@@ -1249,6 +1272,7 @@ typedef struct {
     cam_rotation_t rotation;
     uint32_t flip;
     int32_t sharpness;
+    int32_t effect;
     cam_hdr_param_t hdr_param;
     cam_scale_param_t scale_param;
 } cam_pp_feature_config_t;
