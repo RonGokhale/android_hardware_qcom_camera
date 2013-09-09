@@ -242,11 +242,13 @@ static void mm_channel_process_stream_buf(mm_camera_cmdcb_t * cmd_cb,
             if (MM_CAMERA_SUPER_BUF_NOTIFY_BURST == notify_mode) {
                 ch_obj->pending_cnt--;
 
-                if (ch_obj->pending_cnt == 0 && ch_obj->startZSlSnapshotCalled == TRUE) {
-                    CDBG_HIGH("%s: received all frames requested, stop zsl snapshot", __func__);
-                    mm_camera_stop_zsl_snapshot(ch_obj->cam_obj);
-                    ch_obj->startZSlSnapshotCalled = FALSE;
-                }
+                // Why we need stop zsl snapshot here? since we will call Snapshot done,
+                // Then enter MM_CAMERA_CMD_TYPE_REQ_DATA_CB to stop zsl snasphot.
+                //if (ch_obj->pending_cnt == 0 && ch_obj->startZSlSnapshotCalled == TRUE) {
+                //    CDBG_HIGH("%s: received all frames requested, stop zsl snapshot", __func__);
+                //    mm_camera_stop_zsl_snapshot(ch_obj->cam_obj);
+                //    ch_obj->startZSlSnapshotCalled = FALSE;
+                //}
             }
 
             /* dispatch superbuf */
