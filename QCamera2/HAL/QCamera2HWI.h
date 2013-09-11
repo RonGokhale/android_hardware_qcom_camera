@@ -362,6 +362,7 @@ private:
     bool isLongshotEnabled() { return mLongshotEnabled; };
     uint8_t getBufNumRequired(cam_stream_type_t stream_type);
     bool needFDMetadata(qcamera_ch_type_enum_t channel_type);
+    int getReprocBufCnt() { return mReprocBufferCnt; };
 
     static void camEvtHandle(uint32_t camera_handle,
                           mm_camera_event_t *evt,
@@ -467,6 +468,7 @@ private:
     qcamera_thermal_level_enum_t mThermalLevel;
     bool m_HDRSceneEnabled;
     bool mLongshotEnabled;
+    int mReprocBufferCnt;
 };
 
 }; // namespace qcamera
