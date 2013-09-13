@@ -38,6 +38,13 @@
 #include "QCamera2HWI.h"
 #include "QCameraMem.h"
 
+#ifdef USE_PERFORMANCE_LOCK
+
+#include <performance.h>
+#include <qc-performance.h>
+
+#endif
+
 #define MAP_TO_DRIVER_COORDINATE(val, base, scale, offset) (val * scale / base + offset)
 #define CAMERA_MIN_STREAMING_BUFFERS     3
 #define CAMERA_MIN_JPEG_ENCODING_BUFFERS 2
@@ -81,7 +88,6 @@ camera_device_ops_t QCamera2HardwareInterface::mCameraOps = {
     release:                    QCamera2HardwareInterface::release,
     dump:                       QCamera2HardwareInterface::dump,
 };
-
 
 int32_t QCamera2HardwareInterface::getEffectValue(const char *effect)
 {
@@ -603,6 +609,21 @@ int QCamera2HardwareInterface::take_picture(struct camera_device *device)
         return BAD_VALUE;
     }
     ALOGE("[KPI Perf] %s: E PROFILE_TAKE_PICTURE", __func__);
+
+#ifdef USE_PERFORMANCE_LOCK
+
+    int32_t perf_lock_params[] = {  CPUS_ONLINE_MAX,
+                                    CPU0_MIN_FREQ_TURBO_MAX,
+                                    CPU1_MIN_FREQ_TURBO_MAX,
+                                    CPU2_MIN_FREQ_TURBO_MAX,
+                                    CPU3_MIN_FREQ_TURBO_MAX };
+    hw->mPerfLockHandle = 0;
+    hw->mPerfLockHandle = perf_lock_acq(hw->mPerfLockHandle,
+                                    INDEFINITE_DURATION,
+                                    perf_lock_params,
+                                    sizeof(perf_lock_params) / sizeof(int32_t));
+#endif
+
     hw->lockAPI();
 
     /* Prepare snapshot in case LED needs to be flashed */
@@ -625,6 +646,19 @@ int QCamera2HardwareInterface::take_picture(struct camera_device *device)
 
     hw->unlockAPI();
     ALOGD("[KPI Perf] %s: X", __func__);
+
+#ifdef USE_PERFORMANCE_LOCK
+
+    if ( ( NO_ERROR != ret ) && ( -1 != hw->mPerfLockHandle ) ) {
+        ALOGE("%s : take_picture failed releasing perf handle: %d",
+              __func__,
+              hw->mPerfLockHandle);
+        perf_lock_rel(hw->mPerfLockHandle);
+        hw->mPerfLockHandle = -1;
+    }
+
+#endif
+
     return ret;
 }
 
@@ -953,7 +987,9 @@ QCamera2HardwareInterface::QCamera2HardwareInterface(int cameraId)
       mDumpSkipCnt(0),
       mThermalLevel(QCAMERA_THERMAL_NO_ADJUSTMENT),
       m_HDRSceneEnabled(false),
-      mLongshotEnabled(false)
+      mLongshotEnabled(false),
+      m_max_pic_width(0),
+      m_max_pic_height(0)
 {
     mCameraDevice.common.tag = HARDWARE_DEVICE_TAG;
     mCameraDevice.common.version = HARDWARE_DEVICE_API_VERSION(1, 0);
@@ -979,6 +1015,11 @@ QCamera2HardwareInterface::QCamera2HardwareInterface(int cameraId)
     }
 #endif
 
+#ifdef USE_PERFORMANCE_LOCK
+
+    mPerfLockHandle = -1;
+
+#endif
 }
 
 /*===========================================================================
@@ -1041,6 +1082,12 @@ int QCamera2HardwareInterface::openCamera(struct hw_device_t **hw_device)
  *==========================================================================*/
 int QCamera2HardwareInterface::openCamera()
 {
+    int32_t l_curr_width = 0;
+    int32_t l_curr_height = 0;
+    m_max_pic_width = 0;
+    m_max_pic_height = 0;
+    int i;
+
     if (mCameraHandle) {
         ALOGE("Failure: Camera already opened");
         return ALREADY_EXISTS;
@@ -1054,6 +1101,19 @@ int QCamera2HardwareInterface::openCamera()
     mCameraHandle->ops->register_event_notify(mCameraHandle->camera_handle,
                                               camEvtHandle,
                                               (void *) this);
+
+    /* get max pic size for jpeg work buf calculation*/
+    for(i = 0; i < gCamCapability[mCameraId]->picture_sizes_tbl_cnt - 1; i++)
+    {
+      l_curr_width = gCamCapability[mCameraId]->picture_sizes_tbl[i].width;
+      l_curr_height = gCamCapability[mCameraId]->picture_sizes_tbl[i].height;
+
+      if ((l_curr_width * l_curr_height) >
+        (m_max_pic_width * m_max_pic_height)) {
+        m_max_pic_width = l_curr_width;
+        m_max_pic_height = l_curr_height;
+      }
+    }
 
     int32_t rc = m_postprocessor.init(jpegEvtHandle, this);
     if (rc != 0) {
@@ -2187,6 +2247,18 @@ int QCamera2HardwareInterface::cancelPicture()
     //stop post processor
     m_postprocessor.stop();
 
+#ifdef USE_PERFORMANCE_LOCK
+
+    if ( -1 != mPerfLockHandle ) {
+        ALOGD("%s : Capture finished releasing perf handle: %d",
+              __func__,
+              mPerfLockHandle);
+        perf_lock_rel(mPerfLockHandle);
+        mPerfLockHandle = -1;
+    }
+
+#endif
+
     if (mParameters.isZSLMode()) {
         QCameraPicChannel *pZSLChannel =
             (QCameraPicChannel *)m_channels[QCAMERA_CH_TYPE_ZSL];
@@ -2252,6 +2324,18 @@ int QCamera2HardwareInterface::takeLiveSnapshot()
 int QCamera2HardwareInterface::cancelLiveSnapshot()
 {
     int rc = NO_ERROR;
+
+#ifdef USE_PERFORMANCE_LOCK
+
+    if ( -1 != mPerfLockHandle ) {
+        ALOGD("%s : Capture finished releasing perf handle: %d",
+              __func__,
+              mPerfLockHandle);
+        perf_lock_rel(mPerfLockHandle);
+        mPerfLockHandle = -1;
+    }
+
+#endif
 
     //stop post processor
     m_postprocessor.stop();
@@ -2809,7 +2893,9 @@ int32_t QCamera2HardwareInterface::processHDRData(cam_asd_hdr_scene_data_t hdr_s
 {
     int rc = NO_ERROR;
 
-    if (hdr_scene.is_hdr_scene && (hdr_scene.hdr_confidence > HDR_CONFIDENCE_THRESHOLD)) {
+    if (hdr_scene.is_hdr_scene &&
+      (hdr_scene.hdr_confidence > HDR_CONFIDENCE_THRESHOLD) &&
+      mParameters.isAutoHDREnabled()) {
         m_HDRSceneEnabled = true;
     } else {
         m_HDRSceneEnabled = false;
