@@ -471,6 +471,10 @@ private:
     bool mLongshotEnabled;
     int mReprocBufferCnt;
     int mLongshotCount;     // capture number for longshot mode
+
+    int32_t m_max_pic_width;
+    int32_t m_max_pic_height;
+    uint8_t mFlashNeeded;
 };
 
 }; // namespace qcamera
