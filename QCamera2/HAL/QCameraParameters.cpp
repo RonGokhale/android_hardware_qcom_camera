@@ -103,6 +103,7 @@ const char QCameraParameters::KEY_QC_SNAPSHOT_PICTURE_FLIP[] = "snapshot-picture
 const char QCameraParameters::KEY_QC_SUPPORTED_FLIP_MODES[] = "flip-mode-values";
 const char QCameraParameters::KEY_QC_VIDEO_HDR[] = "video-hdr";
 const char QCameraParameters::KEY_QC_SUPPORTED_VIDEO_HDR_MODES[] = "video-hdr-values";
+const char QCameraParameters::KEY_QC_AUTO_HDR_ENABLE [] = "auto-hdr-enable";
 const char QCameraParameters::KEY_QC_SNAPSHOT_BURST_NUM[] = "snapshot-burst-num";
 const char QCameraParameters::KEY_QC_SNAPSHOT_FD_DATA[] = "snapshot-fd-data-enable";
 const char QCameraParameters::KEY_QC_TINTLESS_ENABLE[] = "tintless";
@@ -1217,6 +1218,10 @@ int32_t QCameraParameters::setLiveSnapshotSize(const QCameraParameters& params)
     ALOGI("%s: live snapshot size %d x %d", __func__,
           m_LiveSnapshotSize.width, m_LiveSnapshotSize.height);
 
+    if (m_bRecordingHint) {
+        CameraParameters::setPictureSize(m_LiveSnapshotSize.width, m_LiveSnapshotSize.height);
+    }
+
     return NO_ERROR;
 }
 
@@ -1593,6 +1598,11 @@ int32_t QCameraParameters::setBrightness(const QCameraParameters& params)
 {
     int currentBrightness = getInt(KEY_QC_BRIGHTNESS);
     int brightness = params.getInt(KEY_QC_BRIGHTNESS);
+
+    if(params.get(KEY_QC_BRIGHTNESS) == NULL) {
+       ALOGD("%s: Brigtness not set by App ",__func__);
+       return NO_ERROR;
+    }
     if (currentBrightness !=  brightness) {
         if (brightness >= m_pCapability->brightness_ctrl.min_value &&
             brightness <= m_pCapability->brightness_ctrl.max_value) {
@@ -1627,6 +1637,11 @@ int32_t QCameraParameters::setSharpness(const QCameraParameters& params)
 {
     int shaprness = params.getInt(KEY_QC_SHARPNESS);
     int prev_sharp = getInt(KEY_QC_SHARPNESS);
+
+    if(params.get(KEY_QC_SHARPNESS) == NULL) {
+       ALOGD("%s: Sharpness not set by App ",__func__);
+       return NO_ERROR;
+    }
     if (prev_sharp !=  shaprness) {
         if((shaprness >= m_pCapability->sharpness_ctrl.min_value) &&
            (shaprness <= m_pCapability->sharpness_ctrl.max_value)) {
@@ -1661,7 +1676,12 @@ int32_t QCameraParameters::setSkinToneEnhancement(const QCameraParameters& param
 {
     int sceFactor = params.getInt(KEY_QC_SCE_FACTOR);
     int prev_sceFactor = getInt(KEY_QC_SCE_FACTOR);
-    if (prev_sceFactor !=  sceFactor) {
+
+    if(params.get(KEY_QC_SCE_FACTOR) == NULL) {
+       ALOGD("%s: Skintone enhancement not set by App ",__func__);
+       return NO_ERROR;
+    }
+    if (prev_sceFactor != sceFactor) {
         if((sceFactor >= m_pCapability->sce_ctrl.min_value) &&
            (sceFactor <= m_pCapability->sce_ctrl.max_value)) {
             ALOGV(" new Skintone Enhancement value : %d ", sceFactor);
@@ -1695,6 +1715,11 @@ int32_t QCameraParameters::setSaturation(const QCameraParameters& params)
 {
     int saturation = params.getInt(KEY_QC_SATURATION);
     int prev_sat = getInt(KEY_QC_SATURATION);
+
+    if(params.get(KEY_QC_SATURATION) == NULL) {
+       ALOGD("%s: Saturation not set by App ",__func__);
+       return NO_ERROR;
+    }
     if (prev_sat !=  saturation) {
         if((saturation >= m_pCapability->saturation_ctrl.min_value) &&
            (saturation <= m_pCapability->saturation_ctrl.max_value)) {
@@ -1729,6 +1754,11 @@ int32_t QCameraParameters::setContrast(const QCameraParameters& params)
 {
     int contrast = params.getInt(KEY_QC_CONTRAST);
     int prev_contrast = getInt(KEY_QC_CONTRAST);
+
+    if(params.get(KEY_QC_CONTRAST) == NULL) {
+       ALOGD("%s: Contrast not set by App ",__func__);
+       return NO_ERROR;
+    }
     if (prev_contrast !=  contrast) {
         if((contrast >= m_pCapability->contrast_ctrl.min_value) &&
            (contrast <= m_pCapability->contrast_ctrl.max_value)) {
@@ -1764,7 +1794,12 @@ int32_t QCameraParameters::setExposureCompensation(const QCameraParameters & par
 {
     int expComp = params.getInt(KEY_EXPOSURE_COMPENSATION);
     int prev_expComp = getInt(KEY_EXPOSURE_COMPENSATION);
-    if (prev_expComp !=  expComp) {
+
+    if(params.get(KEY_EXPOSURE_COMPENSATION) == NULL) {
+       ALOGD("%s: Exposure compensation not set by App ",__func__);
+       return NO_ERROR;
+    }
+    if (prev_expComp != expComp) {
         if((expComp >= m_pCapability->exposure_compensation_min) &&
            (expComp <= m_pCapability->exposure_compensation_max)) {
             ALOGV(" new Exposure Compensation value : %d ", expComp);
@@ -2099,6 +2134,72 @@ int32_t QCameraParameters::setAwbLock(const QCameraParameters& params)
         }
     }
     return NO_ERROR;
+}
+
+/*===========================================================================
+ * FUNCTION   : setAutoHDR
+ *
+ * DESCRIPTION: Enable/disable auto HDR
+ *
+ * PARAMETERS :
+ *   @params  : user setting parameters
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraParameters::setAutoHDR(const QCameraParameters& params)
+{
+    const char *str = params.get(KEY_QC_AUTO_HDR_ENABLE);
+    const char *prev_str = get(KEY_QC_AUTO_HDR_ENABLE);
+    char prop[PROPERTY_VALUE_MAX];
+
+    memset(prop, 0, sizeof(prop));
+    property_get("persist.camera.auto.hdr.enable", prop, VALUE_DISABLE);
+    if (str != NULL) {
+       if (prev_str == NULL ||
+           strcmp(str, prev_str) != 0) {
+           ALOGD("%s : Auto HDR set to: %s", __func__, str);
+           return updateParamEntry(KEY_QC_AUTO_HDR_ENABLE, str);
+       }
+    } else {
+       if (prev_str == NULL ||
+           strcmp(prev_str, prop) != 0 ) {
+           ALOGD("%s : Auto HDR set to: %s", __func__, prop);
+           updateParamEntry(KEY_QC_AUTO_HDR_ENABLE, prop);
+       }
+    }
+
+       return NO_ERROR;
+}
+
+/*===========================================================================
+* FUNCTION   : isAutoHDREnabled
+*
+* DESCRIPTION: Query auto HDR status
+*
+* PARAMETERS : None
+*
+* RETURN     : bool true/false
+*==========================================================================*/
+bool QCameraParameters::isAutoHDREnabled()
+{
+    const char *str = get(KEY_QC_AUTO_HDR_ENABLE);
+    if (str != NULL) {
+        int32_t value = lookupAttr(ENABLE_DISABLE_MODES_MAP,
+                                   sizeof(ENABLE_DISABLE_MODES_MAP)/sizeof(QCameraMap),
+                                   str);
+        if (value == NAME_NOT_FOUND) {
+            ALOGE("%s: Invalid Auto HDR value %s", __func__, str);
+            return false;
+        }
+
+        ALOGD("%s : Auto HDR status is: %d", __func__, value);
+        return value ? true : false;
+    }
+
+    ALOGD("%s : Auto HDR status not set!", __func__);
+    return false;
 }
 
 /*===========================================================================
@@ -2948,6 +3049,7 @@ int32_t QCameraParameters::updateParameters(QCameraParameters& params,
     if ((rc = setSelectableZoneAf(params)))             final_rc = rc;
     if ((rc = setRedeyeReduction(params)))              final_rc = rc;
     if ((rc = setAEBracket(params)))                    final_rc = rc;
+    if ((rc = setAutoHDR(params)))                      final_rc = rc;
     if ((rc = setGpsLocation(params)))                  final_rc = rc;
     if ((rc = setWaveletDenoise(params)))               final_rc = rc;
     if ((rc = setFaceRecognition(params)))              final_rc = rc;
