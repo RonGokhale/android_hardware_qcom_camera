@@ -695,6 +695,9 @@ int32_t QCameraPostProcessor::processPPData(mm_camera_super_buf_t *frame)
         // after reprocess is done
         // TODO: Move this after CAC done event
 
+        //need add longshot count
+        int count = m_parent->increaseLongshotCount();
+        ALOGD("%s: paly shutter, longshot count is %d. ", __func__, count);
         m_parent->playShutter();
     }
 

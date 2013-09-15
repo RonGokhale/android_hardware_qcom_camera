@@ -360,6 +360,7 @@ private:
     bool isZSLMode() {return mParameters.isZSLMode();};
     uint8_t numOfSnapshotsExpected() {return mParameters.getNumOfSnapshots();};
     bool isLongshotEnabled() { return mLongshotEnabled; };
+    int increaseLongshotCount();
     uint8_t getBufNumRequired(cam_stream_type_t stream_type);
     bool needFDMetadata(qcamera_ch_type_enum_t channel_type);
     int getReprocBufCnt() { return mReprocBufferCnt; };
@@ -469,6 +470,7 @@ private:
     bool m_HDRSceneEnabled;
     bool mLongshotEnabled;
     int mReprocBufferCnt;
+    int mLongshotCount;     // capture number for longshot mode
 };
 
 }; // namespace qcamera
