@@ -481,6 +481,11 @@ typedef enum {
     CAM_AE_STATE_PRECAPTURE
 } cam_ae_state_t;
 
+typedef enum {
+    CAM_LED_FLASH_DEFAULT,
+    CAM_LED_FLASH_LOW,
+} cam_led_flash_burst_level;
+
 typedef struct  {
     int32_t left;
     int32_t top;
@@ -960,6 +965,9 @@ typedef enum {
     CAM_INTF_PARM_AEC_FORCE_SNAP_LC,
     CAM_INTF_PARM_AEC_FORCE_SNAP_GAIN,
     CAM_INTF_PARM_AEC_FORCE_SNAP_EXP,
+
+    /* LED flash level*/
+    CAM_INTF_PARM_LED_FLASH_BURST_LEVEL,
 
     /* specific to HAL3 */
     /* Whether the metadata maps to a valid frame number */

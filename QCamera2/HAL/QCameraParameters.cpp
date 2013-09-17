@@ -2849,10 +2849,34 @@ int32_t QCameraParameters::setBurstNum(const QCameraParameters& params)
         if (nBurstNum <= 0) {
             nBurstNum = 1;
         }
-    } else {
-        set(KEY_QC_SNAPSHOT_BURST_NUM, nBurstNum);
     }
+
     m_nBurstNum = nBurstNum;
+
+    //check if need update burst shot to MCT
+    int curBurstNum = getInt(KEY_QC_SNAPSHOT_BURST_NUM);
+    cam_led_flash_burst_level ledFlashLevel;
+    ALOGD("%s: nBurstNum=%d, curBurstNum=%d.", __func__, nBurstNum, curBurstNum);
+    if(nBurstNum != curBurstNum){
+        String8 str;
+        char buffer[32] = {0};
+        snprintf(buffer, sizeof(buffer), "%d", nBurstNum);
+        str.append(buffer);
+
+        updateParamEntry(KEY_QC_SNAPSHOT_BURST_NUM, str.string());
+        if(nBurstNum > 1){
+            ledFlashLevel = CAM_LED_FLASH_LOW;
+        }else{
+            ledFlashLevel = CAM_LED_FLASH_DEFAULT;
+        }
+        ALOGD("%s: led flash level=%d.", __func__, ledFlashLevel);
+        m_LEDFlashLevel = ledFlashLevel;
+        return AddSetParmEntryToBatch(m_pParamBuf,
+                                  CAM_INTF_PARM_LED_FLASH_BURST_LEVEL,
+                                  sizeof(ledFlashLevel),
+                                  &ledFlashLevel);
+    }
+
     return NO_ERROR;
 }
 
@@ -4214,6 +4238,54 @@ int32_t QCameraParameters::setFlash(const char *flashStr)
     ALOGE("Invalid flash value: %s", (flashStr == NULL) ? "NULL" : flashStr);
     return BAD_VALUE;
 }
+
+/*===========================================================================
+ * FUNCTION   : setBurstLEDFlashLevel
+ *
+ * DESCRIPTION: set LED flash level for burst shot
+ *
+ * PARAMETERS :
+ *   @level : LED flash level
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+ int32_t QCameraParameters::setBurstLEDFlashLevel(cam_led_flash_burst_level level)
+{
+    int32_t rc = NO_ERROR;
+
+    if(m_LEDFlashLevel == level){
+        ALOGD("%s: no change for led flash level.", __func__);
+        return rc;
+    }
+
+    if(initBatchUpdate(m_pParamBuf) < 0 ) {
+        ALOGE("%s:Failed to initialize group update table", __func__);
+        return BAD_TYPE;
+    }
+
+    rc = AddSetParmEntryToBatch(m_pParamBuf,
+                                CAM_INTF_PARM_LED_FLASH_BURST_LEVEL,
+                                sizeof(level),
+                                &level);
+    if (rc != NO_ERROR) {
+        ALOGE("%s:Failed to update table", __func__);
+        return rc;
+    }
+
+    rc = commitSetBatch();
+    if (rc != NO_ERROR) {
+        ALOGE("%s:Failed to set face detection parm", __func__);
+        return rc;
+    }
+
+    ALOGD("%s: led flash level=%d.", __func__, level);
+    m_LEDFlashLevel = level;
+
+    return rc;
+}
+
 
 /*===========================================================================
  * FUNCTION   : setAecLock
