@@ -6178,6 +6178,66 @@ int32_t QCameraParameters::setLockCAF(bool bLock)
     }
 }
 
+
+/*===========================================================================
+ * FUNCTION   : setLock3A
+ *
+ * DESCRIPTION: Lock CAF, AEC, AWB
+ *
+ * PARAMETERS :
+ *   @bLock : if CAF/ AEC/ AWB needs to be locked
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraParameters::setLock3A(bool bLock)
+{
+    if(initBatchUpdate(m_pParamBuf) < 0 ) {
+        ALOGE("%s:Failed to initialize group update table", __func__);
+        return BAD_TYPE;
+    }
+    int32_t rc = NO_ERROR;
+    int32_t value = bLock;
+
+    rc = AddSetParmEntryToBatch(m_pParamBuf,
+                                CAM_INTF_PARM_LOCK_CAF,
+                                sizeof(value),
+                                &value);
+    if (rc != NO_ERROR) {
+        ALOGE("%s:Failed to update table", __func__);
+        return rc;
+    }
+
+    rc = AddSetParmEntryToBatch(m_pParamBuf,
+                                CAM_INTF_PARM_AEC_LOCK,
+                                sizeof(value),
+                                &value);
+    if (rc != NO_ERROR) {
+        ALOGE("%s:Failed to update table", __func__);
+        return rc;
+    }
+
+    rc = AddSetParmEntryToBatch(m_pParamBuf,
+                                CAM_INTF_PARM_AWB_LOCK,
+                                sizeof(value),
+                                &value);
+    if (rc != NO_ERROR) {
+        ALOGE("%s:Failed to update table", __func__);
+        return rc;
+    }
+
+    ALOGD("%s: 3A Lock status=%d. ", __func__, value);
+    rc = commitSetBatch();
+    if (rc != NO_ERROR) {
+        ALOGE("%s:Failed to set lock CAF parm", __func__);
+        return rc;
+    } else {
+        m_bCAFLocked = bLock;
+        return NO_ERROR;
+    }
+}
+
 /*===========================================================================
  * FUNCTION   : setFrameSkip
  *

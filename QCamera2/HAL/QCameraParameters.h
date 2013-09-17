@@ -466,6 +466,7 @@ public:
     int32_t setHistogram(bool enabled);
     int32_t setFaceDetection(bool enabled);
     int32_t setLockCAF(bool bLock);
+    int32_t setLock3A(bool bLock);
     int32_t setFrameSkip(enum msm_vfe_frame_skip_pattern pattern);
     qcamera_thermal_mode getThermalMode() {return m_ThermalMode;};
     int32_t updateRecordingHintValue(int32_t value);
