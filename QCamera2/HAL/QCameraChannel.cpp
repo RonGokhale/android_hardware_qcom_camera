@@ -755,7 +755,6 @@ int32_t QCameraReprocessChannel::addReprocStreamsFromSource(QCameraAllocator& al
                 pStream->isOrignalTypeOf(CAM_STREAM_TYPE_SNAPSHOT))) {
                 streamInfo->reprocess_config.pp_feature_config.feature_mask &= ~CAM_QCOM_FEATURE_CAC;
             }
-
             if (streamInfo->reprocess_config.pp_feature_config.feature_mask & CAM_QCOM_FEATURE_ROTATION) {
                 if (streamInfo->reprocess_config.pp_feature_config.rotation == ROTATE_90 ||
                     streamInfo->reprocess_config.pp_feature_config.rotation == ROTATE_270) {
@@ -785,19 +784,12 @@ int32_t QCameraReprocessChannel::addReprocStreamsFromSource(QCameraAllocator& al
                        (streamInfo->reprocess_config.pp_feature_config.rotation == ROTATE_90 ||
                         streamInfo->reprocess_config.pp_feature_config.rotation == ROTATE_270)){
                         //need swap
-                        streamInfo->reprocess_config.online.input_dim.width  = streamInfo->dim.height;
-                        streamInfo->reprocess_config.online.input_dim.height = streamInfo->dim.width;
                         streamInfo->dim.width = streamInfo->reprocess_config.pp_feature_config.scale_param.output_height;
                         streamInfo->dim.height = streamInfo->reprocess_config.pp_feature_config.scale_param.output_width;
                     }else{
-                        streamInfo->reprocess_config.online.input_dim.width  = streamInfo->dim.width;
-                        streamInfo->reprocess_config.online.input_dim.height = streamInfo->dim.height;
                         streamInfo->dim.width = streamInfo->reprocess_config.pp_feature_config.scale_param.output_width;
                         streamInfo->dim.height = streamInfo->reprocess_config.pp_feature_config.scale_param.output_height;
                     }
-                    ALOGE("%s: input stream width=%d, height=%d.", __func__,
-                      streamInfo->reprocess_config.online.input_dim.width,
-                      streamInfo->reprocess_config.online.input_dim.height);
                 }
                 ALOGD("%s: stream width=%d, height=%d.", __func__, streamInfo->dim.width, streamInfo->dim.height);
             }
