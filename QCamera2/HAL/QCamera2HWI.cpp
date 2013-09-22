@@ -959,7 +959,8 @@ QCamera2HardwareInterface::QCamera2HardwareInterface(int cameraId)
       mDumpSkipCnt(0),
       mThermalLevel(QCAMERA_THERMAL_NO_ADJUSTMENT),
       m_HDRSceneEnabled(false),
-      mLongshotEnabled(false)
+      mLongshotEnabled(false),
+      mLongshotCount(0)
 {
     mCameraDevice.common.tag = HARDWARE_DEVICE_TAG;
     mCameraDevice.common.version = HARDWARE_DEVICE_API_VERSION(1, 0);
@@ -2345,6 +2346,7 @@ int QCamera2HardwareInterface::sendCommand(int32_t command, int32_t /*arg1*/, in
         if ( !m_stateMachine.isCaptureRunning() ) {
             mLongshotEnabled = true;
             mParameters.setBurstLEDFlashLevel(CAM_LED_FLASH_LOW);
+            mLongshotCount = 0;
         } else {
             rc = NO_INIT;
         }
@@ -2354,6 +2356,7 @@ int QCamera2HardwareInterface::sendCommand(int32_t command, int32_t /*arg1*/, in
             cancelPicture();
             processEvt(QCAMERA_SM_EVT_SNAPSHOT_DONE, NULL);
         }
+        mLongshotCount = 0;
         mLongshotEnabled = false;
         mParameters.setBurstLEDFlashLevel(CAM_LED_FLASH_DEFAULT);
         break;
@@ -4955,6 +4958,14 @@ bool QCamera2HardwareInterface::needFDMetadata(qcamera_ch_type_enum_t channel_ty
     }
 
     return value;
+}
+
+int QCamera2HardwareInterface::increaseLongshotCount()
+{
+    mLongshotCount++;
+    mParameters.set("longshot-count", mLongshotCount);
+    ALOGD("%s: current longshot count=%d", __func__, mLongshotCount);
+    return mLongshotCount;
 }
 
 }; // namespace qcamera
