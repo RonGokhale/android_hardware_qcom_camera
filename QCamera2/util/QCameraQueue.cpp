@@ -292,4 +292,17 @@ void QCameraQueue::flushNodes(match_fn match){
     pthread_mutex_unlock(&m_lock);
 }
 
+/*===========================================================================
+ * FUNCTION   : getQueueSize
+ *
+ * DESCRIPTION: get queue size
+ *
+ * PARAMETERS : None
+ *
+ * RETURN     : int, queue size
+ *==========================================================================*/
+int QCameraQueue::getQueueSize(){
+    return m_size;
+}
+
 }; // namespace qcamera

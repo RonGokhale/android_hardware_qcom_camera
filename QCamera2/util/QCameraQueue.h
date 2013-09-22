@@ -49,6 +49,7 @@ public:
     void flushNodes(match_fn match);
     void* dequeue(bool bFromHead = true);
     bool isEmpty();
+    int getQueueSize();
 private:
     typedef struct {
         struct cam_list list;
