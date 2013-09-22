@@ -2359,6 +2359,7 @@ int QCamera2HardwareInterface::sendCommand(int32_t command, int32_t /*arg1*/, in
         mLongshotCount = 0;
         mLongshotEnabled = false;
         mParameters.setBurstLEDFlashLevel(CAM_LED_FLASH_DEFAULT);
+        mParameters.setLock3A(false);
         break;
     case CAMERA_CMD_HISTOGRAM_ON:
     case CAMERA_CMD_HISTOGRAM_OFF:
@@ -2839,6 +2840,13 @@ int32_t QCamera2HardwareInterface::processPrepSnapshotDoneEvent(
     if (m_channels[QCAMERA_CH_TYPE_ZSL] &&
         prep_snapshot_state == NEED_FUTURE_FRAME) {
         ALOGD("%s: already handled in mm-camera-intf, no ops here", __func__);
+    }
+
+    if(m_channels[QCAMERA_CH_TYPE_ZSL] &&
+        mLongshotEnabled){
+        //lock 3A for longshot
+        ALOGD("%s: Lock 3A for longshot", __func__);
+        mParameters.setLock3A(true);
     }
     return ret;
 }
