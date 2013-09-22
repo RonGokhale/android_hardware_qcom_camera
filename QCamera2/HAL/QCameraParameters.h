@@ -504,6 +504,7 @@ public:
 
     const char *getASDStateString(cam_auto_scene_t scene);
     bool isHDRThumbnailProcessNeeded() { return m_bHDRThumbnailProcessNeeded; };
+    int32_t setBurstLEDFlashLevel(cam_led_flash_burst_level level);
 
 private:
     int32_t setPreviewSize(const QCameraParameters& );
@@ -694,6 +695,7 @@ private:
     bool m_HDRSceneEnabled; // Auto HDR indication
     bool m_bHDRThumbnailProcessNeeded;        // if thumbnail need to be processed for HDR
     bool m_bHDR1xExtraBufferNeeded;     // if extra frame with exposure compensation 0 during HDR is needed
+    cam_led_flash_burst_level m_LEDFlashLevel; // LED flash level for burst shot
 
     DefaultKeyedVector<String8,String8> m_tempMap; // map for temororily store parameters to be set
 };
