@@ -483,6 +483,7 @@ void QCamera2HardwareInterface::preview_stream_cb_routine(mm_camera_super_buf_t 
 
     // Display the buffer.
     ALOGV("%p displayBuffer %d E", pme, idx);
+    memory->cacheOps(idx, ION_IOC_CLEAN_CACHES);
     int dequeuedIdx = memory->displayBuffer(idx);
     if (dequeuedIdx < 0 || dequeuedIdx >= memory->getCnt()) {
         ALOGD("%s: Invalid dequeued buffer index %d from display",
