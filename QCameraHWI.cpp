@@ -1025,16 +1025,24 @@ bool QCameraHardwareInterface::preview_parm_config (cam_ctrl_dimension_t* dim,
 
     cam_format_t value = getPreviewFormat();
 
-    if(value != NOT_FOUND && value != dim->prev_format ) {
+    if (value == NOT_FOUND){
+        //Setting to default Format.
+        value = CAMERA_YUV_420_NV21;
+    }
+
+    if(value != dim->prev_format ) {
         //Setting to Parameter requested by the Upper layer
         dim->prev_format = value;
-    }else if (value == NOT_FOUND){
-        //Setting to default Format.
-        dim->prev_format = CAMERA_YUV_420_NV21;
+        matching = false;
     }
+
     mPreviewFormat = dim->prev_format;
 
-    dim->prev_padding_format =  getPreviewPadding( );
+    cam_pad_format_t padding = getPreviewPadding( );
+    if (padding != dim->prev_padding_format) {
+       dim->prev_padding_format = padding;
+        matching = false;
+    }
 
     dim->enc_format = CAMERA_YUV_420_NV12;
     dim->orig_video_width = mDimension.orig_video_width;
@@ -1370,18 +1378,32 @@ status_t QCameraHardwareInterface::startRecording()
         //remember recordinghint value set by app
         mAppRecordingHint = mRecordingHint;
         if (mRecordingHint == FALSE) {
-            LOGE("%s: start recording when hint is false, stop preview first", __func__);
-            stopPreviewInternal();
-            mPreviewState = QCAMERA_HAL_PREVIEW_STOPPED;
+            LOGI("%s: start recording when hint is false", __func__);
+
+            cam_ctrl_dimension_t dimension = {0};
+
+            ret = cam_config_get_parm(mCameraId, MM_CAMERA_PARM_DIMENSION,&dimension);
+            if (MM_CAMERA_OK != ret) {
+              LOGE("%s: error - can't get preview dimension!", __func__);
+              ret = BAD_VALUE;
+              break;
+            }
+
+            if(!preview_parm_config(&dimension, mParameters)) {
+              LOGI("%s: reinit preview", __func__);
+              stopPreviewInternal();
+              mPreviewState = QCAMERA_HAL_PREVIEW_STOPPED;
+
+              // start preview again
+              mPreviewState = QCAMERA_HAL_PREVIEW_START;
+              if (startPreview2() == NO_ERROR)
+                  mPreviewState = QCAMERA_HAL_PREVIEW_STARTED;
+            }
 
             // Set recording hint to TRUE
             mRecordingHint = TRUE;
             setRecordingHintValue(mRecordingHint);
 
-            // start preview again
-            mPreviewState = QCAMERA_HAL_PREVIEW_START;
-            if (startPreview2() == NO_ERROR)
-                mPreviewState = QCAMERA_HAL_PREVIEW_STARTED;
         }
         ret =  mStreamRecord->start();
         if (MM_CAMERA_OK != ret){

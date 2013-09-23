@@ -219,6 +219,18 @@ status_t QCameraStream_preview::getBufferFromSurface() {
       mHalCamCtrl->mPreviewMemory.private_buffer_handle[cnt]->offset);
   }
 
+     // Cancel minUndequeuedBufs.
+     for (int cnt = kPreviewBufferCount; cnt < mHalCamCtrl->mPreviewMemory.buffer_count; cnt++) {
+         if (GENLOCK_NO_ERROR != genlock_unlock_buffer((native_handle_t *)(*(mHalCamCtrl->mPreviewMemory.buffer_handle[cnt])))) {
+             LOGE("%s: genlock_unlock_buffer failed", __FUNCTION__);
+             return -EINVAL;
+         }
+         mHalCamCtrl->mPreviewMemory.local_flag[cnt] = BUFFER_NOT_OWNED;
+         err = mPreviewWindow->cancel_buffer(mPreviewWindow,
+               mHalCamCtrl->mPreviewMemory.buffer_handle[cnt]);
+         LOGE("Cancelling preview buffer and set not owned 0x%x", *(mHalCamCtrl->mPreviewMemory.buffer_handle[cnt]));
+     }
+
 
   memset(&mHalCamCtrl->mMetadata, 0, sizeof(mHalCamCtrl->mMetadata));
   memset(mHalCamCtrl->mFace, 0, sizeof(mHalCamCtrl->mFace));
