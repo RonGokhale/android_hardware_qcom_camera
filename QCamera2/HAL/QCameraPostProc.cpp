@@ -476,11 +476,11 @@ int32_t QCameraPostProcessor::processData(mm_camera_super_buf_t *frame)
             m_parent->playShutter();
         }else{
             //Need check if free buffer can be got by pproc when longshot
-            int reproc_buf_cnt = m_parent->getReprocBufCnt();
+            int reproc_buf_cnt = m_parent->getBufNumRequired(CAM_STREAM_TYPE_OFFLINE_PROC);
             int buf_pend_on_encoder = m_inputJpegQ.getQueueSize();
             ALOGD("%s: check reproc buffer. reproc_buf_cnt=%d, buf_pend_on_encoder=%d.",
                  __func__, reproc_buf_cnt, buf_pend_on_encoder);
-            if(buf_pend_on_encoder >= reproc_buf_cnt){
+            if(buf_pend_on_encoder >= (reproc_buf_cnt - 1)){
                 //do not process, give back
                 ALOGD("%s: all reproc buffers are used, do not do reprocess.", __func__);
                 m_parent->playShutter();
