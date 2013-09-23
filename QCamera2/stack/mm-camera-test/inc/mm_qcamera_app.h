@@ -229,12 +229,11 @@ typedef struct {
     //Reprocess params&stream
     int8_t enable_reproc;
     int32_t reproc_sharpness;
-    int8_t enable_WNR;
-    cam_denoise_process_type_t wnr_plates;
+    cam_denoise_param_t reproc_wnr;
     int8_t enable_CAC;
     mm_camera_queue_t pp_frames;
     mm_camera_stream_t *reproc_stream;
-    //
+    cam_metadata_info_t *metadata;
 } mm_camera_test_obj_t;
 
 typedef struct {
@@ -277,6 +276,7 @@ typedef enum {
     MM_CAMERA_LIB_ANTIBANDING,
     MM_CAMERA_LIB_SET_VFE_COMMAND,
     MM_CAMERA_LIB_SET_POSTPROC_COMMAND,
+    MM_CAMERA_LIB_SET_3A_COMMAND,
     MM_CAMERA_LIB_AEC_ENABLE,
     MM_CAMERA_LIB_AEC_DISABLE,
     MM_CAMERA_LIB_AF_ENABLE,
@@ -298,7 +298,9 @@ typedef enum {
     MM_CAMERA_LIB_ISO,
     MM_CAMERA_LIB_ZOOM,
     MM_CAMERA_LIB_BESTSHOT,
-    MM_CAMERA_LIB_FLASH
+    MM_CAMERA_LIB_FLASH,
+    MM_CAMERA_LIB_FPS_RANGE,
+    MM_CAMERA_LIB_WNR_ENABLE,
 } mm_camera_lib_commands;
 
 typedef struct {

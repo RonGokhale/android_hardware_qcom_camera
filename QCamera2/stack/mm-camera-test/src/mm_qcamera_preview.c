@@ -41,7 +41,6 @@ static void mm_app_metadata_notify_cb(mm_camera_super_buf_t *bufs,
   mm_camera_stream_t *p_stream = NULL;
   mm_camera_test_obj_t *pme = (mm_camera_test_obj_t *)user_data;
   mm_camera_buf_def_t *frame = bufs->bufs[0];
-  cam_metadata_info_t *metadata;
 
   /* find channel */
   for (i = 0; i < MM_CHANNEL_TYPE_MAX; i++) {
@@ -69,7 +68,7 @@ static void mm_app_metadata_notify_cb(mm_camera_super_buf_t *bufs,
       CDBG_ERROR("%s: cannot find metadata stream", __func__);
       return;
   }
-  metadata = frame->buffer;
+  pme->metadata = frame->buffer;
 
   if (MM_CAMERA_OK != pme->cam->ops->qbuf(bufs->camera_handle,
                                           bufs->ch_id,
@@ -581,12 +580,24 @@ int mm_app_start_preview(mm_camera_test_obj_t *test_obj)
     int rc = MM_CAMERA_OK;
     mm_camera_channel_t *channel = NULL;
     mm_camera_stream_t *stream = NULL;
+    mm_camera_stream_t *s_metadata = NULL;
     uint8_t i;
 
     channel =  mm_app_add_preview_channel(test_obj);
     if (NULL == channel) {
         CDBG_ERROR("%s: add channel failed", __func__);
         return -MM_CAMERA_E_GENERAL;
+    }
+
+    s_metadata = mm_app_add_metadata_stream(test_obj,
+                                            channel,
+                                            mm_app_metadata_notify_cb,
+                                            (void *)test_obj,
+                                            PREVIEW_BUF_NUM);
+    if (NULL == s_metadata) {
+        CDBG_ERROR("%s: add metadata stream failed\n", __func__);
+        mm_app_del_channel(test_obj, channel);
+        return rc;
     }
 
     rc = mm_app_start_channel(test_obj, channel);
@@ -719,10 +730,6 @@ int mm_app_stop_preview_zsl(mm_camera_test_obj_t *test_obj)
 {
     int rc = MM_CAMERA_OK;
 
-    if ( test_obj->enable_reproc ) {
-        rc |= mm_app_stop_reprocess(test_obj);
-    }
-
     mm_camera_channel_t *channel =
         mm_app_get_channel_by_type(test_obj, MM_CHANNEL_TYPE_ZSL);
 
@@ -731,7 +738,9 @@ int mm_app_stop_preview_zsl(mm_camera_test_obj_t *test_obj)
         CDBG_ERROR("%s:Stop Preview failed rc=%d\n", __func__, rc);
     }
 
-
+    if ( test_obj->enable_reproc ) {
+        rc |= mm_app_stop_reprocess(test_obj);
+    }
 
     return rc;
 }

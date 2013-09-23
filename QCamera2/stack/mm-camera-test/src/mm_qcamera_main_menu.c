@@ -38,14 +38,18 @@
 #include "mm_qcamera_app.h"
 #include "mm_qcamera_dbg.h"
 
+/*===========================================================================
+ * Macro
+ *===========================================================================*/
 #define MIN(X,Y) ((X) < (Y) ? (X) : (Y))
 #define VIDEO_BUFFER_SIZE       (PREVIEW_WIDTH * PREVIEW_HEIGHT * 3/2)
 #define THUMBNAIL_BUFFER_SIZE   (THUMBNAIL_WIDTH * THUMBNAIL_HEIGHT * 3/2)
 #define SNAPSHOT_BUFFER_SIZE    (PICTURE_WIDTH * PICTURE_HEIGHT * 3/2)
-/*===========================================================================
- * Macro
- *===========================================================================*/
 //TODO:check this Macros with current app.
+
+/*===========================================================================
+ * Defines
+ *===========================================================================*/
 //#define VIDEO_FRAMES_NUM      4
 #define THUMBNAIL_FRAMES_NUM  1
 #define SNAPSHOT_FRAMES_NUM   1
@@ -56,9 +60,29 @@
 #define EXPOSURE_COMPENSATION_MINIMUM_NUMERATOR -12
 #define EXPOSURE_COMPENSATION_DEFAULT_NUMERATOR 0
 #define EXPOSURE_COMPENSATION_DENOMINATOR 6
-/*===========================================================================
- * Defines
- *===========================================================================*/
+
+//TODO: find correct values of Contrast defines.
+#define CAMERA_MIN_CONTRAST    0
+#define CAMERA_DEF_CONTRAST    5
+#define CAMERA_MAX_CONTRAST    10
+#define CAMERA_CONTRAST_STEP   1
+
+//TODO: find correct values of Brightness defines.
+#define CAMERA_MIN_BRIGHTNESS  0
+#define CAMERA_DEF_BRIGHTNESS  3
+#define CAMERA_MAX_BRIGHTNESS  6
+#define CAMERA_BRIGHTNESS_STEP 1
+
+//TODO: find correct values of Saturation defines.
+#define CAMERA_MIN_SATURATION  0
+#define CAMERA_DEF_SATURATION  5
+#define CAMERA_MAX_SATURATION  10
+#define CAMERA_SATURATION_STEP 1
+
+#define CAMERA_MIN_SHARPNESS 0
+#define CAMERA_MAX_SHARPNESS 10
+#define CAMERA_DEF_SHARPNESS 5
+#define CAMERA_SHARPNESS_STEP 1
 
 const CAMERA_MAIN_MENU_TBL_T camera_main_menu_tbl[] = {
   {START_PREVIEW,               "Start preview"},
@@ -83,6 +107,7 @@ const CAMERA_MAIN_MENU_TBL_T camera_main_menu_tbl[] = {
   {TOGGLE_ZSL,                 "Toggle ZSL On/Off"},
   {TAKE_RAW_SNAPSHOT,          "Take RAW snapshot"},
   {SWITCH_SNAP_RESOLUTION,     "Select Jpeg resolution"},
+  {TOGGLE_WNR,                 "Toggle Wavelet Denoise"},
   {EXIT,                       "Exit"}
 };
 
@@ -213,17 +238,17 @@ USER_INPUT_DISPLAY_T input_display;
 int preview_video_resolution_flag = 0;
 
 //TODO: default values.
-#if 0
+#if 1
 int brightness = CAMERA_DEF_BRIGHTNESS;
 int contrast = CAMERA_DEF_CONTRAST;
 int saturation = CAMERA_DEF_SATURATION;
 int sharpness = CAMERA_DEF_SHARPNESS;
-#endif
+#else
 int brightness = 0;
 int contrast = 0;
 int saturation = 0;
 int sharpness = 0;
-
+#endif
 //TODO: find new method to calculate ev.
 //int32_t ev_numerator = EXPOSURE_COMPENSATION_DEFAULT_NUMERATOR;
 
@@ -234,28 +259,6 @@ int zoom_max_value;
 int cam_id;
 int is_rec = 0;
 
-//TODO: find correct values of Contrast defines.
-#define CAMERA_MIN_CONTRAST    0
-#define CAMERA_DEF_CONTRAST    5
-#define CAMERA_MAX_CONTRAST    10
-#define CAMERA_CONTRAST_STEP   1
-
-//TODO: find correct values of Brightness defines.
-#define CAMERA_MIN_BRIGHTNESS  0
-#define CAMERA_DEF_BRIGHTNESS  3
-#define CAMERA_MAX_BRIGHTNESS  6
-#define CAMERA_BRIGHTNESS_STEP 1
-
-//TODO: find correct values of Saturation defines.
-#define CAMERA_MIN_SATURATION  0
-#define CAMERA_DEF_SATURATION  5
-#define CAMERA_MAX_SATURATION  10
-#define CAMERA_SATURATION_STEP 1
-
-#define CAMERA_MIN_SHARPNESS 0
-#define CAMERA_MAX_SHARPNESS 10
-#define CAMERA_DEF_SHARPNESS 5
-#define CAMERA_SHARPNESS_STEP 1
 
 static int submain();
 
@@ -391,6 +394,11 @@ int next_menu(menu_id_change_t current_menu_id, char keypress, camera_action_t *
             * action_id_ptr = ACTION_TAKE_RAW_SNAPSHOT;
             next_menu_id = MENU_ID_MAIN;
             CDBG("Capture RAW\n");
+            break;
+        case TOGGLE_WNR:
+            * action_id_ptr = ACTION_TOGGLE_WNR;
+            next_menu_id = MENU_ID_MAIN;
+            CDBG("Toggle WNR");
             break;
         case EXIT:
           * action_id_ptr = ACTION_EXIT;
@@ -912,7 +920,7 @@ int increase_contrast (mm_camera_lib_handle *lib_handle) {
         printf("Increase Contrast to %d\n", contrast);
         return mm_camera_lib_send_command(lib_handle,
                                           MM_CAMERA_LIB_CONTRAST,
-                                          &brightness,
+                                          &contrast,
                                           NULL);
 }
 
@@ -930,7 +938,7 @@ int decrease_contrast (mm_camera_lib_handle *lib_handle) {
         printf("Decrease Contrast to %d\n", contrast);
         return mm_camera_lib_send_command(lib_handle,
                                           MM_CAMERA_LIB_CONTRAST,
-                                          &brightness,
+                                          &contrast,
                                           NULL);
 }
 
@@ -1391,7 +1399,7 @@ int set_flash_mode (mm_camera_lib_handle *lib_handle, int action_param) {
             break;
     }
     return mm_camera_lib_send_command(lib_handle,
-                                      MM_CAMERA_LIB_BESTSHOT,
+                                      MM_CAMERA_LIB_FLASH,
                                       &type,
                                       NULL);
 }
@@ -1559,6 +1567,58 @@ int filter_resolutions(mm_camera_lib_handle *lib_handle,
 
     return rc;
 }
+
+/*===========================================================================
+ * FUNCTION   : enableAFR
+ *
+ * DESCRIPTION: This function will go through the list
+ *              of supported FPS ranges and select the
+ *              one which has maximum range
+ *
+ * PARAMETERS :
+ *   @lib_handle   : camera test library handle
+ *
+ * RETURN     : uint32_t type of stream handle
+ *              MM_CAMERA_OK  -- Success
+ *              !=MM_CAMERA_OK -- Error status
+ *==========================================================================*/
+int enableAFR(mm_camera_lib_handle *lib_handle)
+{
+    size_t i, j;
+    float max_range = 0.0f;
+    cam_capability_t cap;
+    int rc = MM_CAMERA_OK;
+
+    if ( NULL == lib_handle ) {
+        return MM_CAMERA_E_INVALID_INPUT;
+    }
+
+    rc = mm_camera_lib_get_caps(lib_handle, &cap);
+    if ( MM_CAMERA_OK != rc ) {
+        CDBG_ERROR("%s:mm_camera_lib_get_caps() err=%d\n", __func__, rc);
+        return rc;
+    }
+
+    for( i = 0, j = 0 ; i < cap.fps_ranges_tbl_cnt ; i++ ) {
+        if ( max_range < (cap.fps_ranges_tbl[i].max_fps - cap.fps_ranges_tbl[i].min_fps) ) {
+            j = i;
+        }
+    }
+
+    rc = mm_camera_lib_send_command(lib_handle,
+                                    MM_CAMERA_LIB_FPS_RANGE,
+                                    &cap.fps_ranges_tbl[j],
+                                    NULL);
+
+    CDBG_ERROR("%s : FPS range [%5.2f:%5.2f] rc = %d",
+              __func__,
+              cap.fps_ranges_tbl[j].min_fps,
+              cap.fps_ranges_tbl[j].max_fps,
+              rc);
+
+    return rc;
+}
+
 /*===========================================================================
  * FUNCTION     - submain -
  *
@@ -1572,7 +1632,8 @@ static int submain()
     camera_action_t action_id;
     int action_param;
     uint8_t previewing = 0;
-    uint8_t isZSL = 0;
+    int isZSL = 0;
+    uint8_t wnr_enabled = 0;
     mm_camera_lib_handle lib_handle;
     int num_cameras;
     int available_sensors = sizeof(sensor_tbl) / sizeof(sensor_tbl[0]);
@@ -1581,6 +1642,7 @@ static int submain()
     mm_camera_lib_snapshot_params snap_dim;
     snap_dim.width = DEFAULT_SNAPSHOT_WIDTH;
     snap_dim.height = DEFAULT_SNAPSHOT_HEIGHT;
+    cam_scene_mode_type default_scene= CAM_SCENE_MODE_OFF;
 
     mm_camera_test_obj_t test_obj;
     memset(&test_obj, 0, sizeof(mm_camera_test_obj_t));
@@ -1612,6 +1674,21 @@ static int submain()
         }
         snap_dim.width = dimension_tbl[i].width;
         snap_dim.height = dimension_tbl[i].height;
+
+        rc = enableAFR(&lib_handle);
+        if (rc != MM_CAMERA_OK) {
+            CDBG_ERROR("%s:enableAFR() err=%d\n", __func__, rc);
+            goto ERROR;
+        }
+
+        rc =  mm_camera_lib_send_command(&lib_handle,
+                                         MM_CAMERA_LIB_BESTSHOT,
+                                         &default_scene,
+                                         NULL);
+        if (rc != MM_CAMERA_OK) {
+            CDBG_ERROR("%s:mm_camera_lib_send_command() err=%d\n", __func__, rc);
+            goto ERROR;
+        }
     }
 
     do {
@@ -1762,6 +1839,20 @@ static int submain()
                 snap_dim.width = dimension_tbl[i].width;
                 snap_dim.height = dimension_tbl[i].height;
 
+                rc = enableAFR(&lib_handle);
+                if (rc != MM_CAMERA_OK) {
+                    CDBG_ERROR("%s:enableAFR() err=%d\n", __func__, rc);
+                    goto ERROR;
+                }
+
+                rc =  mm_camera_lib_send_command(&lib_handle,
+                                                 MM_CAMERA_LIB_BESTSHOT,
+                                                 &default_scene,
+                                                 NULL);
+                if (rc != MM_CAMERA_OK) {
+                    CDBG_ERROR("%s:mm_camera_lib_send_command() err=%d\n", __func__, rc);
+                    goto ERROR;
+                }
                 break;
 
             case ACTION_TOGGLE_ZSL:
@@ -1784,6 +1875,17 @@ static int submain()
 
             case ACTION_TAKE_RAW_SNAPSHOT:
                 CDBG_HIGH("\n Take RAW snapshot\n");
+
+                rc = mm_camera_lib_send_command(&lib_handle,
+                                                MM_CAMERA_LIB_DO_AF,
+                                                NULL,
+                                                NULL);
+
+                if (rc != MM_CAMERA_OK) {
+                    CDBG_ERROR("%s:mm_camera_lib_send_command() err=%d\n", __func__, rc);
+                    goto ERROR;
+                }
+
                 rc = mm_camera_lib_send_command(&lib_handle,
                                                 MM_CAMERA_LIB_RAW_CAPTURE,
                                                 NULL,
@@ -1796,6 +1898,17 @@ static int submain()
 
             case ACTION_TAKE_JPEG_SNAPSHOT:
                 CDBG_HIGH("\n Take JPEG snapshot\n");
+
+                rc = mm_camera_lib_send_command(&lib_handle,
+                                                MM_CAMERA_LIB_DO_AF,
+                                                NULL,
+                                                NULL);
+
+                if (rc != MM_CAMERA_OK) {
+                    CDBG_ERROR("%s:mm_camera_lib_send_command() err=%d\n", __func__, rc);
+                    goto ERROR;
+                }
+
                 rc = mm_camera_lib_send_command(&lib_handle,
                                                 MM_CAMERA_LIB_JPEG_CAPTURE,
                                                 &snap_dim,
@@ -1840,6 +1953,19 @@ static int submain()
            printf("\n !!! Use live snapshot option while recording only !!!\n");
 #endif
         break;
+
+        case ACTION_TOGGLE_WNR:
+          wnr_enabled = !wnr_enabled;
+          printf("WNR Enabled = %d\n", wnr_enabled);
+          rc = mm_camera_lib_send_command(&lib_handle,
+                                          MM_CAMERA_LIB_WNR_ENABLE,
+                                          &wnr_enabled,
+                                          NULL);
+          if (rc != MM_CAMERA_OK) {
+              CDBG_ERROR("%s:mm_camera_lib_send_command() err=%d\n", __func__, rc);
+              goto ERROR;
+          }
+          break;
 
         case ACTION_EXIT:
             printf("Exiting....\n");
