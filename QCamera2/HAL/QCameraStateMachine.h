@@ -107,6 +107,12 @@ typedef struct {
     };
 } qcamera_api_result_t;
 
+// definition for generic payload type
+typedef struct {
+    void *data;
+    qcamera_api_result_t result;
+} qcamera_generic_payload_t;
+
 // definition for payload type of setting callback
 typedef struct {
     camera_notify_callback notify_cb;
@@ -189,15 +195,15 @@ private:
         void *evt_payload;                          // ptr to payload
     } qcamera_sm_cmd_t;
 
-    int32_t stateMachine(qcamera_sm_evt_enum_t evt, void *payload);
-    int32_t procEvtPreviewStoppedState(qcamera_sm_evt_enum_t evt, void *payload);
-    int32_t procEvtPreviewReadyState(qcamera_sm_evt_enum_t evt, void *payload);
-    int32_t procEvtPreviewingState(qcamera_sm_evt_enum_t evt, void *payload);
-    int32_t procEvtPrepareSnapshotState(qcamera_sm_evt_enum_t evt, void *payload);
-    int32_t procEvtPicTakingState(qcamera_sm_evt_enum_t evt, void *payload);
-    int32_t procEvtRecordingState(qcamera_sm_evt_enum_t evt, void *payload);
-    int32_t procEvtVideoPicTakingState(qcamera_sm_evt_enum_t evt, void *payload);
-    int32_t procEvtPreviewPicTakingState(qcamera_sm_evt_enum_t evt, void *payload);
+    int32_t stateMachine(qcamera_sm_evt_enum_t evt, void *payload, qcamera_sm_cmd_type_t cmd_type);
+    int32_t procEvtPreviewStoppedState(qcamera_sm_evt_enum_t evt, void *payload, qcamera_sm_cmd_type_t cmd_type);
+    int32_t procEvtPreviewReadyState(qcamera_sm_evt_enum_t evt, void *payload, qcamera_sm_cmd_type_t cmd_type);
+    int32_t procEvtPreviewingState(qcamera_sm_evt_enum_t evt, void *payload, qcamera_sm_cmd_type_t cmd_type);
+    int32_t procEvtPrepareSnapshotState(qcamera_sm_evt_enum_t evt, void *payload, qcamera_sm_cmd_type_t cmd_type);
+    int32_t procEvtPicTakingState(qcamera_sm_evt_enum_t evt, void *payload, qcamera_sm_cmd_type_t cmd_type);
+    int32_t procEvtRecordingState(qcamera_sm_evt_enum_t evt, void *payload, qcamera_sm_cmd_type_t cmd_type);
+    int32_t procEvtVideoPicTakingState(qcamera_sm_evt_enum_t evt, void *payload, qcamera_sm_cmd_type_t cmd_type);
+    int32_t procEvtPreviewPicTakingState(qcamera_sm_evt_enum_t evt, void *payload, qcamera_sm_cmd_type_t cmd_type);
 
     // main statemachine process routine
     static void *smEvtProcRoutine(void *data);
