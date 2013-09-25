@@ -465,6 +465,7 @@ private:
     int mDumpSkipCnt; // frame skip count
     mm_jpeg_exif_params_t mExifParams;
     qcamera_thermal_level_enum_t mThermalLevel;
+    bool mHDRSceneEnabled;
     bool m_HDRSceneEnabled;
     bool mLongshotEnabled;
     int mLongshotCount;     // capture number for longshot mode
@@ -472,6 +473,12 @@ private:
     int32_t m_max_pic_width;
     int32_t m_max_pic_height;
     uint8_t mFlashNeeded;
+#ifdef USE_PERFORMANCE_LOCK
+
+    int mPerfLockHandle;  // Performance lock library handle
+
+#endif
+
 };
 
 }; // namespace qcamera
