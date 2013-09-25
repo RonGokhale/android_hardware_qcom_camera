@@ -38,6 +38,7 @@
 #define CAM_MAX_NUM_BUFS_PER_STREAM 24
 #define MAX_METADATA_PAYLOAD_SIZE 1024
 
+#define CEILING64(X) (((X) + 0x0003F) & 0xFFFFFFC0)
 #define CEILING32(X) (((X) + 0x0001F) & 0xFFFFFFE0)
 #define CEILING16(X) (((X) + 0x000F) & 0xFFF0)
 #define CEILING4(X)  (((X) + 0x0003) & 0xFFFC)
@@ -49,7 +50,39 @@
 #define MAX_ROI 5
 #define MAX_STREAM_NUM_IN_BUNDLE 4
 #define MAX_NUM_STREAMS          8
+#define CHROMATIX_SIZE 21292
+#define COMMONCHROMATIX_SIZE 42044
+#define AFTUNE_SIZE 2000
 #define MAX_SCALE_SIZES_CNT 8
+#define MAX_SAMP_DECISION_CNT     64
+
+#define MAX_ISP_DATA_SIZE 9000
+#define MAX_PP_DATA_SIZE 2000
+#define MAX_AE_STATS_DATA_SIZE  1000
+#define MAX_AWB_STATS_DATA_SIZE 1000
+#define MAX_AF_STATS_DATA_SIZE  1000
+
+
+
+#define TUNING_DATA_VERSION        1
+#define TUNING_SENSOR_DATA_MAX     0x10000 /*(need value from sensor team)*/
+#define TUNING_VFE_DATA_MAX        0x10000 /*(need value from vfe team)*/
+#define TUNING_CPP_DATA_MAX        0x10000 /*(need value from pproc team)*/
+#define TUNING_CAC_DATA_MAX        0x10000 /*(need value from imglib team)*/
+#define TUNING_DATA_MAX            (TUNING_SENSOR_DATA_MAX + \
+                                   TUNING_VFE_DATA_MAX + TUNING_CPP_DATA_MAX + \
+                                   TUNING_CAC_DATA_MAX)
+
+#define TUNING_SENSOR_DATA_OFFSET  0
+#define TUNING_VFE_DATA_OFFSET     TUNING_SENSOR_DATA_MAX
+#define TUNING_CPP_DATA_OFFSET     (TUNING_SENSOR_DATA_MAX + TUNING_VFE_DATA_MAX)
+#define TUNING_CAC_DATA_OFFSET     (TUNING_SENSOR_DATA_MAX + \
+                                   TUNING_VFE_DATA_MAX + TUNING_CPP_DATA_MAX)
+#define MAX_ISP_DATA_SIZE 9000
+#define MAX_PP_DATA_SIZE 2000
+#define MAX_STATS_DATA_SIZE 4000
+
+
 
 typedef enum {
     CAM_HAL_V1 = 1,
@@ -523,12 +556,13 @@ typedef struct {
 } cam_hdr_bracketing_info_t;
 
 typedef struct {
-    uint8_t chromatixData[21292];
-    uint8_t common_chromatixData[42044];
+    uint8_t chromatixData[CHROMATIX_SIZE];
+    uint8_t snapchromatixData[CHROMATIX_SIZE];
+    uint8_t common_chromatixData[COMMONCHROMATIX_SIZE];
 } tune_chromatix_t;
 
 typedef struct {
-    uint8_t af_tuneData[1592];
+    uint8_t af_tuneData[AFTUNE_SIZE];
 } tune_autofocus_t;
 
 typedef struct {
@@ -600,6 +634,11 @@ typedef struct {
     int num_fd;
 } cam_fd_set_parm_t;
 
+typedef enum {
+    QCAMERA_FD_PREVIEW,
+    QCAMERA_FD_SNAPSHOT
+}qcamera_face_detect_type_t;
+
 typedef struct {
     int8_t face_id;            /* unique id for face tracking within view unless view changes */
     int8_t score;              /* score of confidence (0, -100) */
@@ -625,6 +664,7 @@ typedef struct {
     uint32_t frame_id;                         /* frame index of which faces are detected */
     uint8_t num_faces_detected;                /* number of faces detected */
     cam_face_detection_info_t faces[MAX_ROI];  /* detailed information of faces detected */
+    qcamera_face_detect_type_t fd_type;        /* face detect for preview or snapshot frame*/
 } cam_face_detection_data_t;
 
 #define CAM_HISTOGRAM_STATS_SIZE 256
@@ -728,66 +768,51 @@ typedef enum {
   S_MAX,
 } cam_auto_scene_t;
 
-typedef  struct {
-    float aperture_value;
+typedef struct {
+   uint32_t meta_frame_id;
+} cam_meta_valid_t;
+
+typedef struct {
+    cam_flash_mode_t flash_mode;
+    float            aperture_value;
 } cam_sensor_params_t;
 
 typedef struct {
     float exp_time;
     int iso_value;
+    uint32_t flash_needed;
 } cam_ae_params_t;
 
-typedef struct {
-    float     exp_time;
-    uint32_t  luma;
-    int32_t   exp_index;
-    float     lux_index;
-    float     real_gain;
-} cam_ae_eztuing_params_t;
+
 
 typedef struct {
-    float    r_gain;
-    float    g_gain;
-    float    b_gain;
-    uint32_t color_temp;
-    int      decision;
-    int      samp_decision[64];
-} cam_awb_eztuing_params_t;
+    uint32_t tuning_data_version;
+    uint32_t tuning_sensor_data_size;
+    uint32_t tuning_vfe_data_size;
+    uint32_t tuning_cpp_data_size;
+    uint32_t tuning_cac_data_size;
+    uint8_t  data[TUNING_DATA_MAX];
+}tuning_params_t;
 
 typedef struct {
-    int peak_location_index;
-} cam_af_eztuing_params_t;
+  uint8_t private_isp_data[MAX_ISP_DATA_SIZE];
+} cam_chromatix_lite_isp_t;
 
 typedef struct {
-    int      forced;
-    uint32_t force_linecount_value;
-} cam_aec_lc_params_t;
+  uint8_t private_pp_data[MAX_PP_DATA_SIZE];
+} cam_chromatix_lite_pp_t;
 
 typedef struct {
-    int   forced;
-    float force_gain_value;
-} cam_aec_gain_params_t;
+  uint8_t private_stats_data[MAX_AE_STATS_DATA_SIZE];
+} cam_chromatix_lite_ae_stats_t;
 
 typedef struct {
-    int   forced;
-    float force_exp_value;
-} cam_aec_exp_params_t;
+  uint8_t private_stats_data[MAX_AWB_STATS_DATA_SIZE];
+} cam_chromatix_lite_awb_stats_t;
 
 typedef struct {
-    int      forced;
-    uint32_t force_snap_linecount_value;
-} cam_aec_snap_lc_params_t;
-
-typedef struct {
-    int   forced;
-    float force_snap_gain_value;
-} cam_aec_snap_gain_params_t;
-
-typedef struct {
-    int   forced;
-    float force_snap_exp_value;
-} cam_aec_snap_exp_params_t;
-
+  uint8_t private_stats_data[MAX_AF_STATS_DATA_SIZE];
+} cam_chromatix_lite_af_stats_t;
 
 typedef  struct {
     uint8_t is_stats_valid;               /* if histgram data is valid */
@@ -823,44 +848,32 @@ typedef  struct {
     uint8_t is_ae_params_valid;
     cam_ae_params_t ae_params;
 
-    /* AE eztuning parameters */
-    uint8_t is_ae_eztuing_params_valid;
-    cam_ae_eztuing_params_t ae_eztuing_params;
-
-    /* AWB eztuing parameters*/
-    uint8_t is_awb_eztuing_params_valid;
-    cam_awb_eztuing_params_t awb_eztuing_params;
-
-    /* AF eztuing parameters*/
-    uint8_t is_af_eztuing_params_valid;
-    cam_af_eztuing_params_t af_eztuing_params;
-
-    /* AEC force linecount eztuning parameters */
-    uint8_t is_aec_force_linecount_eztuing_params_valid;
-    cam_aec_lc_params_t aec_force_linecount_eztuing_params;
-
-    /* AEC force gain eztuing parameters*/
-    uint8_t is_aec_force_gain_eztuing_params_valid;
-    cam_aec_gain_params_t aec_force_gain_eztuing_params;
-
-    /* AEC force exp eztuing parameters*/
-    uint8_t is_aec_force_exp_eztuing_params_valid;
-    cam_aec_exp_params_t aec_force_exp_eztuing_params;
-
-    /* AEC force snap linecount eztuning parameters */
-    uint8_t is_aec_force_snap_linecount_eztuing_params_valid;
-    cam_aec_snap_lc_params_t aec_force_snap_linecount_eztuing_params;
-
-    /* AEC force snap gain eztuing parameters*/
-    uint8_t is_aec_force_snap_gain_eztuing_params_valid;
-    cam_aec_snap_gain_params_t aec_force_snap_gain_eztuing_params;
-
-    /* AEC force snap exp eztuing parameters*/
-    uint8_t is_aec_snap_force_exp_eztuing_params_valid;
-    cam_aec_snap_exp_params_t aec_force_snap_exp_eztuing_params;
     /* sensor parameters */
     uint8_t is_sensor_params_valid;
     cam_sensor_params_t sensor_params;
+
+    /* Meta valid params */
+    uint8_t is_meta_valid;
+    cam_meta_valid_t meta_valid_params;
+
+    /*Tuning Data*/
+    uint8_t is_tuning_params_valid;
+    tuning_params_t tuning_params;
+
+    uint8_t is_chromatix_lite_isp_valid;
+    cam_chromatix_lite_isp_t chromatix_lite_isp_data;
+
+    uint8_t is_chromatix_lite_pp_valid;
+    cam_chromatix_lite_pp_t chromatix_lite_pp_data;
+
+    uint8_t is_chromatix_lite_ae_stats_valid;
+    cam_chromatix_lite_ae_stats_t chromatix_lite_ae_stats_data;
+
+    uint8_t is_chromatix_lite_awb_stats_valid;
+    cam_chromatix_lite_awb_stats_t chromatix_lite_awb_stats_data;
+
+    uint8_t is_chromatix_lite_af_stats_valid;
+    cam_chromatix_lite_af_stats_t chromatix_lite_af_stats_data;
 } cam_metadata_info_t;
 
 typedef enum {
@@ -906,6 +919,8 @@ typedef enum {
     CAM_INTF_PARM_ASD_ENABLE,
     CAM_INTF_PARM_RECORDING_HINT,
     CAM_INTF_PARM_HDR,
+    CAM_INTF_PARM_MAX_DIMENSION,
+    CAM_INTF_PARM_RAW_DIMENSION,
     CAM_INTF_PARM_FRAMESKIP,
     CAM_INTF_PARM_ZSL_MODE,  /* indicating if it's running in ZSL mode */
     CAM_INTF_PARM_HDR_NEED_1X, /* if HDR needs 1x output */ /* 40 */
@@ -923,6 +938,7 @@ typedef enum {
     CAM_INTF_PARM_SET_RELOAD_AFTUNE,
     CAM_INTF_PARM_SET_VFE_COMMAND,
     CAM_INTF_PARM_SET_PP_COMMAND,
+    CAM_INTF_PARM_TINTLESS,
 
     /* stream based parameters */
     CAM_INTF_PARM_DO_REPROCESS,
@@ -930,15 +946,7 @@ typedef enum {
     CAM_INTF_PARM_STREAM_FLIP,
     CAM_INTF_PARM_GET_OUTPUT_CROP,
 
-    CAM_INTF_PARM_AEC_ENABLE,
-    CAM_INTF_PARM_AWB_ENABLE,
-    CAM_INTF_PARM_AF_ENABLE,
-    CAM_INTF_PARM_AEC_FORCE_LC,
-    CAM_INTF_PARM_AEC_FORCE_GAIN,
-    CAM_INTF_PARM_AEC_FORCE_EXP,
-    CAM_INTF_PARM_AEC_FORCE_SNAP_LC,
-    CAM_INTF_PARM_AEC_FORCE_SNAP_GAIN,
-    CAM_INTF_PARM_AEC_FORCE_SNAP_EXP,
+    CAM_INTF_PARM_EZTUNE_CMD,
 
     /* specific to HAL3 */
     /* Whether the metadata maps to a valid frame number */
@@ -1075,9 +1083,47 @@ typedef enum {
     CAM_INTF_META_FLASH_MODE,
     CAM_INTF_META_ASD_HDR_SCENE_DATA,
     CAM_INTF_META_PRIVATE_DATA,
+    CAM_INTF_PARM_STATS_DEBUG_MASK,
 
     CAM_INTF_PARM_MAX
 } cam_intf_parm_type_t;
+
+typedef struct {
+    int   forced;
+    union {
+      uint32_t force_linecount_value;
+      float    force_gain_value;
+      float    force_snap_exp_value;
+      float    force_exp_value;
+      uint32_t force_snap_linecount_value;
+      float    force_snap_gain_value;
+    } u;
+} cam_ez_force_params_t;
+
+typedef enum {
+    CAM_EZTUNE_CMD_STATUS,
+    CAM_EZTUNE_CMD_AEC_ENABLE,
+    CAM_EZTUNE_CMD_AWB_ENABLE,
+    CAM_EZTUNE_CMD_AF_ENABLE,
+    CAM_EZTUNE_CMD_AEC_FORCE_LINECOUNT,
+    CAM_EZTUNE_CMD_AEC_FORCE_GAIN,
+    CAM_EZTUNE_CMD_AEC_FORCE_EXP,
+    CAM_EZTUNE_CMD_AEC_FORCE_SNAP_LC,
+    CAM_EZTUNE_CMD_AEC_FORCE_SNAP_GAIN,
+    CAM_EZTUNE_CMD_AEC_FORCE_SNAP_EXP,
+} cam_eztune_cmd_type_t;
+
+typedef struct {
+  cam_eztune_cmd_type_t   cmd;
+  union {
+    int                   running;
+    int                   aec_enable;
+    int                   awb_enable;
+    int                   af_enable;
+    cam_ez_force_params_t ez_force_param;
+  } u;
+} cam_eztune_cmd_data_t;
+
 
 /*****************************************************************************
  *                 Code for HAL3 data types                                  *
@@ -1198,6 +1244,7 @@ typedef struct {
 #define CAM_QCOM_FEATURE_VIDEO_HDR      (1<<8)
 #define CAM_QCOM_FEATURE_CAC            (1<<9)
 #define CAM_QCOM_FEATURE_SCALE          (1<<10)
+#define CAM_QCOM_FEATURE_EFFECT         (1<<11)
 
 // Counter clock wise
 typedef enum {
@@ -1249,6 +1296,7 @@ typedef struct {
     cam_rotation_t rotation;
     uint32_t flip;
     int32_t sharpness;
+    int32_t effect;
     cam_hdr_param_t hdr_param;
     cam_scale_param_t scale_param;
 } cam_pp_feature_config_t;
