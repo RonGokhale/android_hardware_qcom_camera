@@ -1386,7 +1386,10 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
     case CAM_STREAM_TYPE_OFFLINE_PROC:
         {
             bufferCnt = minCaptureBuffers;
-            mReprocBufferCnt = bufferCnt;
+            if( mLongshotEnabled &&
+                ( bufferCnt < CAMERA_LONGSHOT_STAGES ) ){
+                bufferCnt = CAMERA_LONGSHOT_STAGES;
+            }
         }
         break;
     case CAM_STREAM_TYPE_DEFAULT:
@@ -3693,6 +3696,7 @@ QCameraReprocessChannel *QCamera2HardwareInterface::addOnlineReprocChannel(
 
     ALOGD("%s: After pproc config check, ret = %x", __func__, pp_config.feature_mask);
 
+
     //WNR and HDR happen inline. No extra buffers needed.
     uint32_t temp_feature_mask = pp_config.feature_mask;
     temp_feature_mask &= ~CAM_QCOM_FEATURE_HDR;
@@ -3711,7 +3715,6 @@ QCameraReprocessChannel *QCamera2HardwareInterface::addOnlineReprocChannel(
         ( minStreamBufNum < CAMERA_LONGSHOT_STAGES ) ) {
         minStreamBufNum = CAMERA_LONGSHOT_STAGES;
     }
-    mReprocBufferCnt = minStreamBufNum;
 
     rc = pChannel->addReprocStreamsFromSource(*this,
                                               pp_config,
