@@ -696,7 +696,8 @@ int32_t QCameraReprocessChannel::addReprocStreamsFromSource(QCameraAllocator& al
                                                             QCameraChannel *pSrcChannel,
                                                             uint8_t minStreamBufNum,
                                                             cam_padding_info_t *paddingInfo,
-                                                            QCameraParameters &param)
+                                                            QCameraParameters &param,
+                                                            bool contStream)
 {
     int32_t rc = 0;
     QCameraStream *pStream = NULL;
@@ -715,14 +716,22 @@ int32_t QCameraReprocessChannel::addReprocStreamsFromSource(QCameraAllocator& al
                 continue;
             }
 
-            if (param.isHDREnabled() && !param.isHDRThumbnailProcessNeeded() &&
-                (pStream->isTypeOf(CAM_STREAM_TYPE_PREVIEW) ||
-                pStream->isTypeOf(CAM_STREAM_TYPE_POSTVIEW) ||
-                pStream->isOrignalTypeOf(CAM_STREAM_TYPE_PREVIEW) ||
-                pStream->isOrignalTypeOf(CAM_STREAM_TYPE_POSTVIEW))) {
-
-                  // Skip thumbnail stream reprocessing
-                  continue;
+            if(pStream->isTypeOf(CAM_STREAM_TYPE_PREVIEW) ||
+               pStream->isTypeOf(CAM_STREAM_TYPE_POSTVIEW) ||
+               pStream->isOrignalTypeOf(CAM_STREAM_TYPE_PREVIEW) ||
+               pStream->isOrignalTypeOf(CAM_STREAM_TYPE_POSTVIEW)) {
+                  if (param.isHDREnabled() && !param.isHDRThumbnailProcessNeeded()){
+                      // Skip thumbnail stream reprocessing in HDR
+                      continue;
+                  }
+                  uint32_t feature_mask = config.feature_mask;
+                  //Don't do WNR for thumbnail
+                  feature_mask &= ~CAM_QCOM_FEATURE_DENOISE2D;
+                  if(!feature_mask) {
+                    // Skip thumbnail stream reprocessing since no other
+                    //reprocessing is enabled.
+                      continue;
+                  }
             }
 
             pStreamInfoBuf = allocator.allocateStreamInfoBuf(CAM_STREAM_TYPE_OFFLINE_PROC);
@@ -737,8 +746,13 @@ int32_t QCameraReprocessChannel::addReprocStreamsFromSource(QCameraAllocator& al
             streamInfo->stream_type = CAM_STREAM_TYPE_OFFLINE_PROC;
             rc = pStream->getFormat(streamInfo->fmt);
             rc = pStream->getFrameDimension(streamInfo->dim);
-            streamInfo->streaming_mode = CAM_STREAMING_MODE_BURST;
-            streamInfo->num_of_burst = minStreamBufNum;
+            if ( contStream ) {
+                streamInfo->streaming_mode = CAM_STREAMING_MODE_CONTINUOUS;
+                streamInfo->num_of_burst = 0;
+            } else {
+                streamInfo->streaming_mode = CAM_STREAMING_MODE_BURST;
+                streamInfo->num_of_burst = minStreamBufNum;
+            }
 
             streamInfo->reprocess_config.pp_type = CAM_ONLINE_REPROCESS_TYPE;
             streamInfo->reprocess_config.online.input_stream_id = pStream->getMyServerID();
@@ -748,6 +762,8 @@ int32_t QCameraReprocessChannel::addReprocStreamsFromSource(QCameraAllocator& al
             if (!(pStream->isTypeOf(CAM_STREAM_TYPE_SNAPSHOT) ||
                 pStream->isOrignalTypeOf(CAM_STREAM_TYPE_SNAPSHOT))) {
                 streamInfo->reprocess_config.pp_feature_config.feature_mask &= ~CAM_QCOM_FEATURE_CAC;
+                //Don't do WNR for thumbnail
+                streamInfo->reprocess_config.pp_feature_config.feature_mask &= ~CAM_QCOM_FEATURE_DENOISE2D;
             }
             if (streamInfo->reprocess_config.pp_feature_config.feature_mask & CAM_QCOM_FEATURE_ROTATION) {
                 if (streamInfo->reprocess_config.pp_feature_config.rotation == ROTATE_90 ||
