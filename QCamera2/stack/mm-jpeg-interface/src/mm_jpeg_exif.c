@@ -342,7 +342,7 @@ int process_3a_data(cam_ae_params_t *p_ae_params, QOMX_EXIF_INFO *exif_info)
     return 0;
   }
 
-  ALOGD("%s:%d] exp_time %f, iso_value %d", __func__, __LINE__,
+  ALOGE("%s:%d] exp_time %f, iso_value %d", __func__, __LINE__,
     p_ae_params->exp_time, p_ae_params->iso_value);
 
   /*Exposure time*/
@@ -351,9 +351,9 @@ int process_3a_data(cam_ae_params_t *p_ae_params, QOMX_EXIF_INFO *exif_info)
       val_rat.denom = 0;
   } else {
       val_rat.num = 1;
-      val_rat.denom = ROUND((double)p_ae_params->exp_time * 1000);
+      val_rat.denom = ROUND(1.0/p_ae_params->exp_time);
   }
-  ALOGE("%s: numer %d denom %d", __func__, val_rat.num, val_rat.denom );
+  ALOGD("%s: numer %d denom %d", __func__, val_rat.num, val_rat.denom );
 
   rc = addExifEntry(exif_info, EXIFTAGID_EXPOSURE_TIME, EXIF_RATIONAL,
     (sizeof(val_rat)/(8)), &val_rat);
@@ -415,7 +415,7 @@ int process_meta_data(cam_metadata_info_t *p_meta, QOMX_EXIF_INFO *exif_info,
     return 0;
   }
   cam_ae_params_t *p_ae_params = p_meta->is_ae_params_valid ?
-    &p_meta->ae_params : &p_cam_exif_params->ae_params;
+    &p_meta->ae_params : NULL;
 
   if (NULL != p_ae_params) {
     rc = process_3a_data(p_ae_params, exif_info);
@@ -424,7 +424,7 @@ int process_meta_data(cam_metadata_info_t *p_meta, QOMX_EXIF_INFO *exif_info,
     }
   }
   cam_sensor_params_t *p_sensor_params = p_meta->is_sensor_params_valid ?
-    &p_meta->sensor_params : &p_cam_exif_params->sensor_params;
+    &p_meta->sensor_params : NULL;
 
   if (NULL != p_sensor_params) {
     rc = process_sensor_data(p_sensor_params, exif_info);
