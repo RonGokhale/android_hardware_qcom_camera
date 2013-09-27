@@ -3649,7 +3649,7 @@ int QualcommCameraHardware::allocate_ion_memory(int *main_ion_fd, struct ion_all
     int rc = 0;
     struct ion_handle_data handle_data;
 
-    *main_ion_fd = open("/dev/ion", O_RDONLY | O_SYNC);
+    *main_ion_fd = open("/dev/ion", O_RDONLY );
     if (*main_ion_fd < 0) {
       ALOGE("Ion dev open failed\n");
       ALOGE("Error is %s\n", strerror(errno));
@@ -3659,7 +3659,8 @@ int QualcommCameraHardware::allocate_ion_memory(int *main_ion_fd, struct ion_all
     /* to make it page size aligned */
     alloc->len = (alloc->len + 4095) & (~4095);
     alloc->align = 4096;
-    alloc->flags = (0x1 << ion_type | 0x1 << ION_IOMMU_HEAP_ID);
+    alloc->heap_mask = (ION_HEAP(ION_IOMMU_HEAP_ID) | (ION_HEAP(ion_type)));
+    alloc->flags = 0;
 
     rc = ioctl(*main_ion_fd, ION_IOC_ALLOC, alloc);
     if (rc < 0) {
