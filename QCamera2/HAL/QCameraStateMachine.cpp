@@ -72,12 +72,12 @@ void *QCameraStateMachine::smEvtProcRoutine(void *data)
         if (node != NULL) {
             switch (node->cmd) {
             case QCAMERA_SM_CMD_TYPE_API:
-                pme->stateMachine(node->evt, node->evt_payload, node->cmd);
+                pme->stateMachine(node->evt, node->evt_payload);
                 // API is in a way sync call, so evt_payload is managed by HWI
                 // no need to free payload for API
                 break;
             case QCAMERA_SM_CMD_TYPE_EVT:
-                pme->stateMachine(node->evt, node->evt_payload, node->cmd);
+                pme->stateMachine(node->evt, node->evt_payload);
 
                 // EVT is async call, so payload need to be free after use
                 free(node->evt_payload);
@@ -166,7 +166,7 @@ QCameraStateMachine::~QCameraStateMachine()
  *              none-zero failure code
  *==========================================================================*/
 int32_t QCameraStateMachine::procAPI(qcamera_sm_evt_enum_t evt,
-                                      void *api_payload)
+                                     void *api_payload)
 {
     qcamera_sm_cmd_t *node =
         (qcamera_sm_cmd_t *)malloc(sizeof(qcamera_sm_cmd_t));
@@ -179,7 +179,6 @@ int32_t QCameraStateMachine::procAPI(qcamera_sm_evt_enum_t evt,
     node->cmd = QCAMERA_SM_CMD_TYPE_API;
     node->evt = evt;
     node->evt_payload = api_payload;
-
     if (api_queue.enqueue((void *)node)) {
         cam_sem_post(&cmd_sem);
         return NO_ERROR;
@@ -217,7 +216,6 @@ int32_t QCameraStateMachine::procEvt(qcamera_sm_evt_enum_t evt,
     node->cmd = QCAMERA_SM_CMD_TYPE_EVT;
     node->evt = evt;
     node->evt_payload = evt_payload;
-
     if (evt_queue.enqueue((void *)node)) {
         cam_sem_post(&cmd_sem);
         return NO_ERROR;
@@ -241,33 +239,33 @@ int32_t QCameraStateMachine::procEvt(qcamera_sm_evt_enum_t evt,
  *              NO_ERROR  -- success
  *              none-zero failure code
  *==========================================================================*/
-int32_t QCameraStateMachine::stateMachine(qcamera_sm_evt_enum_t evt, void *payload, qcamera_sm_cmd_type_t cmd_type)
+int32_t QCameraStateMachine::stateMachine(qcamera_sm_evt_enum_t evt, void *payload)
 {
     int32_t rc = NO_ERROR;
     switch (m_state) {
     case QCAMERA_SM_STATE_PREVIEW_STOPPED:
-        rc = procEvtPreviewStoppedState(evt, payload, cmd_type);
+        rc = procEvtPreviewStoppedState(evt, payload);
         break;
     case QCAMERA_SM_STATE_PREVIEW_READY:
-        rc = procEvtPreviewReadyState(evt, payload, cmd_type);
+        rc = procEvtPreviewReadyState(evt, payload);
         break;
     case QCAMERA_SM_STATE_PREVIEWING:
-        rc = procEvtPreviewingState(evt, payload, cmd_type);
+        rc = procEvtPreviewingState(evt, payload);
         break;
     case QCAMERA_SM_STATE_PREPARE_SNAPSHOT:
-        rc = procEvtPrepareSnapshotState(evt, payload, cmd_type);
+        rc = procEvtPrepareSnapshotState(evt, payload);
         break;
     case QCAMERA_SM_STATE_PIC_TAKING:
-        rc = procEvtPicTakingState(evt, payload, cmd_type);
+        rc = procEvtPicTakingState(evt, payload);
         break;
     case QCAMERA_SM_STATE_RECORDING:
-        rc = procEvtRecordingState(evt, payload, cmd_type);
+        rc = procEvtRecordingState(evt, payload);
         break;
     case QCAMERA_SM_STATE_VIDEO_PIC_TAKING:
-        rc = procEvtVideoPicTakingState(evt, payload, cmd_type);
+        rc = procEvtVideoPicTakingState(evt, payload);
         break;
     case QCAMERA_SM_STATE_PREVIEW_PIC_TAKING:
-        rc = procEvtPreviewPicTakingState(evt, payload, cmd_type);
+        rc = procEvtPreviewPicTakingState(evt, payload);
         break;
     default:
         break;
@@ -291,14 +289,11 @@ int32_t QCameraStateMachine::stateMachine(qcamera_sm_evt_enum_t evt, void *paylo
  *              none-zero failure code
  *==========================================================================*/
 int32_t QCameraStateMachine::procEvtPreviewStoppedState(qcamera_sm_evt_enum_t evt,
-                                                        void *evtpayload, qcamera_sm_cmd_type_t cmd_type)
+                                                        void *payload)
 {
     int32_t rc = NO_ERROR;
     qcamera_api_result_t result;
     memset(&result, 0, sizeof(qcamera_api_result_t));
-    void *payload = evtpayload;
-    if(QCAMERA_SM_CMD_TYPE_API == cmd_type)
-        payload = ((qcamera_generic_payload_t*)evtpayload)->data;
 
     switch (evt) {
     case QCAMERA_SM_EVT_SET_PREVIEW_WINDOW:
@@ -307,7 +302,7 @@ int32_t QCameraStateMachine::procEvtPreviewStoppedState(qcamera_sm_evt_enum_t ev
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_SET_CALLBACKS:
@@ -322,7 +317,7 @@ int32_t QCameraStateMachine::procEvtPreviewStoppedState(qcamera_sm_evt_enum_t ev
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_ENABLE_MSG_TYPE:
@@ -331,7 +326,7 @@ int32_t QCameraStateMachine::procEvtPreviewStoppedState(qcamera_sm_evt_enum_t ev
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_DISABLE_MSG_TYPE:
@@ -340,7 +335,7 @@ int32_t QCameraStateMachine::procEvtPreviewStoppedState(qcamera_sm_evt_enum_t ev
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_MSG_TYPE_ENABLED:
@@ -350,7 +345,7 @@ int32_t QCameraStateMachine::procEvtPreviewStoppedState(qcamera_sm_evt_enum_t ev
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_ENABLE_FLAG;
             result.enabled = enabled;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_SET_PARAMS:
@@ -363,7 +358,7 @@ int32_t QCameraStateMachine::procEvtPreviewStoppedState(qcamera_sm_evt_enum_t ev
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_GET_PARAMS:
@@ -373,7 +368,7 @@ int32_t QCameraStateMachine::procEvtPreviewStoppedState(qcamera_sm_evt_enum_t ev
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_PARAMS;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_PUT_PARAMS:
@@ -382,7 +377,7 @@ int32_t QCameraStateMachine::procEvtPreviewStoppedState(qcamera_sm_evt_enum_t ev
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_START_PREVIEW:
@@ -410,7 +405,7 @@ int32_t QCameraStateMachine::procEvtPreviewStoppedState(qcamera_sm_evt_enum_t ev
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_START_NODISPLAY_PREVIEW:
@@ -427,7 +422,7 @@ int32_t QCameraStateMachine::procEvtPreviewStoppedState(qcamera_sm_evt_enum_t ev
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
     break;
     case QCAMERA_SM_EVT_STOP_PREVIEW:
@@ -437,7 +432,7 @@ int32_t QCameraStateMachine::procEvtPreviewStoppedState(qcamera_sm_evt_enum_t ev
             result.status = NO_ERROR;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_PREVIEW_ENABLED:
@@ -447,7 +442,7 @@ int32_t QCameraStateMachine::procEvtPreviewStoppedState(qcamera_sm_evt_enum_t ev
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_ENABLE_FLAG;
             result.enabled = 0;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_RELEASE:
@@ -456,7 +451,7 @@ int32_t QCameraStateMachine::procEvtPreviewStoppedState(qcamera_sm_evt_enum_t ev
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_STORE_METADATA_IN_BUFS:
@@ -465,7 +460,7 @@ int32_t QCameraStateMachine::procEvtPreviewStoppedState(qcamera_sm_evt_enum_t ev
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_DUMP:
@@ -474,7 +469,7 @@ int32_t QCameraStateMachine::procEvtPreviewStoppedState(qcamera_sm_evt_enum_t ev
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_SEND_COMMAND:
@@ -487,7 +482,7 @@ int32_t QCameraStateMachine::procEvtPreviewStoppedState(qcamera_sm_evt_enum_t ev
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_START_RECORDING:
@@ -502,7 +497,7 @@ int32_t QCameraStateMachine::procEvtPreviewStoppedState(qcamera_sm_evt_enum_t ev
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_CANCEL_PICTURE:
@@ -512,7 +507,7 @@ int32_t QCameraStateMachine::procEvtPreviewStoppedState(qcamera_sm_evt_enum_t ev
             result.status = NO_ERROR;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_STOP_AUTO_FOCUS:
@@ -521,7 +516,7 @@ int32_t QCameraStateMachine::procEvtPreviewStoppedState(qcamera_sm_evt_enum_t ev
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_REG_FACE_IMAGE:
@@ -536,7 +531,7 @@ int32_t QCameraStateMachine::procEvtPreviewStoppedState(qcamera_sm_evt_enum_t ev
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_HANDLE;
             result.handle = faceID;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_THERMAL_NOTIFY:
@@ -598,14 +593,11 @@ int32_t QCameraStateMachine::procEvtPreviewStoppedState(qcamera_sm_evt_enum_t ev
  *              none-zero failure code
  *==========================================================================*/
 int32_t QCameraStateMachine::procEvtPreviewReadyState(qcamera_sm_evt_enum_t evt,
-                                                      void *evtpayload, qcamera_sm_cmd_type_t cmd_type)
+                                                      void *payload)
 {
     int32_t rc = NO_ERROR;
     qcamera_api_result_t result;
     memset(&result, 0, sizeof(qcamera_api_result_t));
-    void *payload = evtpayload;
-    if(QCAMERA_SM_CMD_TYPE_API == cmd_type)
-        payload = ((qcamera_generic_payload_t*)evtpayload)->data;
 
     switch (evt) {
     case QCAMERA_SM_EVT_SET_PREVIEW_WINDOW:
@@ -624,7 +616,7 @@ int32_t QCameraStateMachine::procEvtPreviewReadyState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_SET_CALLBACKS:
@@ -639,7 +631,7 @@ int32_t QCameraStateMachine::procEvtPreviewReadyState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_ENABLE_MSG_TYPE:
@@ -648,7 +640,7 @@ int32_t QCameraStateMachine::procEvtPreviewReadyState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_DISABLE_MSG_TYPE:
@@ -657,7 +649,7 @@ int32_t QCameraStateMachine::procEvtPreviewReadyState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_MSG_TYPE_ENABLED:
@@ -667,7 +659,7 @@ int32_t QCameraStateMachine::procEvtPreviewReadyState(qcamera_sm_evt_enum_t evt,
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_ENABLE_FLAG;
             result.enabled = enabled;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_SET_PARAMS:
@@ -693,7 +685,7 @@ int32_t QCameraStateMachine::procEvtPreviewReadyState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_GET_PARAMS:
@@ -703,7 +695,7 @@ int32_t QCameraStateMachine::procEvtPreviewReadyState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_PARAMS;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_PUT_PARAMS:
@@ -712,7 +704,7 @@ int32_t QCameraStateMachine::procEvtPreviewReadyState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_START_PREVIEW:
@@ -722,7 +714,7 @@ int32_t QCameraStateMachine::procEvtPreviewReadyState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_STOP_PREVIEW:
@@ -733,7 +725,7 @@ int32_t QCameraStateMachine::procEvtPreviewReadyState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_PREVIEW_ENABLED:
@@ -743,7 +735,7 @@ int32_t QCameraStateMachine::procEvtPreviewReadyState(qcamera_sm_evt_enum_t evt,
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_ENABLE_FLAG;
             result.enabled = 1;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_RECORDING_ENABLED:
@@ -753,7 +745,7 @@ int32_t QCameraStateMachine::procEvtPreviewReadyState(qcamera_sm_evt_enum_t evt,
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_ENABLE_FLAG;
             result.enabled = 0;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_STORE_METADATA_IN_BUFS:
@@ -762,7 +754,7 @@ int32_t QCameraStateMachine::procEvtPreviewReadyState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_DUMP:
@@ -771,7 +763,7 @@ int32_t QCameraStateMachine::procEvtPreviewReadyState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_START_AUTO_FOCUS:
@@ -780,7 +772,7 @@ int32_t QCameraStateMachine::procEvtPreviewReadyState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_STOP_AUTO_FOCUS:
@@ -789,7 +781,7 @@ int32_t QCameraStateMachine::procEvtPreviewReadyState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_SEND_COMMAND:
@@ -802,7 +794,7 @@ int32_t QCameraStateMachine::procEvtPreviewReadyState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_REG_FACE_IMAGE:
@@ -817,7 +809,7 @@ int32_t QCameraStateMachine::procEvtPreviewReadyState(qcamera_sm_evt_enum_t evt,
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_HANDLE;
             result.handle = faceID;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_START_NODISPLAY_PREVIEW:
@@ -834,7 +826,7 @@ int32_t QCameraStateMachine::procEvtPreviewReadyState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_EVT_NOTIFY:
@@ -891,15 +883,11 @@ int32_t QCameraStateMachine::procEvtPreviewReadyState(qcamera_sm_evt_enum_t evt,
  *              none-zero failure code
  *==========================================================================*/
 int32_t QCameraStateMachine::procEvtPreviewingState(qcamera_sm_evt_enum_t evt,
-                                                    void *evtpayload, qcamera_sm_cmd_type_t cmd_type)
+                                                    void *payload)
 {
     int32_t rc = NO_ERROR;
     qcamera_api_result_t result;
     memset(&result, 0, sizeof(qcamera_api_result_t));
-    void *payload = evtpayload;
-    if(QCAMERA_SM_CMD_TYPE_API == cmd_type)
-        payload = ((qcamera_generic_payload_t*)evtpayload)->data;
-
 
     switch (evt) {
     case QCAMERA_SM_EVT_SET_PREVIEW_WINDOW:
@@ -910,7 +898,7 @@ int32_t QCameraStateMachine::procEvtPreviewingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_SET_CALLBACKS:
@@ -925,7 +913,7 @@ int32_t QCameraStateMachine::procEvtPreviewingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_ENABLE_MSG_TYPE:
@@ -934,7 +922,7 @@ int32_t QCameraStateMachine::procEvtPreviewingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_DISABLE_MSG_TYPE:
@@ -943,7 +931,7 @@ int32_t QCameraStateMachine::procEvtPreviewingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_MSG_TYPE_ENABLED:
@@ -953,7 +941,7 @@ int32_t QCameraStateMachine::procEvtPreviewingState(qcamera_sm_evt_enum_t evt,
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_ENABLE_FLAG;
             result.enabled = enabled;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_SET_PARAMS:
@@ -985,7 +973,7 @@ int32_t QCameraStateMachine::procEvtPreviewingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_GET_PARAMS:
@@ -995,7 +983,7 @@ int32_t QCameraStateMachine::procEvtPreviewingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_PARAMS;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_PUT_PARAMS:
@@ -1004,7 +992,7 @@ int32_t QCameraStateMachine::procEvtPreviewingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_START_PREVIEW:
@@ -1016,7 +1004,7 @@ int32_t QCameraStateMachine::procEvtPreviewingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_STOP_PREVIEW:
@@ -1026,7 +1014,7 @@ int32_t QCameraStateMachine::procEvtPreviewingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_PREVIEW_ENABLED:
@@ -1036,7 +1024,7 @@ int32_t QCameraStateMachine::procEvtPreviewingState(qcamera_sm_evt_enum_t evt,
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_ENABLE_FLAG;
             result.enabled = 1;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_RECORDING_ENABLED:
@@ -1046,7 +1034,7 @@ int32_t QCameraStateMachine::procEvtPreviewingState(qcamera_sm_evt_enum_t evt,
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_ENABLE_FLAG;
             result.enabled = 0;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_STORE_METADATA_IN_BUFS:
@@ -1055,7 +1043,7 @@ int32_t QCameraStateMachine::procEvtPreviewingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_DUMP:
@@ -1064,7 +1052,7 @@ int32_t QCameraStateMachine::procEvtPreviewingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_START_AUTO_FOCUS:
@@ -1073,7 +1061,7 @@ int32_t QCameraStateMachine::procEvtPreviewingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_STOP_AUTO_FOCUS:
@@ -1082,7 +1070,7 @@ int32_t QCameraStateMachine::procEvtPreviewingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_START_RECORDING:
@@ -1095,7 +1083,7 @@ int32_t QCameraStateMachine::procEvtPreviewingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_PREPARE_SNAPSHOT:
@@ -1113,7 +1101,7 @@ int32_t QCameraStateMachine::procEvtPreviewingState(qcamera_sm_evt_enum_t evt,
                 result.status = rc;
                 result.request_api = evt;
                 result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-                m_parent->signalAPIResult(&result,evtpayload);
+                m_parent->signalAPIResult(&result);
             }
         }
         break;
@@ -1139,7 +1127,7 @@ int32_t QCameraStateMachine::procEvtPreviewingState(qcamera_sm_evt_enum_t evt,
                result.status = rc;
                result.request_api = evt;
                result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-               m_parent->signalAPIResult(&result,evtpayload);
+               m_parent->signalAPIResult(&result);
            } else {
                m_state = QCAMERA_SM_STATE_PREVIEW_PIC_TAKING;
                rc = m_parent->takeLiveSnapshot();
@@ -1149,7 +1137,7 @@ int32_t QCameraStateMachine::procEvtPreviewingState(qcamera_sm_evt_enum_t evt,
                result.status = rc;
                result.request_api = evt;
                result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-               m_parent->signalAPIResult(&result,evtpayload);
+               m_parent->signalAPIResult(&result);
            }
         }
         break;
@@ -1163,7 +1151,7 @@ int32_t QCameraStateMachine::procEvtPreviewingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_REG_FACE_IMAGE:
@@ -1178,7 +1166,7 @@ int32_t QCameraStateMachine::procEvtPreviewingState(qcamera_sm_evt_enum_t evt,
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_HANDLE;
             result.handle = faceID;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_CANCEL_PICTURE:
@@ -1191,7 +1179,7 @@ int32_t QCameraStateMachine::procEvtPreviewingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_EVT_INTERNAL:
@@ -1281,14 +1269,11 @@ int32_t QCameraStateMachine::procEvtPreviewingState(qcamera_sm_evt_enum_t evt,
  *              none-zero failure code
  *==========================================================================*/
 int32_t QCameraStateMachine::procEvtPrepareSnapshotState(qcamera_sm_evt_enum_t evt,
-                                                    void *evtpayload, qcamera_sm_cmd_type_t cmd_type)
+                                                    void *payload)
 {
     int32_t rc = NO_ERROR;
     qcamera_api_result_t result;
     memset(&result, 0, sizeof(qcamera_api_result_t));
-    void *payload = evtpayload;
-    if(QCAMERA_SM_CMD_TYPE_API == cmd_type)
-        payload = ((qcamera_generic_payload_t*)evtpayload)->data;
 
     switch (evt) {
     case QCAMERA_SM_EVT_SET_PREVIEW_WINDOW:
@@ -1322,7 +1307,7 @@ int32_t QCameraStateMachine::procEvtPrepareSnapshotState(qcamera_sm_evt_enum_t e
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_EVT_INTERNAL:
@@ -1342,7 +1327,7 @@ int32_t QCameraStateMachine::procEvtPrepareSnapshotState(qcamera_sm_evt_enum_t e
                 result.status = NO_ERROR;
                 result.request_api = QCAMERA_SM_EVT_PREPARE_SNAPSHOT;
                 result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-                m_parent->signalAPIResult(&result,evtpayload);
+                m_parent->signalAPIResult(&result);
                 break;
             case QCAMERA_INTERNAL_EVT_FACE_DETECT_RESULT:
                 rc = m_parent->processFaceDetectionResult(&internal_evt->faces_data);
@@ -1416,14 +1401,11 @@ int32_t QCameraStateMachine::procEvtPrepareSnapshotState(qcamera_sm_evt_enum_t e
  *              none-zero failure code
  *==========================================================================*/
 int32_t QCameraStateMachine::procEvtPicTakingState(qcamera_sm_evt_enum_t evt,
-                                                   void *evtpayload, qcamera_sm_cmd_type_t cmd_type)
+                                                   void *payload)
 {
     int32_t rc = NO_ERROR;
     qcamera_api_result_t result;
     memset(&result, 0, sizeof(qcamera_api_result_t));
-    void *payload = evtpayload;
-    if(QCAMERA_SM_CMD_TYPE_API == cmd_type)
-        payload = ((qcamera_generic_payload_t*)evtpayload)->data;
 
     switch (evt) {
     case QCAMERA_SM_EVT_SET_PREVIEW_WINDOW:
@@ -1434,7 +1416,7 @@ int32_t QCameraStateMachine::procEvtPicTakingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_SET_CALLBACKS:
@@ -1449,7 +1431,7 @@ int32_t QCameraStateMachine::procEvtPicTakingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_ENABLE_MSG_TYPE:
@@ -1458,7 +1440,7 @@ int32_t QCameraStateMachine::procEvtPicTakingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_DISABLE_MSG_TYPE:
@@ -1467,7 +1449,7 @@ int32_t QCameraStateMachine::procEvtPicTakingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_MSG_TYPE_ENABLED:
@@ -1477,7 +1459,7 @@ int32_t QCameraStateMachine::procEvtPicTakingState(qcamera_sm_evt_enum_t evt,
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_ENABLE_FLAG;
             result.enabled = enabled;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_SET_PARAMS:
@@ -1490,7 +1472,7 @@ int32_t QCameraStateMachine::procEvtPicTakingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_GET_PARAMS:
@@ -1500,7 +1482,7 @@ int32_t QCameraStateMachine::procEvtPicTakingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_PARAMS;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_PUT_PARAMS:
@@ -1509,7 +1491,7 @@ int32_t QCameraStateMachine::procEvtPicTakingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_STOP_PREVIEW:
@@ -1521,7 +1503,7 @@ int32_t QCameraStateMachine::procEvtPicTakingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_PREVIEW_ENABLED:
@@ -1531,7 +1513,7 @@ int32_t QCameraStateMachine::procEvtPicTakingState(qcamera_sm_evt_enum_t evt,
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_ENABLE_FLAG;
             result.enabled = 0;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_RECORDING_ENABLED:
@@ -1541,7 +1523,7 @@ int32_t QCameraStateMachine::procEvtPicTakingState(qcamera_sm_evt_enum_t evt,
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_ENABLE_FLAG;
             result.enabled = 0;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_STORE_METADATA_IN_BUFS:
@@ -1550,7 +1532,7 @@ int32_t QCameraStateMachine::procEvtPicTakingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_DUMP:
@@ -1559,7 +1541,7 @@ int32_t QCameraStateMachine::procEvtPicTakingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_START_AUTO_FOCUS:
@@ -1568,7 +1550,7 @@ int32_t QCameraStateMachine::procEvtPicTakingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_STOP_AUTO_FOCUS:
@@ -1577,7 +1559,7 @@ int32_t QCameraStateMachine::procEvtPicTakingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_SEND_COMMAND:
@@ -1590,7 +1572,7 @@ int32_t QCameraStateMachine::procEvtPicTakingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_CANCEL_PICTURE:
@@ -1600,7 +1582,7 @@ int32_t QCameraStateMachine::procEvtPicTakingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_REG_FACE_IMAGE:
@@ -1615,7 +1597,7 @@ int32_t QCameraStateMachine::procEvtPicTakingState(qcamera_sm_evt_enum_t evt,
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_HANDLE;
             result.handle = faceID;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_PREPARE_SNAPSHOT:
@@ -1632,7 +1614,7 @@ int32_t QCameraStateMachine::procEvtPicTakingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_EVT_INTERNAL:
@@ -1724,14 +1706,11 @@ int32_t QCameraStateMachine::procEvtPicTakingState(qcamera_sm_evt_enum_t evt,
  *              none-zero failure code
  *==========================================================================*/
 int32_t QCameraStateMachine::procEvtRecordingState(qcamera_sm_evt_enum_t evt,
-                                                   void *evtpayload, qcamera_sm_cmd_type_t cmd_type)
+                                                   void *payload)
 {
     int32_t rc = NO_ERROR;
     qcamera_api_result_t result;
     memset(&result, 0, sizeof(qcamera_api_result_t));
-    void *payload = evtpayload;
-    if(QCAMERA_SM_CMD_TYPE_API == cmd_type)
-        payload = ((qcamera_generic_payload_t*)evtpayload)->data;
 
     switch (evt) {
     case QCAMERA_SM_EVT_START_PREVIEW:
@@ -1744,7 +1723,7 @@ int32_t QCameraStateMachine::procEvtRecordingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_SET_CALLBACKS:
@@ -1759,7 +1738,7 @@ int32_t QCameraStateMachine::procEvtRecordingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_ENABLE_MSG_TYPE:
@@ -1768,7 +1747,7 @@ int32_t QCameraStateMachine::procEvtRecordingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_DISABLE_MSG_TYPE:
@@ -1777,7 +1756,7 @@ int32_t QCameraStateMachine::procEvtRecordingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_MSG_TYPE_ENABLED:
@@ -1787,7 +1766,7 @@ int32_t QCameraStateMachine::procEvtRecordingState(qcamera_sm_evt_enum_t evt,
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_ENABLE_FLAG;
             result.enabled = enabled;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_SET_PARAMS:
@@ -1807,7 +1786,7 @@ int32_t QCameraStateMachine::procEvtRecordingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_GET_PARAMS:
@@ -1817,7 +1796,7 @@ int32_t QCameraStateMachine::procEvtRecordingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_PARAMS;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_PUT_PARAMS:
@@ -1826,7 +1805,7 @@ int32_t QCameraStateMachine::procEvtRecordingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_PREVIEW_ENABLED:
@@ -1836,7 +1815,7 @@ int32_t QCameraStateMachine::procEvtRecordingState(qcamera_sm_evt_enum_t evt,
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_ENABLE_FLAG;
             result.enabled = 0;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_RECORDING_ENABLED:
@@ -1846,7 +1825,7 @@ int32_t QCameraStateMachine::procEvtRecordingState(qcamera_sm_evt_enum_t evt,
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_ENABLE_FLAG;
             result.enabled = 1;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_STORE_METADATA_IN_BUFS:
@@ -1855,7 +1834,7 @@ int32_t QCameraStateMachine::procEvtRecordingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_DUMP:
@@ -1864,7 +1843,7 @@ int32_t QCameraStateMachine::procEvtRecordingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_START_AUTO_FOCUS:
@@ -1873,7 +1852,7 @@ int32_t QCameraStateMachine::procEvtRecordingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_STOP_AUTO_FOCUS:
@@ -1882,7 +1861,7 @@ int32_t QCameraStateMachine::procEvtRecordingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_SEND_COMMAND:
@@ -1895,7 +1874,7 @@ int32_t QCameraStateMachine::procEvtRecordingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_TAKE_PICTURE:
@@ -1908,7 +1887,7 @@ int32_t QCameraStateMachine::procEvtRecordingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_START_RECORDING:
@@ -1919,7 +1898,7 @@ int32_t QCameraStateMachine::procEvtRecordingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_STOP_RECORDING:
@@ -1929,7 +1908,7 @@ int32_t QCameraStateMachine::procEvtRecordingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_STOP_PREVIEW:
@@ -1943,7 +1922,7 @@ int32_t QCameraStateMachine::procEvtRecordingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_RELEASE_RECORIDNG_FRAME:
@@ -1952,7 +1931,7 @@ int32_t QCameraStateMachine::procEvtRecordingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_REG_FACE_IMAGE:
@@ -1967,7 +1946,7 @@ int32_t QCameraStateMachine::procEvtRecordingState(qcamera_sm_evt_enum_t evt,
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_HANDLE;
             result.handle = faceID;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_PREPARE_SNAPSHOT:
@@ -1976,7 +1955,7 @@ int32_t QCameraStateMachine::procEvtRecordingState(qcamera_sm_evt_enum_t evt,
             result.status = NO_ERROR;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_CANCEL_PICTURE:
@@ -1988,7 +1967,7 @@ int32_t QCameraStateMachine::procEvtRecordingState(qcamera_sm_evt_enum_t evt,
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_EVT_INTERNAL:
@@ -2076,15 +2055,11 @@ int32_t QCameraStateMachine::procEvtRecordingState(qcamera_sm_evt_enum_t evt,
  *              none-zero failure code
  *==========================================================================*/
 int32_t QCameraStateMachine::procEvtVideoPicTakingState(qcamera_sm_evt_enum_t evt,
-                                                        void *evtpayload, qcamera_sm_cmd_type_t cmd_type)
+                                                        void *payload)
 {
     int32_t rc = NO_ERROR;
     qcamera_api_result_t result;
     memset(&result, 0, sizeof(qcamera_api_result_t));
-    void *payload = evtpayload;
-    if(QCAMERA_SM_CMD_TYPE_API == cmd_type)
-        payload = ((qcamera_generic_payload_t*)evtpayload)->data;
-
 
     switch (evt) {
     case QCAMERA_SM_EVT_SET_PREVIEW_WINDOW:
@@ -2095,7 +2070,7 @@ int32_t QCameraStateMachine::procEvtVideoPicTakingState(qcamera_sm_evt_enum_t ev
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_SET_CALLBACKS:
@@ -2110,7 +2085,7 @@ int32_t QCameraStateMachine::procEvtVideoPicTakingState(qcamera_sm_evt_enum_t ev
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_ENABLE_MSG_TYPE:
@@ -2119,7 +2094,7 @@ int32_t QCameraStateMachine::procEvtVideoPicTakingState(qcamera_sm_evt_enum_t ev
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_DISABLE_MSG_TYPE:
@@ -2128,7 +2103,7 @@ int32_t QCameraStateMachine::procEvtVideoPicTakingState(qcamera_sm_evt_enum_t ev
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_MSG_TYPE_ENABLED:
@@ -2138,7 +2113,7 @@ int32_t QCameraStateMachine::procEvtVideoPicTakingState(qcamera_sm_evt_enum_t ev
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_ENABLE_FLAG;
             result.enabled = enabled;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_SET_PARAMS:
@@ -2158,7 +2133,7 @@ int32_t QCameraStateMachine::procEvtVideoPicTakingState(qcamera_sm_evt_enum_t ev
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_GET_PARAMS:
@@ -2168,7 +2143,7 @@ int32_t QCameraStateMachine::procEvtVideoPicTakingState(qcamera_sm_evt_enum_t ev
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_PARAMS;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_PUT_PARAMS:
@@ -2177,7 +2152,7 @@ int32_t QCameraStateMachine::procEvtVideoPicTakingState(qcamera_sm_evt_enum_t ev
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_PREVIEW_ENABLED:
@@ -2187,7 +2162,7 @@ int32_t QCameraStateMachine::procEvtVideoPicTakingState(qcamera_sm_evt_enum_t ev
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_ENABLE_FLAG;
             result.enabled = 1;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_RECORDING_ENABLED:
@@ -2197,7 +2172,7 @@ int32_t QCameraStateMachine::procEvtVideoPicTakingState(qcamera_sm_evt_enum_t ev
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_ENABLE_FLAG;
             result.enabled = 1;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_STORE_METADATA_IN_BUFS:
@@ -2206,7 +2181,7 @@ int32_t QCameraStateMachine::procEvtVideoPicTakingState(qcamera_sm_evt_enum_t ev
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_DUMP:
@@ -2215,7 +2190,7 @@ int32_t QCameraStateMachine::procEvtVideoPicTakingState(qcamera_sm_evt_enum_t ev
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_START_AUTO_FOCUS:
@@ -2224,7 +2199,7 @@ int32_t QCameraStateMachine::procEvtVideoPicTakingState(qcamera_sm_evt_enum_t ev
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_STOP_AUTO_FOCUS:
@@ -2233,7 +2208,7 @@ int32_t QCameraStateMachine::procEvtVideoPicTakingState(qcamera_sm_evt_enum_t ev
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_SEND_COMMAND:
@@ -2246,7 +2221,7 @@ int32_t QCameraStateMachine::procEvtVideoPicTakingState(qcamera_sm_evt_enum_t ev
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_STOP_RECORDING:
@@ -2256,7 +2231,7 @@ int32_t QCameraStateMachine::procEvtVideoPicTakingState(qcamera_sm_evt_enum_t ev
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_RELEASE_RECORIDNG_FRAME:
@@ -2265,7 +2240,7 @@ int32_t QCameraStateMachine::procEvtVideoPicTakingState(qcamera_sm_evt_enum_t ev
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_CANCEL_PICTURE:
@@ -2275,7 +2250,7 @@ int32_t QCameraStateMachine::procEvtVideoPicTakingState(qcamera_sm_evt_enum_t ev
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_REG_FACE_IMAGE:
@@ -2290,7 +2265,7 @@ int32_t QCameraStateMachine::procEvtVideoPicTakingState(qcamera_sm_evt_enum_t ev
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_HANDLE;
             result.handle = faceID;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_STOP_PREVIEW:
@@ -2307,7 +2282,7 @@ int32_t QCameraStateMachine::procEvtVideoPicTakingState(qcamera_sm_evt_enum_t ev
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_START_RECORDING:
@@ -2322,7 +2297,7 @@ int32_t QCameraStateMachine::procEvtVideoPicTakingState(qcamera_sm_evt_enum_t ev
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_EVT_INTERNAL:
@@ -2416,15 +2391,11 @@ int32_t QCameraStateMachine::procEvtVideoPicTakingState(qcamera_sm_evt_enum_t ev
  *              none-zero failure code
  *==========================================================================*/
 int32_t QCameraStateMachine::procEvtPreviewPicTakingState(qcamera_sm_evt_enum_t evt,
-                                                          void *evtpayload, qcamera_sm_cmd_type_t cmd_type)
+                                                          void *payload)
 {
     int32_t rc = NO_ERROR;
     qcamera_api_result_t result;
     memset(&result, 0, sizeof(qcamera_api_result_t));
-    void *payload = evtpayload;
-    if(QCAMERA_SM_CMD_TYPE_API == cmd_type)
-        payload = ((qcamera_generic_payload_t*)evtpayload)->data;
-
 
     switch (evt) {
     case QCAMERA_SM_EVT_SET_CALLBACKS:
@@ -2439,7 +2410,7 @@ int32_t QCameraStateMachine::procEvtPreviewPicTakingState(qcamera_sm_evt_enum_t 
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_ENABLE_MSG_TYPE:
@@ -2448,7 +2419,7 @@ int32_t QCameraStateMachine::procEvtPreviewPicTakingState(qcamera_sm_evt_enum_t 
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_DISABLE_MSG_TYPE:
@@ -2457,7 +2428,7 @@ int32_t QCameraStateMachine::procEvtPreviewPicTakingState(qcamera_sm_evt_enum_t 
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_MSG_TYPE_ENABLED:
@@ -2467,7 +2438,7 @@ int32_t QCameraStateMachine::procEvtPreviewPicTakingState(qcamera_sm_evt_enum_t 
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_ENABLE_FLAG;
             result.enabled = enabled;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_SET_PARAMS:
@@ -2499,7 +2470,7 @@ int32_t QCameraStateMachine::procEvtPreviewPicTakingState(qcamera_sm_evt_enum_t 
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_GET_PARAMS:
@@ -2509,7 +2480,7 @@ int32_t QCameraStateMachine::procEvtPreviewPicTakingState(qcamera_sm_evt_enum_t 
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_PARAMS;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_PUT_PARAMS:
@@ -2518,7 +2489,7 @@ int32_t QCameraStateMachine::procEvtPreviewPicTakingState(qcamera_sm_evt_enum_t 
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_PREVIEW_ENABLED:
@@ -2528,7 +2499,7 @@ int32_t QCameraStateMachine::procEvtPreviewPicTakingState(qcamera_sm_evt_enum_t 
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_ENABLE_FLAG;
             result.enabled = 1;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_RECORDING_ENABLED:
@@ -2538,7 +2509,7 @@ int32_t QCameraStateMachine::procEvtPreviewPicTakingState(qcamera_sm_evt_enum_t 
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_ENABLE_FLAG;
             result.enabled = 0;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_STORE_METADATA_IN_BUFS:
@@ -2547,7 +2518,7 @@ int32_t QCameraStateMachine::procEvtPreviewPicTakingState(qcamera_sm_evt_enum_t 
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_DUMP:
@@ -2556,7 +2527,7 @@ int32_t QCameraStateMachine::procEvtPreviewPicTakingState(qcamera_sm_evt_enum_t 
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_START_AUTO_FOCUS:
@@ -2565,7 +2536,7 @@ int32_t QCameraStateMachine::procEvtPreviewPicTakingState(qcamera_sm_evt_enum_t 
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_STOP_AUTO_FOCUS:
@@ -2574,7 +2545,7 @@ int32_t QCameraStateMachine::procEvtPreviewPicTakingState(qcamera_sm_evt_enum_t 
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_SEND_COMMAND:
@@ -2591,7 +2562,7 @@ int32_t QCameraStateMachine::procEvtPreviewPicTakingState(qcamera_sm_evt_enum_t 
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_RELEASE_RECORIDNG_FRAME:
@@ -2600,7 +2571,7 @@ int32_t QCameraStateMachine::procEvtPreviewPicTakingState(qcamera_sm_evt_enum_t 
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_CANCEL_PICTURE:
@@ -2614,7 +2585,7 @@ int32_t QCameraStateMachine::procEvtPreviewPicTakingState(qcamera_sm_evt_enum_t 
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_STOP_PREVIEW:
@@ -2633,7 +2604,7 @@ int32_t QCameraStateMachine::procEvtPreviewPicTakingState(qcamera_sm_evt_enum_t 
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_START_RECORDING:
@@ -2651,7 +2622,7 @@ int32_t QCameraStateMachine::procEvtPreviewPicTakingState(qcamera_sm_evt_enum_t 
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_REG_FACE_IMAGE:
@@ -2666,7 +2637,7 @@ int32_t QCameraStateMachine::procEvtPreviewPicTakingState(qcamera_sm_evt_enum_t 
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_HANDLE;
             result.handle = faceID;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_TAKE_PICTURE:
@@ -2681,7 +2652,7 @@ int32_t QCameraStateMachine::procEvtPreviewPicTakingState(qcamera_sm_evt_enum_t 
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_PREPARE_SNAPSHOT:
@@ -2696,7 +2667,7 @@ int32_t QCameraStateMachine::procEvtPreviewPicTakingState(qcamera_sm_evt_enum_t 
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result,evtpayload);
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_EVT_INTERNAL:
