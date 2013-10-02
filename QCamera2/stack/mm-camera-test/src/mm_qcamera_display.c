@@ -105,7 +105,7 @@ void overlay_set_params(struct mdp_blit_req *blit_param)
   if (overlay.dst_rect.h > 1280)
     overlay.dst_rect.h = 1280;
 
-  overlay.z_order = 0; // FB_OVERLAY_VID_0;
+  overlay.z_order = 3; //"z_order=3" means, this is top overlay.
   overlay.alpha = blit_param->alpha;
   overlay.transp_mask = blit_param->transp_mask; /* 0xF81F */
   overlay.flags = blit_param->flags;
