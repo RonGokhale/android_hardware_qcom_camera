@@ -27,12 +27,14 @@ OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+#include <inttypes.h>
 #include "mm_qcamera_dbg.h"
 #include "mm_qcamera_app.h"
 #include <assert.h>
 #include <sys/mman.h>
 #include <semaphore.h>
 
+#define DUMP_PRV_IN_FILE 1
 static void mm_app_metadata_notify_cb(mm_camera_super_buf_t *bufs,
                                      void *user_data)
 {

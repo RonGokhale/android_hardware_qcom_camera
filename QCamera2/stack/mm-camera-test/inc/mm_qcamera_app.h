@@ -30,6 +30,7 @@
 #ifndef __MM_QCAMERA_APP_H__
 #define __MM_QCAMERA_APP_H__
 
+#include <inttypes.h>
 #include <pthread.h>
 #include <errno.h>
 #include <sys/ioctl.h>
@@ -69,11 +70,17 @@
 #define DEFAULT_SNAPSHOT_WIDTH    1024
 #define DEFAULT_SNAPSHOT_HEIGHT   768
 #define DEFAULT_SNAPSHOT_PADDING  CAM_PAD_TO_WORD
+#define DEFAULT_FLIP_MODE         FLIP_MODE_NONE
+#define DEFAULT_JPEG_QUALITY      85
 
 #define DEFAULT_OV_FORMAT         MDP_Y_CRCB_H2V2
 #define DEFAULT_OV_FORMAT_BPP     3/2
 #define DEFAULT_CAMERA_FORMAT_BPP 3/2
-#define FB_PATH                   "/dev/graphics/fb0"
+#ifdef _ANDROID_
+#define FB_PATH                   "/dev/graphics/fb0
+#else
+#define FB_PATH                   "/dev/fb0"
+#endif
 #define BACKLIGHT_CONTROL         "/sys/class/leds/lcd-backlight/brightness"
 #define BACKLIGHT_LEVEL           "205"
 

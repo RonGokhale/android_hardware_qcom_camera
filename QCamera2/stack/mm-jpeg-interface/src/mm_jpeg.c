@@ -34,6 +34,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <poll.h>
+#include <assert.h>
 
 #include "mm_jpeg_dbg.h"
 #include "mm_jpeg_interface.h"
@@ -387,7 +388,7 @@ OMX_ERRORTYPE mm_jpeg_session_config_main_buffer_offset(
     return rc;
   }
 
-  CDBG_HIGH("%s:%d] yOffset = %d, cbcrOffset = (%d %d), totalSize = %d,"
+  CDBG("%s:%d] yOffset = %d, cbcrOffset = (%d %d), totalSize = %d,"
     "cbcrStartOffset = (%d %d)", __func__, __LINE__,
     (int)frame_info.yOffset,
     (int)frame_info.cbcrOffset[0],
@@ -440,7 +441,7 @@ OMX_ERRORTYPE mm_jpeg_encoding_mode(
   } else {
     encoding_mode = OMX_Serial_Encoding;
   }
-  CDBG_HIGH("%s:%d] encoding mode = %d ", __func__, __LINE__,
+  CDBG("%s:%d] encoding mode = %d ", __func__, __LINE__,
     (int)encoding_mode);
   rc = OMX_SetParameter(p_session->omx_handle, indextype, &encoding_mode);
   if (rc != OMX_ErrorNone) {
@@ -675,7 +676,7 @@ OMX_ERRORTYPE mm_jpeg_session_config_thumbnail(mm_jpeg_job_session_t* p_session)
   QOMX_YUV_FRAME_INFO *p_frame_info = &thumbnail_info.tmbOffset;
   mm_jpeg_buf_t *p_tmb_buf = &p_params->src_thumb_buf[p_jobparams->thumb_index];
 
-  CDBG_HIGH("%s:%d] encode_thumbnail %d", __func__, __LINE__,
+  CDBG("%s:%d] encode_thumbnail %d", __func__, __LINE__,
     p_params->encode_thumbnail);
   if (OMX_FALSE == p_params->encode_thumbnail) {
     return ret;
@@ -1096,6 +1097,7 @@ static OMX_ERRORTYPE mm_jpeg_configure_job_params(
   work_buffer.fd = p_session->work_buffer.p_pmem_fd;
   work_buffer.vaddr = p_session->work_buffer.addr;
   work_buffer.length = p_session->work_buffer.size;
+
   CDBG_ERROR("%s:%d] Work buffer %d %p WorkBufSize: %d", __func__, __LINE__,
     work_buffer.fd, work_buffer.vaddr, work_buffer.length);
 
@@ -1850,7 +1852,7 @@ int32_t mm_jpeg_destroy_job(mm_jpeg_job_session_t *p_session)
   mm_jpeg_encode_job_t *p_jobparams = &p_session->encode_job;
   int i = 0, rc = 0;
 
-  CDBG_ERROR("%s:%d] Exif entry count %d %d", __func__, __LINE__,
+  CDBG("%s:%d] Exif entry count %d %d", __func__, __LINE__,
     (int)p_jobparams->exif_info.numOfEntries,
     (int)p_session->exif_count_local);
   for (i = 0; i < p_session->exif_count_local; i++) {
@@ -2060,6 +2062,8 @@ OMX_ERRORTYPE mm_jpeg_ebd(OMX_HANDLETYPE hComponent,
   OMX_BUFFERHEADERTYPE *pBuffer)
 {
   OMX_ERRORTYPE ret = OMX_ErrorNone;
+  assert(pAppData != NULL);
+
   mm_jpeg_job_session_t *p_session = (mm_jpeg_job_session_t *) pAppData;
 
   CDBG("%s:%d] count %d ", __func__, __LINE__, p_session->ebd_count);
@@ -2074,6 +2078,12 @@ OMX_ERRORTYPE mm_jpeg_fbd(OMX_HANDLETYPE hComponent,
   OMX_BUFFERHEADERTYPE *pBuffer)
 {
   OMX_ERRORTYPE ret = OMX_ErrorNone;
+
+  CDBG("%s: Enter", __func__);
+
+  assert(pAppData != NULL);
+  assert(pBuffer != NULL);
+
   mm_jpeg_job_session_t *p_session = (mm_jpeg_job_session_t *) pAppData;
   uint32_t i = 0;
   int rc = 0;
