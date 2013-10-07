@@ -117,8 +117,14 @@ int32_t QCameraPostProcessor::init(jpeg_encode_callback_t jpeg_cb, void *user_da
 {
     mJpegCB = jpeg_cb;
     mJpegUserData = user_data;
+    mm_dimension max_size;
 
-    mJpegClientHandle = jpeg_open(&mJpegHandle);
+    //set max pic size
+    memset(&max_size, 0, sizeof(mm_dimension));
+    max_size.w = m_parent->m_max_pic_width;
+    max_size.h = m_parent->m_max_pic_height;
+
+    mJpegClientHandle = jpeg_open(&mJpegHandle, max_size);
     if(!mJpegClientHandle) {
         ALOGE("%s : jpeg_open did not work", __func__);
         return UNKNOWN_ERROR;
@@ -1099,6 +1105,34 @@ int32_t QCameraPostProcessor::encodeData(qcamera_jpeg_data_t *jpeg_job_data,
     if(NULL == main_frame){
        ALOGE("%s : Main frame is NULL", __func__);
        return BAD_VALUE;
+    }
+
+    //Sometimes thumbnail might be skipped in reprocess. Reprocessed channel will not have
+    //thumbnail in such case.  Hence, look through reprocess source superbuf.
+    if (thumb_frame == NULL && jpeg_job_data->src_reproc_frame != NULL) {
+        mm_camera_super_buf_t *src_reproc_frame = jpeg_job_data->src_reproc_frame;
+        QCameraChannel *pSrcReprocChannel = m_parent->getChannelByHandle(src_reproc_frame->ch_id);
+        if (pSrcReprocChannel == NULL) {
+            ALOGE("%s: No corresponding channel (ch_id = %d) exist, return here",
+                __func__, src_reproc_frame->ch_id);
+            return BAD_VALUE;
+        }
+        // find thumnail frame
+        for (int i = 0; i < src_reproc_frame->num_bufs; i++) {
+            QCameraStream *pStream =
+                pSrcReprocChannel->getStreamByHandle(src_reproc_frame->bufs[i]->stream_id);
+            if (pStream != NULL) {
+                if (pStream->isTypeOf(CAM_STREAM_TYPE_PREVIEW) ||
+                    pStream->isTypeOf(CAM_STREAM_TYPE_POSTVIEW)) {
+                    thumb_stream = pStream;
+                    thumb_frame = src_reproc_frame->bufs[i];
+                }
+            }
+        }
+    }
+
+    if(NULL == thumb_frame){
+       ALOGV("%s : Thumbnail frame does not exist", __func__);
     }
 
     QCameraMemory *memObj = (QCameraMemory *)main_frame->mem_info;

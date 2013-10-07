@@ -561,7 +561,11 @@ int mm_app_open(mm_camera_app_t *cam_app,
         goto error_after_getparm_buf_map;
     }
     memset(&test_obj->jpeg_ops, 0, sizeof(mm_jpeg_ops_t));
-    test_obj->jpeg_hdl = cam_app->hal_lib.jpeg_open(&test_obj->jpeg_ops);
+    mm_dimension pic_size;
+    memset(&pic_size, 0, sizeof(mm_dimension));
+    pic_size.w = 4000;
+    pic_size.h = 3000;
+    test_obj->jpeg_hdl = cam_app->hal_lib.jpeg_open(&test_obj->jpeg_ops,pic_size);
     if (test_obj->jpeg_hdl == 0) {
         CDBG_ERROR("%s: jpeg lib open err", __func__);
         rc = -MM_CAMERA_E_GENERAL;
@@ -1950,7 +1954,8 @@ int mm_camera_lib_open(mm_camera_lib_handle *handle, int cam_id)
         goto EXIT;
     }
 
-    rc = mm_app_initialize_fb(&handle->test_obj);
+    //rc = mm_app_initialize_fb(&handle->test_obj);
+    rc = MM_CAMERA_OK;
     if (rc != MM_CAMERA_OK) {
         CDBG_ERROR("%s: mm_app_initialize_fb() cam_idx=%d, err=%d\n",
                    __func__, cam_id, rc);
@@ -2495,7 +2500,8 @@ int mm_camera_lib_close(mm_camera_lib_handle *handle)
         goto EXIT;
     }
 
-    rc = mm_app_close_fb(&handle->test_obj);
+    //rc = mm_app_close_fb(&handle->test_obj);
+    rc = MM_CAMERA_OK;
     if (rc != MM_CAMERA_OK) {
         CDBG_ERROR("%s:mm_app_close_fb() err=%d\n",
                    __func__, rc);
