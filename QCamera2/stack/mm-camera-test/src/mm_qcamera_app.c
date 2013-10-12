@@ -33,6 +33,9 @@
 #include <dlfcn.h>
 #include <linux/msm_ion.h>
 #include <sys/mman.h>
+#include <stdbool.h>
+#include <unistd.h>
+#include <assert.h>
 
 #include "mm_qcamera_dbg.h"
 #include "mm_qcamera_app.h"
@@ -243,7 +246,7 @@ void mm_app_dump_frame(mm_camera_buf_def_t *frame,
     int i;
     int offset = 0;
     if ( frame != NULL) {
-        snprintf(file_name, sizeof(file_name), "/data/test/%s_%04d.%s", name, frame_idx, ext);
+        snprintf(file_name, sizeof(file_name), "/data/%s_%04d.%s", name, frame_idx, ext);
         file_fd = open(file_name, O_RDWR | O_CREAT, 0777);
         if (file_fd < 0) {
             CDBG_ERROR("%s: cannot open file %s \n", __func__, file_name);
@@ -268,7 +271,7 @@ void mm_app_dump_jpeg_frame(const void * data, uint32_t size, char* name, char* 
     char buf[64];
     int file_fd;
     if ( data != NULL) {
-        snprintf(buf, sizeof(buf), "/data/test/%s_%d.%s", name, index, ext);
+        snprintf(buf, sizeof(buf), "/data/%s_%d.%s", name, index, ext);
         CDBG("%s: %s size =%d, jobId=%d", __func__, buf, size, index);
         file_fd = open(buf, O_RDWR | O_CREAT, 0777);
         write(file_fd, data, size);
@@ -1953,7 +1956,7 @@ int mm_camera_lib_open(mm_camera_lib_handle *handle, int cam_id)
                    __func__, cam_id, rc);
         goto EXIT;
     }
-
+#ifdef _ANDROID_
     //rc = mm_app_initialize_fb(&handle->test_obj);
     rc = MM_CAMERA_OK;
     if (rc != MM_CAMERA_OK) {
@@ -1961,7 +1964,7 @@ int mm_camera_lib_open(mm_camera_lib_handle *handle, int cam_id)
                    __func__, cam_id, rc);
         goto EXIT;
     }
-
+#endif
 EXIT:
 
     return rc;
@@ -2499,7 +2502,7 @@ int mm_camera_lib_close(mm_camera_lib_handle *handle)
         rc = MM_CAMERA_E_INVALID_INPUT;
         goto EXIT;
     }
-
+#ifdef _ANDROID_
     //rc = mm_app_close_fb(&handle->test_obj);
     rc = MM_CAMERA_OK;
     if (rc != MM_CAMERA_OK) {
@@ -2507,7 +2510,7 @@ int mm_camera_lib_close(mm_camera_lib_handle *handle)
                    __func__, rc);
         goto EXIT;
     }
-
+#endif
     rc = mm_app_close(&handle->test_obj);
     if (rc != MM_CAMERA_OK) {
         CDBG_ERROR("%s:mm_app_close() err=%d\n",

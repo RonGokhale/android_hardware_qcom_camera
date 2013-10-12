@@ -1654,6 +1654,9 @@ static int submain()
     }
 
     num_cameras = mm_camera_lib_number_of_cameras(&lib_handle);
+    CDBG_HIGH("number of cameras =%d",num_cameras);
+    CDBG_HIGH("available number of sensors =%d\n",available_sensors);
+
     if ( 0 >= num_cameras ) {
         CDBG_ERROR("%s: No camera sensors reported!", __func__);
         rc = -1;

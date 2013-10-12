@@ -64,7 +64,7 @@ int32_t addExifEntry(QOMX_EXIF_INFO *p_exif_info, exif_tag_id_t tagid,
     int32_t numOfEntries = p_exif_info->numOfEntries;
     QEXIF_INFO_DATA *p_info_data = p_exif_info->exif_data;
     if(numOfEntries >= MAX_EXIF_TABLE_ENTRIES) {
-        ALOGE("%s: Number of entries exceeded limit", __func__);
+        CDBG_ERROR("%s: Number of entries exceeded limit", __func__);
         return -1;
     }
 
@@ -77,7 +77,7 @@ int32_t addExifEntry(QOMX_EXIF_INFO *p_exif_info, exif_tag_id_t tagid,
       if (count > 1) {
         uint8_t *values = (uint8_t *)malloc(count);
         if (values == NULL) {
-          ALOGE("%s: No memory for byte array", __func__);
+          CDBG_ERROR("%s: No memory for byte array", __func__);
           rc = -1;
         } else {
           memcpy(values, data, count);
@@ -92,7 +92,7 @@ int32_t addExifEntry(QOMX_EXIF_INFO *p_exif_info, exif_tag_id_t tagid,
       char *str = NULL;
       str = (char *)malloc(count + 1);
       if (str == NULL) {
-        ALOGE("%s: No memory for ascii string", __func__);
+        CDBG_ERROR("%s: No memory for ascii string", __func__);
         rc = -1;
       } else {
         memset(str, 0, count + 1);
@@ -105,7 +105,7 @@ int32_t addExifEntry(QOMX_EXIF_INFO *p_exif_info, exif_tag_id_t tagid,
       if (count > 1) {
         uint16_t *values = (uint16_t *)malloc(count * sizeof(uint16_t));
         if (values == NULL) {
-          ALOGE("%s: No memory for short array", __func__);
+          CDBG_ERROR("%s: No memory for short array", __func__);
           rc = -1;
         } else {
           memcpy(values, data, count * sizeof(uint16_t));
@@ -120,7 +120,7 @@ int32_t addExifEntry(QOMX_EXIF_INFO *p_exif_info, exif_tag_id_t tagid,
       if (count > 1) {
         uint32_t *values = (uint32_t *)malloc(count * sizeof(uint32_t));
         if (values == NULL) {
-          ALOGE("%s: No memory for long array", __func__);
+          CDBG_ERROR("%s: No memory for long array", __func__);
           rc = -1;
         } else {
           memcpy(values, data, count * sizeof(uint32_t));
@@ -135,7 +135,7 @@ int32_t addExifEntry(QOMX_EXIF_INFO *p_exif_info, exif_tag_id_t tagid,
       if (count > 1) {
         rat_t *values = (rat_t *)malloc(count * sizeof(rat_t));
         if (values == NULL) {
-          ALOGE("%s: No memory for rational array", __func__);
+          CDBG_ERROR("%s: No memory for rational array", __func__);
           rc = -1;
         } else {
           memcpy(values, data, count * sizeof(rat_t));
@@ -149,7 +149,7 @@ int32_t addExifEntry(QOMX_EXIF_INFO *p_exif_info, exif_tag_id_t tagid,
     case EXIF_UNDEFINED: {
       uint8_t *values = (uint8_t *)malloc(count);
       if (values == NULL) {
-        ALOGE("%s: No memory for undefined array", __func__);
+        CDBG_ERROR("%s: No memory for undefined array", __func__);
         rc = -1;
       } else {
         memcpy(values, data, count);
@@ -161,7 +161,7 @@ int32_t addExifEntry(QOMX_EXIF_INFO *p_exif_info, exif_tag_id_t tagid,
       if (count > 1) {
         int32_t *values = (int32_t *)malloc(count * sizeof(int32_t));
         if (values == NULL) {
-          ALOGE("%s: No memory for signed long array", __func__);
+          CDBG_ERROR("%s: No memory for signed long array", __func__);
           rc = -1;
         } else {
           memcpy(values, data, count * sizeof(int32_t));
@@ -176,7 +176,7 @@ int32_t addExifEntry(QOMX_EXIF_INFO *p_exif_info, exif_tag_id_t tagid,
       if (count > 1) {
         srat_t *values = (srat_t *)malloc(count * sizeof(srat_t));
         if (values == NULL) {
-          ALOGE("%s: No memory for signed rational array", __func__);
+          CDBG_ERROR("%s: No memory for signed rational array", __func__);
           rc = -1;
         } else {
           memcpy(values, data, count * sizeof(srat_t));
@@ -298,18 +298,18 @@ int process_sensor_data(cam_sensor_params_t *p_sensor_params,
   rat_t val_rat;
 
   if (NULL == p_sensor_params) {
-    ALOGE("%s %d: Sensor params are null", __func__, __LINE__);
+    CDBG_ERROR("%s %d: Sensor params are null", __func__, __LINE__);
     return 0;
   }
 
-  ALOGD("%s:%d] From metadata aperture = %f ", __func__, __LINE__,
+  CDBG("%s:%d] From metadata aperture = %f ", __func__, __LINE__,
     p_sensor_params->aperture_value );
 
   val_rat.num = (uint32_t)(p_sensor_params->aperture_value * 100);
   val_rat.denom = 100;
   rc = addExifEntry(exif_info, EXIFTAGID_APERTURE, EXIF_RATIONAL, 1, &val_rat);
   if (rc) {
-    ALOGE("%s:%d]: Error adding Exif Entry", __func__, __LINE__);
+    CDBG_ERROR("%s:%d]: Error adding Exif Entry", __func__, __LINE__);
   }
 
   return rc;
@@ -338,11 +338,11 @@ int process_3a_data(cam_ae_params_t *p_ae_params, QOMX_EXIF_INFO *exif_info)
   double shutter_speed_value;
 
   if (NULL == p_ae_params) {
-    ALOGE("%s %d: 3A params are null", __func__, __LINE__);
+    CDBG_ERROR("%s %d: 3A params are null", __func__, __LINE__);
     return 0;
   }
 
-  ALOGE("%s:%d] exp_time %f, iso_value %d", __func__, __LINE__,
+  CDBG("%s:%d] exp_time %f, iso_value %d", __func__, __LINE__,
     p_ae_params->exp_time, p_ae_params->iso_value);
 
   /*Exposure time*/
@@ -353,12 +353,12 @@ int process_3a_data(cam_ae_params_t *p_ae_params, QOMX_EXIF_INFO *exif_info)
       val_rat.num = 1;
       val_rat.denom = ROUND(1.0/p_ae_params->exp_time);
   }
-  ALOGD("%s: numer %d denom %d", __func__, val_rat.num, val_rat.denom );
+  CDBG_ERROR("%s: numer %d denom %d", __func__, val_rat.num, val_rat.denom );
 
   rc = addExifEntry(exif_info, EXIFTAGID_EXPOSURE_TIME, EXIF_RATIONAL,
     (sizeof(val_rat)/(8)), &val_rat);
   if (rc) {
-    ALOGE("%s:%d]: Error adding Exif Entry Exposure time",
+    CDBG_ERROR("%s:%d]: Error adding Exif Entry Exposure time",
       __func__, __LINE__);
   }
 
@@ -374,7 +374,7 @@ int process_3a_data(cam_ae_params_t *p_ae_params, QOMX_EXIF_INFO *exif_info)
   rc = addExifEntry(exif_info, EXIFTAGID_SHUTTER_SPEED, EXIF_SRATIONAL,
     (sizeof(val_srat)/(8)), &val_srat);
   if (rc) {
-    ALOGE("%s:%d]: Error adding Exif Entry", __func__, __LINE__);
+    CDBG_ERROR("%s:%d]: Error adding Exif Entry", __func__, __LINE__);
   }
 
   /*ISO*/
@@ -383,7 +383,7 @@ int process_3a_data(cam_ae_params_t *p_ae_params, QOMX_EXIF_INFO *exif_info)
   rc = addExifEntry(exif_info, EXIFTAGID_ISO_SPEED_RATING, EXIF_SHORT,
     sizeof(val_short)/2, &val_short);
   if (rc) {
-    ALOGE("%s:%d]: Error adding Exif Entry", __func__, __LINE__);
+    CDBG_ERROR("%s:%d]: Error adding Exif Entry", __func__, __LINE__);
   }
 
  return rc;
@@ -411,7 +411,7 @@ int process_meta_data(cam_metadata_info_t *p_meta, QOMX_EXIF_INFO *exif_info,
   int rc = 0;
 
   if (!p_meta) {
-    ALOGE("%s %d:Meta data is NULL", __func__, __LINE__);
+    CDBG_ERROR("%s %d:Meta data is NULL", __func__, __LINE__);
     return 0;
   }
   cam_ae_params_t *p_ae_params = p_meta->is_ae_params_valid ?
@@ -420,7 +420,7 @@ int process_meta_data(cam_metadata_info_t *p_meta, QOMX_EXIF_INFO *exif_info,
   if (NULL != p_ae_params) {
     rc = process_3a_data(p_ae_params, exif_info);
     if (rc) {
-      ALOGE("%s %d: Failed to extract 3a params", __func__, __LINE__);
+      CDBG_ERROR("%s %d: Failed to extract 3a params", __func__, __LINE__);
     }
   }
   cam_sensor_params_t *p_sensor_params = p_meta->is_sensor_params_valid ?
@@ -429,7 +429,7 @@ int process_meta_data(cam_metadata_info_t *p_meta, QOMX_EXIF_INFO *exif_info,
   if (NULL != p_sensor_params) {
     rc = process_sensor_data(p_sensor_params, exif_info);
     if (rc) {
-      ALOGE("%s %d: Failed to extract sensor params", __func__, __LINE__);
+      CDBG_ERROR("%s %d: Failed to extract sensor params", __func__, __LINE__);
     }
   }
   return rc;
