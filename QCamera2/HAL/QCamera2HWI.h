@@ -272,12 +272,14 @@ private:
     int closeCamera();
 
     int processAPI(qcamera_sm_evt_enum_t api, void *api_payload);
+    qcamera_api_result_t processSyncAPI(qcamera_sm_evt_enum_t api, void *data);
+    qcamera_api_result_t processUnlockedSyncAPI(qcamera_sm_evt_enum_t api, void *data);
     int processEvt(qcamera_sm_evt_enum_t evt, void *evt_payload);
     int processSyncEvt(qcamera_sm_evt_enum_t evt, void *evt_payload);
     void lockAPI();
     void waitAPIResult(qcamera_sm_evt_enum_t api_evt);
     void unlockAPI();
-    void signalAPIResult(qcamera_api_result_t *result);
+    void signalAPIResult(qcamera_api_result_t *result, void *payload);
     void signalEvtResult(qcamera_api_result_t *result);
 
     int calcThermalLevel(

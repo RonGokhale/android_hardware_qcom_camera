@@ -116,7 +116,6 @@ int32_t QCamera2HardwareInterface::getEffectValue(const char *effect)
 int QCamera2HardwareInterface::set_preview_window(struct camera_device *device,
         struct preview_stream_ops *window)
 {
-    int rc = NO_ERROR;
     QCamera2HardwareInterface *hw =
         reinterpret_cast<QCamera2HardwareInterface *>(device->priv);
     if (!hw) {
@@ -124,15 +123,8 @@ int QCamera2HardwareInterface::set_preview_window(struct camera_device *device,
         return BAD_VALUE;
     }
 
-    hw->lockAPI();
-    rc = hw->processAPI(QCAMERA_SM_EVT_SET_PREVIEW_WINDOW, (void *)window);
-    if (rc == NO_ERROR) {
-        hw->waitAPIResult(QCAMERA_SM_EVT_SET_PREVIEW_WINDOW);
-        rc = hw->m_apiResult.status;
-    }
-    hw->unlockAPI();
-
-    return rc;
+    qcamera_api_result_t result = hw->processSyncAPI(QCAMERA_SM_EVT_SET_PREVIEW_WINDOW, (void *)window);
+    return result.status;
 }
 
 /*===========================================================================
@@ -171,12 +163,7 @@ void QCamera2HardwareInterface::set_CallBacks(struct camera_device *device,
     payload.get_memory = get_memory;
     payload.user = user;
 
-    hw->lockAPI();
-    int32_t rc = hw->processAPI(QCAMERA_SM_EVT_SET_CALLBACKS, (void *)&payload);
-    if (rc == NO_ERROR) {
-        hw->waitAPIResult(QCAMERA_SM_EVT_SET_CALLBACKS);
-    }
-    hw->unlockAPI();
+    hw->processSyncAPI(QCAMERA_SM_EVT_SET_CALLBACKS, (void *)&payload);
 }
 
 /*===========================================================================
@@ -198,12 +185,7 @@ void QCamera2HardwareInterface::enable_msg_type(struct camera_device *device, in
         ALOGE("NULL camera device");
         return;
     }
-    hw->lockAPI();
-    int32_t rc = hw->processAPI(QCAMERA_SM_EVT_ENABLE_MSG_TYPE, (void *)msg_type);
-    if (rc == NO_ERROR) {
-        hw->waitAPIResult(QCAMERA_SM_EVT_ENABLE_MSG_TYPE);
-    }
-    hw->unlockAPI();
+    hw->processSyncAPI(QCAMERA_SM_EVT_ENABLE_MSG_TYPE, (void *)msg_type);
 }
 
 /*===========================================================================
@@ -225,12 +207,8 @@ void QCamera2HardwareInterface::disable_msg_type(struct camera_device *device, i
         ALOGE("NULL camera device");
         return;
     }
-    hw->lockAPI();
-    int32_t rc = hw->processAPI(QCAMERA_SM_EVT_DISABLE_MSG_TYPE, (void *)msg_type);
-    if (rc == NO_ERROR) {
-        hw->waitAPIResult(QCAMERA_SM_EVT_DISABLE_MSG_TYPE);
-    }
-    hw->unlockAPI();
+
+    hw->processSyncAPI(QCAMERA_SM_EVT_DISABLE_MSG_TYPE, (void *)msg_type);
 }
 
 /*===========================================================================
@@ -247,22 +225,15 @@ void QCamera2HardwareInterface::disable_msg_type(struct camera_device *device, i
  *==========================================================================*/
 int QCamera2HardwareInterface::msg_type_enabled(struct camera_device *device, int32_t msg_type)
 {
-    int ret = NO_ERROR;
     QCamera2HardwareInterface *hw =
         reinterpret_cast<QCamera2HardwareInterface *>(device->priv);
     if (!hw) {
         ALOGE("NULL camera device");
         return BAD_VALUE;
     }
-    hw->lockAPI();
-    ret = hw->processAPI(QCAMERA_SM_EVT_MSG_TYPE_ENABLED, (void *)msg_type);
-    if (ret == NO_ERROR) {
-        hw->waitAPIResult(QCAMERA_SM_EVT_MSG_TYPE_ENABLED);
-        ret = hw->m_apiResult.enabled;
-    }
-    hw->unlockAPI();
 
-   return ret;
+    qcamera_api_result_t result = hw->processSyncAPI(QCAMERA_SM_EVT_MSG_TYPE_ENABLED, (void *)msg_type);
+    return result.enabled;
 }
 
 /*===========================================================================
@@ -279,7 +250,6 @@ int QCamera2HardwareInterface::msg_type_enabled(struct camera_device *device, in
  *==========================================================================*/
 int QCamera2HardwareInterface::start_preview(struct camera_device *device)
 {
-    int ret = NO_ERROR;
     QCamera2HardwareInterface *hw =
         reinterpret_cast<QCamera2HardwareInterface *>(device->priv);
     if (!hw) {
@@ -287,20 +257,14 @@ int QCamera2HardwareInterface::start_preview(struct camera_device *device)
         return BAD_VALUE;
     }
     ALOGE("[KPI Perf] %s: E PROFILE_START_PREVIEW", __func__);
-    hw->lockAPI();
     qcamera_sm_evt_enum_t evt = QCAMERA_SM_EVT_START_PREVIEW;
     if (hw->isNoDisplayMode()) {
         evt = QCAMERA_SM_EVT_START_NODISPLAY_PREVIEW;
     }
-    ret = hw->processAPI(evt, NULL);
-    if (ret == NO_ERROR) {
-        hw->waitAPIResult(evt);
-        ret = hw->m_apiResult.status;
-    }
-    hw->unlockAPI();
+    qcamera_api_result_t result = hw->processSyncAPI(evt, NULL);
     hw->m_bPreviewStarted = true;
     ALOGD("[KPI Perf] %s: X", __func__);
-    return ret;
+    return result.status;
 }
 
 /*===========================================================================
@@ -322,12 +286,7 @@ void QCamera2HardwareInterface::stop_preview(struct camera_device *device)
         return;
     }
     ALOGE("[KPI Perf] %s: E PROFILE_STOP_PREVIEW", __func__);
-    hw->lockAPI();
-    int32_t ret = hw->processAPI(QCAMERA_SM_EVT_STOP_PREVIEW, NULL);
-    if (ret == NO_ERROR) {
-        hw->waitAPIResult(QCAMERA_SM_EVT_STOP_PREVIEW);
-    }
-    hw->unlockAPI();
+    hw->processSyncAPI(QCAMERA_SM_EVT_STOP_PREVIEW, NULL);
     ALOGD("[KPI Perf] %s: X", __func__);
 }
 
@@ -344,7 +303,6 @@ void QCamera2HardwareInterface::stop_preview(struct camera_device *device)
  *==========================================================================*/
 int QCamera2HardwareInterface::preview_enabled(struct camera_device *device)
 {
-    int ret = NO_ERROR;
     QCamera2HardwareInterface *hw =
         reinterpret_cast<QCamera2HardwareInterface *>(device->priv);
     if (!hw) {
@@ -352,15 +310,8 @@ int QCamera2HardwareInterface::preview_enabled(struct camera_device *device)
         return BAD_VALUE;
     }
 
-    hw->lockAPI();
-    ret = hw->processAPI(QCAMERA_SM_EVT_PREVIEW_ENABLED, NULL);
-    if (ret == NO_ERROR) {
-        hw->waitAPIResult(QCAMERA_SM_EVT_PREVIEW_ENABLED);
-        ret = hw->m_apiResult.enabled;
-    }
-    hw->unlockAPI();
-
-    return ret;
+    qcamera_api_result_t result = hw->processSyncAPI(QCAMERA_SM_EVT_PREVIEW_ENABLED, NULL);
+    return result.enabled;
 }
 
 /*===========================================================================
@@ -379,7 +330,6 @@ int QCamera2HardwareInterface::preview_enabled(struct camera_device *device)
 int QCamera2HardwareInterface::store_meta_data_in_buffers(
                 struct camera_device *device, int enable)
 {
-    int ret = NO_ERROR;
     QCamera2HardwareInterface *hw =
         reinterpret_cast<QCamera2HardwareInterface *>(device->priv);
     if (!hw) {
@@ -387,15 +337,8 @@ int QCamera2HardwareInterface::store_meta_data_in_buffers(
         return BAD_VALUE;
     }
 
-    hw->lockAPI();
-    ret = hw->processAPI(QCAMERA_SM_EVT_STORE_METADATA_IN_BUFS, (void *)enable);
-    if (ret == NO_ERROR) {
-        hw->waitAPIResult(QCAMERA_SM_EVT_STORE_METADATA_IN_BUFS);
-        ret = hw->m_apiResult.status;
-    }
-    hw->unlockAPI();
-
-    return ret;
+    qcamera_api_result_t result = hw->processSyncAPI(QCAMERA_SM_EVT_STORE_METADATA_IN_BUFS, (void *)enable);
+    return result.status;
 }
 
 /*===========================================================================
@@ -412,7 +355,6 @@ int QCamera2HardwareInterface::store_meta_data_in_buffers(
  *==========================================================================*/
 int QCamera2HardwareInterface::start_recording(struct camera_device *device)
 {
-    int ret = NO_ERROR;
     QCamera2HardwareInterface *hw =
         reinterpret_cast<QCamera2HardwareInterface *>(device->priv);
     if (!hw) {
@@ -420,16 +362,10 @@ int QCamera2HardwareInterface::start_recording(struct camera_device *device)
         return BAD_VALUE;
     }
     ALOGE("[KPI Perf] %s: E PROFILE_START_RECORDING", __func__);
-    hw->lockAPI();
-    ret = hw->processAPI(QCAMERA_SM_EVT_START_RECORDING, NULL);
-    if (ret == NO_ERROR) {
-        hw->waitAPIResult(QCAMERA_SM_EVT_START_RECORDING);
-        ret = hw->m_apiResult.status;
-    }
-    hw->unlockAPI();
+    qcamera_api_result_t result = hw->processSyncAPI(QCAMERA_SM_EVT_START_RECORDING, NULL);
     hw->m_bRecordStarted = true;
     ALOGD("[KPI Perf] %s: X", __func__);
-    return ret;
+    return result.status;
 }
 
 /*===========================================================================
@@ -451,12 +387,7 @@ void QCamera2HardwareInterface::stop_recording(struct camera_device *device)
         return;
     }
     ALOGE("[KPI Perf] %s: E PROFILE_STOP_RECORDING", __func__);
-    hw->lockAPI();
-    int32_t ret = hw->processAPI(QCAMERA_SM_EVT_STOP_RECORDING, NULL);
-    if (ret == NO_ERROR) {
-        hw->waitAPIResult(QCAMERA_SM_EVT_STOP_RECORDING);
-    }
-    hw->unlockAPI();
+    hw->processSyncAPI(QCAMERA_SM_EVT_STOP_RECORDING, NULL);
     ALOGD("[KPI Perf] %s: X", __func__);
 }
 
@@ -473,22 +404,14 @@ void QCamera2HardwareInterface::stop_recording(struct camera_device *device)
  *==========================================================================*/
 int QCamera2HardwareInterface::recording_enabled(struct camera_device *device)
 {
-    int ret = NO_ERROR;
     QCamera2HardwareInterface *hw =
         reinterpret_cast<QCamera2HardwareInterface *>(device->priv);
     if (!hw) {
         ALOGE("NULL camera device");
         return BAD_VALUE;
     }
-    hw->lockAPI();
-    ret = hw->processAPI(QCAMERA_SM_EVT_RECORDING_ENABLED, NULL);
-    if (ret == NO_ERROR) {
-        hw->waitAPIResult(QCAMERA_SM_EVT_RECORDING_ENABLED);
-        ret = hw->m_apiResult.enabled;
-    }
-    hw->unlockAPI();
-
-    return ret;
+    qcamera_api_result_t result = hw->processSyncAPI(QCAMERA_SM_EVT_RECORDING_ENABLED, NULL);
+    return result.enabled;
 }
 
 /*===========================================================================
@@ -512,12 +435,7 @@ void QCamera2HardwareInterface::release_recording_frame(
         return;
     }
     ALOGD("%s: E", __func__);
-    hw->lockAPI();
-    int32_t ret = hw->processAPI(QCAMERA_SM_EVT_RELEASE_RECORIDNG_FRAME, (void *)opaque);
-    if (ret == NO_ERROR) {
-        hw->waitAPIResult(QCAMERA_SM_EVT_RELEASE_RECORIDNG_FRAME);
-    }
-    hw->unlockAPI();
+    hw->processSyncAPI(QCAMERA_SM_EVT_RELEASE_RECORIDNG_FRAME, (void *)opaque);
     ALOGD("%s: X", __func__);
 }
 
@@ -535,24 +453,18 @@ void QCamera2HardwareInterface::release_recording_frame(
  *==========================================================================*/
 int QCamera2HardwareInterface::auto_focus(struct camera_device *device)
 {
-    int ret = NO_ERROR;
     QCamera2HardwareInterface *hw =
         reinterpret_cast<QCamera2HardwareInterface *>(device->priv);
     if (!hw) {
         ALOGE("NULL camera device");
         return BAD_VALUE;
     }
+
     ALOGE("[KPI Perf] %s : E PROFILE_AUTO_FOCUS", __func__);
-    hw->lockAPI();
-    ret = hw->processAPI(QCAMERA_SM_EVT_START_AUTO_FOCUS, NULL);
-    if (ret == NO_ERROR) {
-        hw->waitAPIResult(QCAMERA_SM_EVT_START_AUTO_FOCUS);
-        ret = hw->m_apiResult.status;
-    }
-    hw->unlockAPI();
+    qcamera_api_result_t result = hw->processSyncAPI(QCAMERA_SM_EVT_START_AUTO_FOCUS, NULL);
     ALOGD("[KPI Perf] %s : X", __func__);
 
-    return ret;
+    return result.status;
 }
 
 /*===========================================================================
@@ -569,22 +481,15 @@ int QCamera2HardwareInterface::auto_focus(struct camera_device *device)
  *==========================================================================*/
 int QCamera2HardwareInterface::cancel_auto_focus(struct camera_device *device)
 {
-    int ret = NO_ERROR;
     QCamera2HardwareInterface *hw =
         reinterpret_cast<QCamera2HardwareInterface *>(device->priv);
     if (!hw) {
         ALOGE("NULL camera device");
         return BAD_VALUE;
     }
-    hw->lockAPI();
-    ret = hw->processAPI(QCAMERA_SM_EVT_STOP_AUTO_FOCUS, NULL);
-    if (ret == NO_ERROR) {
-        hw->waitAPIResult(QCAMERA_SM_EVT_STOP_AUTO_FOCUS);
-        ret = hw->m_apiResult.status;
-    }
-    hw->unlockAPI();
+    qcamera_api_result_t result = hw->processSyncAPI(QCAMERA_SM_EVT_STOP_AUTO_FOCUS, NULL);
 
-    return ret;
+    return result.status;
 }
 
 /*===========================================================================
@@ -601,7 +506,6 @@ int QCamera2HardwareInterface::cancel_auto_focus(struct camera_device *device)
  *==========================================================================*/
 int QCamera2HardwareInterface::take_picture(struct camera_device *device)
 {
-    int ret = NO_ERROR;
     QCamera2HardwareInterface *hw =
         reinterpret_cast<QCamera2HardwareInterface *>(device->priv);
     if (!hw) {
@@ -613,11 +517,7 @@ int QCamera2HardwareInterface::take_picture(struct camera_device *device)
 
     /* Prepare snapshot in case LED needs to be flashed */
     if (hw->mFlashNeeded == 1) {
-        ret = hw->processAPI(QCAMERA_SM_EVT_PREPARE_SNAPSHOT, NULL);
-        if (ret == NO_ERROR) {
-            hw->waitAPIResult(QCAMERA_SM_EVT_PREPARE_SNAPSHOT);
-            ret = hw->m_apiResult.status;
-        }
+        hw->processUnlockedSyncAPI(QCAMERA_SM_EVT_PREPARE_SNAPSHOT, NULL);
     }
 
     /* Regardless what the result value for prepare_snapshot,
@@ -625,15 +525,11 @@ int QCamera2HardwareInterface::take_picture(struct camera_device *device)
      * is handled in capture case. */
 
     /* capture */
-    ret = hw->processAPI(QCAMERA_SM_EVT_TAKE_PICTURE, NULL);
-    if (ret == NO_ERROR) {
-        hw->waitAPIResult(QCAMERA_SM_EVT_TAKE_PICTURE);
-        ret = hw->m_apiResult.status;
-    }
+    qcamera_api_result_t result = hw->processUnlockedSyncAPI(QCAMERA_SM_EVT_TAKE_PICTURE, NULL);
 
     hw->unlockAPI();
     ALOGD("[KPI Perf] %s: X", __func__);
-    return ret;
+    return result.status;
 }
 
 /*===========================================================================
@@ -650,22 +546,15 @@ int QCamera2HardwareInterface::take_picture(struct camera_device *device)
  *==========================================================================*/
 int QCamera2HardwareInterface::cancel_picture(struct camera_device *device)
 {
-    int ret = NO_ERROR;
     QCamera2HardwareInterface *hw =
         reinterpret_cast<QCamera2HardwareInterface *>(device->priv);
     if (!hw) {
         ALOGE("NULL camera device");
         return BAD_VALUE;
     }
-    hw->lockAPI();
-    ret = hw->processAPI(QCAMERA_SM_EVT_CANCEL_PICTURE, NULL);
-    if (ret == NO_ERROR) {
-        hw->waitAPIResult(QCAMERA_SM_EVT_CANCEL_PICTURE);
-        ret = hw->m_apiResult.status;
-    }
-    hw->unlockAPI();
+    qcamera_api_result_t result = hw->processSyncAPI(QCAMERA_SM_EVT_CANCEL_PICTURE, NULL);
 
-    return ret;
+    return result.status;
 }
 
 /*===========================================================================
@@ -684,22 +573,15 @@ int QCamera2HardwareInterface::cancel_picture(struct camera_device *device)
 int QCamera2HardwareInterface::set_parameters(struct camera_device *device,
                                               const char *parms)
 {
-    int ret = NO_ERROR;
     QCamera2HardwareInterface *hw =
         reinterpret_cast<QCamera2HardwareInterface *>(device->priv);
     if (!hw) {
         ALOGE("NULL camera device");
         return BAD_VALUE;
     }
-    hw->lockAPI();
-    ret = hw->processAPI(QCAMERA_SM_EVT_SET_PARAMS, (void *)parms);
-    if (ret == NO_ERROR) {
-        hw->waitAPIResult(QCAMERA_SM_EVT_SET_PARAMS);
-        ret = hw->m_apiResult.status;
-    }
-    hw->unlockAPI();
+    qcamera_api_result_t result = hw->processSyncAPI(QCAMERA_SM_EVT_SET_PARAMS, (void *)parms);
 
-    return ret;
+    return result.status;
 }
 
 /*===========================================================================
@@ -714,22 +596,15 @@ int QCamera2HardwareInterface::set_parameters(struct camera_device *device,
  *==========================================================================*/
 char* QCamera2HardwareInterface::get_parameters(struct camera_device *device)
 {
-    char *ret = NULL;
     QCamera2HardwareInterface *hw =
         reinterpret_cast<QCamera2HardwareInterface *>(device->priv);
     if (!hw) {
         ALOGE("NULL camera device");
         return NULL;
     }
-    hw->lockAPI();
-    int32_t rc = hw->processAPI(QCAMERA_SM_EVT_GET_PARAMS, NULL);
-    if (rc == NO_ERROR) {
-        hw->waitAPIResult(QCAMERA_SM_EVT_GET_PARAMS);
-        ret = hw->m_apiResult.params;
-    }
-    hw->unlockAPI();
+    qcamera_api_result_t result = hw->processSyncAPI(QCAMERA_SM_EVT_GET_PARAMS, NULL);
 
-    return ret;
+    return result.params;
 }
 
 /*===========================================================================
@@ -752,12 +627,7 @@ void QCamera2HardwareInterface::put_parameters(struct camera_device *device,
         ALOGE("NULL camera device");
         return;
     }
-    hw->lockAPI();
-    int32_t ret = hw->processAPI(QCAMERA_SM_EVT_PUT_PARAMS, (void *)parm);
-    if (ret == NO_ERROR) {
-        hw->waitAPIResult(QCAMERA_SM_EVT_PUT_PARAMS);
-    }
-    hw->unlockAPI();
+    hw->processSyncAPI(QCAMERA_SM_EVT_PUT_PARAMS, (void *)parm);
 }
 
 /*===========================================================================
@@ -780,7 +650,6 @@ int QCamera2HardwareInterface::send_command(struct camera_device *device,
                                             int32_t arg1,
                                             int32_t arg2)
 {
-    int ret = NO_ERROR;
     QCamera2HardwareInterface *hw =
         reinterpret_cast<QCamera2HardwareInterface *>(device->priv);
     if (!hw) {
@@ -793,15 +662,9 @@ int QCamera2HardwareInterface::send_command(struct camera_device *device,
     payload.cmd = cmd;
     payload.arg1 = arg1;
     payload.arg2 = arg2;
-    hw->lockAPI();
-    ret = hw->processAPI(QCAMERA_SM_EVT_SEND_COMMAND, (void *)&payload);
-    if (ret == NO_ERROR) {
-        hw->waitAPIResult(QCAMERA_SM_EVT_SEND_COMMAND);
-        ret = hw->m_apiResult.status;
-    }
-    hw->unlockAPI();
+    qcamera_api_result_t result = hw->processSyncAPI(QCAMERA_SM_EVT_SEND_COMMAND, (void *)&payload);
 
-    return ret;
+    return result.status;
 }
 
 /*===========================================================================
@@ -822,12 +685,8 @@ void QCamera2HardwareInterface::release(struct camera_device *device)
         ALOGE("NULL camera device");
         return;
     }
-    hw->lockAPI();
-    int32_t ret = hw->processAPI(QCAMERA_SM_EVT_RELEASE, NULL);
-    if (ret == NO_ERROR) {
-        hw->waitAPIResult(QCAMERA_SM_EVT_RELEASE);
-    }
-    hw->unlockAPI();
+
+    hw->processSyncAPI(QCAMERA_SM_EVT_RELEASE, NULL);
 }
 
 /*===========================================================================
@@ -845,22 +704,16 @@ void QCamera2HardwareInterface::release(struct camera_device *device)
  *==========================================================================*/
 int QCamera2HardwareInterface::dump(struct camera_device *device, int fd)
 {
-    int ret = NO_ERROR;
     QCamera2HardwareInterface *hw =
         reinterpret_cast<QCamera2HardwareInterface *>(device->priv);
     if (!hw) {
         ALOGE("NULL camera device");
         return BAD_VALUE;
     }
-    hw->lockAPI();
-    ret = hw->processAPI(QCAMERA_SM_EVT_DUMP, (void *)fd);
-    if (ret == NO_ERROR) {
-        hw->waitAPIResult(QCAMERA_SM_EVT_DUMP);
-        ret = hw->m_apiResult.status;
-    }
-    hw->unlockAPI();
 
-    return ret;
+    qcamera_api_result_t result = hw->processSyncAPI(QCAMERA_SM_EVT_DUMP, (void *)fd);
+
+    return result.status;
 }
 
 /*===========================================================================
@@ -909,7 +762,6 @@ int QCamera2HardwareInterface::register_face_image(struct camera_device *device,
                                                    void *img_ptr,
                                                    cam_pp_offline_src_config_t *config)
 {
-    int ret = NO_ERROR;
     QCamera2HardwareInterface *hw =
         reinterpret_cast<QCamera2HardwareInterface *>(device->priv);
     if (!hw) {
@@ -920,15 +772,10 @@ int QCamera2HardwareInterface::register_face_image(struct camera_device *device,
     memset(&payload, 0, sizeof(qcamera_sm_evt_reg_face_payload_t));
     payload.img_ptr = img_ptr;
     payload.config = config;
-    hw->lockAPI();
-    ret = hw->processAPI(QCAMERA_SM_EVT_REG_FACE_IMAGE, (void *)&payload);
-    if (ret == NO_ERROR) {
-        hw->waitAPIResult(QCAMERA_SM_EVT_REG_FACE_IMAGE);
-        ret = hw->m_apiResult.handle;
-    }
-    hw->unlockAPI();
 
-    return ret;
+    qcamera_api_result_t result = hw->processSyncAPI(QCAMERA_SM_EVT_REG_FACE_IMAGE, (void *)&payload);
+
+    return result.handle;
 }
 
 /*===========================================================================
@@ -990,6 +837,7 @@ QCamera2HardwareInterface::QCamera2HardwareInterface(int cameraId)
         ALOGE("%s: %s module not found", __func__, POWER_HARDWARE_MODULE_ID);
     }
 #endif
+
 }
 
 /*===========================================================================
@@ -2547,6 +2395,45 @@ int QCamera2HardwareInterface::processAPI(qcamera_sm_evt_enum_t api, void *api_p
     return m_stateMachine.procAPI(api, api_payload);
 }
 
+qcamera_api_result_t QCamera2HardwareInterface::processSyncAPI(qcamera_sm_evt_enum_t api, void *data)
+{
+    int rc = NO_ERROR;
+    lockAPI();
+    qcamera_generic_payload_t payload;
+    memset(&payload, 0, sizeof(qcamera_generic_payload_t));
+    payload.data = data;
+    rc = m_stateMachine.procAPI(api, &payload);
+    ALOGV("%s: wait for API result of evt (%d)", __func__, api);
+    if (rc == NO_ERROR) {
+        while (payload.result.request_api != api) {
+            pthread_cond_wait(&m_cond, &m_lock);
+        }
+    }
+    ALOGV("%s: return (%d) from API result wait for evt (%d)",
+          __func__, payload.result.status, api);
+    unlockAPI();
+    return payload.result;
+}
+
+qcamera_api_result_t QCamera2HardwareInterface::processUnlockedSyncAPI(qcamera_sm_evt_enum_t api, void *data)
+{
+    int rc = NO_ERROR;
+    qcamera_generic_payload_t payload;
+    memset(&payload, 0, sizeof(qcamera_generic_payload_t));
+    payload.data = data;
+    rc = m_stateMachine.procAPI(api, &payload);
+    ALOGV("%s: wait for API result of evt (%d)", __func__, api);
+    if (rc == NO_ERROR) {
+        while (payload.result.request_api != api) {
+            pthread_cond_wait(&m_cond, &m_lock);
+        }
+    }
+    ALOGV("%s: return (%d) from API result wait for evt (%d)",
+          __func__, payload.result.status, api);
+    return payload.result;
+}
+
+
 /*===========================================================================
  * FUNCTION   : processEvt
  *
@@ -2564,6 +2451,7 @@ int QCamera2HardwareInterface::processEvt(qcamera_sm_evt_enum_t evt, void *evt_p
 {
     return m_stateMachine.procEvt(evt, evt_payload);
 }
+
 
 /*===========================================================================
  * FUNCTION   : processSyncEvt
@@ -2595,6 +2483,7 @@ int QCamera2HardwareInterface::processSyncEvt(qcamera_sm_evt_enum_t evt, void *e
 
     return rc;
 }
+
 
 /*===========================================================================
  * FUNCTION   : evtHandle
@@ -2691,7 +2580,8 @@ int QCamera2HardwareInterface::thermalEvtHandle(
     //We don't need to lockAPI, waitAPI here. QCAMERA_SM_EVT_THERMAL_NOTIFY
     // becomes an aync call. This also means we can only pass payload
     // by value, not by address.
-    return processAPI(QCAMERA_SM_EVT_THERMAL_NOTIFY, (void *)level);
+
+    return processEvt(QCAMERA_SM_EVT_THERMAL_NOTIFY, (void *)level);
 }
 
 /*===========================================================================
@@ -2830,9 +2720,7 @@ int32_t QCamera2HardwareInterface::processHDRData(cam_asd_hdr_scene_data_t hdr_s
 {
     int rc = NO_ERROR;
 
-    if (hdr_scene.is_hdr_scene &&
-      (hdr_scene.hdr_confidence > HDR_CONFIDENCE_THRESHOLD) &&
-      mParameters.isAutoHDREnabled()) {
+    if (hdr_scene.is_hdr_scene && (hdr_scene.hdr_confidence > HDR_CONFIDENCE_THRESHOLD)) {
         m_HDRSceneEnabled = true;
     } else {
         m_HDRSceneEnabled = false;
@@ -3014,10 +2902,10 @@ void QCamera2HardwareInterface::unlockAPI()
  *
  * RETURN     : none
  *==========================================================================*/
-void QCamera2HardwareInterface::signalAPIResult(qcamera_api_result_t *result)
+void QCamera2HardwareInterface::signalAPIResult(qcamera_api_result_t *result, void *payload)
 {
     pthread_mutex_lock(&m_lock);
-    m_apiResult = *result;
+    ((qcamera_generic_payload_t*)payload)->result = *result;
     pthread_cond_signal(&m_cond);
     pthread_mutex_unlock(&m_lock);
 }
