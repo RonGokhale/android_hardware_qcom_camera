@@ -1769,6 +1769,9 @@ int32_t QCameraParameters::setExposureCompensation(const QCameraParameters & par
         if((expComp >= m_pCapability->exposure_compensation_min) &&
            (expComp <= m_pCapability->exposure_compensation_max)) {
             ALOGV(" new Exposure Compensation value : %d ", expComp);
+            /* truncated for EV +2 over exposure issue */
+            if (expComp > (m_pCapability->exposure_compensation_max - 3))
+                expComp = m_pCapability->exposure_compensation_max - 3;
             return setExposureCompensation(expComp);
         } else {
             ALOGE("%s: invalid value %d out of (%d, %d)",
