@@ -107,6 +107,7 @@ const char QCameraParameters::KEY_QC_AUTO_HDR_ENABLE [] = "auto-hdr-enable";
 const char QCameraParameters::KEY_QC_SNAPSHOT_BURST_NUM[] = "snapshot-burst-num";
 const char QCameraParameters::KEY_QC_SNAPSHOT_FD_DATA[] = "snapshot-fd-data-enable";
 const char QCameraParameters::KEY_QC_TINTLESS_ENABLE[] = "tintless";
+const char QCameraParameters::KEY_QC_VIDEO_ROTATION[] = "video-rotation";
 
 // Values for effect settings.
 const char QCameraParameters::EFFECT_EMBOSS[] = "emboss";
@@ -581,7 +582,7 @@ QCameraParameters::QCameraParameters()
       m_bHDR1xExtraBufferNeeded(true),
       m_tempMap()
 {
-    char value[32];
+    char value[PROPERTY_VALUE_MAX];
     // TODO: may move to parameter instead of sysprop
     property_get("persist.debug.sf.showfps", value, "0");
     m_bDebugFps = atoi(value) > 0 ? true : false;
@@ -1140,7 +1141,7 @@ int32_t QCameraParameters::setVideoSize(const QCameraParameters& params)
  *==========================================================================*/
 int32_t QCameraParameters::setLiveSnapshotSize(const QCameraParameters& params)
 {
-    char value[32];
+    char value[PROPERTY_VALUE_MAX];
     property_get("persist.camera.opt.livepic", value, "1");
     bool useOptimal = atoi(value) > 0 ? true : false;
 
@@ -2031,6 +2032,33 @@ int32_t  QCameraParameters::setISOValue(const QCameraParameters& params)
 }
 
 /*===========================================================================
+ * FUNCTION   : setVideoRotation
+ *
+ * DESCRIPTION: set rotation value from user setting
+ *
+ * PARAMETERS :
+ *   @params  : user setting parameters
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraParameters::setVideoRotation(const QCameraParameters& params)
+{
+    int rotation = params.getInt(KEY_QC_VIDEO_ROTATION);
+    if (rotation != -1) {
+        if (rotation == 0 || rotation == 90 ||
+            rotation == 180 || rotation == 270) {
+            set(KEY_QC_VIDEO_ROTATION, rotation);
+        } else {
+            ALOGE("Invalid rotation value: %d", rotation);
+            return BAD_VALUE;
+        }
+    }
+    return NO_ERROR;
+}
+
+/*===========================================================================
  * FUNCTION   : setRotation
  *
  * DESCRIPTION: set rotation value from user setting
@@ -2769,6 +2797,17 @@ int32_t QCameraParameters::setZslMode(const QCameraParameters& params)
  *==========================================================================*/
 int32_t QCameraParameters::setWaveletDenoise(const QCameraParameters& params)
 {
+    const char *str_pf = params.getPictureFormat();
+    int32_t pictureFormat =
+        lookupAttr(PICTURE_TYPES_MAP,
+                   sizeof(PICTURE_TYPES_MAP) / sizeof(QCameraMap),
+                   str_pf);
+    if (pictureFormat != NAME_NOT_FOUND) {
+        if (CAM_FORMAT_YUV_422_NV16 == pictureFormat) {
+            ALOGE("NV16 format isn't supported in denoise lib!");
+            return setWaveletDenoise(DENOISE_OFF);
+        }
+    }
     const char *str = params.get(KEY_QC_DENOISE);
     const char *prev_str = get(KEY_QC_DENOISE);
     if (str != NULL) {
@@ -2818,7 +2857,7 @@ int32_t QCameraParameters::setCameraMode(const QCameraParameters& params)
 int32_t QCameraParameters::setZslAttributes(const QCameraParameters& params)
 {
     // TODO: may switch to pure param instead of sysprop
-    char prop[32];
+    char prop[PROPERTY_VALUE_MAX];
 
     const char *str = params.get(KEY_QC_ZSL_BURST_INTERVAL);
     if (str != NULL) {
@@ -2963,7 +3002,7 @@ int32_t QCameraParameters::setBurstNum(const QCameraParameters& params)
  *==========================================================================*/
 int32_t QCameraParameters::setSnapshotFDReq(const QCameraParameters& params)
 {
-    char prop[32];
+    char prop[PROPERTY_VALUE_MAX];
     const char *str = params.get(KEY_QC_SNAPSHOT_FD_DATA);
 
     if(str != NULL){
@@ -3011,6 +3050,7 @@ int32_t QCameraParameters::updateParameters(QCameraParameters& params,
     if ((rc = setJpegQuality(params)))                  final_rc = rc;
     if ((rc = setOrientation(params)))                  final_rc = rc;
     if ((rc = setRotation(params)))                     final_rc = rc;
+    if ((rc = setVideoRotation(params)))                final_rc = rc;
     if ((rc = setNoDisplayMode(params)))                final_rc = rc;
     if ((rc = setZslMode(params)))                      final_rc = rc;
     if ((rc = setZslAttributes(params)))                final_rc = rc;
@@ -3840,7 +3880,7 @@ int32_t QCameraParameters::adjustPreviewFpsRange(cam_fps_range_t *fpsRange)
 int32_t QCameraParameters::setPreviewFpsRange(int minFPS, int maxFPS)
 {
     char str[32];
-    char value[32];
+    char value[PROPERTY_VALUE_MAX];
     int fixedFpsValue;
     /*This property get value should be the fps that user needs*/
     property_get("persist.debug.set.fixedfps", value, "0");
@@ -4621,6 +4661,19 @@ int32_t QCameraParameters::setWhiteBalance(const char *wbStr)
     ALOGE("Invalid WhiteBalance value: %s", (wbStr == NULL) ? "NULL" : wbStr);
     return BAD_VALUE;
 }
+int QCameraParameters::getAutoFlickerMode()
+{
+    /* Enable Advanced Auto Antibanding where we can set
+       any of the following option
+       ie. CAM_ANTIBANDING_MODE_AUTO
+           CAM_ANTIBANDING_MODE_AUTO_50HZ
+           CAM_ANTIBANDING_MODE_AUTO_60HZ
+      Currently setting it to default    */
+    char prop[PROPERTY_VALUE_MAX];
+    memset(prop, 0, sizeof(prop));
+    property_get("persist.camera.set.afd", prop, "3");
+    return atoi(prop);
+}
 
 /*===========================================================================
  * FUNCTION   : setAntibanding
@@ -4643,6 +4696,9 @@ int32_t QCameraParameters::setAntibanding(const char *antiBandingStr)
         if (value != NAME_NOT_FOUND) {
             ALOGD("%s: Setting AntiBanding value %s", __func__, antiBandingStr);
             updateParamEntry(KEY_ANTIBANDING, antiBandingStr);
+            if(value == CAM_ANTIBANDING_MODE_AUTO) {
+               value = getAutoFlickerMode();
+            }
             return AddSetParmEntryToBatch(m_pParamBuf,
                                           CAM_INTF_PARM_ANTIBANDING,
                                           sizeof(value),
@@ -5044,20 +5100,28 @@ cam_denoise_process_type_t QCameraParameters::getWaveletDenoiseProcessPlate()
 {
     char prop[PROPERTY_VALUE_MAX];
     memset(prop, 0, sizeof(prop));
-    property_get("persist.denoise.process.plates", prop, "0");
-    int processPlate = atoi(prop);
-    switch(processPlate) {
-    case 0:
-        return CAM_WAVELET_DENOISE_YCBCR_PLANE;
-    case 1:
-        return CAM_WAVELET_DENOISE_CBCR_ONLY;
-    case 2:
-        return CAM_WAVELET_DENOISE_STREAMLINE_YCBCR;
-    case 3:
-        return CAM_WAVELET_DENOISE_STREAMLINED_CBCR;
-    default:
-        return CAM_WAVELET_DENOISE_STREAMLINE_YCBCR;
+    cam_denoise_process_type_t processPlate = CAM_WAVELET_DENOISE_CBCR_ONLY;
+    property_get("persist.denoise.process.plates", prop, "");
+    if (strlen(prop) > 0) {
+        switch(atoi(prop)) {
+        case 0:
+            processPlate = CAM_WAVELET_DENOISE_YCBCR_PLANE;
+            break;
+        case 1:
+            processPlate = CAM_WAVELET_DENOISE_CBCR_ONLY;
+            break;
+        case 2:
+            processPlate = CAM_WAVELET_DENOISE_STREAMLINE_YCBCR;
+            break;
+        case 3:
+            processPlate = CAM_WAVELET_DENOISE_STREAMLINED_CBCR;
+            break;
+        default:
+            processPlate = CAM_WAVELET_DENOISE_CBCR_ONLY;
+            break;
+        }
     }
+    return processPlate;
 }
 
 /*===========================================================================
@@ -5220,6 +5284,68 @@ void QCameraParameters::getTouchIndexAf(int *x, int *y)
         *x = tempX;
         *y = tempY;
 	}
+}
+
+/*===========================================================================
+ * FUNCTION   : getStreamFormat
+ *
+ * DESCRIPTION: get stream format by its type
+ *
+ * PARAMETERS :
+ *   @streamType : [input] stream type
+ *   @format     : [output] stream format
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraParameters::getStreamRotation(cam_stream_type_t streamType,
+                                            cam_pp_feature_config_t &featureConfig,
+                                            cam_dimension_t &dim)
+{
+    int32_t ret = NO_ERROR;
+    int rotationParam = getInt(KEY_QC_VIDEO_ROTATION);
+    featureConfig.rotation = ROTATE_0;
+    int swapDim = 0;
+    switch (streamType) {
+    case CAM_STREAM_TYPE_VIDEO:
+           switch(rotationParam) {
+            case 90:
+               featureConfig.feature_mask |= CAM_QCOM_FEATURE_ROTATION;
+               featureConfig.rotation = ROTATE_90;
+               swapDim = 1;
+               break;
+            case 180:
+               featureConfig.feature_mask |= CAM_QCOM_FEATURE_ROTATION;
+               featureConfig.rotation = ROTATE_180;
+               break;
+            case 270:
+               featureConfig.feature_mask |= CAM_QCOM_FEATURE_ROTATION;
+               featureConfig.rotation = ROTATE_270;
+               swapDim = 1;
+              break;
+            default:
+               featureConfig.rotation = ROTATE_0;
+        }
+        break;
+    case CAM_STREAM_TYPE_PREVIEW:
+    case CAM_STREAM_TYPE_POSTVIEW:
+    case CAM_STREAM_TYPE_SNAPSHOT:
+    case CAM_STREAM_TYPE_RAW:
+    case CAM_STREAM_TYPE_METADATA:
+    case CAM_STREAM_TYPE_OFFLINE_PROC:
+    case CAM_STREAM_TYPE_DEFAULT:
+    default:
+        break;
+    }
+
+    if (swapDim > 0) {
+        int w = 0;
+        w = dim.width;
+        dim.width = dim.height;
+        dim.height = w;
+    }
+    return ret;
 }
 
 /*===========================================================================

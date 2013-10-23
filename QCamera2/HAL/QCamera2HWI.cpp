@@ -611,10 +611,12 @@ int QCamera2HardwareInterface::take_picture(struct camera_device *device)
     hw->lockAPI();
 
     /* Prepare snapshot in case LED needs to be flashed */
-    ret = hw->processAPI(QCAMERA_SM_EVT_PREPARE_SNAPSHOT, NULL);
-    if (ret == NO_ERROR) {
-        hw->waitAPIResult(QCAMERA_SM_EVT_PREPARE_SNAPSHOT);
-        ret = hw->m_apiResult.status;
+    if (hw->mFlashNeeded == 1) {
+        ret = hw->processAPI(QCAMERA_SM_EVT_PREPARE_SNAPSHOT, NULL);
+        if (ret == NO_ERROR) {
+            hw->waitAPIResult(QCAMERA_SM_EVT_PREPARE_SNAPSHOT);
+            ret = hw->m_apiResult.status;
+        }
     }
 
     /* Regardless what the result value for prepare_snapshot,
@@ -960,7 +962,9 @@ QCamera2HardwareInterface::QCamera2HardwareInterface(int cameraId)
       m_HDRSceneEnabled(false),
       mLongshotEnabled(false),
       m_max_pic_width(0),
-      m_max_pic_height(0)
+      m_max_pic_height(0),
+      mFlashNeeded(false),
+      mCaptureRotation(0)
 {
     mCameraDevice.common.tag = HARDWARE_DEVICE_TAG;
     mCameraDevice.common.version = HARDWARE_DEVICE_API_VERSION(1, 0);
@@ -1472,7 +1476,7 @@ QCameraMemory *QCamera2HardwareInterface::allocateStreamBuf(cam_stream_type_t st
         break;
     case CAM_STREAM_TYPE_VIDEO:
         {
-            char value[32];
+            char value[PROPERTY_VALUE_MAX];
             property_get("persist.camera.mem.usecache", value, "1");
             if (atoi(value) == 0) {
                 bCachedMem = QCAMERA_ION_USE_NOCACHE;
@@ -1564,8 +1568,8 @@ QCameraHeapMemory *QCamera2HardwareInterface::allocateStreamInfoBuf(
     streamInfo->stream_type = stream_type;
     rc = mParameters.getStreamFormat(stream_type, streamInfo->fmt);
     rc = mParameters.getStreamDimension(stream_type, streamInfo->dim);
+    rc = mParameters.getStreamRotation(stream_type, streamInfo->pp_config, streamInfo->dim);
     streamInfo->num_bufs = getBufNumRequired(stream_type);
-
     streamInfo->streaming_mode = CAM_STREAMING_MODE_CONTINUOUS;
     switch (stream_type) {
     case CAM_STREAM_TYPE_SNAPSHOT:
@@ -2036,6 +2040,7 @@ int QCamera2HardwareInterface::takePicture()
 {
     int rc = NO_ERROR;
     uint8_t numSnapshots = mParameters.getNumOfSnapshots();
+    getOrientation();
     ALOGD("%s: E", __func__);
     if (mParameters.isZSLMode()) {
         QCameraPicChannel *pZSLChannel =
@@ -2248,6 +2253,8 @@ int QCamera2HardwareInterface::cancelPicture()
 int QCamera2HardwareInterface::takeLiveSnapshot()
 {
     int rc = NO_ERROR;
+
+    getOrientation();
 
     // start post processor
     rc = m_postprocessor.start(m_channels[QCAMERA_CH_TYPE_SNAPSHOT]);
@@ -2838,6 +2845,47 @@ int32_t QCamera2HardwareInterface::processHDRData(cam_asd_hdr_scene_data_t hdr_s
         m_HDRSceneEnabled = false;
     }
     mParameters.setHDRSceneEnable(m_HDRSceneEnabled);
+
+    if ( msgTypeEnabled(CAMERA_MSG_META_DATA) ) {
+
+        size_t data_len = sizeof(int);
+        size_t buffer_len = 1 *sizeof(int)       //meta type
+                          + 1 *sizeof(int)       //data len
+                          + 1 *sizeof(int);      //data
+        camera_memory_t *hdrBuffer = mGetMemory(-1,
+                                                 buffer_len,
+                                                 1,
+                                                 mCallbackCookie);
+        if ( NULL == hdrBuffer ) {
+            ALOGE("%s: Not enough memory for auto HDR data",
+                  __func__);
+            return NO_MEMORY;
+        }
+
+        int *pHDRData = (int *)hdrBuffer->data;
+        if (pHDRData == NULL) {
+            ALOGE("%s: memory data ptr is NULL", __func__);
+            return UNKNOWN_ERROR;
+        }
+
+        pHDRData[0] = CAMERA_META_DATA_HDR;
+        pHDRData[1] = data_len;
+        pHDRData[2] = m_HDRSceneEnabled;
+
+        qcamera_callback_argm_t cbArg;
+        memset(&cbArg, 0, sizeof(qcamera_callback_argm_t));
+        cbArg.cb_type = QCAMERA_DATA_CALLBACK;
+        cbArg.msg_type = CAMERA_MSG_META_DATA;
+        cbArg.data = hdrBuffer;
+        cbArg.user_data = hdrBuffer;
+        cbArg.cookie = this;
+        cbArg.release_cb = releaseCameraMemory;
+        rc = m_cbNotifier.notifyCallback(cbArg);
+        if (rc != NO_ERROR) {
+            ALOGE("%s: fail sending auto HDR notification", __func__);
+            hdrBuffer->release(hdrBuffer);
+        }
+    }
 
     ALOGE("%s : hdr_scene_data: processHDRData: %d %f",
           __func__,
@@ -3677,7 +3725,7 @@ QCameraReprocessChannel *QCamera2HardwareInterface::addOnlineReprocChannel(
 
     if (needRotationReprocess()) {
         pp_config.feature_mask |= CAM_QCOM_FEATURE_ROTATION;
-        int rotation = mParameters.getJpegRotation();
+        int rotation = getJpegRotation();
         if (rotation == 0) {
             pp_config.rotation = ROTATE_0;
         } else if (rotation == 90) {
@@ -4620,9 +4668,9 @@ bool QCamera2HardwareInterface::needReprocess()
     }
 
     if ((gCamCapability[mCameraId]->qcom_supported_feature_mask & CAM_QCOM_FEATURE_ROTATION) > 0 &&
-            (mParameters.getJpegRotation() > 0) &&  (mParameters.getRecordingHintValue() == false)) {
+            (getJpegRotation() > 0) &&  (mParameters.getRecordingHintValue() == false)) {
             // current rotation is not zero, and pp has the capability to process rotation
-            ALOGD("%s: need to do reprocess for rotation=%d", __func__, mParameters.getJpegRotation());
+            ALOGD("%s: need to do reprocess for rotation=%d", __func__, getJpegRotation());
             pthread_mutex_unlock(&m_parm_lock);
             return true;
     }
@@ -4679,9 +4727,9 @@ bool QCamera2HardwareInterface::needRotationReprocess()
     }
 
         if ((gCamCapability[mCameraId]->qcom_supported_feature_mask & CAM_QCOM_FEATURE_ROTATION) > 0 &&
-            (mParameters.getJpegRotation() > 0) && (mParameters.getRecordingHintValue() == false)) {
+            (getJpegRotation() > 0) && (mParameters.getRecordingHintValue() == false)) {
             // current rotation is not zero, and pp has the capability to process rotation
-            ALOGD("%s: need to do reprocess for rotation=%d", __func__, mParameters.getJpegRotation());
+            ALOGD("%s: need to do reprocess for rotation=%d", __func__, getJpegRotation());
             pthread_mutex_unlock(&m_parm_lock);
             return true;
         }
@@ -4769,11 +4817,22 @@ int QCamera2HardwareInterface::getJpegQuality()
  * RETURN     : rotation information
  *==========================================================================*/
 int QCamera2HardwareInterface::getJpegRotation() {
-    int rotation = 0;
+    return mCaptureRotation;
+}
+
+/*===========================================================================
+ * FUNCTION   : getOrientation
+ *
+ * DESCRIPTION: get rotation information from camera parameters
+ *
+ * PARAMETERS : none
+ *
+ * RETURN     : rotation information
+ *==========================================================================*/
+void QCamera2HardwareInterface::getOrientation() {
     pthread_mutex_lock(&m_parm_lock);
-    rotation = mParameters.getJpegRotation();
+    mCaptureRotation = mParameters.getJpegRotation();
     pthread_mutex_unlock(&m_parm_lock);
-    return rotation;
 }
 
 /*===========================================================================
