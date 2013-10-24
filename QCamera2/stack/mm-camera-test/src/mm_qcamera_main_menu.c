@@ -221,11 +221,21 @@ const FLASH_MODE_TBL_T flashmodes_tbl[] = {
 };
 
 DIMENSION_TBL_T dimension_tbl[] = {
-{VGA_WIDTH,      VGA_HEIGHT,      "VGA",   "Size: VGA <640x480>"   , 0},
-{MP1_WIDTH,      MP1_HEIGHT,      "1MP",   "Size: 1MP <1280x960>"  , 0},
-{MP5_WIDTH,      MP5_HEIGHT,      "5MP",   "Size: 5MP <2592x1944>",  0},
-{MP8_WIDTH,      MP8_HEIGHT,      "8MP",   "Size: 8MP <3264x2448>",  0},
-{MP12_WIDTH,     MP12_HEIGHT,     "12MP",  "Size: 12MP <4000x3000>", 0},
+{QCIF_WIDTH,     QCIF_HEIGHT,     "QCIF",  "Size: QCIF <176x144>"   , 0},
+{QVGA_WIDTH,     QVGA_HEIGHT,     "QVGA",  "Size: QVGA <320x240>"   , 0},
+{CIF_WIDTH,      CIF_HEIGHT,      "CIF",   "Size: CIF  <352x288>"   , 0},
+{VGA_WIDTH,      VGA_HEIGHT,      "VGA",   "Size: VGA  <640x480>"   , 0},
+{WVGA_WIDTH,     WVGA_HEIGHT,     "WVGA",  "Size: WVGA <800x480>"   , 0},
+{SVGA_WIDTH,     SVGA_HEIGHT,     "SVGA",  "Size: SVGA <800x600>"   , 0},
+{XGA_WIDTH,      XGA_HEIGHT,      "XGA",   "Size: XGA  <1024x768>"  , 0},
+{WXGA_WIDTH,     WXGA_HEIGHT,     "WXGA",  "Size: WXGA <1280x768>"  , 0},
+{HD720_WIDTH,    HD720_HEIGHT,    "HD720", "Size: HD720 <1280x720>" , 0},
+{QXGA_WIDTH,     QXGA_HEIGHT,     "QXGA",  "Size: QXGA <2048x1536>" , 0},
+{MP1_WIDTH,      MP1_HEIGHT,      "1MP",   "Size: 1MP <1280x960>"   , 0},
+{MP2_WIDTH,      MP2_HEIGHT,      "2MP",   "Size: 1MP <1600x1200>"  , 0},
+{MP5_WIDTH,      MP5_HEIGHT,      "5MP",   "Size: 5MP <2592x1944>"  , 0},
+{MP8_WIDTH,      MP8_HEIGHT,      "8MP",   "Size: 8MP <3264x2448>"  , 0},
+{MP12_WIDTH,     MP12_HEIGHT,     "12MP",  "Size: 12MP <4000x3000>" , 0},
 };
 
 /*===========================================================================
@@ -743,12 +753,13 @@ static void camera_resolution_change_tbl(void) {
     printf("      Camera is in snapshot resolution mode               \n");
     printf("==========================================================\n\n");
 
+    char submenuNum = 'A';
     for (i = 0; i < sizeof(dimension_tbl) /
       sizeof(dimension_tbl[0]); i++) {
         if ( dimension_tbl[i].supported ) {
-            printf("%d.  %s\n", i,
-                    dimension_tbl[i].str_name);
+            printf("%c.  %s\n", submenuNum, dimension_tbl[i].str_name);
         }
+        submenuNum++;
     }
 
     printf("\nPlease enter your choice for Resolution: ");
@@ -1544,6 +1555,8 @@ int filter_resolutions(mm_camera_lib_handle *lib_handle,
     size_t i, j;
     cam_capability_t camera_cap;
     int rc = 0;
+    uint32_t width = 0;
+    uint32_t height = 0;
 
     if ( ( NULL == lib_handle ) || ( NULL == tbl ) ) {
         return -1;
@@ -1555,15 +1568,18 @@ int filter_resolutions(mm_camera_lib_handle *lib_handle,
         return -1;
     }
 
-    for( i = 0 ; i < tbl_size ; i++ ) {
-        for( j = 0; j < camera_cap.picture_sizes_tbl_cnt; j++ ) {
-            if ( ( tbl[i].width == camera_cap.picture_sizes_tbl[j].width ) &&
-                 ( tbl[i].height == camera_cap.picture_sizes_tbl[j].height ) ) {
-                tbl[i].supported = 1;
-                rc = i;
-                break;
-            }
-        }
+    for(i = 0; i < camera_cap.picture_sizes_tbl_cnt; i++) {
+         width = camera_cap.picture_sizes_tbl[i].width;
+         height = camera_cap.picture_sizes_tbl[i].height;
+         CDBG(" %d. width=%d & height=%d\n",i, width, height);
+         for(j = 0; j < tbl_size; j++) {
+             if (( tbl[j].width == width ) &&
+                 ( tbl[j].height == height )) {
+                 CDBG("Supported tbl[%d].width =%d tbl[%d].height =%d\n",j,tbl[j].width, j,tbl[j].height);
+                 tbl[j].supported = 1;
+                 rc++;
+             }
+         }
     }
 
     return rc;
