@@ -34,6 +34,8 @@
 #define LIKELY(exp)   __builtin_expect(!!(exp), 1)
 #define UNLIKELY(exp) __builtin_expect(!!(exp), 0)
 
+#define PROP_BUF_SIZE 100
+
 /* QCameraStream_record class implementation goes here*/
 /* following code implement the video streaming capture & encoding logic of this class*/
 // ---------------------------------------------------------------------------
@@ -214,7 +216,7 @@ status_t QCameraStream_record::getBuf(mm_camera_frame_len_offset *frame_offset_i
     memset(mRecordBuf, 0, sizeof(mRecordBuf));
     memcpy(&mFrameOffsetInfo, frame_offset_info, sizeof(mFrameOffsetInfo));
 
-    char value[32];
+    char value[PROP_BUF_SIZE];
     bool cached = QCAMERA_ION_USE_CACHED;
     property_get("persist.camera.mem.usecache", value, "1");
     if (atoi(value) == 0) {
