@@ -219,6 +219,9 @@ public:
     //Auto HDR enable
     static const char KEY_QC_AUTO_HDR_ENABLE[];
 
+    // video rotation
+    static const char KEY_QC_VIDEO_ROTATION[];
+
     //Redeye Reduction
     static const char KEY_QC_REDEYE_REDUCTION[];
     static const char KEY_QC_SUPPORTED_REDEYE_REDUCTION[];
@@ -354,6 +357,7 @@ public:
     static const char KEY_QC_SUPPORTED_HISTOGRAM_MODES[] ;
     static const char KEY_QC_HDR_NEED_1X[];
     static const char KEY_QC_VIDEO_HDR[];
+    static const char KEY_QC_VT_ENABLE[];
     static const char KEY_QC_SUPPORTED_VIDEO_HDR_MODES[];
 
     // Values for SKIN TONE ENHANCEMENT
@@ -430,6 +434,9 @@ public:
     int32_t updateParameters(QCameraParameters&, bool &needRestart);
     int32_t commitParameters();
     int getPreviewHalPixelFormat() const;
+    int32_t getStreamRotation(cam_stream_type_t streamType,
+                               cam_pp_feature_config_t &featureConfig,
+                               cam_dimension_t &dim);
     int32_t getStreamFormat(cam_stream_type_t streamType,
                              cam_format_t &format);
     int32_t getStreamDimension(cam_stream_type_t streamType,
@@ -477,6 +484,7 @@ public:
     bool isAutoHDREnabled();
     int32_t restoreAEBracket();
     int32_t updateRAW(cam_dimension_t max_dim);
+    bool isAVTimerEnabled();
 
     cam_focus_mode_type getFocusMode() const {return mFocusMode;};
     int32_t setNumOfSnapshot();
@@ -500,6 +508,7 @@ public:
     bool isYUVFrameInfoNeeded();
     const char*getFrameFmtString(cam_format_t fmt);
     bool isHDR1xExtraBufferNeeded() {return m_bHDR1xExtraBufferNeeded;}
+    bool isHDROutputCropEnabled() {return m_bHDROutputCropEnabled;}
 
     bool isPreviewFlipChanged() { return m_bPreviewFlipChanged; };
     bool isVideoFlipChanged() { return m_bVideoFlipChanged; };
@@ -508,6 +517,7 @@ public:
 
     const char *getASDStateString(cam_auto_scene_t scene);
     bool isHDRThumbnailProcessNeeded() { return m_bHDRThumbnailProcessNeeded; };
+	int getAutoFlickerMode();
 
 private:
     int32_t setPreviewSize(const QCameraParameters& );
@@ -531,9 +541,11 @@ private:
     int32_t setSkinToneEnhancement(const QCameraParameters& );
     int32_t setSceneDetect(const QCameraParameters& );
     int32_t setVideoHDR(const QCameraParameters& );
+    int32_t setVtEnable(const QCameraParameters& );
     int32_t setZoom(const QCameraParameters& );
     int32_t setISOValue(const QCameraParameters& );
     int32_t setRotation(const QCameraParameters& );
+    int32_t setVideoRotation(const QCameraParameters& );
     int32_t setFlash(const QCameraParameters& );
     int32_t setAecLock(const QCameraParameters& );
     int32_t setAwbLock(const QCameraParameters& );
@@ -564,6 +576,7 @@ private:
     int32_t setSnapshotFDReq(const QCameraParameters& );
     int32_t setStatsDebugMask();
     int32_t setTintlessValue(const QCameraParameters& params);
+    int32_t setMobicat(const QCameraParameters& params);
 
     int32_t setAutoExposure(const char *autoExp);
     int32_t setPreviewFpsRange(int minFPS,int maxFPS);
@@ -576,6 +589,7 @@ private:
     int32_t setSkinToneEnhancement(int sceFactor);
     int32_t setSceneDetect(const char *scendDetect);
     int32_t setVideoHDR(const char *videoHDR);
+    int32_t setVtEnable(const char *vtEnable);
     int32_t setZoom(int zoom_level);
     int32_t setISOValue(const char *isoValue);
     int32_t setFlash(const char *flashStr);
@@ -597,6 +611,7 @@ private:
     int32_t setWaveletDenoise(const char *wnrStr);
     int32_t setFaceRecognition(const char *faceRecog, int maxFaces);
     int32_t setTintlessValue(const char *tintStr);
+
 
     int32_t parse_pair(const char *str, int *first, int *second,
                        char delim, char **endptr);
@@ -694,11 +709,13 @@ private:
     cam_dimension_t m_LiveSnapshotSize; // live snapshot size
     cam_dimension_t m_rawSize; // live snapshot size
     bool m_bHDREnabled;             // if HDR is enabled
+    bool m_bAVTimerEnabled;    //if AVTimer is enabled
     QCameraAdjustFPS *m_AdjustFPS;
     bool m_bHDR1xFrameEnabled;          // if frame with exposure compensation 0 during HDR is enabled
     bool m_HDRSceneEnabled; // Auto HDR indication
     bool m_bHDRThumbnailProcessNeeded;        // if thumbnail need to be processed for HDR
     bool m_bHDR1xExtraBufferNeeded;     // if extra frame with exposure compensation 0 during HDR is needed
+    bool m_bHDROutputCropEnabled;     // if HDR output frame need to be scaled to user resolution
 
     DefaultKeyedVector<String8,String8> m_tempMap; // map for temororily store parameters to be set
 };

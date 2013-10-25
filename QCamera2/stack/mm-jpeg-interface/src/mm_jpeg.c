@@ -55,6 +55,8 @@ OMX_ERRORTYPE mm_jpeg_event_handler(OMX_HANDLETYPE hComponent,
     OMX_U32 nData2,
     OMX_PTR pEventData);
 
+static int32_t mm_jpegenc_destroy_job(mm_jpeg_job_session_t *p_session);
+static void mm_jpegenc_job_done(mm_jpeg_job_session_t *p_session);
 
 /** mm_jpeg_session_send_buffers:
  *
@@ -1009,7 +1011,7 @@ OMX_BOOL mm_jpeg_session_abort(mm_jpeg_job_session_t *p_session)
       CDBG("%s:%d] OMX_SendCommand returned error %d", __func__, __LINE__, ret);
       return 1;
     }
-    rc = mm_jpeg_destroy_job(p_session);
+    rc = mm_jpegenc_destroy_job(p_session);
     if (rc != 0) {
       CDBG("%s:%d] Destroy job returned error %d", __func__, __LINE__, rc);
     }
@@ -1098,6 +1100,8 @@ static OMX_ERRORTYPE mm_jpeg_configure_job_params(
   work_buffer.length = p_session->work_buffer.size;
   CDBG_ERROR("%s:%d] Work buffer %d %p WorkBufSize: %d", __func__, __LINE__,
     work_buffer.fd, work_buffer.vaddr, work_buffer.length);
+
+  buffer_invalidate(&p_session->work_buffer);
 
   ret = OMX_SetConfig(p_session->omx_handle, work_buffer_index,
     &work_buffer);
@@ -1325,7 +1329,7 @@ error:
   }
 
   /*remove the job*/
-  mm_jpeg_job_done(p_session);
+  mm_jpegenc_job_done(p_session);
   CDBG("%s:%d] Error X ", __func__, __LINE__);
 
   return rc;
@@ -1513,7 +1517,7 @@ int32_t mm_jpeg_init(mm_jpeg_obj *my_obj)
   CDBG_HIGH("Max picture size %d x %d, WorkBufSize = %ld",
     my_obj->max_pic_w, my_obj->max_pic_h, my_obj->ionBuffer.size);
 
-  my_obj->ionBuffer.addr = (uint8_t *)buffer_allocate(&my_obj->ionBuffer, 0);
+  my_obj->ionBuffer.addr = (uint8_t *)buffer_allocate(&my_obj->ionBuffer, 1);
   if (NULL == my_obj->ionBuffer.addr) {
     mm_jpeg_jobmgr_thread_release(my_obj);
     mm_jpeg_queue_deinit(&my_obj->ongoing_job_q);
@@ -1833,7 +1837,7 @@ int32_t mm_jpeg_create_session(mm_jpeg_obj *my_obj,
   return rc;
 }
 
-/** mm_jpeg_destroy_job
+/** mm_jpegenc_destroy_job
  *
  *  Arguments:
  *    @p_session: Session obj
@@ -1845,7 +1849,7 @@ int32_t mm_jpeg_create_session(mm_jpeg_obj *my_obj,
  *       Destroy the job based paramenters
  *
  **/
-int32_t mm_jpeg_destroy_job(mm_jpeg_job_session_t *p_session)
+static int32_t mm_jpegenc_destroy_job(mm_jpeg_job_session_t *p_session)
 {
   mm_jpeg_encode_job_t *p_jobparams = &p_session->encode_job;
   int i = 0, rc = 0;
@@ -1862,6 +1866,38 @@ int32_t mm_jpeg_destroy_job(mm_jpeg_job_session_t *p_session)
   p_session->exif_count_local = 0;
 
   return rc;
+}
+
+/** mm_jpeg_session_encode:
+ *
+ *  Arguments:
+ *    @p_session: encode session
+ *
+ *  Return:
+ *       OMX_ERRORTYPE
+ *
+ *  Description:
+ *       Start the encoding
+ *
+ **/
+static void mm_jpegenc_job_done(mm_jpeg_job_session_t *p_session)
+{
+  mm_jpeg_obj *my_obj = (mm_jpeg_obj *)p_session->jpeg_obj;
+  mm_jpeg_job_q_node_t *node = NULL;
+
+  /*Destroy job related params*/
+  mm_jpegenc_destroy_job(p_session);
+
+  /*remove the job*/
+  node = mm_jpeg_queue_remove_job_by_job_id(&my_obj->ongoing_job_q,
+    p_session->jobId);
+  if (node) {
+    free(node);
+  }
+  p_session->encoding = OMX_FALSE;
+
+  /* wake up jobMgr thread to work on new job if there is any */
+  cam_sem_post(&my_obj->job_mgr.job_sem);
 }
 
 /** mm_jpeg_destroy_session:
@@ -2103,7 +2139,7 @@ OMX_ERRORTYPE mm_jpeg_fbd(OMX_HANDLETYPE hComponent,
       p_session->params.userdata);
 
     /* remove from ready queue */
-    mm_jpeg_job_done(p_session);
+    mm_jpegenc_job_done(p_session);
   }
   pthread_mutex_unlock(&p_session->lock);
   CDBG("%s:%d] ", __func__, __LINE__);
@@ -2152,7 +2188,7 @@ OMX_ERRORTYPE mm_jpeg_event_handler(OMX_HANDLETYPE hComponent,
       }
 
       /* remove from ready queue */
-      mm_jpeg_job_done(p_session);
+      mm_jpegenc_job_done(p_session);
     }
     pthread_cond_signal(&p_session->cond);
   } else if (eEvent == OMX_EventCmdComplete) {

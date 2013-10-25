@@ -780,6 +780,7 @@ typedef struct {
 typedef struct {
     float exp_time;
     int iso_value;
+    uint32_t flash_needed;
 } cam_ae_params_t;
 
 
@@ -927,6 +928,7 @@ typedef enum {
     CAM_INTF_PARM_VIDEO_HDR,
     CAM_INTF_PARM_ROTATION,
     CAM_INTF_PARM_SCALE,
+    CAM_INTF_PARM_VT, /* indicating if it's a Video Call Apllication */
     CAM_INTF_META_CROP_DATA,
     CAM_INTF_META_PREP_SNAPSHOT_DONE,
     CAM_INTF_META_GOOD_FRAME_IDX_RANGE,
