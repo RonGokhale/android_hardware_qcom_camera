@@ -555,6 +555,11 @@ int mm_app_stop_capture(mm_camera_test_obj_t *test_obj)
     int rc = MM_CAMERA_OK;
     mm_camera_channel_t *ch = NULL;
 
+    if(test_obj->current_jpeg_sess_id > 0) {
+        test_obj->jpeg_ops.destroy_session(test_obj->current_jpeg_sess_id);
+        test_obj->current_jpeg_sess_id = 0;
+    }
+
     ch = mm_app_get_channel_by_type(test_obj, MM_CHANNEL_TYPE_CAPTURE);
 
     rc = mm_app_stop_and_del_channel(test_obj, ch);
