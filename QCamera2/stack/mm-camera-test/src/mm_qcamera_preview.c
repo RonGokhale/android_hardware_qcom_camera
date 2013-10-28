@@ -34,51 +34,54 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/mman.h>
 #include <semaphore.h>
 
-#define DUMP_PRV_IN_FILE 1
+static void mm_app_initialize_fb(mm_camera_test_obj_t *test_obj);
+static void mm_app_close_fb(mm_camera_test_obj_t *test_obj);
+
+#define DUMP_PRV_IN_FILE 0
 static void mm_app_metadata_notify_cb(mm_camera_super_buf_t *bufs,
-                                     void *user_data)
+                                      void *user_data)
 {
-  int i = 0;
-  mm_camera_channel_t *channel = NULL;
-  mm_camera_stream_t *p_stream = NULL;
-  mm_camera_test_obj_t *pme = (mm_camera_test_obj_t *)user_data;
-  mm_camera_buf_def_t *frame = bufs->bufs[0];
+    int i = 0;
+    mm_camera_channel_t *channel = NULL;
+    mm_camera_stream_t *p_stream = NULL;
+    mm_camera_test_obj_t *pme = (mm_camera_test_obj_t *)user_data;
+    mm_camera_buf_def_t *frame = bufs->bufs[0];
 
-  /* find channel */
-  for (i = 0; i < MM_CHANNEL_TYPE_MAX; i++) {
-      if (pme->channels[i].ch_id == bufs->ch_id) {
-          channel = &pme->channels[i];
-          break;
-      }
-  }
-  /* find preview stream */
-  for (i = 0; i < channel->num_streams; i++) {
-      if (channel->streams[i].s_config.stream_info->stream_type == CAM_STREAM_TYPE_METADATA) {
-          p_stream = &channel->streams[i];
-          break;
-      }
-  }
-  /* find preview frame */
-  for (i = 0; i < bufs->num_bufs; i++) {
-      if (bufs->bufs[i]->stream_id == p_stream->s_id) {
-          frame = bufs->bufs[i];
-          break;
-      }
-  }
+    /* find channel */
+    for (i = 0; i < MM_CHANNEL_TYPE_MAX; i++) {
+        if (pme->channels[i].ch_id == bufs->ch_id) {
+            channel = &pme->channels[i];
+            break;
+        }
+    }
+    /* find preview stream */
+    for (i = 0; i < channel->num_streams; i++) {
+        if (channel->streams[i].s_config.stream_info->stream_type == CAM_STREAM_TYPE_METADATA) {
+            p_stream = &channel->streams[i];
+            break;
+        }
+    }
+    /* find preview frame */
+    for (i = 0; i < bufs->num_bufs; i++) {
+        if (bufs->bufs[i]->stream_id == p_stream->s_id) {
+            frame = bufs->bufs[i];
+            break;
+        }
+    }
 
-  if (NULL == p_stream) {
-      CDBG_ERROR("%s: cannot find metadata stream", __func__);
-      return;
-  }
-  pme->metadata = frame->buffer;
+    if (NULL == p_stream) {
+        CDBG_ERROR("%s: cannot find metadata stream", __func__);
+        return;
+    }
+    pme->metadata = frame->buffer;
 
-  if (MM_CAMERA_OK != pme->cam->ops->qbuf(bufs->camera_handle,
-                                          bufs->ch_id,
-                                          frame)) {
-      CDBG_ERROR("%s: Failed in Preview Qbuf\n", __func__);
-  }
-  mm_app_cache_ops((mm_camera_app_meminfo_t *)frame->mem_info,
-                   ION_IOC_INV_CACHES);
+    if (MM_CAMERA_OK != pme->cam->ops->qbuf(bufs->camera_handle,
+                                            bufs->ch_id,
+                                            frame)) {
+        CDBG_ERROR("%s: Failed in Preview Qbuf\n", __func__);
+    }
+    mm_app_cache_ops((mm_camera_app_meminfo_t *)frame->mem_info,
+                     ION_IOC_INV_CACHES);
 }
 
 static void mm_app_preview_notify_cb(mm_camera_super_buf_t *bufs,
@@ -91,7 +94,7 @@ static void mm_app_preview_notify_cb(mm_camera_super_buf_t *bufs,
     mm_camera_test_obj_t *pme = (mm_camera_test_obj_t *)user_data;
 
     CDBG_ERROR("%s: BEGIN - length=%d, frame idx = %d\n",
-         __func__, frame->frame_len, frame->frame_idx);
+               __func__, frame->frame_len, frame->frame_idx);
 
     /* find channel */
     for (i = 0; i < MM_CHANNEL_TYPE_MAX; i++) {
@@ -123,11 +126,12 @@ static void mm_app_preview_notify_cb(mm_camera_super_buf_t *bufs,
     if ( 0 < pme->fb_fd ) {
         mm_app_overlay_display(pme, frame->fd);
     }
+
 #ifdef DUMP_PRV_IN_FILE
     {
-      char file_name[64];
-      snprintf(file_name, sizeof(file_name), "P_C%d", pme->cam->camera_handle);
-      mm_app_dump_frame(frame, file_name, "yuv", frame->frame_idx);
+        char file_name[64];
+        snprintf(file_name, sizeof(file_name), "P_C%d", pme->cam->camera_handle);
+        mm_app_dump_frame(frame, file_name, "yuv", frame->frame_idx);
     }
 #endif
     if (pme->user_preview_cb) {
@@ -216,14 +220,14 @@ static void mm_app_zsl_notify_cb(mm_camera_super_buf_t *bufs,
         }
     }
 
-    if(md_stream) {
-      /* find metadata frame */
-      for (i = 0; i < bufs->num_bufs; i++) {
-          if (bufs->bufs[i]->stream_id == md_stream->s_id) {
-              md_frame = bufs->bufs[i];
-              break;
-          }
-      }
+    if (md_stream) {
+        /* find metadata frame */
+        for (i = 0; i < bufs->num_bufs; i++) {
+            if (bufs->bufs[i]->stream_id == md_stream->s_id) {
+                md_frame = bufs->bufs[i];
+                break;
+            }
+        }
     }
     /* find snapshot frame */
     for (i = 0; i < bufs->num_bufs; i++) {
@@ -303,24 +307,24 @@ exit:
     mm_app_cache_ops((mm_camera_app_meminfo_t *)p_frame->mem_info,
                      ION_IOC_INV_CACHES);
 
-    if(md_frame) {
-      if (MM_CAMERA_OK != pme->cam->ops->qbuf(bufs->camera_handle,
-                                              bufs->ch_id,
-                                              md_frame)) {
-          CDBG_ERROR("%s: Failed in metadata Qbuf\n", __func__);
-      }
-      mm_app_cache_ops((mm_camera_app_meminfo_t *)md_frame->mem_info,
-                       ION_IOC_INV_CACHES);
+    if (md_frame) {
+        if (MM_CAMERA_OK != pme->cam->ops->qbuf(bufs->camera_handle,
+                                                bufs->ch_id,
+                                                md_frame)) {
+            CDBG_ERROR("%s: Failed in metadata Qbuf\n", __func__);
+        }
+        mm_app_cache_ops((mm_camera_app_meminfo_t *)md_frame->mem_info,
+                         ION_IOC_INV_CACHES);
     }
 
     CDBG("%s: END\n", __func__);
 }
 
-mm_camera_stream_t * mm_app_add_metadata_stream(mm_camera_test_obj_t *test_obj,
-                                               mm_camera_channel_t *channel,
-                                               mm_camera_buf_notify_t stream_cb,
-                                               void *userdata,
-                                               uint8_t num_bufs)
+mm_camera_stream_t *mm_app_add_metadata_stream(mm_camera_test_obj_t *test_obj,
+        mm_camera_channel_t *channel,
+        mm_camera_buf_notify_t stream_cb,
+        void *userdata,
+        uint8_t num_bufs)
 {
     int rc = MM_CAMERA_OK;
     mm_camera_stream_t *stream = NULL;
@@ -335,7 +339,7 @@ mm_camera_stream_t * mm_app_add_metadata_stream(mm_camera_test_obj_t *test_obj,
     stream->s_config.mem_vtbl.get_bufs = mm_app_stream_initbuf;
     stream->s_config.mem_vtbl.put_bufs = mm_app_stream_deinitbuf;
     stream->s_config.mem_vtbl.clean_invalidate_buf =
-      mm_app_stream_clean_invalidate_buf;
+        mm_app_stream_clean_invalidate_buf;
     stream->s_config.mem_vtbl.invalidate_buf = mm_app_stream_invalidate_buf;
     stream->s_config.mem_vtbl.user_data = (void *)stream;
     stream->s_config.stream_cb = stream_cb;
@@ -360,11 +364,11 @@ mm_camera_stream_t * mm_app_add_metadata_stream(mm_camera_test_obj_t *test_obj,
     return stream;
 }
 
-mm_camera_stream_t * mm_app_add_preview_stream(mm_camera_test_obj_t *test_obj,
-                                               mm_camera_channel_t *channel,
-                                               mm_camera_buf_notify_t stream_cb,
-                                               void *userdata,
-                                               uint8_t num_bufs)
+mm_camera_stream_t *mm_app_add_preview_stream(mm_camera_test_obj_t *test_obj,
+        mm_camera_channel_t *channel,
+        mm_camera_buf_notify_t stream_cb,
+        void *userdata,
+        uint8_t num_bufs)
 {
     int rc = MM_CAMERA_OK;
     mm_camera_stream_t *stream = NULL;
@@ -378,7 +382,7 @@ mm_camera_stream_t * mm_app_add_preview_stream(mm_camera_test_obj_t *test_obj,
     stream->s_config.mem_vtbl.get_bufs = mm_app_stream_initbuf;
     stream->s_config.mem_vtbl.put_bufs = mm_app_stream_deinitbuf;
     stream->s_config.mem_vtbl.clean_invalidate_buf =
-      mm_app_stream_clean_invalidate_buf;
+        mm_app_stream_clean_invalidate_buf;
     stream->s_config.mem_vtbl.invalidate_buf = mm_app_stream_invalidate_buf;
     stream->s_config.mem_vtbl.user_data = (void *)stream;
     stream->s_config.stream_cb = stream_cb;
@@ -392,7 +396,7 @@ mm_camera_stream_t * mm_app_add_preview_stream(mm_camera_test_obj_t *test_obj,
     stream->s_config.stream_info->fmt = DEFAULT_PREVIEW_FORMAT;
 
     if ((test_obj->preview_resolution.user_input_display_width == 0) ||
-           ( test_obj->preview_resolution.user_input_display_height == 0)) {
+        ( test_obj->preview_resolution.user_input_display_height == 0)) {
         stream->s_config.stream_info->dim.width = DEFAULT_PREVIEW_WIDTH;
         stream->s_config.stream_info->dim.height = DEFAULT_PREVIEW_HEIGHT;
     } else {
@@ -411,12 +415,12 @@ mm_camera_stream_t * mm_app_add_preview_stream(mm_camera_test_obj_t *test_obj,
     return stream;
 }
 
-mm_camera_stream_t * mm_app_add_raw_stream(mm_camera_test_obj_t *test_obj,
-                                                mm_camera_channel_t *channel,
-                                                mm_camera_buf_notify_t stream_cb,
-                                                void *userdata,
-                                                uint8_t num_bufs,
-                                                uint8_t num_burst)
+mm_camera_stream_t *mm_app_add_raw_stream(mm_camera_test_obj_t *test_obj,
+        mm_camera_channel_t *channel,
+        mm_camera_buf_notify_t stream_cb,
+        void *userdata,
+        uint8_t num_bufs,
+        uint8_t num_burst)
 {
     int rc = MM_CAMERA_OK;
     mm_camera_stream_t *stream = NULL;
@@ -464,12 +468,12 @@ mm_camera_stream_t * mm_app_add_raw_stream(mm_camera_test_obj_t *test_obj,
     return stream;
 }
 
-mm_camera_stream_t * mm_app_add_snapshot_stream(mm_camera_test_obj_t *test_obj,
-                                                mm_camera_channel_t *channel,
-                                                mm_camera_buf_notify_t stream_cb,
-                                                void *userdata,
-                                                uint8_t num_bufs,
-                                                uint8_t num_burst)
+mm_camera_stream_t *mm_app_add_snapshot_stream(mm_camera_test_obj_t *test_obj,
+        mm_camera_channel_t *channel,
+        mm_camera_buf_notify_t stream_cb,
+        void *userdata,
+        uint8_t num_bufs,
+        uint8_t num_burst)
 {
     int rc = MM_CAMERA_OK;
     mm_camera_stream_t *stream = NULL;
@@ -484,7 +488,7 @@ mm_camera_stream_t * mm_app_add_snapshot_stream(mm_camera_test_obj_t *test_obj,
     stream->s_config.mem_vtbl.get_bufs = mm_app_stream_initbuf;
     stream->s_config.mem_vtbl.put_bufs = mm_app_stream_deinitbuf;
     stream->s_config.mem_vtbl.clean_invalidate_buf =
-      mm_app_stream_clean_invalidate_buf;
+        mm_app_stream_clean_invalidate_buf;
     stream->s_config.mem_vtbl.invalidate_buf = mm_app_stream_invalidate_buf;
     stream->s_config.mem_vtbl.user_data = (void *)stream;
     stream->s_config.stream_cb = stream_cb;
@@ -519,7 +523,7 @@ mm_camera_stream_t * mm_app_add_snapshot_stream(mm_camera_test_obj_t *test_obj,
     return stream;
 }
 
-mm_camera_channel_t * mm_app_add_preview_channel(mm_camera_test_obj_t *test_obj)
+mm_camera_channel_t *mm_app_add_preview_channel(mm_camera_test_obj_t *test_obj)
 {
     mm_camera_channel_t *channel = NULL;
     mm_camera_stream_t *stream = NULL;
@@ -612,6 +616,8 @@ int mm_app_start_preview(mm_camera_test_obj_t *test_obj)
         return rc;
     }
 
+    mm_app_initialize_fb(test_obj);
+
     return rc;
 }
 
@@ -626,6 +632,8 @@ int mm_app_stop_preview(mm_camera_test_obj_t *test_obj)
     if (MM_CAMERA_OK != rc) {
         CDBG_ERROR("%s:Stop Preview failed rc=%d\n", __func__, rc);
     }
+
+    mm_app_close_fb(test_obj);
 
     return rc;
 }
@@ -746,7 +754,104 @@ int mm_app_stop_preview_zsl(mm_camera_test_obj_t *test_obj)
     return rc;
 }
 
-int mm_app_initialize_fb(mm_camera_test_obj_t *test_obj)
+static int display_set_overlay(mm_camera_test_obj_t *test_obj)
+{
+    assert(NULL != test_obj );
+
+    int rc = MM_CAMERA_OK;
+    memset(&test_obj->data_overlay, 0, sizeof(struct mdp_overlay));
+    test_obj->data_overlay.src.width  = test_obj->buffer_width;
+    test_obj->data_overlay.src.height = test_obj->buffer_height;
+    test_obj->data_overlay.src.format = MDP_RGBA_8888;
+
+    test_obj->data_overlay.src_rect.x = 0;
+    test_obj->data_overlay.src_rect.y = 0;
+    test_obj->data_overlay.src_rect.w = test_obj->buffer_width;
+    test_obj->data_overlay.src_rect.h = test_obj->buffer_height;
+
+    test_obj->data_overlay.dst_rect.x = 0;
+    test_obj->data_overlay.dst_rect.y = 0;
+    test_obj->data_overlay.dst_rect.w = test_obj->vinfo.xres;
+    test_obj->data_overlay.dst_rect.h = test_obj->vinfo.yres;
+
+    test_obj->data_overlay.z_order = 3;
+    test_obj->data_overlay.alpha = 0xff;
+    test_obj->data_overlay.transp_mask = MDP_TRANSP_NOP;
+    test_obj->data_overlay.flags = MDP_ROT_90;
+
+    test_obj->data_overlay.id = MSMFB_NEW_REQUEST;
+    rc = ioctl(test_obj->fb_fd, MSMFB_OVERLAY_SET, &test_obj->data_overlay);
+    if (rc < 0) {
+        CDBG_ERROR("%s: MSMFB_OVERLAY_SET ioctl failed rc=%d, %s\n",
+                   __func__,
+                   -errno,
+                   strerror(errno));
+        rc = -errno;
+        goto FAIL;
+    }
+    CDBG_ERROR("%s: Overlay set with overlay id: %d", __func__, test_obj->data_overlay.id);
+
+    return rc;
+
+FAIL:
+    return rc;
+}
+
+static int display_do_blit(mm_camera_test_obj_t *test_obj, int bufferFd)
+{
+    int rc = MM_CAMERA_OK;
+    union {
+        char dummy[sizeof(struct mdp_blit_req_list) + sizeof(struct mdp_blit_req) * 1];
+        struct mdp_blit_req_list list;
+    } image;
+    image.list.count = 1;
+
+    struct mdp_blit_req *blit_param;
+    blit_param = &(image.list.req[0]);
+
+    blit_param->src.width = test_obj->buffer_width;
+    blit_param->src.height = test_obj->buffer_height;
+    blit_param->src.format = DEFAULT_OV_FORMAT;
+    blit_param->src.offset = 0;
+    blit_param->src.memory_id = bufferFd;
+
+    blit_param->src_rect.x = 0;
+    blit_param->src_rect.y = 0;
+    blit_param->src_rect.w  = test_obj->buffer_width;
+    blit_param->src_rect.h  = test_obj->buffer_height;
+
+    blit_param->dst.width = test_obj->vinfo.xres;
+    blit_param->dst.height = test_obj->vinfo.yres;
+    blit_param->dst.format = MDP_RGBA_8888;
+    blit_param->dst.offset = 0;
+    blit_param->dst.memory_id = test_obj->display_buf.mem_info.fd;
+
+    blit_param->dst_rect.x = 0;
+    blit_param->dst_rect.y = 0;
+    blit_param->dst_rect.w  = test_obj->vinfo.xres;
+    blit_param->dst_rect.h  = test_obj->vinfo.yres;
+
+    blit_param->transp_mask = MDP_TRANSP_NOP;
+    blit_param->flags = MDP_ROT_90;
+    blit_param->alpha = 0xff;
+
+    if (ioctl(test_obj->fb_fd, MSMFB_BLIT, &(image.list))) {
+        CDBG_ERROR("%s: MSMFB_BLIT ioctl failed rc=%d, %s\n",
+                   __func__,
+                   -errno,
+                   strerror(errno));
+        rc = -errno;
+        goto FAIL;
+    }
+
+    return rc;
+
+FAIL:
+    return rc;
+
+}
+
+static void mm_app_initialize_fb(mm_camera_test_obj_t *test_obj)
 {
     int rc = MM_CAMERA_OK;
     int brightness_fd;
@@ -797,80 +902,53 @@ int mm_app_initialize_fb(mm_camera_test_obj_t *test_obj)
         goto FAIL;
     }
 
+    display_set_overlay(test_obj);
+
     brightness_fd = open(BACKLIGHT_CONTROL, O_RDWR);
     if ( brightness_fd >= 0 ) {
         write(brightness_fd, brightness_level, strlen(brightness_level));
         close(brightness_fd);
     }
 
-    test_obj->slice_size = test_obj->vinfo.xres * ( test_obj->vinfo.yres - 1 ) * DEFAULT_OV_FORMAT_BPP;
-    memset(&test_obj->data_overlay, 0, sizeof(struct mdp_overlay));
-    test_obj->data_overlay.src.width  = test_obj->buffer_width;
-    test_obj->data_overlay.src.height = test_obj->buffer_height;
-    test_obj->data_overlay.src_rect.w = test_obj->buffer_width;
-    test_obj->data_overlay.src_rect.h = test_obj->buffer_height;
-    test_obj->data_overlay.dst_rect.w = test_obj->buffer_width;
-    test_obj->data_overlay.dst_rect.h = test_obj->buffer_height;
-    test_obj->data_overlay.src.format = DEFAULT_OV_FORMAT;
-    test_obj->data_overlay.src_rect.x = 0;
-    test_obj->data_overlay.src_rect.y = 0;
-    test_obj->data_overlay.dst_rect.x = 0;
-    test_obj->data_overlay.dst_rect.y = 0;
-    test_obj->data_overlay.z_order = 2;
-    test_obj->data_overlay.alpha = 0x80;
-    test_obj->data_overlay.transp_mask = 0xffe0;
-    test_obj->data_overlay.flags = MDP_FLIP_LR | MDP_FLIP_UD;
-
-    // Map and clear FB portion
-    fb_base = mmap(0,
-                   test_obj->slice_size,
-                   PROT_WRITE,
-                   MAP_SHARED,
-                   test_obj->fb_fd,
-                   0);
-    if ( MAP_FAILED  == fb_base ) {
-            CDBG_ERROR("%s: ( Error while memory mapping frame buffer %s",
-                       __func__,
-                       strerror(errno));
-            rc = -errno;
-            goto FAIL;
-    }
-
-    memset(fb_base, 0, test_obj->slice_size);
-
-    if (ioctl(test_obj->fb_fd, FBIOPAN_DISPLAY, &test_obj->vinfo) < 0) {
-        CDBG_ERROR("%s : FBIOPAN_DISPLAY failed!", __func__);
-        rc = -errno;
+    /*alloc ion mem for display buf */
+    cam_frame_len_offset_t offset_info;
+    memset(&offset_info, 0, sizeof(offset_info));
+    offset_info.frame_len = test_obj->vinfo.xres * test_obj->vinfo.yres * 4;    
+    rc = mm_app_alloc_bufs(&test_obj->display_buf,
+                           &offset_info,
+                           1,
+                           0,
+                           0);
+    /* alloc ion mem for capability buf */
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s:alloc buf for display error\n", __func__);
         goto FAIL;
     }
 
-    munmap(fb_base, test_obj->slice_size);
-    test_obj->data_overlay.id = MSMFB_NEW_REQUEST;
-    rc = ioctl(test_obj->fb_fd, MSMFB_OVERLAY_SET, &test_obj->data_overlay);
-    if (rc < 0) {
-        CDBG_ERROR("%s : MSMFB_OVERLAY_SET failed! err=%d\n",
-                   __func__,
-                   test_obj->data_overlay.id);
-        return MM_CAMERA_E_GENERAL;
-    }
-    CDBG_ERROR("%s: Overlay set with overlay id: %d", __func__, test_obj->data_overlay.id);
-
-    return rc;
+    return;
 
 FAIL:
-
     if ( 0 < test_obj->fb_fd ) {
         close(test_obj->fb_fd);
+        test_obj->fb_fd = 0;
     }
 
-    return rc;
+    CDBG_ERROR("\n%s:Display init failed. Test app would run without rendering preview\n", __func__);
+
+    return;
 }
 
-int mm_app_close_fb(mm_camera_test_obj_t *test_obj)
+static void mm_app_close_fb(mm_camera_test_obj_t *test_obj)
 {
     int rc = MM_CAMERA_OK;
 
     assert( ( NULL != test_obj ) && ( 0 < test_obj->fb_fd ) );
+
+    /*dealloc display buf */
+    rc = mm_app_release_bufs(1, &test_obj->display_buf);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: release display buf failed, rc=%d", __func__, rc);
+    }
 
     if (ioctl(test_obj->fb_fd, MSMFB_OVERLAY_UNSET, &test_obj->data_overlay.id)) {
         CDBG_ERROR("\nERROR! MSMFB_OVERLAY_UNSET failed! (Line %d)\n", __LINE__);
@@ -883,35 +961,49 @@ int mm_app_close_fb(mm_camera_test_obj_t *test_obj)
     close(test_obj->fb_fd);
     test_obj->fb_fd = 0;
 
-    return rc;
-}
-
-void memset16(void *pDst, uint16_t value, int count)
-{
-    uint16_t *ptr = pDst;
-    while (count--)
-        *ptr++ = value;
+    return;
 }
 
 int mm_app_overlay_display(mm_camera_test_obj_t *test_obj, int bufferFd)
 {
     int rc = MM_CAMERA_OK;
+
+    assert( ( NULL != test_obj ) && ( 0 < bufferFd) );
+
+    display_do_blit(test_obj, bufferFd);
+
+    //Start overlay play
     struct msmfb_overlay_data ovdata;
-
-
     memset(&ovdata, 0, sizeof(struct msmfb_overlay_data));
     ovdata.id = test_obj->data_overlay.id;
-    ovdata.data.memory_id = bufferFd;
+    ovdata.data.memory_id = test_obj->display_buf.mem_info.fd;
 
     if (ioctl(test_obj->fb_fd, MSMFB_OVERLAY_PLAY, &ovdata)) {
-        CDBG_ERROR("%s : MSMFB_OVERLAY_PLAY failed!", __func__);
-        return MM_CAMERA_E_GENERAL;
+        CDBG_ERROR("%s: MSMFB_OVERLAY_PLAY ioctl failed rc=%d, %s\n",
+                   __func__,
+                   -errno,
+                   strerror(errno));
+        rc = -errno;
+        goto FAIL;
     }
 
-    if (ioctl(test_obj->fb_fd, FBIOPAN_DISPLAY, &test_obj->vinfo) < 0) {
-        CDBG_ERROR("%s : FBIOPAN_DISPLAY failed!", __func__);
-        return MM_CAMERA_E_GENERAL;
+    //Do mdp display commit
+    struct mdp_display_commit commit_info;
+    memset(&commit_info, 0, sizeof(struct mdp_display_commit));
+    commit_info.flags = MDP_DISPLAY_COMMIT_OVERLAY;
+    commit_info.wait_for_finish = 1;
+
+    if (ioctl(test_obj->fb_fd, MSMFB_DISPLAY_COMMIT, &commit_info) < 0) {
+        CDBG_ERROR("%s: MSMFB_DISPLAY_COMMIT ioctl failed rc=%d, %s\n",
+                   __func__,
+                   -errno,
+                   strerror(errno));
+        rc = -errno;
+        goto FAIL;
     }
 
+    CDBG_ERROR("%s: Exit", __func__);
+
+FAIL:
     return rc;
 }

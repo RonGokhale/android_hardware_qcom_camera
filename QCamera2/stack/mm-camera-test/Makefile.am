@@ -39,7 +39,7 @@ mm_qcamera_app_SOURCES += src/mm_qcamera_reprocess.c
 mm_qcamera_app_SOURCES += src/mm_qcamera_queue.c
 mm_qcamera_app_SOURCES += src/mm_qcamera_commands.c
 mm_qcamera_app_SOURCES += src/mm_qcamera_socket.c
-#mm_qcamera_app_SOURCES += src/mm_qcamera_display.c
+
 
 mm_qcamera_app_LDADD := -ldl
 mm_qcamera_app_LDADD += ../../../QCamera2/stack/mm-camera-interface/libmmcamera_interface.la
