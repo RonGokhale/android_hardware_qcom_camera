@@ -78,7 +78,7 @@
 #define DEFAULT_OV_FORMAT_BPP     3/2
 #define DEFAULT_CAMERA_FORMAT_BPP 3/2
 #ifdef _ANDROID_
-#define FB_PATH                   "/dev/graphics/fb0
+#define FB_PATH                   "/dev/graphics/fb0"
 #else
 #define FB_PATH                   "/dev/fb0"
 #endif
@@ -221,6 +221,7 @@ typedef struct {
     uint32_t jpeg_hdl;
     mm_camera_app_buf_t cap_buf;
     mm_camera_app_buf_t parm_buf;
+    mm_camera_app_buf_t display_buf;
 
     uint32_t current_jpeg_sess_id;
     mm_camera_super_buf_t* current_job_frames;
@@ -452,8 +453,6 @@ extern int mm_app_start_capture_raw(mm_camera_test_obj_t *test_obj, uint8_t num_
 extern int mm_app_stop_capture_raw(mm_camera_test_obj_t *test_obj);
 extern int mm_app_start_rdi(mm_camera_test_obj_t *test_obj, uint8_t num_burst);
 extern int mm_app_stop_rdi(mm_camera_test_obj_t *test_obj);
-extern int mm_app_initialize_fb(mm_camera_test_obj_t *test_obj);
-extern int mm_app_close_fb(mm_camera_test_obj_t *test_obj);
 extern int mm_app_fb_write(mm_camera_test_obj_t *test_obj, char *buffer);
 extern int mm_app_overlay_display(mm_camera_test_obj_t *test_obj, int bufferFd);
 extern int mm_app_allocate_ion_memory(mm_camera_app_buf_t *buf, int ion_type);

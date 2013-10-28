@@ -225,6 +225,8 @@ int mm_app_cache_ops(mm_camera_app_meminfo_t *mem_info,
          cache_inv_data.vaddr, cache_inv_data.fd,
          cache_inv_data.handle, cache_inv_data.length,
          mem_info->main_ion_fd);
+
+
     if(mem_info->main_ion_fd > 0) {
         if(ioctl(mem_info->main_ion_fd, ION_IOC_CUSTOM, &custom_data) < 0) {
             ALOGE("%s: Cache Invalidate failed\n", __func__);
@@ -1956,15 +1958,7 @@ int mm_camera_lib_open(mm_camera_lib_handle *handle, int cam_id)
                    __func__, cam_id, rc);
         goto EXIT;
     }
-#ifdef _ANDROID_
-    //rc = mm_app_initialize_fb(&handle->test_obj);
-    rc = MM_CAMERA_OK;
-    if (rc != MM_CAMERA_OK) {
-        CDBG_ERROR("%s: mm_app_initialize_fb() cam_idx=%d, err=%d\n",
-                   __func__, cam_id, rc);
-        goto EXIT;
-    }
-#endif
+
 EXIT:
 
     return rc;
@@ -2502,15 +2496,7 @@ int mm_camera_lib_close(mm_camera_lib_handle *handle)
         rc = MM_CAMERA_E_INVALID_INPUT;
         goto EXIT;
     }
-#ifdef _ANDROID_
-    //rc = mm_app_close_fb(&handle->test_obj);
-    rc = MM_CAMERA_OK;
-    if (rc != MM_CAMERA_OK) {
-        CDBG_ERROR("%s:mm_app_close_fb() err=%d\n",
-                   __func__, rc);
-        goto EXIT;
-    }
-#endif
+
     rc = mm_app_close(&handle->test_obj);
     if (rc != MM_CAMERA_OK) {
         CDBG_ERROR("%s:mm_app_close() err=%d\n",
