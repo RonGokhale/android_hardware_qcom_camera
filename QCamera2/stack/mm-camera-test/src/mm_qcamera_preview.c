@@ -37,7 +37,8 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 static void mm_app_initialize_fb(mm_camera_test_obj_t *test_obj);
 static void mm_app_close_fb(mm_camera_test_obj_t *test_obj);
 
-#define DUMP_PRV_IN_FILE 0
+#define MAX_DUMP_COUNT  20
+
 static void mm_app_metadata_notify_cb(mm_camera_super_buf_t *bufs,
                                       void *user_data)
 {
@@ -93,8 +94,8 @@ static void mm_app_preview_notify_cb(mm_camera_super_buf_t *bufs,
     mm_camera_buf_def_t *frame = bufs->bufs[0];
     mm_camera_test_obj_t *pme = (mm_camera_test_obj_t *)user_data;
 
-    CDBG_ERROR("%s: BEGIN - length=%d, frame idx = %d\n",
-               __func__, frame->frame_len, frame->frame_idx);
+    CDBG("%s: BEGIN - length=%d, frame idx = %d\n",
+         __func__, frame->frame_len, frame->frame_idx);
 
     /* find channel */
     for (i = 0; i < MM_CHANNEL_TYPE_MAX; i++) {
@@ -127,13 +128,14 @@ static void mm_app_preview_notify_cb(mm_camera_super_buf_t *bufs,
         mm_app_overlay_display(pme, frame->fd);
     }
 
-#ifdef DUMP_PRV_IN_FILE
-    {
+    pme->preview_dump_count++;
+
+    if (pme->preview_dump_count < MAX_DUMP_COUNT) {
         char file_name[64];
         snprintf(file_name, sizeof(file_name), "P_C%d", pme->cam->camera_handle);
         mm_app_dump_frame(frame, file_name, "yuv", frame->frame_idx);
     }
-#endif
+
     if (pme->user_preview_cb) {
         CDBG_ERROR("[DBG] %s, user defined own preview cb. calling it...", __func__);
         pme->user_preview_cb(frame);
@@ -399,10 +401,15 @@ mm_camera_stream_t *mm_app_add_preview_stream(mm_camera_test_obj_t *test_obj,
         ( test_obj->preview_resolution.user_input_display_height == 0)) {
         stream->s_config.stream_info->dim.width = DEFAULT_PREVIEW_WIDTH;
         stream->s_config.stream_info->dim.height = DEFAULT_PREVIEW_HEIGHT;
+
+        test_obj->preview_resolution.user_input_display_width  = DEFAULT_PREVIEW_WIDTH;
+        test_obj->preview_resolution.user_input_display_height = DEFAULT_PREVIEW_HEIGHT;
     } else {
         stream->s_config.stream_info->dim.width = test_obj->preview_resolution.user_input_display_width;
         stream->s_config.stream_info->dim.height = test_obj->preview_resolution.user_input_display_height;
     }
+
+    CDBG_HIGH("stream width(%d), stream height (%d)", stream->s_config.stream_info->dim.width, stream->s_config.stream_info->dim.height);
 
     stream->s_config.padding_info = cam_cap->padding_info;
 
@@ -588,6 +595,8 @@ int mm_app_start_preview(mm_camera_test_obj_t *test_obj)
     mm_camera_stream_t *s_metadata = NULL;
     uint8_t i;
 
+    CDBG_HIGH("Enter");
+
     channel =  mm_app_add_preview_channel(test_obj);
     if (NULL == channel) {
         CDBG_ERROR("%s: add channel failed", __func__);
@@ -618,12 +627,16 @@ int mm_app_start_preview(mm_camera_test_obj_t *test_obj)
 
     mm_app_initialize_fb(test_obj);
 
+    CDBG_HIGH("exit");
+
     return rc;
 }
 
 int mm_app_stop_preview(mm_camera_test_obj_t *test_obj)
 {
     int rc = MM_CAMERA_OK;
+
+    CDBG_HIGH("Enter");
 
     mm_camera_channel_t *channel =
         mm_app_get_channel_by_type(test_obj, MM_CHANNEL_TYPE_PREVIEW);
@@ -634,6 +647,8 @@ int mm_app_stop_preview(mm_camera_test_obj_t *test_obj)
     }
 
     mm_app_close_fb(test_obj);
+
+    CDBG_HIGH("exit");
 
     return rc;
 }
@@ -754,25 +769,27 @@ int mm_app_stop_preview_zsl(mm_camera_test_obj_t *test_obj)
     return rc;
 }
 
+/* set overlay parameters. Blit function does the color convertion
+   and rescale and renders to frame buffer. Set source and dest
+   rectangles to be of same dimention and then set the rotation
+   flag as 90 as actual display is 90 rotated.
+*/
 static int display_set_overlay(mm_camera_test_obj_t *test_obj)
 {
     assert(NULL != test_obj );
 
     int rc = MM_CAMERA_OK;
     memset(&test_obj->data_overlay, 0, sizeof(struct mdp_overlay));
-    test_obj->data_overlay.src.width  = test_obj->buffer_width;
-    test_obj->data_overlay.src.height = test_obj->buffer_height;
+    test_obj->data_overlay.src.width  = test_obj->vinfo.xres;
+    test_obj->data_overlay.src.height = test_obj->vinfo.yres;;
     test_obj->data_overlay.src.format = MDP_RGBA_8888;
 
     test_obj->data_overlay.src_rect.x = 0;
     test_obj->data_overlay.src_rect.y = 0;
-    test_obj->data_overlay.src_rect.w = test_obj->buffer_width;
-    test_obj->data_overlay.src_rect.h = test_obj->buffer_height;
+    test_obj->data_overlay.src_rect.w = test_obj->vinfo.xres;
+    test_obj->data_overlay.src_rect.h = test_obj->vinfo.yres;
 
-    test_obj->data_overlay.dst_rect.x = 0;
-    test_obj->data_overlay.dst_rect.y = 0;
-    test_obj->data_overlay.dst_rect.w = test_obj->vinfo.xres;
-    test_obj->data_overlay.dst_rect.h = test_obj->vinfo.yres;
+    test_obj->data_overlay.dst_rect = test_obj->data_overlay.src_rect;
 
     test_obj->data_overlay.z_order = 3;
     test_obj->data_overlay.alpha = 0xff;
@@ -789,7 +806,13 @@ static int display_set_overlay(mm_camera_test_obj_t *test_obj)
         rc = -errno;
         goto FAIL;
     }
-    CDBG_ERROR("%s: Overlay set with overlay id: %d", __func__, test_obj->data_overlay.id);
+
+    CDBG_HIGH("%s: Overlay set with overlay id (%d), width(%d) , height(%d), xres(%d), yres(%d)", \
+              __func__, test_obj->data_overlay.id,
+              test_obj->preview_resolution.user_input_display_width,
+              test_obj->preview_resolution.user_input_display_height,
+              test_obj->vinfo.xres,
+              test_obj->vinfo.yres);
 
     return rc;
 
@@ -809,16 +832,16 @@ static int display_do_blit(mm_camera_test_obj_t *test_obj, int bufferFd)
     struct mdp_blit_req *blit_param;
     blit_param = &(image.list.req[0]);
 
-    blit_param->src.width = test_obj->buffer_width;
-    blit_param->src.height = test_obj->buffer_height;
+    blit_param->src.width  = test_obj->preview_resolution.user_input_display_width;
+    blit_param->src.height = test_obj->preview_resolution.user_input_display_height;
     blit_param->src.format = DEFAULT_OV_FORMAT;
     blit_param->src.offset = 0;
     blit_param->src.memory_id = bufferFd;
 
     blit_param->src_rect.x = 0;
     blit_param->src_rect.y = 0;
-    blit_param->src_rect.w  = test_obj->buffer_width;
-    blit_param->src_rect.h  = test_obj->buffer_height;
+    blit_param->src_rect.w  = blit_param->src.width;
+    blit_param->src_rect.h  = blit_param->src.height;
 
     blit_param->dst.width = test_obj->vinfo.xres;
     blit_param->dst.height = test_obj->vinfo.yres;
@@ -913,7 +936,7 @@ static void mm_app_initialize_fb(mm_camera_test_obj_t *test_obj)
     /*alloc ion mem for display buf */
     cam_frame_len_offset_t offset_info;
     memset(&offset_info, 0, sizeof(offset_info));
-    offset_info.frame_len = test_obj->vinfo.xres * test_obj->vinfo.yres * 4;    
+    offset_info.frame_len = test_obj->vinfo.xres * test_obj->vinfo.yres * 4;
     rc = mm_app_alloc_bufs(&test_obj->display_buf,
                            &offset_info,
                            1,
@@ -1001,8 +1024,6 @@ int mm_app_overlay_display(mm_camera_test_obj_t *test_obj, int bufferFd)
         rc = -errno;
         goto FAIL;
     }
-
-    CDBG_ERROR("%s: Exit", __func__);
 
 FAIL:
     return rc;

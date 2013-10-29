@@ -48,37 +48,22 @@
 
 typedef enum
 {
-  START_PREVIEW,
-  STOP_PREVIEW,
-  SET_WHITE_BALANCE,
-  SET_EXP_METERING,
-  GET_CTRL_VALUE,
-  TOGGLE_AFR,
-  SET_ISO,
-  BRIGHTNESS_GOTO_SUBMENU,
-  CONTRAST_GOTO_SUBMENU,
-  EV_GOTO_SUBMENU,
-  SATURATION_GOTO_SUBMENU,
+  TOGGLE_CAMERA,
   SET_ZOOM,
-  SET_SHARPNESS,
   TAKE_JPEG_SNAPSHOT,
   START_RECORDING,
   STOP_RECORDING,
-  BEST_SHOT,
-  LIVE_SHOT,
-  FLASH_MODES,
-  TOGGLE_ZSL,
-  TAKE_RAW_SNAPSHOT,
+  TAKE_LIVE_SNAPSHOT,
   SWITCH_SNAP_RESOLUTION,
-  TOGGLE_WNR,
+  SWITCH_PREVIEW_RESOLUTION,
+  SET_JPEG_QUALITY,
   EXIT
 } Camera_main_menu_t;
 
 typedef enum
 {
   ACTION_NO_ACTION,
-  ACTION_START_PREVIEW,
-  ACTION_STOP_PREVIEW,
+  ACTION_TOGGLE_CAMERA,
   ACTION_SET_WHITE_BALANCE,
   ACTION_SET_EXP_METERING,
   ACTION_GET_CTRL_VALUE,
@@ -105,6 +90,8 @@ typedef enum
   ACTION_TOGGLE_ZSL,
   ACTION_TAKE_RAW_SNAPSHOT,
   ACTION_SWITCH_RESOLUTION,
+  ACTION_SET_JPEG_QUALITY,
+  ACTION_SWITCH_PREVIEW_RESOLUTION,
   ACTION_TOGGLE_WNR,
   ACTION_EXIT
 } camera_action_t;
@@ -196,8 +183,8 @@ typedef enum
 } Camera_Resolution;
 
 typedef struct{
-    uint16_t width;
-    uint16_t  height;
+    uint32_t width;
+    uint32_t  height;
     char * name;
     char * str_name;
     int supported;
@@ -268,6 +255,14 @@ typedef enum {
 }Flash_modes;
 
 typedef enum {
+    HUNDRED,
+    FIFTYFIVE,
+    SUPERFINE,
+    FINE,
+    NORMAL,
+}Jpeg_quality_modes;
+
+typedef enum {
   WB_AUTO,
   WB_INCANDESCENT,
   WB_FLUORESCENT,
@@ -297,6 +292,8 @@ typedef enum
   MENU_ID_FLASHMODE,
   MENU_ID_SENSORS,
   MENU_ID_SWITCH_RES,
+  MENU_ID_JPEG_QUALITY,
+  MENU_ID_SWITCH_PREVIEW_RES,
   MENU_ID_INVALID,
 } menu_id_change_t;
 
@@ -390,6 +387,11 @@ typedef struct {
   Flash_modes bs_id;
   char *name;
 } FLASH_MODE_TBL_T;
+
+typedef struct {
+  Jpeg_quality_modes bs_id;
+  char *name;
+} JPEG_QUALITY_TBL_T;
 
 typedef struct {
   ISO_modes iso_modes;

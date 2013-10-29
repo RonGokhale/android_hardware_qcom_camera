@@ -41,6 +41,7 @@
 #include <linux/fb.h>
 #include <linux/msm_mdp.h>
 #include <semaphore.h>
+#include <stdbool.h>
 
 #include "mm_camera_interface.h"
 #include "mm_jpeg_interface.h"
@@ -189,7 +190,8 @@ typedef struct {
 
 typedef struct {
     uint32_t ch_id;
-    uint8_t num_streams;
+    uint8_t  num_streams;
+    bool     is_allocated;
     mm_camera_stream_t streams[MAX_STREAM_NUM_IN_BUNDLE];
 } mm_camera_channel_t;
 
@@ -209,8 +211,8 @@ typedef struct {
 } mm_camera_queue_t;
 
 typedef struct {
-    uint16_t user_input_display_width;
-    uint16_t user_input_display_height;
+    uint32_t user_input_display_width;
+    uint32_t user_input_display_height;
 } USER_INPUT_DISPLAY_T;
 
 typedef struct {
@@ -251,6 +253,12 @@ typedef struct {
     mm_camera_queue_t pp_frames;
     mm_camera_stream_t *reproc_stream;
     cam_metadata_info_t *metadata;
+
+    uint32_t jpeg_quality;
+
+    //dumping
+    uint32_t preview_dump_count;
+    uint32_t video_dump_count;
 } mm_camera_test_obj_t;
 
 typedef struct {
