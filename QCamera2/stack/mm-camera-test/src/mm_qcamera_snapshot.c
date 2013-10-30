@@ -135,7 +135,7 @@ int createEncodingSession(mm_camera_test_obj_t *test_obj,
     encode_param.jpeg_cb = jpeg_encode_cb;
     encode_param.userdata = (void*)test_obj;
     encode_param.encode_thumbnail = 0;
-    encode_param.quality = 85;
+    encode_param.quality = test_obj->jpeg_quality;
     encode_param.color_format = MM_JPEG_COLOR_FORMAT_YCRCBLP_H2V2;
     encode_param.thumb_color_format = MM_JPEG_COLOR_FORMAT_YCRCBLP_H2V2;
 
@@ -354,7 +354,7 @@ mm_camera_channel_t * mm_app_add_snapshot_channel(mm_camera_test_obj_t *test_obj
     mm_camera_stream_t *stream = NULL;
 
     channel = mm_app_add_channel(test_obj,
-                                 MM_CHANNEL_TYPE_SNAPSHOT,
+                                 MM_CHANNEL_TYPE_CAPTURE,
                                  NULL,
                                  NULL,
                                  NULL);
@@ -367,7 +367,7 @@ mm_camera_channel_t * mm_app_add_snapshot_channel(mm_camera_test_obj_t *test_obj
                                         channel,
                                         mm_app_snapshot_notify_cb,
                                         (void *)test_obj,
-                                        1,
+                                        CAPTURE_BUF_NUM,
                                         1);
     if (NULL == stream) {
         CDBG_ERROR("%s: add snapshot stream failed\n", __func__);
@@ -572,7 +572,8 @@ int mm_app_stop_capture(mm_camera_test_obj_t *test_obj)
 
 int mm_app_take_picture(mm_camera_test_obj_t *test_obj, uint8_t is_burst_mode)
 {
-    CDBG_HIGH("\nEnter %s!!\n",__func__);
+    CDBG_HIGH("Start snapshot. Burst mode: %d", is_burst_mode);
+
     int rc = MM_CAMERA_OK;
     int num_snapshot = 1;
     int num_rcvd_snapshot = 0;
@@ -583,29 +584,29 @@ int mm_app_take_picture(mm_camera_test_obj_t *test_obj, uint8_t is_burst_mode)
     //stop preview before starting capture.
     rc = mm_app_stop_preview(test_obj);
     if (rc != MM_CAMERA_OK) {
-        CDBG_ERROR("%s: stop preview failed before capture!!, err=%d\n",__func__, rc);
+        CDBG_ERROR("%s: stop preview failed before capture!!, err=%d",__func__, rc);
         return rc;
     }
 
     rc = mm_app_start_capture(test_obj, num_snapshot);
     if (rc != MM_CAMERA_OK) {
-        CDBG_ERROR("%s: mm_app_start_capture(), err=%d\n", __func__,rc);
+        CDBG_ERROR("%s: mm_app_start_capture(), err=%d", __func__,rc);
         return rc;
     }
     while (num_rcvd_snapshot < num_snapshot) {
-        CDBG_HIGH("\nWaiting mm_camera_app_wait !!\n");
+        CDBG_HIGH("Waiting mm_camera_app_wait !!");
         mm_camera_app_wait();
         num_rcvd_snapshot++;
     }
     rc = mm_app_stop_capture(test_obj);
     if (rc != MM_CAMERA_OK) {
-       CDBG_ERROR("%s: mm_app_stop_capture(), err=%d\n",__func__, rc);
+       CDBG_ERROR("%s: mm_app_stop_capture(), err=%d",__func__, rc);
        return rc;
     }
     //start preview after capture.
     rc = mm_app_start_preview(test_obj);
     if (rc != MM_CAMERA_OK) {
-        CDBG_ERROR("%s: start preview failed after capture!!, err=%d\n",__func__,rc);
+        CDBG_ERROR("%s: start preview failed after capture!!, err=%d",__func__,rc);
     }
     return rc;
 }

@@ -41,7 +41,7 @@
 #undef CDBG
 #undef LOGE
 #undef LOGD
-//#define LOG_DEBUG
+#define LOG_DEBUG
 
 #ifndef LOG_DEBUG
   #define CDBG(fmt, args...) do{}while(0)

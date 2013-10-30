@@ -30,6 +30,8 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "mm_qcamera_dbg.h"
 #include "mm_qcamera_app.h"
 
+#define MAX_DUMP_COUNT  20
+
 static void mm_app_video_notify_cb(mm_camera_super_buf_t *bufs,
                                    void *user_data)
 {
@@ -38,17 +40,22 @@ static void mm_app_video_notify_cb(mm_camera_super_buf_t *bufs,
     mm_camera_test_obj_t *pme = (mm_camera_test_obj_t *)user_data;
 
     CDBG("%s: BEGIN - length=%d, frame idx = %d\n",
-         __func__, frame->frame_len, frame->frame_idx);
-    snprintf(file_name, sizeof(file_name), "V_C%d", pme->cam->camera_handle);
-    mm_app_dump_frame(frame, file_name, "yuv", frame->frame_idx);
+    __func__, frame->frame_len, frame->frame_idx);
+
+    pme->video_dump_count++;
+
+    if (pme->video_dump_count < MAX_DUMP_COUNT) {
+        snprintf(file_name, sizeof(file_name), "V_C%d", pme->cam->camera_handle);
+        mm_app_dump_frame(frame, file_name, "yuv", frame->frame_idx);
+    }
 
     if (MM_CAMERA_OK != pme->cam->ops->qbuf(bufs->camera_handle,
-                                            bufs->ch_id,
-                                            frame)) {
+    bufs->ch_id, frame)) {
         CDBG_ERROR("%s: Failed in Preview Qbuf\n", __func__);
     }
+
     mm_app_cache_ops((mm_camera_app_meminfo_t *)frame->mem_info,
-                     ION_IOC_INV_CACHES);
+    ION_IOC_INV_CACHES);
 
     CDBG("%s: END\n", __func__);
 }
@@ -116,7 +123,7 @@ mm_camera_channel_t * mm_app_add_video_channel(mm_camera_test_obj_t *test_obj)
                                      channel,
                                      mm_app_video_notify_cb,
                                      (void *)test_obj,
-                                     1);
+                                     14);
     if (NULL == stream) {
         CDBG_ERROR("%s: add video stream failed\n", __func__);
         mm_app_del_channel(test_obj, channel);
@@ -133,12 +140,6 @@ int mm_app_start_record_preview(mm_camera_test_obj_t *test_obj)
     mm_camera_channel_t *v_ch = NULL;
     mm_camera_channel_t *s_ch = NULL;
 
-    p_ch = mm_app_add_preview_channel(test_obj);
-    if (NULL == p_ch) {
-        CDBG_ERROR("%s: add preview channel failed", __func__);
-        return -MM_CAMERA_E_GENERAL;
-    }
-
     v_ch = mm_app_add_video_channel(test_obj);
     if (NULL == v_ch) {
         CDBG_ERROR("%s: add video channel failed", __func__);
@@ -154,10 +155,9 @@ int mm_app_start_record_preview(mm_camera_test_obj_t *test_obj)
         return -MM_CAMERA_E_GENERAL;
     }
 
-    rc = mm_app_start_channel(test_obj, p_ch);
+    rc = mm_app_start_preview(test_obj);
     if (MM_CAMERA_OK != rc) {
         CDBG_ERROR("%s:start preview failed rc=%d\n", __func__, rc);
-        mm_app_del_channel(test_obj, p_ch);
         mm_app_del_channel(test_obj, v_ch);
         mm_app_del_channel(test_obj, s_ch);
         return rc;
@@ -173,14 +173,10 @@ int mm_app_stop_record_preview(mm_camera_test_obj_t *test_obj)
     mm_camera_channel_t *v_ch = NULL;
     mm_camera_channel_t *s_ch = NULL;
 
-    p_ch = mm_app_get_channel_by_type(test_obj, MM_CHANNEL_TYPE_PREVIEW);
     v_ch = mm_app_get_channel_by_type(test_obj, MM_CHANNEL_TYPE_VIDEO);
-    s_ch = mm_app_get_channel_by_type(test_obj, MM_CHANNEL_TYPE_SNAPSHOT);
+    s_ch = mm_app_get_channel_by_type(test_obj, MM_CHANNEL_TYPE_CAPTURE);
 
-    rc = mm_app_stop_and_del_channel(test_obj, p_ch);
-    if (MM_CAMERA_OK != rc) {
-        CDBG_ERROR("%s:Stop Preview failed rc=%d\n", __func__, rc);
-    }
+    rc = mm_app_stop_preview(test_obj);
 
     rc = mm_app_stop_and_del_channel(test_obj, v_ch);
     if (MM_CAMERA_OK != rc) {
@@ -230,7 +226,7 @@ int mm_app_start_live_snapshot(mm_camera_test_obj_t *test_obj)
     int rc = MM_CAMERA_OK;
     mm_camera_channel_t *s_ch = NULL;
 
-    s_ch = mm_app_get_channel_by_type(test_obj, MM_CHANNEL_TYPE_SNAPSHOT);
+    s_ch = mm_app_get_channel_by_type(test_obj, MM_CHANNEL_TYPE_CAPTURE);
 
     rc = mm_app_start_channel(test_obj, s_ch);
     if (MM_CAMERA_OK != rc) {
@@ -245,7 +241,12 @@ int mm_app_stop_live_snapshot(mm_camera_test_obj_t *test_obj)
     int rc = MM_CAMERA_OK;
     mm_camera_channel_t *s_ch = NULL;
 
-    s_ch = mm_app_get_channel_by_type(test_obj, MM_CHANNEL_TYPE_SNAPSHOT);
+    if (test_obj->current_jpeg_sess_id > 0) {
+        test_obj->jpeg_ops.destroy_session(test_obj->current_jpeg_sess_id);
+        test_obj->current_jpeg_sess_id = 0;
+    }
+
+    s_ch = mm_app_get_channel_by_type(test_obj, MM_CHANNEL_TYPE_CAPTURE);
 
     rc = mm_app_stop_channel(test_obj, s_ch);
     if (MM_CAMERA_OK != rc) {

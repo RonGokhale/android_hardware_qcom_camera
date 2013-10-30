@@ -276,8 +276,12 @@ void mm_app_dump_jpeg_frame(const void * data, uint32_t size, char* name, char* 
         snprintf(buf, sizeof(buf), "/data/%s_%d.%s", name, index, ext);
         CDBG("%s: %s size =%d, jobId=%d", __func__, buf, size, index);
         file_fd = open(buf, O_RDWR | O_CREAT, 0777);
-        write(file_fd, data, size);
-        close(file_fd);
+        if (file_fd < 0) {
+            CDBG_ERROR("Cannot open file for writing jpeg. Check if filessytem is full");
+        } else {
+            write(file_fd, data, size);
+            close(file_fd);
+        }
     }
 }
 
@@ -687,6 +691,8 @@ int mm_app_close(mm_camera_test_obj_t *test_obj)
 {
     uint32_t rc = MM_CAMERA_OK;
 
+    CDBG_HIGH("Enter");
+
     if (test_obj == NULL || test_obj->cam ==NULL) {
         CDBG_ERROR("%s: cam not opened", __func__);
         return -MM_CAMERA_E_GENERAL;
@@ -733,6 +739,8 @@ int mm_app_close(mm_camera_test_obj_t *test_obj)
         CDBG_ERROR("%s: release setparm buf failed, rc=%d", __func__, rc);
     }
 
+    CDBG_HIGH("Exit");
+
     return MM_CAMERA_OK;
 }
 
@@ -754,22 +762,32 @@ mm_camera_channel_t * mm_app_add_channel(mm_camera_test_obj_t *test_obj,
         return NULL;
     }
     channel = &test_obj->channels[ch_type];
-    channel->ch_id = ch_id;
+    channel->ch_id  = ch_id;
+    channel->is_allocated = true;
     return channel;
 }
 
 int mm_app_del_channel(mm_camera_test_obj_t *test_obj,
                        mm_camera_channel_t *channel)
 {
-    test_obj->cam->ops->delete_channel(test_obj->cam->camera_handle,
-                                       channel->ch_id);
-    memset(channel, 0, sizeof(mm_camera_channel_t));
-    return MM_CAMERA_OK;
+    if (true == channel->is_allocated) {
+        test_obj->cam->ops->delete_channel(test_obj->cam->camera_handle,
+        channel->ch_id);
+        memset(channel, 0, sizeof(mm_camera_channel_t));
+        channel->is_allocated = false;
+        return MM_CAMERA_OK;
+    } else {
+        CDBG_HIGH("Trying to delete deleted channel");
+    }
+
 }
 
 mm_camera_stream_t * mm_app_add_stream(mm_camera_test_obj_t *test_obj,
                                        mm_camera_channel_t *channel)
 {
+    assert((test_obj != NULL) && (channel != NULL));
+    assert(channel->is_allocated == true);
+
     mm_camera_stream_t *stream = NULL;
     int rc = MM_CAMERA_OK;
     cam_frame_len_offset_t offset_info;
@@ -828,6 +846,9 @@ int mm_app_del_stream(mm_camera_test_obj_t *test_obj,
                       mm_camera_channel_t *channel,
                       mm_camera_stream_t *stream)
 {
+    assert((test_obj != NULL) && (channel != NULL) && (stream != NULL));
+    assert(channel->is_allocated == true);
+
     test_obj->cam->ops->unmap_stream_buf(test_obj->cam->camera_handle,
                                          channel->ch_id,
                                          stream->s_id,
@@ -1270,6 +1291,8 @@ ERROR:
 int setFocusMode(mm_camera_test_obj_t *test_obj, cam_focus_mode_type mode)
 {
     int rc = MM_CAMERA_OK;
+
+    CDBG_HIGH("Focus mode : %d", mode);
 
     rc = initBatchUpdate(test_obj);
     if (rc != MM_CAMERA_OK) {
@@ -1791,14 +1814,17 @@ int tuneserver_capture(mm_camera_lib_handle *lib_handle,
 {
     int rc = 0;
 
-    printf("Take jpeg snapshot\n");
+    CDBG_HIGH("Take snapshot with width (%d), height (%d)", dim->width, dim->height);
 
     if ( lib_handle->stream_running ) {
 
         if ( lib_handle->test_obj.zsl_enabled) {
+
+            CDBG_LOW("Preview in ZSL mode");
+
             if ( NULL != dim) {
                 if ( ( lib_handle->test_obj.buffer_width != dim->width) ||
-                     ( lib_handle->test_obj.buffer_height = dim->height ) ) {
+                     ( lib_handle->test_obj.buffer_height != dim->height ) ) {
 
                     lib_handle->test_obj.buffer_width = dim->width;
                     lib_handle->test_obj.buffer_height = dim->height;
@@ -1824,6 +1850,9 @@ int tuneserver_capture(mm_camera_lib_handle *lib_handle,
 
             mm_camera_app_wait();
         } else {
+
+            CDBG_LOW("Preview in non ZSL mode");
+
             // For standard 2D capture streaming has to be disabled first
             rc = mm_camera_lib_stop_stream(lib_handle);
             if (rc != MM_CAMERA_OK) {
