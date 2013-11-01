@@ -1351,7 +1351,7 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
         break;
     case CAM_STREAM_TYPE_SNAPSHOT:
         {
-            if (mParameters.isZSLMode()) {
+            if (mParameters.isZSLMode() || mLongshotEnabled) {
                 bufferCnt = zslQBuffers + minCircularBufNum;
             } else {
                 bufferCnt = minCaptureBuffers*CAMERA_PPROC_OUT_BUFFER_MULTIPLIER +
@@ -1574,7 +1574,8 @@ QCameraHeapMemory *QCamera2HardwareInterface::allocateStreamInfoBuf(
     switch (stream_type) {
     case CAM_STREAM_TYPE_SNAPSHOT:
     case CAM_STREAM_TYPE_RAW:
-        if (mParameters.isZSLMode() && mParameters.getRecordingHintValue() != true) {
+        if ((mParameters.isZSLMode() && mParameters.getRecordingHintValue() != true) ||
+                 mLongshotEnabled) {
             streamInfo->streaming_mode = CAM_STREAMING_MODE_CONTINUOUS;
         } else {
             streamInfo->streaming_mode = CAM_STREAMING_MODE_BURST;
@@ -1584,10 +1585,17 @@ QCameraHeapMemory *QCamera2HardwareInterface::allocateStreamInfoBuf(
         }
         break;
     case CAM_STREAM_TYPE_POSTVIEW:
-        streamInfo->streaming_mode = CAM_STREAMING_MODE_BURST;
-        streamInfo->num_of_burst = mParameters.getNumOfSnapshots()
-            + mParameters.getNumOfExtraHDRInBufsIfNeeded()
-            - mParameters.getNumOfExtraHDROutBufsIfNeeded();
+        if (mLongshotEnabled) {
+            streamInfo->streaming_mode = CAM_STREAMING_MODE_CONTINUOUS;
+        } else {
+            streamInfo->streaming_mode = CAM_STREAMING_MODE_BURST;
+            streamInfo->num_of_burst = mParameters.getNumOfSnapshots()
+                + mParameters.getNumOfExtraHDRInBufsIfNeeded()
+                - mParameters.getNumOfExtraHDROutBufsIfNeeded();
+        }
+        break;
+    case CAM_STREAM_TYPE_VIDEO:
+        streamInfo->useAVTimer = mParameters.isAVTimerEnabled();
         break;
     default:
         break;
@@ -2134,6 +2142,15 @@ int QCamera2HardwareInterface::takePicture()
                     delChannel(QCAMERA_CH_TYPE_CAPTURE);
                     return rc;
                 }
+
+                if ( mLongshotEnabled ) {
+                    rc = longShot();
+                    if (NO_ERROR != rc) {
+                        m_postprocessor.stop();
+                        delChannel(QCAMERA_CH_TYPE_CAPTURE);
+                        return rc;
+                    }
+                }
             } else {
                 ALOGE("%s: cannot add capture channel", __func__);
                 return rc;
@@ -2182,13 +2199,18 @@ int32_t QCamera2HardwareInterface::longShot()
 {
     int32_t rc = NO_ERROR;
     uint8_t numSnapshots = mParameters.getNumOfSnapshots();
+    QCameraPicChannel *pChannel = NULL;
 
-    QCameraPicChannel *pZSLChannel =
-            (QCameraPicChannel *)m_channels[QCAMERA_CH_TYPE_ZSL];
-    if (NULL != pZSLChannel) {
-        rc = pZSLChannel->takePicture(numSnapshots);
+    if (mParameters.isZSLMode()) {
+        pChannel = (QCameraPicChannel *)m_channels[QCAMERA_CH_TYPE_ZSL];
     } else {
-        ALOGE(" %s : ZSL channel not initialized!", __func__);
+        pChannel = (QCameraPicChannel *)m_channels[QCAMERA_CH_TYPE_CAPTURE];
+    }
+
+    if (NULL != pChannel) {
+        rc = pChannel->takePicture(numSnapshots);
+    } else {
+        ALOGE(" %s : Capture channel not initialized!", __func__);
         rc = NO_INIT;
         goto end;
     }
@@ -3023,13 +3045,14 @@ void QCamera2HardwareInterface::lockAPI()
 void QCamera2HardwareInterface::waitAPIResult(qcamera_sm_evt_enum_t api_evt)
 {
     ALOGV("%s: wait for API result of evt (%d)", __func__, api_evt);
-    memset(&m_apiResult, 0, sizeof(qcamera_api_result_t));
-    while (m_apiResult.request_api != api_evt) {
+    do {
         pthread_cond_wait(&m_cond, &m_lock);
-    }
+    } while (m_apiResult.request_api != api_evt);
+
     ALOGV("%s: return (%d) from API result wait for evt (%d)",
           __func__, m_apiResult.status, api_evt);
 }
+
 
 /*===========================================================================
  * FUNCTION   : unlockAPI
@@ -3528,7 +3551,7 @@ int32_t QCamera2HardwareInterface::addZSLChannel()
 int32_t QCamera2HardwareInterface::addCaptureChannel()
 {
     int32_t rc = NO_ERROR;
-    QCameraChannel *pChannel = NULL;
+    QCameraPicChannel *pChannel = NULL;
     char value[PROPERTY_VALUE_MAX];
     bool raw_yuv = false;
 
@@ -3537,7 +3560,7 @@ int32_t QCamera2HardwareInterface::addCaptureChannel()
         m_channels[QCAMERA_CH_TYPE_CAPTURE] = NULL;
     }
 
-    pChannel = new QCameraChannel(mCameraHandle->camera_handle,
+    pChannel = new QCameraPicChannel(mCameraHandle->camera_handle,
                                   mCameraHandle->ops);
     if (NULL == pChannel) {
         ALOGE("%s: no mem for capture channel", __func__);
@@ -3547,7 +3570,13 @@ int32_t QCamera2HardwareInterface::addCaptureChannel()
     // Capture channel, only need snapshot and postview streams start together
     mm_camera_channel_attr_t attr;
     memset(&attr, 0, sizeof(mm_camera_channel_attr_t));
-    attr.notify_mode = MM_CAMERA_SUPER_BUF_NOTIFY_CONTINUOUS;
+    if ( mLongshotEnabled ) {
+        attr.notify_mode = MM_CAMERA_SUPER_BUF_NOTIFY_BURST;
+        attr.look_back = mParameters.getZSLBackLookCount();
+        attr.water_mark = mParameters.getZSLQueueDepth();
+    } else {
+        attr.notify_mode = MM_CAMERA_SUPER_BUF_NOTIFY_CONTINUOUS;
+    }
     attr.max_unmatched_frames = mParameters.getMaxUnmatchedFramesInQueue();
 
     rc = pChannel->init(&attr,
@@ -3568,13 +3597,24 @@ int32_t QCamera2HardwareInterface::addCaptureChannel()
         return rc;
     }
 
-    rc = addStreamToChannel(pChannel, CAM_STREAM_TYPE_POSTVIEW,
-                            NULL, this);
+    if (!mLongshotEnabled) {
+        rc = addStreamToChannel(pChannel, CAM_STREAM_TYPE_POSTVIEW,
+                                NULL, this);
 
-    if (rc != NO_ERROR) {
-        ALOGE("%s: add postview stream failed, ret = %d", __func__, rc);
-        delete pChannel;
-        return rc;
+        if (rc != NO_ERROR) {
+            ALOGE("%s: add postview stream failed, ret = %d", __func__, rc);
+            delete pChannel;
+            return rc;
+        }
+    } else {
+        rc = addStreamToChannel(pChannel, CAM_STREAM_TYPE_PREVIEW,
+                                preview_stream_cb_routine, this);
+
+      if (rc != NO_ERROR) {
+          ALOGE("%s: add preview stream failed, ret = %d", __func__, rc);
+          delete pChannel;
+          return rc;
+      }
     }
 
     rc = addStreamToChannel(pChannel, CAM_STREAM_TYPE_SNAPSHOT,

@@ -784,7 +784,12 @@ void QCamera2HardwareInterface::video_stream_cb_routine(mm_camera_super_buf_t *s
           frame->stream_id,
           frame->ts.tv_sec,
           frame->ts.tv_nsec);
-    nsecs_t timeStamp = nsecs_t(frame->ts.tv_sec) * 1000000000LL + frame->ts.tv_nsec;
+    nsecs_t timeStamp;
+    if(pme->mParameters.isAVTimerEnabled() == true) {
+        timeStamp = (((nsecs_t)frame->ts.tv_sec << 32) | frame->ts.tv_nsec) * 1000;
+    } else {
+        timeStamp = nsecs_t(frame->ts.tv_sec) * 1000000000LL + frame->ts.tv_nsec;
+    }
     ALOGE("Send Video frame to services/encoder TimeStamp : %lld", timeStamp);
     QCameraMemory *videoMemObj = (QCameraMemory *)frame->mem_info;
     camera_memory_t *video_mem = NULL;
@@ -1057,7 +1062,9 @@ void QCamera2HardwareInterface::metadata_stream_cb_routine(mm_camera_super_buf_t
     mm_camera_buf_def_t *frame = super_frame->bufs[0];
     cam_metadata_info_t *pMetaData = (cam_metadata_info_t *)frame->buffer;
 
-    if(pme->m_stateMachine.isNonZSLCaptureRunning()&& pMetaData->is_meta_valid == 1) {
+    if(pme->m_stateMachine.isNonZSLCaptureRunning()&&
+       (pMetaData->is_meta_valid == 1) &&
+       !pme->mLongshotEnabled) {
        //Make shutter call back in non ZSL mode once raw frame is received from VFE.
        pme->playShutter();
     }
