@@ -147,6 +147,11 @@ int mm_app_start_record_preview(mm_camera_test_obj_t *test_obj)
         return -MM_CAMERA_E_GENERAL;
     }
 
+    //modify the default snapshot width/height to preview dimension as there will not
+    //be  memory in the system to allocate bigger snapshots
+    test_obj->buffer_width  = test_obj->preview_resolution.user_input_display_width;
+    test_obj->buffer_height = test_obj->preview_resolution.user_input_display_height;
+
     s_ch = mm_app_add_snapshot_channel(test_obj);
     if (NULL == s_ch) {
         CDBG_ERROR("%s: add snapshot channel failed", __func__);

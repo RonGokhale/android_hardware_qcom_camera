@@ -176,6 +176,8 @@ const ISO_TBL_T iso_tbl[] = {
 const ZOOM_TBL_T zoom_tbl[] = {
     {   ZOOM_IN,  "Zoom In one step"},
     {   ZOOM_OUT, "Zoom Out one step"},
+    {   ZOOM_RESET_MIN, "Reset to no zoom"},
+    {   ZOOM_RESET_MAX, "Reset to max zoom"},
 };
 
 const BESTSHOT_MODE_TBT_T bestshot_mode_tbl[] = {
@@ -417,13 +419,14 @@ static void print_menu_preview_video(void)
         printf("\n");
         printf("===========================================\n");
         printf("      Camera is in preview/video mode now        \n");
+        printf("        Press 'C' To take Snapshot          \n");
         printf("===========================================\n\n");
     } else {
         printf("\n");
         printf("===========================================\n");
         printf("      Camera is in RECORDING mode now       \n");
-        printf("        Press 'Q' To Stop Recording          \n");
-        printf("        Press 'S' To Take Live Snapshot       \n");
+        printf("        Press 'E' To Stop Recording          \n");
+        printf("        Press 'F' To Take Live Snapshot       \n");
         printf("===========================================\n\n");
     }
     char menuNum = 'A';
@@ -549,8 +552,8 @@ static void camera_resolution_change_tbl(void)
          sizeof(snapshot_dimension_tbl[0]); i++) {
         if ( snapshot_dimension_tbl[i].supported ) {
             printf("%c.  %s\n", submenuNum, snapshot_dimension_tbl[i].str_name);
+            submenuNum++;
         }
-        submenuNum++;
     }
 
     printf("\nPlease enter your choice for Resolution: ");
@@ -591,8 +594,8 @@ static void camera_preview_resolution_change_tbl(void)
          sizeof(preview_dimension_tbl[0]); i++) {
         if ( preview_dimension_tbl[i].supported ) {
             printf("%c.  %s\n", submenuNum, preview_dimension_tbl[i].str_name);
+            submenuNum++;
         }
-        submenuNum++;
     }
 
     printf("\nPlease enter your choice for Resolution: ");
@@ -1143,11 +1146,15 @@ static void set_zoom (mm_camera_test_obj_t *test_obj, int zoom_action_param)
         zoom_level -= ZOOM_STEP;
         if (zoom_level < ZOOM_MIN_VALUE)
             zoom_level = ZOOM_MIN_VALUE;
+    } else if (zoom_action_param == ZOOM_RESET_MIN) {
+        zoom_level = ZOOM_MIN_VALUE;
+    } else if (zoom_action_param == ZOOM_RESET_MAX) {
+        zoom_level = zoom_max_value;
     } else {
-        CDBG_HIGH("%s: Invalid zoom_action_param value\n", __func__);
+        printf("%s: Invalid zoom_action_param value\n", __func__);
     }
 
-    CDBG("Setting zoom to: %d", zoom_level);
+    printf("\nSetting zoom to: %d\n", zoom_level);
 
     setZoom(test_obj, zoom_level);
 }
@@ -1521,7 +1528,7 @@ static void get_supported_max_preview_resolution(int *width, int *height)
     CDBG("start idx: %d, width (%d), height(%d)", start_idx, *width, *height);
 }
 
-static void set_selected_jpeg_resolution(int idx, int *jpeg_quality)
+static void set_jpeg_quality(int idx, int *jpeg_quality)
 {
     int cnt = 0, i = 0;
     int max_idx = sizeof(jpeg_quality_tbl) / sizeof(jpeg_quality_tbl[0]);
@@ -1666,7 +1673,7 @@ static int submain()
         fgets(tc_buf, 3, stdin);
 
         next_menu_id = next_menu(current_menu_id, tc_buf[0], & action_id, & action_param);
-        printf("action_id = %d\n", action_id);
+        CDBG("action_id = %d", action_id);
 
         if (next_menu_id != MENU_ID_INVALID) {
             current_menu_id = next_menu_id;
@@ -1748,6 +1755,8 @@ static int submain()
 
                 assert(previewing == 1);
 
+                printf("\n Taking snapshot of size: %dx%d \n", test_obj.buffer_width, test_obj.buffer_height);
+
                 rc = mm_app_take_picture(&test_obj, 0);
                 if (rc != MM_CAMERA_OK) {
                     printf("%s(%d): Take snapshot failed%d\n", __func__, __LINE__, rc);
@@ -1758,7 +1767,7 @@ static int submain()
             case ACTION_SET_JPEG_QUALITY:
                 CDBG("Set JPEG QUALITY");
                 current_menu_id = MENU_ID_MAIN;
-                set_selected_jpeg_resolution(action_param, &test_obj.jpeg_quality);
+                set_jpeg_quality(action_param, &test_obj.jpeg_quality);
                 printf("\n Selected JPEG Quality:%d \n", test_obj.jpeg_quality);
                 break;
 
@@ -1775,6 +1784,11 @@ static int submain()
 
             case ACTION_SWITCH_PREVIEW_RESOLUTION:
                 current_menu_id = MENU_ID_MAIN;
+
+                if (is_rec == 1) {
+                    printf("Recoding in progress. Pls stop record before this operation");
+                    break;
+                }
 
                 printf("In ACTION_SWITCH_PREVIEW_RESOLUTION\n");
                 assert(previewing == 1);
@@ -1818,6 +1832,11 @@ static int submain()
 
             case ACTION_START_RECORDING:
                 CDBG("Start recording action\n");
+
+                if (is_rec == 1) {
+                    printf("Recoding in progress. Pls stop record before this operation");
+                    break;
+                }
 
                 assert (previewing == 1);
 
@@ -1887,6 +1906,10 @@ static int submain()
                     break;
                 }
 
+                printf("\n Taking live snapshot of size: %dx%d \n", \
+                       test_obj.preview_resolution.user_input_display_width, \
+                       test_obj.preview_resolution.user_input_display_height);
+
                 rc = mm_app_start_live_snapshot(&test_obj);
                 usleep(1000 * 1000);
                 if (rc != MM_CAMERA_OK) {
@@ -1903,6 +1926,11 @@ static int submain()
                 }
 
             case ACTION_EXIT:
+                if (is_rec == 1) {
+                    printf("Please stop recording before exiting\n");
+                    action_id = ACTION_NO_ACTION;
+                    break;
+                }
                 printf("Exiting....\n");
                 break;
 
@@ -1916,8 +1944,6 @@ static int submain()
         }
 
         usleep(1000 * 1000);
-
-        //action_id = ACTION_NO_ACTION;
 
     } while (action_id != ACTION_EXIT);
 
