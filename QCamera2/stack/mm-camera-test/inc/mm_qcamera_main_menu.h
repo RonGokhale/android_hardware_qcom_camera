@@ -343,6 +343,8 @@ typedef enum
 typedef enum {
   ZOOM_IN,
   ZOOM_OUT,
+  ZOOM_RESET_MIN,
+  ZOOM_RESET_MAX,
 } Zoom_direction;
 
 typedef struct{
