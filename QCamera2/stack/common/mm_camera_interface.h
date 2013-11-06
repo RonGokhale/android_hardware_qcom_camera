@@ -374,6 +374,16 @@ typedef struct {
     int32_t (*prepare_snapshot) (uint32_t camera_handle,
                                  int32_t do_af_flag);
 
+    /** unprepare_snapshot: fucntion definition for unpreparing
+     *                    hardware for snapshot.
+     *    @camera_handle : camer handler
+     *    @ch_id : channel handler
+     *  Return value: 0 -- success
+     *                -1 -- failure
+     **/
+    int32_t (*unprepare_snapshot) (uint32_t camera_handle,
+                                   uint32_t ch_id);
+
     /** add_channel: fucntion definition for adding a channel
      *    @camera_handle : camer handler
      *    @ch_id : channel handler

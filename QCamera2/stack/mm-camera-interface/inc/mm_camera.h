@@ -69,6 +69,8 @@ typedef enum
     MM_CAMERA_CMD_TYPE_SUPER_BUF_DATA_CB,    /* superbuf dataB CMD */
     MM_CAMERA_CMD_TYPE_CONFIG_NOTIFY, /* configure notify mode */
     MM_CAMERA_CMD_TYPE_FLUSH_QUEUE, /* flush queue */
+    MM_CAMERA_CMD_TYPE_UNPREPARE_SNAPSHOT, /* unprepare snapshot */
+    MM_CAMERA_CMD_TYPE_GENERAL, /* general command */
     MM_CAMERA_CMD_TYPE_MAX
 } mm_camera_cmdcb_type_t;
 
@@ -248,6 +250,7 @@ typedef enum {
     MM_CHANNEL_EVT_CANCEL_REQUEST_SUPER_BUF,
     MM_CHANNEL_EVT_FLUSH_SUPER_BUF_QUEUE,
     MM_CHANNEL_EVT_CONFIG_NOTIFY_MODE,
+    MM_CHANNEL_EVT_UNPREPARE_SNAPSHOT,
     MM_CHANNEL_EVT_MAP_STREAM_BUF,
     MM_CHANNEL_EVT_UNMAP_STREAM_BUF,
     MM_CHANNEL_EVT_SET_STREAM_PARM,
@@ -438,6 +441,8 @@ extern int32_t mm_camera_do_auto_focus(mm_camera_obj_t *my_obj);
 extern int32_t mm_camera_cancel_auto_focus(mm_camera_obj_t *my_obj);
 extern int32_t mm_camera_prepare_snapshot(mm_camera_obj_t *my_obj,
                                           int32_t do_af_flag);
+extern int32_t mm_camera_unprepare_snapshot(mm_camera_obj_t *my_obj,
+                                            uint32_t ch_id);
 extern int32_t mm_camera_start_zsl_snapshot(mm_camera_obj_t *my_obj);
 extern int32_t mm_camera_stop_zsl_snapshot(mm_camera_obj_t *my_obj);
 extern uint32_t mm_camera_add_channel(mm_camera_obj_t *my_obj,

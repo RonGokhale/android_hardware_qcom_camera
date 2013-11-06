@@ -467,6 +467,7 @@ public:
     bool getRecordingHintValue() {return m_bRecordingHint;}; // return local copy of video hint
     int setRecordingHintValue(int32_t value); // set local copy of video hint and send to server
                                               // no change in parameters value
+    int32_t setAecLock(const char *aecStr);
     int getJpegQuality();
     int getJpegRotation();
     int32_t getFlashValue();
@@ -529,6 +530,11 @@ public:
     const char *getASDStateString(cam_auto_scene_t scene);
     bool isHDRThumbnailProcessNeeded() { return m_bHDRThumbnailProcessNeeded; };
 	int getAutoFlickerMode();
+
+    void setUnPrepSnapNeeded(bool bNeedflag) {m_bNeedUnPrepSnap = bNeedflag;};
+    bool isUnPrepSnapNeeded() {return m_bNeedUnPrepSnap;};
+    void setNoNeedPrepSnapshot(bool bflag) {m_bNoNeedPrepSnapshot = bflag;};
+    bool isPrepSnapshotNeeded() {return !m_bNoNeedPrepSnapshot;};
 
 private:
     int32_t setPreviewSize(const QCameraParameters& );
@@ -601,7 +607,6 @@ private:
     int32_t setZoom(int zoom_level);
     int32_t setISOValue(const char *isoValue);
     int32_t setFlash(const char *flashStr);
-    int32_t setAecLock(const char *aecStr);
     int32_t setAwbLock(const char *awbStr);
     int32_t setMCEValue(const char *mceStr);
     int32_t setDISValue(const char *disStr);
@@ -724,7 +729,8 @@ private:
     bool m_bHDROutputCropEnabled;     // if HDR output frame need to be scaled to user resolution
     QCameraTorchInterface *m_pTorch; // Interface for enabling torch
     bool m_bReleaseTorchCamera; // Release camera resources after torch gets disabled
-
+    bool m_bNeedUnPrepSnap;
+    bool m_bNoNeedPrepSnapshot;
     DefaultKeyedVector<String8,String8> m_tempMap; // map for temororily store parameters to be set
 };
 

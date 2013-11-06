@@ -161,6 +161,7 @@ public:
 
     bool isPreviewRunning(); // check if preview is running
     bool isCaptureRunning(); // check if image capture is running
+    bool isPrepSnapStateRunning();
 
 private:
     typedef enum {

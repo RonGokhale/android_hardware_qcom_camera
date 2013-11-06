@@ -75,6 +75,12 @@ void QCamera2HardwareInterface::zsl_channel_cb(mm_camera_super_buf_t *recvd_fram
         return;
     }
 
+    if(pme->m_bLedAfAecLock) {
+       ALOGE("%s : LED assisted AF Release AEC Lock\n", __func__);
+       pme->mParameters.setAecLock("false");
+       pme->mParameters.commitParameters();
+       pme->m_bLedAfAecLock = FALSE ;
+    }
     // save a copy for the superbuf
     mm_camera_super_buf_t* frame =
                (mm_camera_super_buf_t *)malloc(sizeof(mm_camera_super_buf_t));
@@ -624,7 +630,7 @@ void QCamera2HardwareInterface::nodisplay_preview_stream_cb_routine(
                                                           QCameraStream *stream,
                                                           void * userdata)
 {
-    ALOGD("[KPI Perf] %s E",__func__);
+    ALOGE("[KPI Perf] %s E",__func__);
     QCamera2HardwareInterface *pme = (QCamera2HardwareInterface *)userdata;
     if (pme == NULL ||
         pme->mCameraHandle == NULL ||
@@ -1164,6 +1170,10 @@ void QCamera2HardwareInterface::metadata_stream_cb_routine(mm_camera_super_buf_t
         qcamera_sm_internal_evt_payload_t *payload =
             (qcamera_sm_internal_evt_payload_t *)malloc(sizeof(qcamera_sm_internal_evt_payload_t));
         if (NULL != payload) {
+            ALOGE("%s : LED assisted AF LOCK AEC Lock\n", __func__);
+            pme->mParameters.setAecLock("true");
+            pme->mParameters.commitParameters();
+            pme->m_bLedAfAecLock = TRUE;
             memset(payload, 0, sizeof(qcamera_sm_internal_evt_payload_t));
             payload->evt_type = QCAMERA_INTERNAL_EVT_PREP_SNAPSHOT_DONE;
             payload->prep_snapshot_state = pMetaData->prep_snapshot_done_state;

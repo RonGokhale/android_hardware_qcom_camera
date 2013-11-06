@@ -399,6 +399,24 @@ QCameraStream *QCameraChannel::getStreamByIndex(uint8_t index)
     return NULL;
 }
 
+
+/*===========================================================================
+ * FUNCTION   : unprepareSnapshot
+ *
+ * DESCRIPTION: unprepare snapshot, resetting LED flag if needed
+ *
+ * PARAMETERS : none
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraChannel::unprepareSnapshot()
+{
+    int32_t rc = m_camOps->unprepare_snapshot(m_camHandle, m_handle);
+    return rc;
+}
+
 /*===========================================================================
  * FUNCTION   : UpdateStreamBasedParameters
  *

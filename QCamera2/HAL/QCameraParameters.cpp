@@ -581,6 +581,8 @@ QCameraParameters::QCameraParameters()
       m_bHDRThumbnailProcessNeeded(true),
       m_bHDR1xExtraBufferNeeded(true),
       m_bHDROutputCropEnabled(false),
+      m_bNeedUnPrepSnap(false),
+      m_bNoNeedPrepSnapshot(false),
       m_tempMap()
 {
     char value[32];
@@ -651,6 +653,8 @@ QCameraParameters::QCameraParameters(const String8 &params)
     m_bHDRThumbnailProcessNeeded(true),
     m_bHDR1xExtraBufferNeeded(true),
     m_bHDROutputCropEnabled(false),
+    m_bNeedUnPrepSnap(false),
+    m_bNoNeedPrepSnapshot(false),
     m_tempMap()
 {
     memset(&m_LiveSnapshotSize, 0, sizeof(m_LiveSnapshotSize));
@@ -4844,6 +4848,10 @@ int32_t QCameraParameters::setFocusAreas(const char *focusAreasStr)
         areas[0].rect.height == 0 &&
         areas[0].weight == 0) {
         num_areas_found = 0;
+        // focus area is reset, need to prepare snapshot again
+        ALOGD(" [PREPARE_SNAP_DBG] %s: Reset PREP Snap & AFRunnig ", __func__);
+        setNoNeedPrepSnapshot(false);
+        setUnPrepSnapNeeded(true);
     }
 
     int previewWidth, previewHeight;
