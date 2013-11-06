@@ -1088,17 +1088,33 @@ int32_t QCameraStateMachine::procEvtPreviewingState(qcamera_sm_evt_enum_t evt,
         break;
     case QCAMERA_SM_EVT_PREPARE_SNAPSHOT:
         {
-            rc = m_parent->prepareHardwareForSnapshot(FALSE);
-            if (rc == NO_ERROR) {
-                // Do not signal API result in this case.
-                // Need to wait for snapshot done in metadta.
-                m_state = QCAMERA_SM_STATE_PREPARE_SNAPSHOT;
+            if (m_parent->needPrepSnapshot()) {
+                // reset LEF flash flag
+                m_parent->setLEDFlashNeeded(false);
+                int32_t doAF = FALSE;
+                if (m_parent->isZSLMode()) {
+                    // Need to do full sweep of auto foucs during AEC evalutation
+                    // in LED_LOW
+                    doAF = TRUE;
+                }
+                rc = m_parent->prepareHardwareForSnapshot(doAF);
+                if (rc == NO_ERROR) {
+                    // Do not signal API result in this case.
+                    // Need to wait for snapshot done in metadta.
+                    m_state = QCAMERA_SM_STATE_PREPARE_SNAPSHOT;
+                    ALOGD("%s:%d change m_state to %d", __FUNCTION__, __LINE__, m_state);
+                } else {
+                    // Do not change state in this case.
+                    ALOGE("%s: prepareHardwareForSnapshot failed %d",
+                        __func__, rc);
+                    result.status = rc;
+                    result.request_api = evt;
+                    result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
+                    m_parent->signalAPIResult(&result);
+                }
             } else {
-                // Do not change state in this case.
-                ALOGE("%s: prepareHardwareForSnapshot failed %d",
-                    __func__, rc);
-
-                result.status = rc;
+                ALOGW("%s: already did, no need to call prepareSnapshot", __func__);
+                result.status = NO_ERROR;
                 result.request_api = evt;
                 result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
                 m_parent->signalAPIResult(&result);
@@ -1109,6 +1125,11 @@ int32_t QCameraStateMachine::procEvtPreviewingState(qcamera_sm_evt_enum_t evt,
        {
            if ( m_parent->mParameters.getRecordingHintValue() == false) {
                if (m_parent->isZSLMode() || m_parent->isLongshotEnabled()) {
+                   if (m_parent->isLEDFlashNeeded()) {
+                       // need to call start_zsl_snapshot when LED is needed
+                       m_parent->processPrepSnapshotDoneEvent(NEED_FUTURE_FRAME);
+                       m_parent->setLEDFlashNeeded(false);
+                   }
                    m_state = QCAMERA_SM_STATE_PREVIEW_PIC_TAKING;
                    rc = m_parent->takePicture();
                    if (rc != NO_ERROR) {
@@ -1191,6 +1212,11 @@ int32_t QCameraStateMachine::procEvtPreviewingState(qcamera_sm_evt_enum_t evt,
                 rc = m_parent->processAutoFocusEvent(internal_evt->focus_data);
                 break;
             case QCAMERA_INTERNAL_EVT_PREP_SNAPSHOT_DONE:
+                if (internal_evt->prep_snapshot_state == NEED_FUTURE_FRAME) {
+                    m_parent->setLEDFlashNeeded(true);
+                } else {
+                    m_parent->setLEDFlashNeeded(false);
+                }
                 break;
             case QCAMERA_INTERNAL_EVT_FACE_DETECT_RESULT:
                 rc = m_parent->processFaceDetectionResult(&internal_evt->faces_data);
@@ -2794,6 +2820,25 @@ bool QCameraStateMachine::isPreviewRunning()
     case QCAMERA_SM_STATE_RECORDING:
     case QCAMERA_SM_STATE_VIDEO_PIC_TAKING:
     case QCAMERA_SM_STATE_PREVIEW_PIC_TAKING:
+    case QCAMERA_SM_STATE_PREPARE_SNAPSHOT:
+        return true;
+    default:
+        return false;
+    }
+}
+/*===========================================================================
+ * FUNCTION   : isPrepSnapStateRunning
+ *
+ * DESCRIPTION: check if Prep Snap is in process.
+ *
+ * PARAMETERS : None
+ *
+ * RETURN     : true -- Prep Snap running
+ *              false -- Not in Prep Snap
+ *==========================================================================*/
+bool QCameraStateMachine::isPrepSnapStateRunning()
+{
+    switch (m_state) {
     case QCAMERA_SM_STATE_PREPARE_SNAPSHOT:
         return true;
     default:

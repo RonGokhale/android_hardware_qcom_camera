@@ -633,6 +633,47 @@ int32_t mm_camera_prepare_snapshot(mm_camera_obj_t *my_obj,
 }
 
 /*===========================================================================
+ * FUNCTION   : mm_camera_unprepare_snapshot
+ *
+ * DESCRIPTION: unprepare hardware for snapshot
+ *
+ * PARAMETERS :
+ *   @my_obj  : camera object
+ *   @ch_id   : channel handle
+ *
+ * RETURN     : int32_t type of status
+ *              0  -- success
+ *              -1 -- failure
+ *==========================================================================*/
+int32_t mm_camera_unprepare_snapshot(mm_camera_obj_t *my_obj,
+                                     uint32_t ch_id)
+{
+    int32_t rc = -1;
+
+    if (ch_id == 0) {
+        CDBG("%s no ZSL channel specified, noops here", __func__);
+        pthread_mutex_unlock(&my_obj->cam_lock);
+        return 0;
+    }
+
+    mm_channel_t * ch_obj =
+        mm_camera_util_get_channel_by_handler(my_obj, ch_id);
+
+    if (NULL != ch_obj) {
+        pthread_mutex_lock(&ch_obj->ch_lock);
+        pthread_mutex_unlock(&my_obj->cam_lock);
+
+        rc = mm_channel_fsm_fn(ch_obj,
+                               MM_CHANNEL_EVT_UNPREPARE_SNAPSHOT,
+                               NULL,
+                               NULL);
+    } else {
+        pthread_mutex_unlock(&my_obj->cam_lock);
+    }
+    return rc;
+}
+
+/*===========================================================================
  * FUNCTION   : mm_camera_start_zsl_snapshot
  *
  * DESCRIPTION: start zsl snapshot

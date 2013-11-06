@@ -334,6 +334,9 @@ private:
     int32_t processJpegNotify(qcamera_jpeg_evt_payload_t *jpeg_job);
     int32_t processHDRData(cam_asd_hdr_scene_data_t hdr_scene);
 
+    void setLEDFlashNeeded(bool bNeedLED) {m_bNeedLEDFlash = bNeedLED;};
+    bool isLEDFlashNeeded() { return m_bNeedLEDFlash;};
+
     int32_t sendEvtNotify(int32_t msg_type, int32_t ext1, int32_t ext2);
     int32_t sendDataNotify(int32_t msg_type,
                            camera_memory_t *data,
@@ -378,6 +381,7 @@ private:
     bool isLongshotEnabled() { return mLongshotEnabled; };
     uint8_t getBufNumRequired(cam_stream_type_t stream_type);
     bool needFDMetadata(qcamera_ch_type_enum_t channel_type);
+    bool needPrepSnapshot() {return mParameters.isPrepSnapshotNeeded();};
 
     static void camEvtHandle(uint32_t camera_handle,
                           mm_camera_event_t *evt,
@@ -477,7 +481,10 @@ private:
     // and beforeany focus callback/cancel_focus happens. This flag is not an indication
     // of whether lens is moving or not.
     bool m_bAutoFocusRunning;
+    bool m_bLedAfAecLock;
     cam_autofocus_state_t m_currentFocusState;
+    bool m_bNeedLEDFlash;
+    bool m_bNeedLedFrom3A;
 
     power_module_t *m_pPowerModule;   // power module
 
