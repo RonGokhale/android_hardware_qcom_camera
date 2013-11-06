@@ -1361,8 +1361,12 @@ int32_t QCameraParameters::setJpegThumbnailSize(const QCameraParameters& params)
                 optimalHeight = THUMBNAIL_SIZES_MAP[i].height;
             }
         }
+        if (optimalWidth == 0 && optimalHeight == 0) {
+            ALOGD("%s: Could not find optimal size", __func__);
+            optimalWidth = width;
+            optimalHeight = height;
+        }
     }
-
     set(KEY_JPEG_THUMBNAIL_WIDTH, optimalWidth);
     set(KEY_JPEG_THUMBNAIL_HEIGHT, optimalHeight);
     return NO_ERROR;
@@ -7615,7 +7619,7 @@ cam_dimension_t *QCameraReprocScaleParam::getTotalSizeTbl()
  *==========================================================================*/
 bool QCameraParameters::isHDREnabled()
 {
-    return (m_bHDREnabled || m_HDRSceneEnabled);
+    return ((m_nBurstNum == 1) && (m_bHDREnabled || m_HDRSceneEnabled));
 }
 
 /*===========================================================================
