@@ -34,6 +34,8 @@
 #define LIKELY(exp)   __builtin_expect(!!(exp), 1)
 #define UNLIKELY(exp) __builtin_expect(!!(exp), 0)
 
+#define PROP_BUF_SIZE 100
+
 /* QCameraStream_record class implementation goes here*/
 /* following code implement the video streaming capture & encoding logic of this class*/
 // ---------------------------------------------------------------------------
@@ -136,7 +138,8 @@ status_t QCameraStream_record::processRecordFrame(mm_camera_super_buf_t *frame)
     void *rdata = mHalCamCtrl->mCallbackCookie;
     if(mHalCamCtrl->isAVTimerEnabled()){
         /*Provide AVTimer TimeStamp in nano seconds*/
-        timeStamp = (((nsecs_t)frame->bufs[0]->ts.tv_sec << 32) | frame->bufs[0]->ts.tv_nsec) * 1000;
+        timeStamp = (((nsecs_t)frame->bufs[0]->ts.tv_sec << 32) | \
+                      ((uint32_t)frame->bufs[0]->ts.tv_nsec)) * 1000;
     } else {
         timeStamp = nsecs_t(frame->bufs[0]->ts.tv_sec)*1000000000LL + \
                       frame->bufs[0]->ts.tv_nsec;
@@ -214,7 +217,7 @@ status_t QCameraStream_record::getBuf(mm_camera_frame_len_offset *frame_offset_i
     memset(mRecordBuf, 0, sizeof(mRecordBuf));
     memcpy(&mFrameOffsetInfo, frame_offset_info, sizeof(mFrameOffsetInfo));
 
-    char value[32];
+    char value[PROP_BUF_SIZE];
     bool cached = QCAMERA_ION_USE_CACHED;
     property_get("persist.camera.mem.usecache", value, "1");
     if (atoi(value) == 0) {
