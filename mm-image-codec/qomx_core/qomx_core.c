@@ -231,7 +231,7 @@ OMX_API OMX_ERRORTYPE OMX_APIENTRY OMX_GetHandle(
     /* load the library */
     p_core_comp->lib_handle = dlopen(p_core_comp->lib_name, RTLD_NOW);
     if (NULL == p_core_comp->lib_handle) {
-      ALOGE("%s:%d] Cannot load the library", __func__, __LINE__);
+      ALOGE("%s:%d] dlopen error: %s", __func__, __LINE__, dlerror());
       rc = OMX_ErrorInvalidComponent;
       goto error;
     }
