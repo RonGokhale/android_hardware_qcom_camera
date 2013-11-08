@@ -4470,8 +4470,7 @@ int32_t QCameraHardwareInterface::flipVertical(uint8_t * buffer,
   uint8_t * scratch = (uint8_t *)malloc(width);
   uint32_t stride = width;
 
-  DurationTimer dt;
-  dt.start();
+  nsecs_t startTime = systemTime();
 
   /* flip Y */
   for (i = 0; i < height/2; i++) {
@@ -4504,8 +4503,7 @@ int32_t QCameraHardwareInterface::flipVertical(uint8_t * buffer,
     memcpy(r2, scratch, width);
   }
 
-  dt.stop();
-  ALOGV("V flip took %lld us\n", dt.durationUsecs());
+  ALOGV("V flip took %lld us\n", (systemTime() - startTime) / 1000LL);
 
   free(scratch);
 
