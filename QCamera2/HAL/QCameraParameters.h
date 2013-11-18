@@ -43,7 +43,15 @@ static const char ExifUndefinedPrefix[] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
 
 #define GPS_PROCESSING_METHOD_SIZE       101
 #define EXIF_ASCII_PREFIX_SIZE           8   //(sizeof(ExifAsciiPrefix))
-#define FOCAL_LENGTH_DECIMAL_PRECISION   100
+#define FOCAL_LENGTH_DECIMAL_PRECISION   1000
+
+class QCameraTorchInterface
+{
+public:
+    virtual int prepareTorchCamera() = 0;
+    virtual int releaseTorchCamera() = 0;
+    virtual ~QCameraTorchInterface() {}
+};
 
 class QCameraAdjustFPS
 {
@@ -427,7 +435,10 @@ public:
     void setTouchIndexAf(int x, int y);
     void getTouchIndexAf(int *x, int *y);
 
-    int32_t init(cam_capability_t *, mm_camera_vtbl_t *, QCameraAdjustFPS *);
+    int32_t init(cam_capability_t *,
+                 mm_camera_vtbl_t *,
+                 QCameraAdjustFPS *,
+                 QCameraTorchInterface *);
     void deinit();
     int32_t assign(QCameraParameters& params);
     int32_t initDefaultParameters();
@@ -459,7 +470,9 @@ public:
                                               // no change in parameters value
     int getJpegQuality();
     int getJpegRotation();
-
+    int32_t getFlashValue();
+    int32_t getSupportedFlashModes();
+    int32_t getRedEyeValue();
     int32_t getExifDateTime(char *dateTime, uint32_t &count);
     int32_t getExifFocalLength(rat_t *focalLenght);
     uint16_t getExifIsoSpeed();
@@ -559,6 +572,8 @@ private:
     int32_t setFocusAreas(const QCameraParameters& );
     int32_t setMeteringAreas(const QCameraParameters& );
     int32_t setSceneMode(const QCameraParameters& );
+    int32_t setScenePreferences(const QCameraParameters& );
+    int32_t setSceneFocusMode(const QCameraParameters& );
     int32_t setSelectableZoneAf(const QCameraParameters& );
     int32_t setAEBracket(const QCameraParameters& );
     int32_t setRedeyeReduction(const QCameraParameters& );
@@ -716,6 +731,8 @@ private:
     bool m_bHDRThumbnailProcessNeeded;        // if thumbnail need to be processed for HDR
     bool m_bHDR1xExtraBufferNeeded;     // if extra frame with exposure compensation 0 during HDR is needed
     bool m_bHDROutputCropEnabled;     // if HDR output frame need to be scaled to user resolution
+    QCameraTorchInterface *m_pTorch; // Interface for enabling torch
+    bool m_bReleaseTorchCamera; // Release camera resources after torch gets disabled
 
     DefaultKeyedVector<String8,String8> m_tempMap; // map for temororily store parameters to be set
 };
