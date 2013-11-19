@@ -884,12 +884,13 @@ int32_t mm_jpegdec_destroy_session(mm_jpeg_obj *my_obj,
   uint8_t clnt_idx = 0;
   mm_jpeg_job_q_node_t *node = NULL;
   OMX_BOOL ret = OMX_FALSE;
-  uint32_t session_id = p_session->sessionId;
+  uint32_t session_id = 0;
 
   if (NULL == p_session) {
     CDBG_ERROR("%s:%d] invalid session", __func__, __LINE__);
-    return rc;
+    return rc; //FIXME rc always returns 0. Shall return a suitable code on failure.
   }
+  session_id = p_session->sessionId;
 
   pthread_mutex_lock(&my_obj->job_lock);
 

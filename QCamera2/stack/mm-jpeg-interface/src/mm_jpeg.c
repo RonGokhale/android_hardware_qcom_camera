@@ -2301,13 +2301,17 @@ mm_jpeg_job_q_node_t* mm_jpeg_queue_remove_job_by_job_id(
     node = member_of(pos, mm_jpeg_q_node_t, list);
     data = (mm_jpeg_job_q_node_t *)node->data;
 
+    if (NULL == data) {
+      pos = pos->next;
+      continue;
+    }
     if (data->type == MM_JPEG_CMD_TYPE_DECODE_JOB) {
       lq_job_id = data->dec_info.job_id;
     } else {
       lq_job_id = data->enc_info.job_id;
     }
 
-    if (data && (lq_job_id == job_id)) {
+    if (lq_job_id == job_id) {
       CDBG_ERROR("%s:%d] found matching job id", __func__, __LINE__);
       job_node = data;
       cam_list_del_node(&node->list);
