@@ -343,6 +343,27 @@ uint32_t QCamera3Channel::getStreamTypeMask()
 }
 
 /*===========================================================================
+ * FUNCTION   : getStreamID
+ *
+ * DESCRIPTION: Get StreamID of requested stream type
+ *
+ * PARAMETERS : streamMask
+ *
+ * RETURN     : Stream ID
+ *==========================================================================*/
+uint32_t QCamera3Channel::getStreamID(uint32_t streamMask)
+{
+    uint32_t streamID = 0;
+    for (int i = 0; i < m_numStreams; i++) {
+        if (streamMask == (uint32_t )(0x1 << mStreams[i]->getMyType())) {
+            streamID = mStreams[i]->getMyServerID();
+            break;
+        }
+    }
+    return streamID;
+}
+
+/*===========================================================================
  * FUNCTION   : getInternalFormatBuffer
  *
  * DESCRIPTION: return buffer in the internal format structure
@@ -1123,7 +1144,7 @@ int32_t QCamera3PicChannel::initialize()
         return rc;
     }
 
-    streamType = CAM_STREAM_TYPE_NON_ZSL_SNAPSHOT;
+    streamType = CAM_STREAM_TYPE_SNAPSHOT;
     streamFormat = CAM_FORMAT_YUV_420_NV21;
     streamDim.width = mCamera3Stream->width;
     streamDim.height = mCamera3Stream->height;
@@ -1251,7 +1272,7 @@ int32_t QCamera3PicChannel::registerBuffers(uint32_t num_buffers,
     }
 
     if (mCamera3Stream->format == HAL_PIXEL_FORMAT_BLOB) {
-        streamType = CAM_STREAM_TYPE_NON_ZSL_SNAPSHOT;
+        streamType = CAM_STREAM_TYPE_SNAPSHOT;
         streamFormat = CAM_FORMAT_YUV_420_NV21;
     } else {
         //TODO: Fail for other types of streams for now
