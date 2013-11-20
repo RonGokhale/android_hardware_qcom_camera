@@ -234,6 +234,7 @@ int usbCamInitDefaultParameters(camera_hardware_t *camHal)
     camHal->startPrvwCmdRecvd   = 0;
     camHal->freeVidBufIndx      = 0;
     camHal->numExifTableEntries = 0;
+    camHal->timeStampLastFrame  = 0;
     strcpy(camHal->recordingHint, "true");
 
     //Set picture size values
