@@ -62,10 +62,10 @@ static const int PICTURE_FORMAT_JPEG = 1;
 static const int PICTURE_FORMAT_RAW = 2;
 
 /* Default preview width in pixels */
-#define DEFAULT_USBCAM_PRVW_WD  352
+#define DEFAULT_USBCAM_PRVW_WD  640
 
 /* Default preview height in pixels */
-#define DEFAULT_USBCAM_PRVW_HT  288
+#define DEFAULT_USBCAM_PRVW_HT  480
 
 /* Default picture format */
 #define DEFAULT_USBCAM_PICT_FMT     PICTURE_FORMAT_JPEG
@@ -80,7 +80,7 @@ static const int PICTURE_FORMAT_RAW = 2;
 #define DEFAULT_USBCAM_PICT_QLTY  85
 
 /* Default thumbnail width in pixels */
-#define DEFAULT_USBCAM_THUMBNAIL_WD    432
+#define DEFAULT_USBCAM_THUMBNAIL_WD    352
 
 /* Default thumbnail height in pixels */
 #define DEFAULT_USBCAM_THUMBNAIL_HT    288
@@ -89,10 +89,10 @@ static const int PICTURE_FORMAT_RAW = 2;
 #define DEFAULT_USBCAM_THUMBNAIL_QLTY  85
 
 /* Default picture width in pixels */
-#define DEFAULT_USBCAM_VID_WD  176
+#define DEFAULT_USBCAM_VID_WD  352
 
 /* Default picture height in pixels */
-#define DEFAULT_USBCAM_VID_HT  144
+#define DEFAULT_USBCAM_VID_HT  288
 
 /* Default preview format */
 #define DEFAULT_USBCAM_PRVW_FMT HAL_PIXEL_FORMAT_YCrCb_420_SP
