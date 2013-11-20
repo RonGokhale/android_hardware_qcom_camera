@@ -62,10 +62,10 @@ static const int PICTURE_FORMAT_JPEG = 1;
 static const int PICTURE_FORMAT_RAW = 2;
 
 /* Default preview width in pixels */
-#define DEFAULT_USBCAM_PRVW_WD  1280//640
+#define DEFAULT_USBCAM_PRVW_WD  352
 
 /* Default preview height in pixels */
-#define DEFAULT_USBCAM_PRVW_HT  720//480
+#define DEFAULT_USBCAM_PRVW_HT  288
 
 /* Default picture format */
 #define DEFAULT_USBCAM_PICT_FMT     PICTURE_FORMAT_JPEG
@@ -88,6 +88,12 @@ static const int PICTURE_FORMAT_RAW = 2;
 /* Default thumbnail JPEG quality 0-100 */
 #define DEFAULT_USBCAM_THUMBNAIL_QLTY  85
 
+/* Default picture width in pixels */
+#define DEFAULT_USBCAM_VID_WD  176
+
+/* Default picture height in pixels */
+#define DEFAULT_USBCAM_VID_HT  144
+
 /* Default preview format */
 #define DEFAULT_USBCAM_PRVW_FMT HAL_PIXEL_FORMAT_YCrCb_420_SP
 
@@ -95,7 +101,10 @@ static const int PICTURE_FORMAT_RAW = 2;
 #define MIN_PREV_FPS            5000
 
 /* maximum of the default preview fps range in milli-Hz */
-#define MAX_PREV_FPS            121000
+#define MAX_PREV_FPS            30000
+
+/* default preview FPS in milli-Hz */
+#define DEFAULT_PREV_FPS        30
 
 //for histogram stats
 #define HISTOGRAM_STATS_SIZE 257
