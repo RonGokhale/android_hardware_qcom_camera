@@ -4721,7 +4721,7 @@ bool QCamera2HardwareInterface::needReprocess()
             return true;
     }
 
-    if (isZSLMode()) {
+    if (isZSLMode() && !mParameters.getRecordingHintValue()) {
         if (((gCamCapability[mCameraId]->min_required_pp_mask > 0) ||
              mParameters.isWNREnabled() || isCACEnabled())) {
             // TODO: add for ZSL HDR later
