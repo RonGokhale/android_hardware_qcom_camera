@@ -129,6 +129,13 @@ typedef struct {
     camera_release_callback  release_cb; // release callback
 } qcamera_callback_argm_t;
 
+typedef struct {
+   cam_dimension_t all_preview_sizes[MAX_SIZES_CNT];
+   uint8_t all_preview_sizes_cnt;
+   cam_dimension_t all_video_sizes[MAX_SIZES_CNT];
+   uint8_t all_video_sizes_cnt;
+} qcamera_saved_sizes_list;
+
 class QCameraCbNotifier {
 public:
     QCameraCbNotifier(QCamera2HardwareInterface *parent) :
@@ -165,9 +172,11 @@ private:
     QCameraCmdThread mProcTh;
     bool             mActive;
 };
+
 class QCamera2HardwareInterface : public QCameraAllocator,
                                   public QCameraThermalCallback,
-                                  public QCameraAdjustFPS
+                                  public QCameraAdjustFPS,
+                                  public QCameraTorchInterface
 {
 public:
     /* static variable and functions accessed by camera service */
@@ -219,6 +228,8 @@ public:
     // Implementation of QCameraAllocator
     virtual QCameraMemory *allocateStreamBuf(cam_stream_type_t stream_type,
                                              int size,
+                                             int stride,
+                                             int scanline,
                                              uint8_t &bufferCnt);
     virtual int32_t allocateMoreStreamBuf(QCameraMemory *mem_obj,
                                           int size,
@@ -231,6 +242,10 @@ public:
             void *userdata, void *data);
 
     virtual int recalcFPSRange(int &minFPS, int &maxFPS);
+
+    // Implementation of QCameraTorchInterface
+    virtual int prepareTorchCamera();
+    virtual int releaseTorchCamera();
 
     friend class QCameraStateMachine;
     friend class QCameraPostProcessor;
@@ -314,6 +329,9 @@ private:
     int getJpegQuality();
     int getJpegRotation();
     void getOrientation();
+    inline int getFlash(){ return mFlash; }
+    inline int getFlashPresence(){ return mFlashPresence; }
+    inline int getRedeye(){ return mRedEye; }
     QCameraExif *getExifData();
 
     int32_t processAutoFocusEvent(cam_auto_focus_data_t &focus_data);
@@ -367,7 +385,11 @@ private:
     bool isLongshotEnabled() { return mLongshotEnabled; };
     uint8_t getBufNumRequired(cam_stream_type_t stream_type);
     bool needFDMetadata(qcamera_ch_type_enum_t channel_type);
-
+    bool removeSizeFromList(cam_dimension_t* size_list,
+                            uint8_t length,
+                            cam_dimension_t size);
+    static void copyList(cam_dimension_t* src_list,
+                   cam_dimension_t* dst_list, uint8_t len);
     static void camEvtHandle(uint32_t camera_handle,
                           mm_camera_event_t *evt,
                           void *user_data);
@@ -476,11 +498,13 @@ private:
     qcamera_thermal_level_enum_t mThermalLevel;
     bool m_HDRSceneEnabled;
     bool mLongshotEnabled;
-
     int32_t m_max_pic_width;
     int32_t m_max_pic_height;
     uint8_t mFlashNeeded;
     int mCaptureRotation;
+    int32_t mFlash;
+    int32_t mRedEye;
+    int32_t mFlashPresence;
 };
 
 }; // namespace qcamera

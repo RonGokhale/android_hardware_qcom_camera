@@ -53,6 +53,8 @@
 namespace qcamera {
 
 cam_capability_t *gCamCapability[MM_CAMERA_MAX_NUM_SENSORS];
+qcamera_saved_sizes_list savedSizes[MM_CAMERA_MAX_NUM_SENSORS];
+
 static pthread_mutex_t g_camlock = PTHREAD_MUTEX_INITIALIZER;
 
 camera_device_ops_t QCamera2HardwareInterface::mCameraOps = {
@@ -1060,6 +1062,8 @@ int QCamera2HardwareInterface::openCamera()
     int32_t l_curr_height = 0;
     m_max_pic_width = 0;
     m_max_pic_height = 0;
+    char value[PROPERTY_VALUE_MAX];
+    int enable_4k2k;
     int i;
 
     if (mCameraHandle) {
@@ -1088,6 +1092,58 @@ int QCamera2HardwareInterface::openCamera()
         m_max_pic_height = l_curr_height;
       }
     }
+    //reset the preview and video sizes tables in case they were changed earlier
+    copyList(savedSizes[mCameraId].all_preview_sizes, gCamCapability[mCameraId]->preview_sizes_tbl,
+             savedSizes[mCameraId].all_preview_sizes_cnt);
+    gCamCapability[mCameraId]->preview_sizes_tbl_cnt = savedSizes[mCameraId].all_preview_sizes_cnt;
+    copyList(savedSizes[mCameraId].all_video_sizes, gCamCapability[mCameraId]->video_sizes_tbl,
+             savedSizes[mCameraId].all_video_sizes_cnt);
+    gCamCapability[mCameraId]->video_sizes_tbl_cnt = savedSizes[mCameraId].all_video_sizes_cnt;
+
+    //check if video size 4k x 2k support is enabled
+    property_get("sys.camera.4k2k.enable", value, "0");
+    enable_4k2k = atoi(value) > 0 ? 1 : 0;
+    ALOGD("%s: enable_4k2k is %d", __func__, enable_4k2k);
+    if (!enable_4k2k) {
+       //if the 4kx2k size exists in the supported preview size or
+       //supported video size remove it
+       bool found;
+       cam_dimension_t true_size_4k_2k;
+       cam_dimension_t size_4k_2k;
+       true_size_4k_2k.width = 4096;
+       true_size_4k_2k.height = 2160;
+       size_4k_2k.width = 3840;
+       size_4k_2k.height = 2160;
+
+       found = removeSizeFromList(gCamCapability[mCameraId]->preview_sizes_tbl,
+                                  gCamCapability[mCameraId]->preview_sizes_tbl_cnt,
+                                  true_size_4k_2k);
+       if (found) {
+          gCamCapability[mCameraId]->preview_sizes_tbl_cnt--;
+       }
+
+       found = removeSizeFromList(gCamCapability[mCameraId]->preview_sizes_tbl,
+                                  gCamCapability[mCameraId]->preview_sizes_tbl_cnt,
+                                  size_4k_2k);
+       if (found) {
+          gCamCapability[mCameraId]->preview_sizes_tbl_cnt--;
+       }
+
+
+       found = removeSizeFromList(gCamCapability[mCameraId]->video_sizes_tbl,
+                                  gCamCapability[mCameraId]->video_sizes_tbl_cnt,
+                                  true_size_4k_2k);
+       if (found) {
+          gCamCapability[mCameraId]->video_sizes_tbl_cnt--;
+       }
+
+       found = removeSizeFromList(gCamCapability[mCameraId]->video_sizes_tbl,
+                                  gCamCapability[mCameraId]->video_sizes_tbl_cnt,
+                                  size_4k_2k);
+       if (found) {
+          gCamCapability[mCameraId]->video_sizes_tbl_cnt--;
+       }
+    }
 
     int32_t rc = m_postprocessor.init(jpegEvtHandle, this);
     if (rc != 0) {
@@ -1110,7 +1166,13 @@ int QCamera2HardwareInterface::openCamera()
         gCamCapability[mCameraId]->padding_info.plane_padding = padding_info.plane_padding;
     }
 
-    mParameters.init(gCamCapability[mCameraId], mCameraHandle, this);
+    mParameters.init(gCamCapability[mCameraId], mCameraHandle, this, this);
+
+    rc = m_thermalAdapter.init(this);
+    if (rc != 0) {
+        ALOGE("Init thermal adapter failed");
+    }
+
     mCameraOpened = true;
 
     return NO_ERROR;
@@ -1230,6 +1292,15 @@ int QCamera2HardwareInterface::initCapabilities(int cameraId)
     memcpy(gCamCapability[cameraId], DATA_PTR(capabilityHeap,0),
                                         sizeof(cam_capability_t));
 
+    //copy the preview sizes and video sizes lists because they
+    //might be changed later
+    copyList(gCamCapability[cameraId]->preview_sizes_tbl, savedSizes[cameraId].all_preview_sizes,
+             gCamCapability[cameraId]->preview_sizes_tbl_cnt);
+    savedSizes[cameraId].all_preview_sizes_cnt = gCamCapability[cameraId]->preview_sizes_tbl_cnt;
+    copyList(gCamCapability[cameraId]->video_sizes_tbl, savedSizes[cameraId].all_video_sizes,
+             gCamCapability[cameraId]->video_sizes_tbl_cnt);
+    savedSizes[cameraId].all_video_sizes_cnt = gCamCapability[cameraId]->video_sizes_tbl_cnt;
+
     rc = NO_ERROR;
 
 query_failed:
@@ -1288,8 +1359,56 @@ int QCamera2HardwareInterface::getCapabilities(int cameraId,
     }
 
     info->orientation = gCamCapability[cameraId]->sensor_mount_angle;
+    property_set("camera.4k2k.enable", "0");
     pthread_mutex_unlock(&g_camlock);
     return rc;
+}
+
+/*===========================================================================
+ * FUNCTION   : prepareTorchCamera
+ *
+ * DESCRIPTION: initializes the camera ( if needed )
+ *              so torch can be configured.
+ *
+ * PARAMETERS :
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int QCamera2HardwareInterface::prepareTorchCamera()
+{
+    int rc = NO_ERROR;
+
+    if ( ( !m_stateMachine.isPreviewRunning() ) &&
+         ( m_channels[QCAMERA_CH_TYPE_PREVIEW] == NULL ) ) {
+        rc = addChannel(QCAMERA_CH_TYPE_PREVIEW);
+    }
+
+    return rc;
+}
+
+/*===========================================================================
+ * FUNCTION   : releaseTorchCamera
+ *
+ * DESCRIPTION: releases all previously acquired camera resources ( if any )
+ *              needed for torch configuration.
+ *
+ * PARAMETERS :
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int QCamera2HardwareInterface::releaseTorchCamera()
+{
+    if ( !m_stateMachine.isPreviewRunning() &&
+         ( m_channels[QCAMERA_CH_TYPE_PREVIEW] != NULL ) ) {
+        delete m_channels[QCAMERA_CH_TYPE_PREVIEW];
+        m_channels[QCAMERA_CH_TYPE_PREVIEW] = NULL;
+    }
+
+    return NO_ERROR;
 }
 
 /*===========================================================================
@@ -1422,6 +1541,8 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
  * PARAMETERS :
  *   @stream_type  : type of stream
  *   @size         : size of buffer
+ *   @stride       : stride of buffer
+ *   @scanline     : scanline of buffer
  *   @bufferCnt    : [IN/OUT] minimum num of buffers to be allocated.
  *                   could be modified during allocation if more buffers needed
  *
@@ -1430,6 +1551,8 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
  *==========================================================================*/
 QCameraMemory *QCamera2HardwareInterface::allocateStreamBuf(cam_stream_type_t stream_type,
                                                             int size,
+                                                            int stride,
+                                                            int scanline,
                                                             uint8_t &bufferCnt)
 {
     int rc = NO_ERROR;
@@ -1449,8 +1572,9 @@ QCameraMemory *QCamera2HardwareInterface::allocateStreamBuf(cam_stream_type_t st
 
                 mParameters.getStreamDimension(stream_type, dim);
                 if (grallocMemory)
-                    grallocMemory->setWindowInfo(mPreviewWindow, dim.width, dim.height,
-                            mParameters.getPreviewHalPixelFormat());
+                    grallocMemory->setWindowInfo(mPreviewWindow, dim.width,
+                        dim.height, stride, scanline,
+                        mParameters.getPreviewHalPixelFormat());
                 mem = grallocMemory;
             }
         }
@@ -1463,8 +1587,9 @@ QCameraMemory *QCamera2HardwareInterface::allocateStreamBuf(cam_stream_type_t st
 
             mParameters.getStreamDimension(stream_type, dim);
             if (grallocMemory)
-                grallocMemory->setWindowInfo(mPreviewWindow, dim.width, dim.height,
-                        mParameters.getPreviewHalPixelFormat());
+                grallocMemory->setWindowInfo(mPreviewWindow, dim.width,
+                    dim.height, stride, scanline,
+                    mParameters.getPreviewHalPixelFormat());
             mem = grallocMemory;
         }
         break;
@@ -3220,9 +3345,11 @@ int32_t QCamera2HardwareInterface::addPreviewChannel()
     bool raw_yuv = false;
 
     if (m_channels[QCAMERA_CH_TYPE_PREVIEW] != NULL) {
-        // if we had preview channel before, delete it first
-        delete m_channels[QCAMERA_CH_TYPE_PREVIEW];
-        m_channels[QCAMERA_CH_TYPE_PREVIEW] = NULL;
+        // Using the no preview torch WA it is possible
+        // to already have a preview channel present before
+        // start preview gets called.
+        ALOGD(" %s : Preview Channel already added!", __func__);
+        return NO_ERROR;
     }
 
     pChannel = new QCameraChannel(mCameraHandle->camera_handle,
@@ -3460,6 +3587,12 @@ int32_t QCamera2HardwareInterface::addZSLChannel()
         // if we had ZSL channel before, delete it first
         delete m_channels[QCAMERA_CH_TYPE_ZSL];
         m_channels[QCAMERA_CH_TYPE_ZSL] = NULL;
+    }
+
+     if (m_channels[QCAMERA_CH_TYPE_PREVIEW] != NULL) {
+        // if we had ZSL channel before, delete it first
+        delete m_channels[QCAMERA_CH_TYPE_PREVIEW];
+        m_channels[QCAMERA_CH_TYPE_PREVIEW] = NULL;
     }
 
     pChannel = new QCameraPicChannel(mCameraHandle->camera_handle,
@@ -4374,7 +4507,7 @@ void QCamera2HardwareInterface::returnStreamBuffer(void *data,
 int32_t QCamera2HardwareInterface::processHistogramStats(cam_hist_stats_t &stats_data)
 {
     if (!mParameters.isHistogramEnabled()) {
-        ALOGD("%s: Histogram not enabled, no ops here", __func__);
+        ALOGV("%s: Histogram not enabled, no ops here", __func__);
         return NO_ERROR;
     }
 
@@ -4494,13 +4627,13 @@ int QCamera2HardwareInterface::calcThermalLevel(
         break;
     default:
         {
-            ALOGE("%s: Invalid thermal level %d", __func__, level);
+            ALOGV("%s: Invalid thermal level %d", __func__, level);
             return BAD_VALUE;
         }
         break;
     }
 
-    ALOGI("%s: Thermal level %d, FPS range [%3.2f,%3.2f], frameskip %d",
+    ALOGV("%s: Thermal level %d, FPS range [%3.2f,%3.2f], frameskip %d",
           __func__,
           level,
           adjustedRange.min_fps,
@@ -4897,6 +5030,11 @@ QCameraExif *QCamera2HardwareInterface::getExifData()
 
     pthread_mutex_lock(&m_parm_lock);
 
+    //set flash value
+    mFlash = mParameters.getFlashValue();
+    mRedEye = mParameters.getRedEyeValue();
+    mFlashPresence = mParameters.getSupportedFlashModes();
+
     // add exif entries
     char dateTime[20];
     memset(dateTime, 0, sizeof(dateTime));
@@ -4937,7 +5075,7 @@ QCameraExif *QCamera2HardwareInterface::getExifData()
                        count,
                        (void *)gpsProcessingMethod);
     } else {
-        ALOGE("%s: getExifGpsProcessingMethod failed", __func__);
+        ALOGV("%s: getExifGpsProcessingMethod failed", __func__);
     }
 
     rat_t latitude[3];
@@ -4953,7 +5091,7 @@ QCameraExif *QCamera2HardwareInterface::getExifData()
                        2,
                        (void *)latRef);
     } else {
-        ALOGE("%s: getExifLatitude failed", __func__);
+        ALOGV("%s: getExifLatitude failed", __func__);
     }
 
     rat_t longitude[3];
@@ -4970,7 +5108,7 @@ QCameraExif *QCamera2HardwareInterface::getExifData()
                        2,
                        (void *)lonRef);
     } else {
-        ALOGE("%s: getExifLongitude failed", __func__);
+        ALOGV("%s: getExifLongitude failed", __func__);
     }
 
     rat_t altitude;
@@ -4987,7 +5125,7 @@ QCameraExif *QCamera2HardwareInterface::getExifData()
                        1,
                        (void *)&altRef);
     } else {
-        ALOGE("%s: getExifAltitude failed", __func__);
+        ALOGV("%s: getExifAltitude failed", __func__);
     }
 
     char gpsDateStamp[20];
@@ -5090,6 +5228,36 @@ bool QCamera2HardwareInterface::needFDMetadata(qcamera_ch_type_enum_t channel_ty
     }
 
     return value;
+}
+
+bool QCamera2HardwareInterface::removeSizeFromList(cam_dimension_t* size_list,
+                                                   uint8_t length,
+                                                   cam_dimension_t size)
+{
+   bool found = false;
+   int index = 0;
+   for (int i = 0; i < length; i++) {
+      if ((size_list[i].width == size.width
+           && size_list[i].height == size.height)) {
+         found = true;
+         index = i;
+         break;
+      }
+
+   }
+   if (found) {
+      for (int i = index; i < length; i++) {
+         size_list[i] = size_list[i+1];
+      }
+   }
+   return found;
+}
+
+void QCamera2HardwareInterface::copyList(cam_dimension_t* src_list,
+                                         cam_dimension_t* dst_list, uint8_t len){
+   for (int i = 0; i < len; i++) {
+      dst_list[i] = src_list[i];
+   }
 }
 
 }; // namespace qcamera
