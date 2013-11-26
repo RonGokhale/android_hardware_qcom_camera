@@ -148,6 +148,13 @@ int createEncodingSession(mm_camera_test_obj_t *test_obj,
     encode_param.src_main_buf[0].format = MM_JPEG_FMT_YUV;
     encode_param.src_main_buf[0].offset = m_stream->offset;
 
+    encode_param.main_dim.src_dim = m_stream->s_config.stream_info->dim;
+    encode_param.main_dim.dst_dim = m_stream->s_config.stream_info->dim;
+
+    encode_param.thumb_dim.src_dim = m_stream->s_config.stream_info->dim;
+    encode_param.thumb_dim.dst_dim.width = DEFAULT_PREVIEW_WIDTH;
+    encode_param.thumb_dim.dst_dim.height = DEFAULT_PREVIEW_HEIGHT;
+
     /* fill in sink img param */
     encode_param.num_dst_bufs = 1;
     encode_param.dest_buf[0].index = 0;
