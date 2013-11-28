@@ -169,7 +169,6 @@ void QCamera2HardwareInterface::set_CallBacks(struct camera_device *device,
     payload.data_cb_timestamp = data_cb_timestamp;
     payload.get_memory = get_memory;
     payload.user = user;
-
     hw->lockAPI();
     int32_t rc = hw->processAPI(QCAMERA_SM_EVT_SET_CALLBACKS, (void *)&payload);
     if (rc == NO_ERROR) {

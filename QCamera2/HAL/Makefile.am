@@ -28,6 +28,7 @@ libmmcamera_hal_la_SOURCES += QCameraStream.cpp
 libmmcamera_hal_la_SOURCES += QCameraPostProc.cpp
 libmmcamera_hal_la_SOURCES += QCamera2HWICallbacks.cpp
 libmmcamera_hal_la_SOURCES += QCameraParameters.cpp
+libmmcamera_hal_la_SOURCES += QCameraThermalAdapter.cpp
 libmmcamera_hal_la_SOURCES += wrapper/QualcommCamera.cpp
 libmmcamera_hal_la_SOURCES += CameraParameters.cpp
 
