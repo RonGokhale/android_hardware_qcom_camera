@@ -129,6 +129,9 @@ public:
     // Supported live snapshot sizes
     static const char KEY_QC_SUPPORTED_LIVESNAPSHOT_SIZES[];
 
+    // Supported scaled picture sizes
+    static const char KEY_QC_SCALED_PICTURE_SIZES[];
+
     // Supported Raw formats
     static const char KEY_QC_SUPPORTED_RAW_FORMATS[];
     static const char KEY_QC_RAW_FORMAT[];
@@ -592,6 +595,7 @@ private:
     int32_t setStatsDebugMask();
     int32_t setTintlessValue(const QCameraParameters& params);
     int32_t setMobicat(const QCameraParameters& params);
+    bool UpdateHFRFrameRate(const QCameraParameters& params);
 
     int32_t setAutoExposure(const char *autoExp);
     int32_t setPreviewFpsRange(int minFPS,int maxFPS);
@@ -735,6 +739,7 @@ private:
     bool m_bReleaseTorchCamera; // Release camera resources after torch gets disabled
 
     DefaultKeyedVector<String8,String8> m_tempMap; // map for temororily store parameters to be set
+    cam_fps_range_t m_default_fps_range;
 };
 
 }; // namespace qcamera
