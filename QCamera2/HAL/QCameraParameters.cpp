@@ -535,6 +535,8 @@ const QCameraParameters::QCameraMap QCameraParameters::FLIP_MODES_MAP[] = {
 
 #define DEFAULT_CAMERA_AREA "(0, 0, 0, 0, 0)"
 #define DATA_PTR(MEM_OBJ,INDEX) MEM_OBJ->getPtr( INDEX )
+#define MIN_PP_BUF_CNT 1
+
 
 /*===========================================================================
  * FUNCTION   : QCameraParameters
@@ -565,9 +567,6 @@ QCameraParameters::QCameraParameters()
       m_bNeedRestart(false),
       m_bNoDisplayMode(false),
       m_bWNROn(false),
-      m_bNeedLockCAF(false),
-      m_bCAFLocked(false),
-      m_bAFRunning(false),
       m_bInited(false),
       m_nBurstNum(1),
       m_bUpdateEffects(false),
@@ -639,9 +638,6 @@ QCameraParameters::QCameraParameters(const String8 &params)
     m_bNeedRestart(false),
     m_bNoDisplayMode(false),
     m_bWNROn(false),
-    m_bNeedLockCAF(false),
-    m_bCAFLocked(false),
-    m_bAFRunning(false),
     m_bInited(false),
     m_nBurstNum(1),
     m_bPreviewFlipChanged(false),
@@ -4312,11 +4308,6 @@ int32_t QCameraParameters::setFocusMode(const char *focusMode)
             ALOGV("%s: Setting focus mode %s", __func__, focusMode);
             mFocusMode = (cam_focus_mode_type)value;
 
-            // reset need lock CAF flag
-            m_bNeedLockCAF = false;
-            m_bCAFLocked = false;
-            m_bAFRunning = false;
-
             updateParamEntry(KEY_FOCUS_MODE, focusMode);
             rc = AddSetParmEntryToBatch(m_pParamBuf,
                                           CAM_INTF_PARM_FOCUS_MODE,
@@ -5365,7 +5356,7 @@ int32_t QCameraParameters::setAEBracket(const char *aecBracketStr)
     switch (value) {
     case CAM_EXP_BRACKETING_ON:
         {
-            ALOGV("%s, EXP_BRACKETING_ON", __func__);
+            ALOGD("%s, EXP_BRACKETING_ON", __func__);
             const char *str_val = get(KEY_QC_CAPTURE_BURST_EXPOSURE);
             if ((str_val != NULL) && (strlen(str_val)>0)) {
                 expBracket.mode = CAM_EXP_BRACKETING_ON;
@@ -6054,6 +6045,24 @@ int QCameraParameters::getMaxUnmatchedFramesInQueue()
 }
 
 /*===========================================================================
+ * FUNCTION   : getMinPPBufs
+ *
+ * DESCRIPTION: get minimum extra buffers needed by pproc which HAL has to allocate
+ *
+ * PARAMETERS : none
+ *
+ * RETURN     : min pp buf count
+ *==========================================================================*/
+int QCameraParameters::getMinPPBufs()
+{
+    //Ideally we should be getting this from m_pCapability->min_num_pp_bufs. But as of now
+    //this number reported by backend is wrong. It simply adds all the ppbuf requirement by
+    //each module irrespective of whether its connected or not. This has to be enhanced later
+    //to get the exact requirement from backend.
+    return MIN_PP_BUF_CNT;
+}
+
+/*===========================================================================
  * FUNCTION   : setRecordingHintValue
  *
  * DESCRIPTION: set recording hint
@@ -6684,46 +6693,6 @@ int32_t QCameraParameters::setFaceDetection(bool enabled)
     ALOGD("%s: FaceProcMask -> %d", __func__, m_nFaceProcMask);
 
     return rc;
-}
-
-/*===========================================================================
- * FUNCTION   : setLockCAF
- *
- * DESCRIPTION: Lock CAF
- *
- * PARAMETERS :
- *   @bLock : if CAF needs to be locked
- *
- * RETURN     : int32_t type of status
- *              NO_ERROR  -- success
- *              none-zero failure code
- *==========================================================================*/
-int32_t QCameraParameters::setLockCAF(bool bLock)
-{
-    if(initBatchUpdate(m_pParamBuf) < 0 ) {
-        ALOGE("%s:Failed to initialize group update table", __func__);
-        return BAD_TYPE;
-    }
-    int32_t rc = NO_ERROR;
-    int32_t value = bLock;
-
-    rc = AddSetParmEntryToBatch(m_pParamBuf,
-                                CAM_INTF_PARM_LOCK_CAF,
-                                sizeof(value),
-                                &value);
-    if (rc != NO_ERROR) {
-        ALOGE("%s:Failed to update table", __func__);
-        return rc;
-    }
-
-    rc = commitSetBatch();
-    if (rc != NO_ERROR) {
-        ALOGE("%s:Failed to set lock CAF parm", __func__);
-        return rc;
-    } else {
-        m_bCAFLocked = bLock;
-        return NO_ERROR;
-    }
 }
 
 /*===========================================================================
