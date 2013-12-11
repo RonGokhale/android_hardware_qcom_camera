@@ -156,6 +156,7 @@ private:
 
     int32_t setYUVFrameInfo(mm_camera_super_buf_t *recvd_frame);
     static bool matchJobId(void *data, void *user_data, void *match_data);
+    static int getJpegMemory(omx_jpeg_ouput_buf_t *out_buf);
 
     int32_t reprocess(qcamera_pp_data_t *pp_job);
     int32_t stopCapture();
@@ -189,6 +190,7 @@ private:
     bool mUseSaveProc;                  // use store thread
     bool mUseJpegBurst;                 // use jpeg burst encoding mode
     uint8_t mNewJpegSessionNeeded;
+    bool mJpegMemOpt;
 };
 
 }; // namespace qcamera
