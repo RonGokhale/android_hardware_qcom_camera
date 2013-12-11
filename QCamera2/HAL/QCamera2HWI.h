@@ -318,6 +318,7 @@ private:
     bool needDebugFps();
     bool isCACEnabled();
     bool isPreviewRestartEnabled();
+    bool isRegularCapture();
     bool needReprocess();
     bool needRotationReprocess();
     bool needScaleReprocess();
@@ -364,7 +365,7 @@ private:
     int32_t addCaptureChannel();
     int32_t addRawChannel();
     int32_t addMetaDataChannel();
-    QCameraReprocessChannel *addOnlineReprocChannel(QCameraChannel *pInputChannel);
+    QCameraReprocessChannel *addReprocChannel(QCameraChannel *pInputChannel);
     QCameraReprocessChannel *addOfflineReprocChannel(
                                                 cam_pp_offline_src_config_t &img_config,
                                                 cam_pp_feature_config_t &pp_feature,
