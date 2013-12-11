@@ -60,7 +60,7 @@ extern "C" {
 #include <sys/system_properties.h>
 #include <sys/time.h>
 #include <stdlib.h>
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
 #include <camera.h>
 #include <cam_fifo.h>
 #include <liveshot.h>
@@ -210,7 +210,7 @@ static int iso_speed_values[] = {
 
 
 extern int HAL_numOfCameras;
-extern camera_info_t HAL_cameraInfo[MSM_MAX_CAMERA_SENSORS];
+extern cam_dev_info_t HAL_cameraInfo[MSM_MAX_CAMERA_SENSORS];
 extern mm_camera_t * HAL_camerahandle[MSM_MAX_CAMERA_SENSORS];
 
 namespace android {

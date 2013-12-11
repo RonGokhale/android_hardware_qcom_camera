@@ -195,17 +195,29 @@ int mm_camera_read_msm_frame(mm_camera_obj_t * my_obj,
     int idx = -1, rc = MM_CAMERA_OK;
     struct v4l2_buffer vb;
     struct v4l2_plane planes[VIDEO_MAX_PLANES];
+    int i = 0;
 
     memset(&vb,  0,  sizeof(vb));
     vb.type = V4L2_BUF_TYPE_VIDEO_CAPTURE_MPLANE;
     vb.memory = V4L2_MEMORY_USERPTR;
     vb.m.planes = &planes[0];
+    vb.length = stream->fmt.fmt.pix_mp.num_planes;
 
     CDBG("%s: VIDIOC_DQBUF ioctl call\n", __func__);
     rc = ioctl(stream->fd, VIDIOC_DQBUF, &vb);
     if (rc < 0)
         return idx;
     idx = vb.index;
+    for(i = 0; i < vb.length; i++) {
+        ALOGE("%s plane %d addr offset: %d data offset:%d\n",
+             __func__, i, vb.m.planes[i].reserved[0],
+             vb.m.planes[i].data_offset);
+        stream->frame.frame[idx].planes[i].reserved[0] =
+            vb.m.planes[i].reserved[0];
+        stream->frame.frame[idx].planes[i].data_offset =
+            vb.m.planes[i].data_offset;
+    }
+
     stream->frame.frame[idx].frame.frame_id = vb.sequence;
     stream->frame.frame[idx].frame.ts.tv_sec  = vb.timestamp.tv_sec;
     stream->frame.frame[idx].frame.ts.tv_nsec = vb.timestamp.tv_usec * 1000;
@@ -363,8 +375,9 @@ int mm_camera_stream_qbuf(mm_camera_obj_t * my_obj, mm_camera_stream_t *stream,
   CDBG("%s Ref : PREVIEW=%d VIDEO=%d SNAPSHOT=%d THUMB=%d ", __func__,
     MM_CAMERA_STREAM_PREVIEW, MM_CAMERA_STREAM_VIDEO,
     MM_CAMERA_STREAM_SNAPSHOT, MM_CAMERA_STREAM_THUMBNAIL);
-  CDBG("%s:fd=%d,type=%d,frame idx=%d,num planes %d\n", __func__,
-    stream->fd, stream->stream_type, idx, buffer.length);
+  CDBG("%s:fd=%d,type=%d,frame idx=%d,num planes %d data_offsets = %x %x addr_offsets = %x %x\n", __func__,
+    stream->fd, stream->stream_type, idx, buffer.length, buffer.m.planes[0].data_offset, buffer.m.planes[1].data_offset,
+				buffer.m.planes[0].reserved[0], buffer.m.planes[1].reserved[0]);
 
   rc = ioctl(stream->fd, VIDIOC_QBUF, &buffer);
   if (rc < 0) {
