@@ -47,6 +47,10 @@ typedef struct {
     uint32_t client_hdl;             // handle of jpeg client (obtained when open jpeg)
     mm_camera_super_buf_t *src_frame;// source frame (need to be returned back to kernel after done)
     mm_camera_super_buf_t *src_reproc_frame; // original source frame for reproc if not NULL
+    cam_metadata_info_t * metadata;  // source frame metadata
+    bool reproc_frame_release;       // false release original buffer, true don't release it
+    mm_camera_buf_def_t *src_reproc_bufs;
+    mm_camera_buf_def_t *src_bufs;
     QCameraExif *pJpegExifObj;
 } qcamera_jpeg_data_t;
 
@@ -149,6 +153,7 @@ private:
 
     int32_t setYUVFrameInfo(mm_camera_super_buf_t *recvd_frame);
     static bool matchJobId(void *data, void *user_data, void *match_data);
+    static int getJpegMemory(omx_jpeg_ouput_buf_t *out_buf);
 
 private:
     QCamera2HardwareInterface *m_parent;
@@ -178,6 +183,8 @@ private:
     static const char *STORE_LOCATION;  // path for storing buffers
     bool mUseSaveProc;                  // use store thread
     bool mUseJpegBurst;                 // use jpeg burst encoding mode
+    uint8_t mNewJpegSessionNeeded;
+    bool mJpegMemOpt;
 };
 
 }; // namespace qcamera
