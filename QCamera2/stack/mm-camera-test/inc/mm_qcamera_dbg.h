@@ -68,7 +68,8 @@
 
 #if defined(_ANDROID_) || defined (USE_DLOG)
   #define CDBG_HIGH(fmt, args...)  ALOGI(fmt, ##args)
-  #define CDBG_ERROR(fmt, args...)  ALOGE(fmt, ##args)
+  //#define CDBG_ERROR(fmt, args...)  ALOGE(fmt, ##args)
+  #define CDBG_ERROR(fmt, args...)  printf(fmt, ##args)
   #define CDBG_LOW(fmt, args...) ALOGD(fmt, ##args)
 #else
   #define ALOGE(fmt, args...) fprintf(stderr, ""fmt"\n", ##args)
