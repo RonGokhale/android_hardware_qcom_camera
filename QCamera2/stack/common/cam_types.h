@@ -1218,6 +1218,7 @@ typedef struct {
     int32_t left;
     int32_t top;
     int32_t width;
+    int32_t height;
 } cam_crop_region_t;
 
 typedef struct {
@@ -1378,7 +1379,8 @@ typedef enum {
     CAM_AF_STATE_PASSIVE_FOCUSED,
     CAM_AF_STATE_ACTIVE_SCAN,
     CAM_AF_STATE_FOCUSED_LOCKED,
-    CAM_AF_STATE_NOT_FOCUSED_LOCKED
+    CAM_AF_STATE_NOT_FOCUSED_LOCKED,
+    CAM_AF_STATE_PASSIVE_UNFOCUSED
 } cam_af_state_t;
 
 typedef enum {
