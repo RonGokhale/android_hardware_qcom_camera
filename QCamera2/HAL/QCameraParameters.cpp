@@ -535,6 +535,8 @@ const QCameraParameters::QCameraMap QCameraParameters::FLIP_MODES_MAP[] = {
 
 #define DEFAULT_CAMERA_AREA "(0, 0, 0, 0, 0)"
 #define DATA_PTR(MEM_OBJ,INDEX) MEM_OBJ->getPtr( INDEX )
+#define MIN_PP_BUF_CNT 1
+
 
 /*===========================================================================
  * FUNCTION   : QCameraParameters
@@ -4730,7 +4732,7 @@ int32_t QCameraParameters::setFlash(const char *flashStr)
             ALOGV("%s: Setting Flash value %s", __func__, flashStr);
 
             if ( NULL != m_pTorch ) {
-                if ( value == CAM_FLASH_MODE_TORCH ) {
+                if ( value == CAM_FLASH_MODE_TORCH && !m_bRecordingHint_new) {
                     m_pTorch->prepareTorchCamera();
                 } else {
                     m_bReleaseTorchCamera = true;
@@ -5365,7 +5367,7 @@ int32_t QCameraParameters::setAEBracket(const char *aecBracketStr)
     switch (value) {
     case CAM_EXP_BRACKETING_ON:
         {
-            ALOGV("%s, EXP_BRACKETING_ON", __func__);
+            ALOGD("%s, EXP_BRACKETING_ON", __func__);
             const char *str_val = get(KEY_QC_CAPTURE_BURST_EXPOSURE);
             if ((str_val != NULL) && (strlen(str_val)>0)) {
                 expBracket.mode = CAM_EXP_BRACKETING_ON;
@@ -6051,6 +6053,26 @@ int QCameraParameters::getZSLBackLookCount()
 int QCameraParameters::getMaxUnmatchedFramesInQueue()
 {
     return m_pCapability->min_num_pp_bufs + (m_nBurstNum / 10);
+}
+
+/**
+ * ===========================================================================
+ * FUNCTION   : getMinPPBufs
+ *
+ * DESCRIPTION: get minimum extra buffers needed by pproc which HAL has to allocate
+ *
+ * PARAMETERS : none
+ *
+ * RETURN     : min pp buf count
+ * ==========================================================================
+ */
+int QCameraParameters::getMinPPBufs()
+{
+    // Ideally we should be getting this from m_pCapability->min_num_pp_bufs. But as of now
+    // this number reported by backend is wrong. It simply adds all the ppbuf requirement by
+    // each module irrespective of whether its connected or not. This has to be enhanced later
+    // to get the exact requirement from backend.
+    return MIN_PP_BUF_CNT;
 }
 
 /*===========================================================================
@@ -7277,7 +7299,8 @@ int32_t QCameraParameters::commitParamChanges()
         m_bSceneTransitionAuto = false;
     }
 
-    if ( m_bReleaseTorchCamera && ( NULL != m_pTorch) ) {
+    if ( m_bReleaseTorchCamera && ( NULL != m_pTorch)
+        && !m_bRecordingHint_new ) {
         m_pTorch->releaseTorchCamera();
         m_bReleaseTorchCamera = false;
     }
