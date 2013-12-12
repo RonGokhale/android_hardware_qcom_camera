@@ -336,7 +336,6 @@ status_t QCameraStream_record::processRecordFrame(void *data)
 
   ALOGE("Send Video frame to services/encoder TimeStamp : %lld",timeStamp);
   mRecordedFrames[frame->video.video.idx] = *frame;
-
 #ifdef USE_ION
   struct ion_flush_data cache_inv_data;
 
@@ -345,7 +344,7 @@ status_t QCameraStream_record::processRecordFrame(void *data)
   cache_inv_data.handle = frame->video.video.frame->fd_data.handle;
   cache_inv_data.length = frame->video.video.frame->ion_alloc.len;
 
-  if (mHalCamCtrl->cache_ops(&cache_inv_data, ION_IOC_CLEAN_CACHES) < 0)
+  if (mHalCamCtrl->cache_ops(&cache_inv_data, ION_IOC_CLEAN_CACHES,mHalCamCtrl->mRecordingMemory.main_ion_fd[frame->video.video.idx]) < 0)
     ALOGE("%s: Cache clean for Video buffer %p fd = %d failed", __func__,
       cache_inv_data.vaddr, cache_inv_data.fd);
 #endif

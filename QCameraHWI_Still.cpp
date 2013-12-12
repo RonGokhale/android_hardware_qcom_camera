@@ -1675,6 +1675,7 @@ encodeDisplayAndSave(mm_camera_ch_data_buf_t* recvd_frame,
     }
 #ifdef USE_ION
     /*Clean out(Write-back) cache before sending for JPEG*/
+    ALOGE("%s: fd is %d \n",__func__,mHalCamCtrl->mSnapshotMemory.main_ion_fd[0]);
     memset(&cache_inv_data, 0, sizeof(struct ion_flush_data));
     ion_fd = open("/dev/ion", O_RDONLY);
     if(ion_fd < 0) {
