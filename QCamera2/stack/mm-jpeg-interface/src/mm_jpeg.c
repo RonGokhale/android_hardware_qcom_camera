@@ -49,6 +49,8 @@
 
 #define META_KEYFILE "/data/metadata.key"
 
+#define MM_JPG_USE_TURBO_CLOCK (0)
+
 OMX_ERRORTYPE mm_jpeg_ebd(OMX_HANDLETYPE hComponent,
     OMX_PTR pAppData,
     OMX_BUFFERHEADERTYPE* pBuffer);
@@ -470,6 +472,92 @@ OMX_ERRORTYPE mm_jpeg_encoding_mode(
   CDBG_HIGH("%s:%d] encoding mode = %d ", __func__, __LINE__,
     (int)encoding_mode);
   rc = OMX_SetParameter(p_session->omx_handle, indextype, &encoding_mode);
+  if (rc != OMX_ErrorNone) {
+    CDBG_ERROR("%s:%d] Failed", __func__, __LINE__);
+    return rc;
+  }
+  return rc;
+}
+
+/** mm_jpeg_speed_mode:
+ *
+ *  Arguments:
+ *    @p_session: job session
+ *
+ *  Return:
+ *       OMX error values
+ *
+ *  Description:
+ *      Configure normal or high speed jpeg
+ *
+ **/
+OMX_ERRORTYPE mm_jpeg_speed_mode(
+  mm_jpeg_job_session_t* p_session)
+{
+  OMX_ERRORTYPE rc = 0;
+  int32_t i = 0;
+  OMX_INDEXTYPE indextype;
+  QOMX_JPEG_SPEED jpeg_speed;
+  int32_t totalSize = 0;
+  mm_jpeg_encode_params_t *p_params = &p_session->params;
+  mm_jpeg_encode_job_t *p_jobparams = &p_session->encode_job;
+
+  rc = OMX_GetExtensionIndex(p_session->omx_handle,
+    QOMX_IMAGE_EXT_JPEG_SPEED_NAME, &indextype);
+  if (rc != OMX_ErrorNone) {
+    CDBG_ERROR("%s:%d] Failed", __func__, __LINE__);
+    return rc;
+  }
+
+  if (MM_JPG_USE_TURBO_CLOCK) {
+    jpeg_speed.speedMode = QOMX_JPEG_SPEED_MODE_HIGH;
+  } else {
+    jpeg_speed.speedMode = QOMX_JPEG_SPEED_MODE_NORMAL;
+  }
+
+  rc = OMX_SetParameter(p_session->omx_handle, indextype, &jpeg_speed);
+  if (rc != OMX_ErrorNone) {
+    CDBG_ERROR("%s:%d] Failed", __func__, __LINE__);
+    return rc;
+  }
+  return rc;
+}
+
+
+/** mm_jpeg_mem_ops:
+ *
+ *  Arguments:
+ *    @p_session: job session
+ *
+ *  Return:
+ *       OMX error values
+ *
+ *  Description:
+ *       Configure the serial or parallel encoding
+ *       mode
+ *
+ **/
+OMX_ERRORTYPE mm_jpeg_mem_ops(
+  mm_jpeg_job_session_t* p_session)
+{
+  OMX_ERRORTYPE rc = 0;
+  int32_t i = 0;
+  OMX_INDEXTYPE indextype;
+  QOMX_MEM_OPS mem_ops;
+  int32_t totalSize = 0;
+  mm_jpeg_encode_params_t *p_params = &p_session->params;
+  mm_jpeg_encode_job_t *p_jobparams = &p_session->encode_job;
+
+  mem_ops.get_memory = p_params->get_memory;
+
+  rc = OMX_GetExtensionIndex(p_session->omx_handle,
+    QOMX_IMAGE_EXT_MEM_OPS_NAME, &indextype);
+  if (rc != OMX_ErrorNone) {
+    CDBG_ERROR("%s:%d] Failed", __func__, __LINE__);
+    return rc;
+  }
+
+  rc = OMX_SetParameter(p_session->omx_handle, indextype, &mem_ops);
   if (rc != OMX_ErrorNone) {
     CDBG_ERROR("%s:%d] Failed", __func__, __LINE__);
     return rc;
@@ -976,6 +1064,19 @@ OMX_ERRORTYPE mm_jpeg_session_config_main(mm_jpeg_job_session_t *p_session)
   rc = mm_jpeg_meta_enc_key(p_session);
   if (OMX_ErrorNone != rc) {
     CDBG_ERROR("%s: config session failed", __func__);
+    return rc;
+  }
+
+  /* set the mem ops */
+  rc = mm_jpeg_mem_ops(p_session);
+  if (OMX_ErrorNone != rc) {
+    CDBG_ERROR("%s: config mem ops failed", __func__);
+    return rc;
+  }
+  /* set the jpeg speed mode */
+  rc = mm_jpeg_speed_mode(p_session);
+  if (OMX_ErrorNone != rc) {
+    CDBG_ERROR("%s: config speed mode failed", __func__);
     return rc;
   }
 
