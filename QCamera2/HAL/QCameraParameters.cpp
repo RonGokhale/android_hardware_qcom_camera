@@ -3535,15 +3535,6 @@ int32_t QCameraParameters::initDefaultParameters()
 
     // Set supported picture formats
     String8 pictureTypeValues(PIXEL_FORMAT_JPEG);
-    String8 str = createValuesString(
-            (int *)m_pCapability->supported_raw_fmts,
-            m_pCapability->supported_raw_fmt_cnt,
-            PICTURE_TYPES_MAP,
-            sizeof(PICTURE_TYPES_MAP)/sizeof(QCameraMap));
-    if (str.string() != NULL) {
-        pictureTypeValues.append(",");
-        pictureTypeValues.append(str);
-    }
 
     set(KEY_SUPPORTED_PICTURE_FORMATS, pictureTypeValues.string());
     // Set default picture Format
