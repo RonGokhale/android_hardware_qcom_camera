@@ -1207,6 +1207,9 @@ int32_t QCameraStateMachine::procEvtPreviewingState(qcamera_sm_evt_enum_t evt,
             case QCAMERA_INTERNAL_EVT_AWB_UPDATE:
                 rc = m_parent->processAWBUpdate(internal_evt->awb_data);
                 break;
+            case QCAMERA_INTERNAL_EVT_AEC_UPDATE:
+                rc = m_parent->processAECUpdate(internal_evt->aec_data);
+                break;
             default:
                 ALOGE("%s: Invalid internal event %d in state(%d)",
                             __func__, internal_evt->evt_type, m_state);
@@ -1347,7 +1350,9 @@ int32_t QCameraStateMachine::procEvtPrepareSnapshotState(qcamera_sm_evt_enum_t e
             case QCAMERA_INTERNAL_EVT_AWB_UPDATE:
                 rc = m_parent->processAWBUpdate(internal_evt->awb_data);
                 break;
-
+            case QCAMERA_INTERNAL_EVT_AEC_UPDATE:
+                rc = m_parent->processAECUpdate(internal_evt->aec_data);
+                break;
             default:
                 ALOGE("%s: Invalid internal event %d in state(%d)",
                             __func__, internal_evt->evt_type, m_state);
@@ -1664,6 +1669,9 @@ int32_t QCameraStateMachine::procEvtPicTakingState(qcamera_sm_evt_enum_t evt,
                 break;
             case QCAMERA_INTERNAL_EVT_AWB_UPDATE:
                 rc = m_parent->processAWBUpdate(internal_evt->awb_data);
+                break;
+            case QCAMERA_INTERNAL_EVT_AEC_UPDATE:
+                rc = m_parent->processAECUpdate(internal_evt->aec_data);
                 break;
             default:
                 break;
@@ -2023,6 +2031,9 @@ int32_t QCameraStateMachine::procEvtRecordingState(qcamera_sm_evt_enum_t evt,
             case QCAMERA_INTERNAL_EVT_AWB_UPDATE:
                 rc = m_parent->processAWBUpdate(internal_evt->awb_data);
                 break;
+            case QCAMERA_INTERNAL_EVT_AEC_UPDATE:
+                rc = m_parent->processAECUpdate(internal_evt->aec_data);
+                break;
             default:
                 break;
             }
@@ -2355,6 +2366,9 @@ int32_t QCameraStateMachine::procEvtVideoPicTakingState(qcamera_sm_evt_enum_t ev
                 break;
             case QCAMERA_INTERNAL_EVT_AWB_UPDATE:
                 rc = m_parent->processAWBUpdate(internal_evt->awb_data);
+                break;
+            case QCAMERA_INTERNAL_EVT_AEC_UPDATE:
+                rc = m_parent->processAECUpdate(internal_evt->aec_data);
                 break;
             default:
                 break;
@@ -2735,6 +2749,9 @@ int32_t QCameraStateMachine::procEvtPreviewPicTakingState(qcamera_sm_evt_enum_t 
                 break;
             case QCAMERA_INTERNAL_EVT_AWB_UPDATE:
                 rc = m_parent->processAWBUpdate(internal_evt->awb_data);
+                break;
+            case QCAMERA_INTERNAL_EVT_AEC_UPDATE:
+                rc = m_parent->processAECUpdate(internal_evt->aec_data);
                 break;
             default:
                 break;

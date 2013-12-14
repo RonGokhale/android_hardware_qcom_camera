@@ -803,6 +803,10 @@ typedef struct {
     float exp_time;
     int iso_value;
     uint32_t flash_needed;
+    uint32_t estimate_snap_exp_time;
+    uint32_t estimate_snap_iso;
+    uint32_t estimate_current_luma;
+    uint32_t estimate_luma_target;
 } cam_ae_params_t;
 
 typedef struct {
