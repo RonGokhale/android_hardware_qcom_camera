@@ -3612,6 +3612,28 @@ int32_t QCamera2HardwareInterface::processAWBUpdate(cam_awb_params_t &awb_params
 }
 
 /*===========================================================================
+ * FUNCTION   : processAECUpdate
+ *
+ * DESCRIPTION: process AEC update event
+ *
+ * PARAMETERS :
+ *   @awb_params: current aec parameters from back-end.
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCamera2HardwareInterface::processAECUpdate(cam_ae_params_t &aec_params)
+{
+    ALOGE("#### estimate info for AEC: exp time: %d, iso: %d, cur luma: %d, luma tgt: %d\r\n",
+        aec_params.estimate_snap_exp_time, aec_params.estimate_snap_iso,
+        aec_params.estimate_current_luma, aec_params.estimate_luma_target);
+
+    return mParameters.updateEstSnapAECParm(aec_params);
+}
+
+
+/*===========================================================================
  * FUNCTION   : processJpegNotify
  *
  * DESCRIPTION: process jpeg event

@@ -848,6 +848,10 @@ typedef struct {
     int settled;
     uint32_t exp_index;
     uint32_t line_count;
+    uint32_t estimate_snap_exp_time;
+    uint32_t estimate_snap_iso;
+    uint32_t estimate_current_luma;
+    uint32_t estimate_luma_target;
 } cam_ae_params_t;
 
 typedef struct {
