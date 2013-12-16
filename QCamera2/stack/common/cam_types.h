@@ -1225,6 +1225,7 @@ typedef struct {
     int32_t left;
     int32_t top;
     int32_t width;
+    int32_t height;
 } cam_crop_region_t;
 
 typedef struct {
@@ -1244,7 +1245,7 @@ typedef struct {
 #define CAM_QCOM_FEATURE_FACE_DETECTION (1<<0)
 #define CAM_QCOM_FEATURE_DENOISE2D      (1<<1)
 #define CAM_QCOM_FEATURE_CROP           (1<<2)
-#define CAM_QCOM_FEATURE_ROTATION       (1<<3)
+#define CAM_QCOM_FEATURE_CPP            (1<<3)
 #define CAM_QCOM_FEATURE_FLIP           (1<<4)
 #define CAM_QCOM_FEATURE_HDR            (1<<5)
 #define CAM_QCOM_FEATURE_REGISTER_FACE  (1<<6)
@@ -1385,7 +1386,8 @@ typedef enum {
     CAM_AF_STATE_PASSIVE_FOCUSED,
     CAM_AF_STATE_ACTIVE_SCAN,
     CAM_AF_STATE_FOCUSED_LOCKED,
-    CAM_AF_STATE_NOT_FOCUSED_LOCKED
+    CAM_AF_STATE_NOT_FOCUSED_LOCKED,
+    CAM_AF_STATE_PASSIVE_UNFOCUSED
 } cam_af_state_t;
 
 typedef enum {
