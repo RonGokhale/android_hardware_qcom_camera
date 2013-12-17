@@ -1415,6 +1415,7 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
         if (mPreviewWindow->get_min_undequeued_buffer_count(mPreviewWindow,&minUndequeCount)
             != 0) {
             ALOGE("get_min_undequeued_buffer_count  failed");
+            minUndequeCount = 0;
         }
     }
 
