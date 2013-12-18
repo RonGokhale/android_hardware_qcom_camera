@@ -1662,7 +1662,6 @@ QCameraHeapMemory *QCamera2HardwareInterface::allocateStreamInfoBuf(
     cam_stream_type_t stream_type)
 {
     int rc = NO_ERROR;
-    const char *effect;
 
     QCameraHeapMemory *streamInfoBuf = new QCameraHeapMemory(QCAMERA_ION_USE_CACHE);
     if (!streamInfoBuf) {
@@ -1729,24 +1728,6 @@ QCameraHeapMemory *QCamera2HardwareInterface::allocateStreamInfoBuf(
         if (flipMode > 0) {
             streamInfo->pp_config.feature_mask |= CAM_QCOM_FEATURE_FLIP;
             streamInfo->pp_config.flip = flipMode;
-        }
-    }
-
-    if (!isZSLMode()) {
-        if (gCamCapability[mCameraId]->min_required_pp_mask & CAM_QCOM_FEATURE_SHARPNESS) {
-            streamInfo->pp_config.feature_mask |= CAM_QCOM_FEATURE_SHARPNESS;
-            streamInfo->pp_config.sharpness = mParameters.getInt(QCameraParameters::KEY_QC_SHARPNESS);
-        }
-
-        if (gCamCapability[mCameraId]->min_required_pp_mask & CAM_QCOM_FEATURE_EFFECT) {
-            streamInfo->pp_config.feature_mask |= CAM_QCOM_FEATURE_EFFECT;
-            effect = mParameters.get(CameraParameters::KEY_EFFECT);
-            streamInfo->pp_config.effect = getEffectValue(effect);
-        }
-        if (mParameters.isWNREnabled() && (mParameters.getRecordingHintValue() == false)) {
-            streamInfo->pp_config.feature_mask |= CAM_QCOM_FEATURE_DENOISE2D;
-            streamInfo->pp_config.denoise2d.denoise_enable = 1;
-            streamInfo->pp_config.denoise2d.process_plates = mParameters.getWaveletDenoiseProcessPlate();
         }
     }
 
@@ -3912,12 +3893,11 @@ QCameraReprocessChannel *QCamera2HardwareInterface::addOnlineReprocChannel(
     }
 
     ALOGD("%s: Before pproc config check, ret = %x", __func__, gCamCapability[mCameraId]->min_required_pp_mask);
-
     // pp feature config
     cam_pp_feature_config_t pp_config;
+    uint32_t required_mask = gCamCapability[mCameraId]->min_required_pp_mask;
     memset(&pp_config, 0, sizeof(cam_pp_feature_config_t));
-
-    if (mParameters.isZSLMode()) {
+    if (mParameters.isZSLMode() || (required_mask & CAM_QCOM_FEATURE_CPP)) {
         if (gCamCapability[mCameraId]->min_required_pp_mask & CAM_QCOM_FEATURE_EFFECT) {
             pp_config.feature_mask |= CAM_QCOM_FEATURE_EFFECT;
             effect = mParameters.get(CameraParameters::KEY_EFFECT);
@@ -3933,6 +3913,11 @@ QCameraReprocessChannel *QCamera2HardwareInterface::addOnlineReprocChannel(
             pp_config.denoise2d.denoise_enable = 1;
             pp_config.denoise2d.process_plates = mParameters.getWaveletDenoiseProcessPlate();
         }
+
+        if (required_mask & CAM_QCOM_FEATURE_CPP) {
+            pp_config.feature_mask |= CAM_QCOM_FEATURE_CPP;
+        }
+
     }
 
     if (isCACEnabled()) {
@@ -3940,7 +3925,7 @@ QCameraReprocessChannel *QCamera2HardwareInterface::addOnlineReprocChannel(
     }
 
     if (needRotationReprocess()) {
-        pp_config.feature_mask |= CAM_QCOM_FEATURE_ROTATION;
+        pp_config.feature_mask |= CAM_QCOM_FEATURE_CPP;
         int rotation = getJpegRotation();
         if (rotation == 0) {
             pp_config.rotation = ROTATE_0;
@@ -4908,8 +4893,13 @@ bool QCamera2HardwareInterface::needReprocess()
         return true;
     }
 
-    if ((gCamCapability[mCameraId]->qcom_supported_feature_mask & CAM_QCOM_FEATURE_ROTATION) > 0 &&
-            (getJpegRotation() > 0) &&  (mParameters.getRecordingHintValue() == false)) {
+    uint32_t feature_mask = 0;
+    uint32_t required_mask = 0;
+    feature_mask = gCamCapability[mCameraId]->qcom_supported_feature_mask;
+    required_mask = gCamCapability[mCameraId]->min_required_pp_mask;
+    if (((feature_mask & CAM_QCOM_FEATURE_CPP) > 0) &&
+        (getJpegRotation() > 0) &&
+        (mParameters.getRecordingHintValue() == false)) {
             // current rotation is not zero, and pp has the capability to process rotation
             ALOGD("%s: need to do reprocess for rotation=%d", __func__, getJpegRotation());
             pthread_mutex_unlock(&m_parm_lock);
@@ -4929,6 +4919,12 @@ bool QCamera2HardwareInterface::needReprocess()
             mParameters.getFlipMode(CAM_STREAM_TYPE_SNAPSHOT);
         if (snapshot_flipMode > 0) {
             ALOGD("%s: Need do flip for snapshot in ZSL mode", __func__);
+            pthread_mutex_unlock(&m_parm_lock);
+            return true;
+        }
+    } else {
+        if (required_mask & CAM_QCOM_FEATURE_CPP) {
+            ALOGD("%s: Need CPP in non-ZSL mode", __func__);
             pthread_mutex_unlock(&m_parm_lock);
             return true;
         }
@@ -4967,13 +4963,19 @@ bool QCamera2HardwareInterface::needRotationReprocess()
         return false;
     }
 
-        if ((gCamCapability[mCameraId]->qcom_supported_feature_mask & CAM_QCOM_FEATURE_ROTATION) > 0 &&
-            (getJpegRotation() > 0) && (mParameters.getRecordingHintValue() == false)) {
-            // current rotation is not zero, and pp has the capability to process rotation
-            ALOGD("%s: need to do reprocess for rotation=%d", __func__, getJpegRotation());
-            pthread_mutex_unlock(&m_parm_lock);
-            return true;
-        }
+    uint32_t feature_mask = 0;
+    feature_mask = gCamCapability[mCameraId]->qcom_supported_feature_mask;
+    if (((feature_mask & CAM_QCOM_FEATURE_CPP) > 0) &&
+        (getJpegRotation() > 0) &&
+        (mParameters.getRecordingHintValue() == false)) {
+        // current rotation is not zero
+        // and pp has the capability to process rotation
+        ALOGD("%s: need to do reprocess for rotation=%d",
+              __func__,
+              getJpegRotation());
+        pthread_mutex_unlock(&m_parm_lock);
+        return true;
+    }
 
     pthread_mutex_unlock(&m_parm_lock);
     return false;
