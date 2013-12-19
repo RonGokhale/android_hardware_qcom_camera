@@ -1674,26 +1674,26 @@ encodeDisplayAndSave(mm_camera_ch_data_buf_t* recvd_frame,
     }
 #ifdef USE_ION
     /*Clean out(Write-back) cache before sending for JPEG*/
-    ALOGE("%s: mSnapshotMemory.main_ion_fd fd = %d\n",__func__,mHalCamCtrl->mSnapshotMemory.main_ion_fd[recvd_frame->def.idx]);
+    ALOGE("%s: mSnapshotMemory.main_ion_fd fd = %d , idx = %d \n",__func__,mHalCamCtrl->mSnapshotMemory.main_ion_fd[recvd_frame->snapshot.main.idx],recvd_frame->snapshot.main.idx);
     memset(&cache_inv_data, 0, sizeof(struct ion_flush_data));
     cache_inv_data.vaddr = (void*)recvd_frame->snapshot.main.frame->buffer;
     cache_inv_data.fd = recvd_frame->snapshot.main.frame->fd;
     cache_inv_data.handle = recvd_frame->snapshot.main.frame->fd_data.handle;
     cache_inv_data.length = recvd_frame->snapshot.main.frame->ion_alloc.len;
-    if(mHalCamCtrl->mSnapshotMemory.main_ion_fd[recvd_frame->def.idx] > 0)
-      if(ioctl(mHalCamCtrl->mSnapshotMemory.main_ion_fd[recvd_frame->def.idx], ION_IOC_CLEAN_INV_CACHES, &cache_inv_data) < 0)
+    if(mHalCamCtrl->mSnapshotMemory.main_ion_fd[recvd_frame->snapshot.main.idx] > 0)
+      if(ioctl(mHalCamCtrl->mSnapshotMemory.main_ion_fd[recvd_frame->snapshot.main.idx], ION_IOC_CLEAN_INV_CACHES, &cache_inv_data) < 0)
           ALOGE("%s: Cache Invalidate failed\n", __func__);
       else
           ALOGD("%s: Successful cache invalidate\n", __func__);
 
     if(!isFullSizeLiveshot()) {
-    ALOGE("%s: mThumbnailMemory.main_ion_fd fd = %d\n",__func__,mHalCamCtrl->mThumbnailMemory.main_ion_fd[recvd_frame->def.idx]);
+    ALOGE("%s: mThumbnailMemory.main_ion_fd fd = %d , idx = %d \n",__func__,mHalCamCtrl->mThumbnailMemory.main_ion_fd[recvd_frame->snapshot.thumbnail.idx],recvd_frame->snapshot.thumbnail.idx);
       cache_inv_data.vaddr = (void*)recvd_frame->snapshot.thumbnail.frame->buffer;
       cache_inv_data.fd = recvd_frame->snapshot.thumbnail.frame->fd;
       cache_inv_data.handle = recvd_frame->snapshot.thumbnail.frame->fd_data.handle;
       cache_inv_data.length = recvd_frame->snapshot.thumbnail.frame->ion_alloc.len;
-      if(mHalCamCtrl->mThumbnailMemory.main_ion_fd[recvd_frame->def.idx] > 0)
-         if(ioctl(mHalCamCtrl->mThumbnailMemory.main_ion_fd[recvd_frame->def.idx], ION_IOC_CLEAN_INV_CACHES, &cache_inv_data) < 0)
+      if(mHalCamCtrl->mThumbnailMemory.main_ion_fd[recvd_frame->snapshot.thumbnail.idx] > 0)
+         if(ioctl(mHalCamCtrl->mThumbnailMemory.main_ion_fd[recvd_frame->snapshot.thumbnail.idx], ION_IOC_CLEAN_INV_CACHES, &cache_inv_data) < 0)
            ALOGE("%s: Cache Invalidate failed\n", __func__);
          else
            ALOGD("%s: Successful cache invalidate\n", __func__);
