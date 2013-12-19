@@ -4721,7 +4721,7 @@ int32_t QCameraParameters::setFlash(const char *flashStr)
             ALOGV("%s: Setting Flash value %s", __func__, flashStr);
 
             if ( NULL != m_pTorch ) {
-                if ( value == CAM_FLASH_MODE_TORCH && !m_bRecordingHint_new) {
+                if ( value == CAM_FLASH_MODE_TORCH ) {
                     m_pTorch->prepareTorchCamera();
                 } else {
                     m_bReleaseTorchCamera = true;
@@ -7246,8 +7246,7 @@ int32_t QCameraParameters::commitParamChanges()
         m_bSceneTransitionAuto = false;
     }
 
-    if ( m_bReleaseTorchCamera && ( NULL != m_pTorch)
-        && !m_bRecordingHint_new ) {
+    if ( m_bReleaseTorchCamera && ( NULL != m_pTorch) ) {
         m_pTorch->releaseTorchCamera();
         m_bReleaseTorchCamera = false;
     }
