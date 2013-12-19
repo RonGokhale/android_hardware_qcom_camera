@@ -43,11 +43,6 @@
 #define CAMERA_MIN_JPEG_ENCODING_BUFFERS 2
 #define CAMERA_MIN_VIDEO_BUFFERS         9
 
-//This multiplier signifies extra buffers that we need to allocate
-//for the output of pproc
-#define CAMERA_PPROC_OUT_BUFFER_MULTIPLIER 2
-
-
 #define HDR_CONFIDENCE_THRESHOLD 0.4
 
 namespace qcamera {
@@ -1412,11 +1407,10 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
     int minCircularBufNum = mParameters.getMaxUnmatchedFramesInQueue() +
                             CAMERA_MIN_JPEG_ENCODING_BUFFERS;
 
-    int maxStreamBuf = minCaptureBuffers + mParameters.getMaxUnmatchedFramesInQueue() +
-                       mParameters.getNumOfExtraHDRInBufsIfNeeded() -
-                       mParameters.getNumOfExtraHDROutBufsIfNeeded();
-
     int minUndequeCount = 0;
+    int minPPBufs = mParameters.getMinPPBufs();
+    int maxStreamBuf = zslQBuffers + minCircularBufNum;
+
     if (!isNoDisplayMode() && mPreviewWindow != NULL) {
         if (mPreviewWindow->get_min_undequeued_buffer_count(mPreviewWindow,&minUndequeCount)
             != 0) {
@@ -1439,9 +1433,10 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
         break;
     case CAM_STREAM_TYPE_POSTVIEW:
         {
-            bufferCnt = minCaptureBuffers*CAMERA_PPROC_OUT_BUFFER_MULTIPLIER +
+            bufferCnt = minCaptureBuffers +
                         mParameters.getNumOfExtraHDRInBufsIfNeeded() -
-                        mParameters.getNumOfExtraHDROutBufsIfNeeded();
+                        mParameters.getNumOfExtraHDROutBufsIfNeeded() +
+                        minPPBufs;
 
             if (bufferCnt > maxStreamBuf) {
                 bufferCnt = maxStreamBuf;
@@ -1454,9 +1449,10 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
             if (mParameters.isZSLMode() || mLongshotEnabled) {
                 bufferCnt = zslQBuffers + minCircularBufNum;
             } else {
-                bufferCnt = minCaptureBuffers*CAMERA_PPROC_OUT_BUFFER_MULTIPLIER +
+                bufferCnt = minCaptureBuffers +
                             mParameters.getNumOfExtraHDRInBufsIfNeeded() -
-                            mParameters.getNumOfExtraHDROutBufsIfNeeded();
+                            mParameters.getNumOfExtraHDROutBufsIfNeeded() +
+                            minPPBufs;
 
                 if (bufferCnt > maxStreamBuf) {
                     bufferCnt = maxStreamBuf;
@@ -1468,9 +1464,10 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
         if (mParameters.isZSLMode()) {
             bufferCnt = zslQBuffers + minCircularBufNum;
         } else {
-            bufferCnt = minCaptureBuffers*CAMERA_PPROC_OUT_BUFFER_MULTIPLIER +
+            bufferCnt = minCaptureBuffers +
                         mParameters.getNumOfExtraHDRInBufsIfNeeded() -
-                        mParameters.getNumOfExtraHDROutBufsIfNeeded();
+                        mParameters.getNumOfExtraHDROutBufsIfNeeded() +
+                        minPPBufs;
 
             if (bufferCnt > maxStreamBuf) {
                 bufferCnt = maxStreamBuf;
@@ -1492,16 +1489,18 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
                             mParameters.getNumOfExtraHDROutBufsIfNeeded() +
                             mParameters.getMaxUnmatchedFramesInQueue() +
                             CAMERA_MIN_STREAMING_BUFFERS;
-
-                if (bufferCnt > zslQBuffers + minCircularBufNum) {
-                    bufferCnt = zslQBuffers + minCircularBufNum;
-                }
+            }
+            if (bufferCnt > maxStreamBuf) {
+                bufferCnt = maxStreamBuf;
             }
         }
         break;
     case CAM_STREAM_TYPE_OFFLINE_PROC:
         {
             bufferCnt = minCaptureBuffers;
+            if (bufferCnt > maxStreamBuf) {
+                bufferCnt = maxStreamBuf;
+            }
         }
         break;
     case CAM_STREAM_TYPE_DEFAULT:
@@ -1511,6 +1510,7 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
         break;
     }
 
+    ALOGD("%s: Allocating %d buffers for streamtype %d",__func__,bufferCnt,stream_type);
     return bufferCnt;
 }
 
@@ -1562,16 +1562,24 @@ QCameraMemory *QCamera2HardwareInterface::allocateStreamBuf(cam_stream_type_t st
         break;
     case CAM_STREAM_TYPE_POSTVIEW:
         {
-            cam_dimension_t dim;
-            QCameraGrallocMemory *grallocMemory =
-                new QCameraGrallocMemory(mGetMemory);
+            if (isPreviewRestartEnabled()) {
+                mem = new QCameraStreamMemory(mGetMemory, bCachedMem);
+            } else {
+                cam_dimension_t dim;
+                QCameraGrallocMemory *grallocMemory =
+                    new QCameraGrallocMemory(mGetMemory);
 
-            mParameters.getStreamDimension(stream_type, dim);
-            if (grallocMemory)
-                grallocMemory->setWindowInfo(mPreviewWindow, dim.width,
-                    dim.height, stride, scanline,
-                    mParameters.getPreviewHalPixelFormat());
-            mem = grallocMemory;
+                mParameters.getStreamDimension(stream_type, dim);
+                if (grallocMemory) {
+                    grallocMemory->setWindowInfo(mPreviewWindow,
+                        dim.width,
+                        dim.height,
+                        stride,
+                        scanline,
+                        mParameters.getPreviewHalPixelFormat());
+                }
+                mem = grallocMemory;
+            }
         }
         break;
     case CAM_STREAM_TYPE_SNAPSHOT:
@@ -2047,48 +2055,9 @@ int QCamera2HardwareInterface::autoFocus()
     switch (focusMode) {
     case CAM_FOCUS_MODE_AUTO:
     case CAM_FOCUS_MODE_MACRO:
-        {
-            rc = mCameraHandle->ops->do_auto_focus(mCameraHandle->camera_handle);
-            if (rc == NO_ERROR) {
-                mParameters.setAFRunning(true);
-            }
-        }
-        break;
     case CAM_FOCUS_MODE_CONTINOUS_VIDEO:
-        // According to Google API definition, the focus callback will immediately
-        // return with a boolean that indicates whether the focus is sharp or not.
-        // The focus position is locked after autoFocus call.
-        // in this sense, the effect is the same as cancel_auto_focus
-        {
-            rc = mParameters.setLockCAF(true);
-
-            // send evt notify that foucs is done
-            sendEvtNotify(CAMERA_MSG_FOCUS,
-                          (m_currentFocusState == CAM_AF_FOCUSED)? true : false,
-                          0);
-        }
-        break;
     case CAM_FOCUS_MODE_CONTINOUS_PICTURE:
-        // According to Google API definition, if the autofocus is in the middle
-        // of scanning, the focus callback will return when it completes. If the
-        // autofocus is not scanning, focus callback will immediately return with
-        // a boolean that indicates whether the focus is sharp or not. The apps
-        // can then decide if they want to take a picture immediately or to change
-        // the focus mode to auto, and run a full autofocus cycle. The focus position
-        // is locked after autoFocus call.
-        if (m_currentFocusState != CAM_AF_SCANNING) {
-            // lock focus
-            rc = mParameters.setLockCAF(true);
-
-            // send evt notify that foucs is done
-            sendEvtNotify(CAMERA_MSG_FOCUS,
-                          (m_currentFocusState == CAM_AF_FOCUSED)? true : false,
-                          0);
-        } else {
-            // set flag that lock CAF is needed once focus state becomes focsued/not focused
-            mParameters.setLockCAFNeeded(true);
-            rc = NO_ERROR;
-        }
+        rc = mCameraHandle->ops->do_auto_focus(mCameraHandle->camera_handle);
         break;
     case CAM_FOCUS_MODE_INFINITY:
     case CAM_FOCUS_MODE_FIXED:
@@ -2120,20 +2089,9 @@ int QCamera2HardwareInterface::cancelAutoFocus()
     switch (focusMode) {
     case CAM_FOCUS_MODE_AUTO:
     case CAM_FOCUS_MODE_MACRO:
-        if (mParameters.isAFRunning()) {
-            rc = mCameraHandle->ops->cancel_auto_focus(mCameraHandle->camera_handle);
-            if (rc == NO_ERROR) {
-                mParameters.setAFRunning(false);
-            }
-        }
-        break;
     case CAM_FOCUS_MODE_CONTINOUS_VIDEO:
     case CAM_FOCUS_MODE_CONTINOUS_PICTURE:
-        if (mParameters.isCAFLocked()) {
-            // resume CAF by unlock CAF
-            rc = mParameters.setLockCAF(false);;
-            mParameters.setLockCAFNeeded(false);
-        }
+        rc = mCameraHandle->ops->cancel_auto_focus(mCameraHandle->camera_handle);
         break;
     case CAM_FOCUS_MODE_INFINITY:
     case CAM_FOCUS_MODE_FIXED:
@@ -2368,18 +2326,24 @@ end:
  *
  * DESCRIPTION: Stops capture channel
  *
- * PARAMETERS : none
+ * PARAMETERS :
+ *   @destroy : Set to true to stop and delete camera channel.
+ *              Set to false to only stop capture channel.
  *
  * RETURN     : int32_t type of status
  *              NO_ERROR  -- success
  *              none-zero failure code
  *==========================================================================*/
-int QCamera2HardwareInterface::stopCaptureChannel()
+int QCamera2HardwareInterface::stopCaptureChannel(bool destroy)
 {
     if (mParameters.isJpegPictureFormat() ||
         mParameters.isNV16PictureFormat() ||
         mParameters.isNV21PictureFormat()) {
         stopChannel(QCAMERA_CH_TYPE_CAPTURE);
+        if (destroy) {
+            // Destroy camera channel but dont release context
+            delChannel(QCAMERA_CH_TYPE_CAPTURE, false);
+        }
     }
 
     return NO_ERROR;
@@ -2938,22 +2902,16 @@ int32_t QCamera2HardwareInterface::processAutoFocusEvent(cam_auto_focus_data_t &
     switch (focusMode) {
     case CAM_FOCUS_MODE_AUTO:
     case CAM_FOCUS_MODE_MACRO:
-        if (mParameters.isAFRunning()) {
-            if (focus_data.focus_state == CAM_AF_SCANNING) {
-                // in the middle of focusing, just ignore it
-                break;
-            }
-
-            // update focus distance
-            mParameters.updateFocusDistances(&focus_data.focus_dist);
-            ret = sendEvtNotify(CAMERA_MSG_FOCUS,
-                                (focus_data.focus_state == CAM_AF_FOCUSED)? true : false,
-                                0);
-            mParameters.setAFRunning(false);
-        } else {
-            ret = UNKNOWN_ERROR;
-            ALOGE("%s: autoFocusEvent when no auto_focus running", __func__);
+        if (focus_data.focus_state == CAM_AF_SCANNING) {
+            // in the middle of focusing, just ignore it
+            break;
         }
+
+        // update focus distance
+        mParameters.updateFocusDistances(&focus_data.focus_dist);
+        ret = sendEvtNotify(CAMERA_MSG_FOCUS,
+                            (focus_data.focus_state == CAM_AF_FOCUSED)? true : false,
+                            0);
         break;
     case CAM_FOCUS_MODE_CONTINOUS_VIDEO:
     case CAM_FOCUS_MODE_CONTINOUS_PICTURE:
@@ -2961,10 +2919,6 @@ int32_t QCamera2HardwareInterface::processAutoFocusEvent(cam_auto_focus_data_t &
             focus_data.focus_state == CAM_AF_NOT_FOCUSED) {
             // update focus distance
             mParameters.updateFocusDistances(&focus_data.focus_dist);
-            if (mParameters.isLockCAFNeeded()) {
-                mParameters.setLockCAFNeeded(false);
-                ret = mParameters.setLockCAF(true);
-            }
 
             ret = sendEvtNotify(CAMERA_MSG_FOCUS,
                   (focus_data.focus_state == CAM_AF_FOCUSED)? true : false,
@@ -3962,6 +3916,7 @@ QCameraReprocessChannel *QCamera2HardwareInterface::addOnlineReprocChannel(
     // pp feature config
     cam_pp_feature_config_t pp_config;
     memset(&pp_config, 0, sizeof(cam_pp_feature_config_t));
+
     if (mParameters.isZSLMode()) {
         if (gCamCapability[mCameraId]->min_required_pp_mask & CAM_QCOM_FEATURE_EFFECT) {
             pp_config.feature_mask |= CAM_QCOM_FEATURE_EFFECT;
@@ -4018,23 +3973,19 @@ QCameraReprocessChannel *QCamera2HardwareInterface::addOnlineReprocChannel(
 
     ALOGD("%s: After pproc config check, ret = %x", __func__, pp_config.feature_mask);
 
-    //WNR and HDR happen inline. No extra buffers needed.
     uint32_t temp_feature_mask = pp_config.feature_mask;
-    temp_feature_mask &= ~CAM_QCOM_FEATURE_HDR;
     temp_feature_mask &= ~CAM_QCOM_FEATURE_DENOISE2D;
-
-    if (temp_feature_mask) {
-        int minCaptureBuffers = mParameters.getNumOfSnapshots();
-        int maxStreamBuf = minCaptureBuffers + mParameters.getMaxUnmatchedFramesInQueue();
-        minStreamBufNum *= CAMERA_PPROC_OUT_BUFFER_MULTIPLIER;
-        if (minStreamBufNum > maxStreamBuf) {
-            minStreamBufNum = maxStreamBuf;
-        }
+    temp_feature_mask &= ~CAM_QCOM_FEATURE_HDR;
+    if(temp_feature_mask && mParameters.isHDREnabled()){
+          minStreamBufNum =
+              gCamCapability[mCameraId]->hdr_bracketing_setting.num_frames;
     }
 
     if ( mLongshotEnabled ) {
         minStreamBufNum = getBufNumRequired(CAM_STREAM_TYPE_PREVIEW);
     }
+
+    ALOGD("%s: Allocating %d reproc buffers",__func__,minStreamBufNum);
 
     rc = pChannel->addReprocStreamsFromSource(*this,
                                               pp_config,
@@ -4174,16 +4125,22 @@ int32_t QCamera2HardwareInterface::addChannel(qcamera_ch_type_enum_t ch_type)
  *
  * PARAMETERS :
  *   @ch_type : channel type
+ *   @destroy : delete context as well
  *
  * RETURN     : int32_t type of status
  *              NO_ERROR  -- success
  *              none-zero failure code
  *==========================================================================*/
-int32_t QCamera2HardwareInterface::delChannel(qcamera_ch_type_enum_t ch_type)
+int32_t QCamera2HardwareInterface::delChannel(qcamera_ch_type_enum_t ch_type,
+                                              bool destroy)
 {
     if (m_channels[ch_type] != NULL) {
-        delete m_channels[ch_type];
-        m_channels[ch_type] = NULL;
+        if (destroy) {
+            delete m_channels[ch_type];
+            m_channels[ch_type] = NULL;
+        } else {
+            m_channels[ch_type]->deleteChannel();
+        }
     }
 
     return NO_ERROR;
@@ -4903,6 +4860,26 @@ bool QCamera2HardwareInterface::isCACEnabled()
     property_get("persist.camera.feature.cac", prop, "0");
     int enableCAC = atoi(prop);
     return enableCAC == 1;
+}
+
+/*===========================================================================
+ * FUNCTION   : isPreviewRestartEnabled
+ *
+ * DESCRIPTION: Check whether preview should be restarted automatically
+ *              during image capture.
+ *
+ * PARAMETERS : none
+ *
+ * RETURN     : true: needed
+ *              false: no need
+ *==========================================================================*/
+bool QCamera2HardwareInterface::isPreviewRestartEnabled()
+{
+    char prop[PROPERTY_VALUE_MAX];
+    memset(prop, 0, sizeof(prop));
+    property_get("persist.camera.feature.restart", prop, "0");
+    int earlyRestart = atoi(prop);
+    return earlyRestart == 1;
 }
 
 /*===========================================================================
