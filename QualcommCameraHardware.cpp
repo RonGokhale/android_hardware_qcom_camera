@@ -3660,7 +3660,7 @@ int QualcommCameraHardware::allocate_ion_memory(int *main_ion_fd, struct ion_all
     alloc->len = (alloc->len + 4095) & (~4095);
     alloc->align = 4096;
     alloc->heap_mask = (ION_HEAP(ION_IOMMU_HEAP_ID) | (ION_HEAP(ion_type)));
-    alloc->flags = 0;
+    alloc->flags = ION_FORCE_CONTIGUOUS;
 
     rc = ioctl(*main_ion_fd, ION_IOC_ALLOC, alloc);
     if (rc < 0) {
