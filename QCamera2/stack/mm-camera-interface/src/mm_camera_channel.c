@@ -571,8 +571,7 @@ int32_t mm_channel_fsm_fn_active(mm_channel_t *my_obj,
             mm_evt_paylod_map_stream_buf_t *payload =
                 (mm_evt_paylod_map_stream_buf_t *)in_val;
             if (payload != NULL &&
-                ((payload->buf_type == CAM_MAPPING_BUF_TYPE_OFFLINE_INPUT_BUF)||
-                 (payload->buf_type == CAM_MAPPING_BUF_TYPE_OFFLINE_META_BUF))) {
+                payload->buf_type == CAM_MAPPING_BUF_TYPE_OFFLINE_INPUT_BUF) {
                 rc = mm_channel_map_stream_buf(my_obj, payload);
             } else {
                 CDBG_ERROR("%s: cannot map regualr stream buf in active state", __func__);
@@ -584,8 +583,7 @@ int32_t mm_channel_fsm_fn_active(mm_channel_t *my_obj,
             mm_evt_paylod_unmap_stream_buf_t *payload =
                 (mm_evt_paylod_unmap_stream_buf_t *)in_val;
             if (payload != NULL &&
-                ((payload->buf_type == CAM_MAPPING_BUF_TYPE_OFFLINE_INPUT_BUF)||
-                 (payload->buf_type == CAM_MAPPING_BUF_TYPE_OFFLINE_META_BUF))) {
+                payload->buf_type == CAM_MAPPING_BUF_TYPE_OFFLINE_INPUT_BUF) {
                 rc = mm_channel_unmap_stream_buf(my_obj, payload);
             } else {
                 CDBG_ERROR("%s: cannot unmap regualr stream buf in active state", __func__);

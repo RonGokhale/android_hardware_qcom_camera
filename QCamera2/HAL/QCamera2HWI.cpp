@@ -3936,9 +3936,9 @@ int32_t QCamera2HardwareInterface::addMetaDataChannel()
 }
 
 /*===========================================================================
- * FUNCTION   : addReprocChannel
+ * FUNCTION   : addOnlineReprocChannel
  *
- * DESCRIPTION: add a reprocess channel that will do reprocess on frames
+ * DESCRIPTION: add a online reprocess channel that will do reprocess on frames
  *              coming from input channel
  *
  * PARAMETERS :
@@ -3946,7 +3946,7 @@ int32_t QCamera2HardwareInterface::addMetaDataChannel()
  *
  * RETURN     : Ptr to the newly created channel obj. NULL if failed.
  *==========================================================================*/
-QCameraReprocessChannel *QCamera2HardwareInterface::addReprocChannel(
+QCameraReprocessChannel *QCamera2HardwareInterface::addOnlineReprocChannel(
                                                       QCameraChannel *pInputChannel)
 {
     int32_t rc = NO_ERROR;
@@ -4058,16 +4058,13 @@ QCameraReprocessChannel *QCamera2HardwareInterface::addReprocChannel(
         minStreamBufNum = getBufNumRequired(CAM_STREAM_TYPE_PREVIEW);
     }
 
-
-    bool offlineReproc = isRegularCapture();
     rc = pChannel->addReprocStreamsFromSource(*this,
                                               pp_config,
                                               pInputChannel,
                                               minStreamBufNum,
                                               &gCamCapability[mCameraId]->padding_info,
                                               mParameters,
-                                              mLongshotEnabled,
-                                              offlineReproc);
+                                              mLongshotEnabled);
     if (rc != NO_ERROR) {
         delete pChannel;
         return NULL;
@@ -5603,29 +5600,6 @@ int32_t QCamera2HardwareInterface::waitDefferedWork(int32_t &job_id)
 
     job_id = MAX_ONGOING_JOBS;
     return NO_ERROR;
-}
-
-/*===========================================================================
- * FUNCTION   : isRegularCapture
- *
- * DESCRIPTION: Check configuration for regular catpure
- *
- * PARAMETERS :
- *
- * RETURN     : true - regular capture
- *              false - other type of capture
- *==========================================================================*/
-bool QCamera2HardwareInterface::isRegularCapture()
-{
-    bool ret = false;
-
-    if (numOfSnapshotsExpected() == 1 &&
-        !isLongshotEnabled() &&
-        !mParameters.getRecordingHintValue() &&
-        !isZSLMode()) {
-            ret = true;
-    }
-    return ret;
 }
 
 }; // namespace qcamera
