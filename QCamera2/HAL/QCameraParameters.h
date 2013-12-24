@@ -156,6 +156,10 @@ public:
     static const char KEY_QC_EXPOSURE_TIME[];
     static const char KEY_QC_MIN_EXPOSURE_TIME[];
     static const char KEY_QC_MAX_EXPOSURE_TIME[];
+    static const char KEY_QC_CURRENT_EST_SNAP_EXP_TIME[];
+    static const char KEY_QC_CURRENT_EST_SNAP_ISO[];
+    static const char KEY_QC_EST_CURRENT_LUMA[];
+    static const char KEY_QC_EST_LUMA_TARGET[];
     static const char KEY_QC_LENSSHADE[] ;
     static const char KEY_QC_SUPPORTED_LENSSHADE_MODES[] ;
     static const char KEY_QC_AUTO_EXPOSURE[];
@@ -547,6 +551,7 @@ public:
     bool isHDRThumbnailProcessNeeded() { return m_bHDRThumbnailProcessNeeded; };
 	int getAutoFlickerMode();
     int32_t  updateCurrentFocusPosition(int32_t pos);
+    int32_t updateEstSnapAECParm(cam_ae_params_t aec_params);
 
 private:
     int32_t setPreviewSize(const QCameraParameters& );
@@ -755,6 +760,8 @@ private:
     bool m_bReleaseTorchCamera; // Release camera resources after torch gets disabled
     int32_t m_curCCT;
     int32_t m_curFocusPos;
+    uint32_t m_curEstSnapExpTime;
+    uint32_t m_curEstSnapIso;
 
     DefaultKeyedVector<String8,String8> m_tempMap; // map for temororily store parameters to be set
     cam_fps_range_t m_default_fps_range;
