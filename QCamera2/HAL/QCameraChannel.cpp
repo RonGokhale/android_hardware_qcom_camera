@@ -553,6 +553,25 @@ int32_t QCameraPicChannel::cancelPicture()
 }
 
 /*===========================================================================
+ * FUNCTION   : startBracketing
+ *
+ * DESCRIPTION: start bracketing based on bracketing type.
+ *
+ * PARAMETERS :
+ *   @type : bracketing type.
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraPicChannel::startBracketing(mm_camera_bracketing_t type)
+{
+    int32_t rc = m_camOps->process_bracketing(m_camHandle, type,
+                                              m_handle, 1);
+    return rc;
+}
+
+/*===========================================================================
  * FUNCTION   : QCameraVideoChannel
  *
  * DESCRIPTION: constructor of QCameraVideoChannel
@@ -684,6 +703,7 @@ QCameraReprocessChannel::~QCameraReprocessChannel()
  *   @config         : pp feature configuration
  *   @pSrcChannel    : ptr to input source channel that needs reprocess
  *   @minStreamBufNum: number of stream buffers needed
+ *   @burstNum       : number of burst captures needed
  *   @paddingInfo    : padding information
  *   @param          : reference to parameters
  *
@@ -695,6 +715,7 @@ int32_t QCameraReprocessChannel::addReprocStreamsFromSource(QCameraAllocator& al
                                                             cam_pp_feature_config_t &config,
                                                             QCameraChannel *pSrcChannel,
                                                             uint8_t minStreamBufNum,
+                                                            uint32_t burstNum,
                                                             cam_padding_info_t *paddingInfo,
                                                             QCameraParameters &param,
                                                             bool contStream)
@@ -739,6 +760,11 @@ int32_t QCameraReprocessChannel::addReprocStreamsFromSource(QCameraAllocator& al
                       continue;
                   }
 
+                  // skip thumbnail reprocessing if not needed
+                  if (!param.needThumbnailReprocess(&feature_mask)) {
+                      continue;
+                  }
+
                   //Don't do WNR for thumbnail
                   feature_mask &= ~CAM_QCOM_FEATURE_DENOISE2D;
                   if(!feature_mask) {
@@ -765,7 +791,7 @@ int32_t QCameraReprocessChannel::addReprocStreamsFromSource(QCameraAllocator& al
                 streamInfo->num_of_burst = 0;
             } else {
                 streamInfo->streaming_mode = CAM_STREAMING_MODE_BURST;
-                streamInfo->num_of_burst = minStreamBufNum;
+                streamInfo->num_of_burst = burstNum;
             }
 
             streamInfo->reprocess_config.pp_type = CAM_ONLINE_REPROCESS_TYPE;
