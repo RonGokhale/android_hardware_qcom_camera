@@ -254,6 +254,11 @@ int32_t QCameraChannel::start()
         }
     } else {
         m_bIsActive = true;
+        for (int i = 0; i < m_numStreams; i++) {
+            if (mStreams[i] != NULL) {
+                mStreams[i]->cond_signal();
+            }
+        }
     }
 
     return rc;
