@@ -823,11 +823,16 @@ typedef struct {
 
 typedef enum {
   S_NORMAL = 0,
-  S_SCENERY,
-  S_PORTRAIT,
-  S_PORTRAIT_BACKLIGHT,
-  S_SCENERY_BACKLIGHT,
-  S_BACKLIGHT,
+  S_SCENERY, //1
+  S_PORTRAIT, //2
+  S_PORTRAIT_BACKLIGHT,//3
+  S_SCENERY_BACKLIGHT,//4
+  S_BACKLIGHT,//5
+  S_NIGHT,//6
+  S_MACRO,//7
+  S_SPORTS, //8
+  S_MIXED_LIGHT, //9
+  S_INDOOR, //10
   S_MAX,
 } cam_auto_scene_t;
 
