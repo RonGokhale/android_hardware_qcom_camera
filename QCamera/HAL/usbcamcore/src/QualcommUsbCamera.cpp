@@ -234,7 +234,7 @@ extern "C" int  usbcam_camera_device_open(
 
     if (camHal->fd <  0) {
         ALOGE("%s: Cannot open '%s'", __func__, dev_name);
-        free(camHal);
+        delete camHal;
         rc = -1;
     }else{
         rc = 0;
@@ -244,11 +244,13 @@ extern "C" int  usbcam_camera_device_open(
     rc = 0;
 #endif /* CAPTURE */
 
-    device                  = &camHal->hw_dev;
-    device->common.close    = usbcam_close_camera_device;
-    device->ops             = &usbcam_camera_ops;
-    device->priv            = (void *)camHal;
-    *hw_device              = &(device->common);
+    if(!rc) {
+        device                  = &camHal->hw_dev;
+        device->common.close    = usbcam_close_camera_device;
+        device->ops             = &usbcam_camera_ops;
+        device->priv            = (void *)camHal;
+        *hw_device              = &(device->common);
+    }
 
     ALOGD("%s: camHal: %p, rc = %d", __func__, camHal, rc);
     ALOGI("%s: X %d", __func__, rc);
