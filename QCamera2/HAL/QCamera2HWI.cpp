@@ -1082,6 +1082,8 @@ int QCamera2HardwareInterface::openCamera()
         ALOGE("camera_open failed.");
         return UNKNOWN_ERROR;
     }
+    if (NULL == gCamCapability[mCameraId])
+        initCapabilities(mCameraId,mCameraHandle);
 
     initCapabilities(mCameraId,mCameraHandle);
 
