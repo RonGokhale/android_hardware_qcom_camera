@@ -347,6 +347,8 @@ private:
     int getJpegQuality();
     int getJpegRotation();
     void getOrientation();
+    inline bool getCancelAutoFocus(){ return mCancelAutoFocus; }
+    inline void setCancelAutoFocus(bool flag){ mCancelAutoFocus = flag; }
     QCameraExif *getExifData();
 
     int32_t processAutoFocusEvent(cam_auto_focus_data_t &focus_data);
@@ -540,6 +542,7 @@ private:
     int mDumpSkipCnt; // frame skip count
     mm_jpeg_exif_params_t mExifParams;
     qcamera_thermal_level_enum_t mThermalLevel;
+    bool mCancelAutoFocus;
     bool m_HDRSceneEnabled;
     bool mLongshotEnabled;
 
