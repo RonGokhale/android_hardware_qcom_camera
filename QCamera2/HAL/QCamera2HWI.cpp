@@ -957,6 +957,7 @@ QCamera2HardwareInterface::QCamera2HardwareInterface(int cameraId)
       mDumpFrmCnt(0),
       mDumpSkipCnt(0),
       mThermalLevel(QCAMERA_THERMAL_NO_ADJUSTMENT),
+      mCancelAutoFocus(false),
       m_HDRSceneEnabled(false),
       mLongshotEnabled(false),
       m_max_pic_width(0),
@@ -2090,6 +2091,7 @@ int QCamera2HardwareInterface::releaseRecordingFrame(const void * opaque)
 int QCamera2HardwareInterface::autoFocus()
 {
     int rc = NO_ERROR;
+    setCancelAutoFocus(false);
     cam_focus_mode_type focusMode = mParameters.getFocusMode();
 
     switch (focusMode) {
@@ -2124,6 +2126,7 @@ int QCamera2HardwareInterface::autoFocus()
 int QCamera2HardwareInterface::cancelAutoFocus()
 {
     int rc = NO_ERROR;
+    setCancelAutoFocus(true);
     cam_focus_mode_type focusMode = mParameters.getFocusMode();
 
     switch (focusMode) {
@@ -3309,6 +3312,11 @@ int32_t QCamera2HardwareInterface::processAutoFocusEvent(cam_auto_focus_data_t &
     switch (focusMode) {
     case CAM_FOCUS_MODE_AUTO:
     case CAM_FOCUS_MODE_MACRO:
+        if (getCancelAutoFocus()) {
+            // auto focus has canceled, just ignore it
+            break;
+        }
+
         if (focus_data.focus_state == CAM_AF_SCANNING) {
             // in the middle of focusing, just ignore it
             break;
