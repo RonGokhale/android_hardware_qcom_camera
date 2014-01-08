@@ -2278,6 +2278,11 @@ int QCamera2HardwareInterface::cancelPicture()
         if ( mParameters.isHDREnabled() ) {
             mParameters.restoreAEBracket();
         }
+        /* If applications want to resume the continuous focus,
+         * cancelAutoFocus must be called. Restarting the preview
+         * will not resume the continuous autofocus.
+         */
+        cancelAutoFocus();
 
         // normal capture case
         if (mParameters.isJpegPictureFormat() ||
