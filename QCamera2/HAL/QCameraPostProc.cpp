@@ -355,8 +355,12 @@ int32_t QCameraPostProcessor::getJpegEncodingConfig(mm_jpeg_encode_params_t& enc
     }
 
     if (m_bThumbnailNeeded == TRUE) {
+        bool need_thumb_rotate = true;
+        int jpeg_rotation = m_parent->getJpegRotation();
+
         if (thumb_stream == NULL) {
             thumb_stream = main_stream;
+            need_thumb_rotate = false;
         }
         pStreamMem = thumb_stream->getStreamBufs();
         if (pStreamMem == NULL) {
@@ -390,7 +394,14 @@ int32_t QCameraPostProcessor::getJpegEncodingConfig(mm_jpeg_encode_params_t& enc
         encode_parm.thumb_dim.src_dim = src_dim;
         m_parent->getThumbnailSize(encode_parm.thumb_dim.dst_dim);
 
-        encode_parm.thumb_rotation = m_parent->getJpegRotation();
+        if (!m_parent->needRotationReprocess() || need_thumb_rotate) {
+            encode_parm.thumb_rotation = jpeg_rotation;
+        } else if ((90 == jpeg_rotation) || (270 == jpeg_rotation)) {
+            // swap thumbnail dimensions
+            cam_dimension_t tmp_dim = encode_parm.thumb_dim.dst_dim;
+            encode_parm.thumb_dim.dst_dim.width = tmp_dim.height;
+            encode_parm.thumb_dim.dst_dim.height = tmp_dim.width;
+        }
         encode_parm.thumb_dim.crop = crop;
     }
 
@@ -1169,6 +1180,14 @@ int32_t QCameraPostProcessor::encodeData(qcamera_jpeg_data_t *jpeg_job_data,
         return BAD_VALUE;
     }
 
+    const int jpeg_rotation = m_parent->getJpegRotation();
+
+    // Use snapshot stream to create thumbnail if snapshot and preview
+    // flip settings doesn't match in ZSL mode.
+    bool thumb_stream_needed = !m_parent->isZSLMode() ||
+        (m_parent->mParameters.getFlipMode(CAM_STREAM_TYPE_SNAPSHOT) ==
+         m_parent->mParameters.getFlipMode(CAM_STREAM_TYPE_PREVIEW));
+
     // find snapshot frame and thumnail frame
     for (int i = 0; i < recvd_frame->num_bufs; i++) {
         QCameraStream *pStream =
@@ -1178,10 +1197,11 @@ int32_t QCameraPostProcessor::encodeData(qcamera_jpeg_data_t *jpeg_job_data,
                 pStream->isOrignalTypeOf(CAM_STREAM_TYPE_SNAPSHOT)) {
                 main_stream = pStream;
                 main_frame = recvd_frame->bufs[i];
-            } else if (pStream->isTypeOf(CAM_STREAM_TYPE_PREVIEW) ||
-                       pStream->isTypeOf(CAM_STREAM_TYPE_POSTVIEW) ||
-                       pStream->isOrignalTypeOf(CAM_STREAM_TYPE_PREVIEW) ||
-                       pStream->isOrignalTypeOf(CAM_STREAM_TYPE_POSTVIEW)) {
+            } else if (thumb_stream_needed &&
+                       (pStream->isTypeOf(CAM_STREAM_TYPE_PREVIEW) ||
+                        pStream->isTypeOf(CAM_STREAM_TYPE_POSTVIEW) ||
+                        pStream->isOrignalTypeOf(CAM_STREAM_TYPE_PREVIEW) ||
+                        pStream->isOrignalTypeOf(CAM_STREAM_TYPE_POSTVIEW))) {
                 thumb_stream = pStream;
                 thumb_frame = recvd_frame->bufs[i];
             }
@@ -1195,7 +1215,9 @@ int32_t QCameraPostProcessor::encodeData(qcamera_jpeg_data_t *jpeg_job_data,
 
     //Sometimes thumbnail might be skipped in reprocess. Reprocessed channel will not have
     //thumbnail in such case.  Hence, look through reprocess source superbuf.
-    if (thumb_frame == NULL && jpeg_job_data->src_reproc_frame != NULL) {
+    if (thumb_stream_needed &&
+        thumb_frame == NULL &&
+        jpeg_job_data->src_reproc_frame != NULL) {
         mm_camera_super_buf_t *src_reproc_frame = jpeg_job_data->src_reproc_frame;
         QCameraChannel *pSrcReprocChannel = m_parent->getChannelByHandle(src_reproc_frame->ch_id);
         if (pSrcReprocChannel == NULL) {
@@ -1344,17 +1366,26 @@ int32_t QCameraPostProcessor::encodeData(qcamera_jpeg_data_t *jpeg_job_data,
 
     // set rotation only when no online rotation or offline pp rotation is done before
     if (!m_parent->needRotationReprocess()) {
-        jpg_job.encode_job.rotation = m_parent->getJpegRotation();
+        jpg_job.encode_job.rotation = jpeg_rotation;
     }
     ALOGD("%s: jpeg rotation is set to %d", __func__, jpg_job.encode_job.rotation);
 
     // thumbnail dim
     if (m_bThumbnailNeeded == TRUE) {
+        m_parent->getThumbnailSize(jpg_job.encode_job.thumb_dim.dst_dim);
+
         if (thumb_stream == NULL) {
             // need jpeg thumbnail, but no postview/preview stream exists
             // we use the main stream/frame to encode thumbnail
             thumb_stream = main_stream;
             thumb_frame = main_frame;
+            if (m_parent->needRotationReprocess() &&
+                ((90 == jpeg_rotation) || (270 == jpeg_rotation))) {
+                // swap thumbnail dimensions
+                cam_dimension_t tmp_dim = jpg_job.encode_job.thumb_dim.dst_dim;
+                jpg_job.encode_job.thumb_dim.dst_dim.width = tmp_dim.height;
+                jpg_job.encode_job.thumb_dim.dst_dim.height = tmp_dim.width;
+            }
         }
 
         memset(&src_dim, 0, sizeof(cam_dimension_t));
@@ -1383,8 +1414,6 @@ int32_t QCameraPostProcessor::encodeData(qcamera_jpeg_data_t *jpeg_job_data,
                }
             }
         }
-
-        m_parent->getThumbnailSize(jpg_job.encode_job.thumb_dim.dst_dim);
 
         jpg_job.encode_job.thumb_dim.crop = crop;
         jpg_job.encode_job.thumb_index = thumb_frame->buf_idx;
