@@ -207,6 +207,7 @@ void QCamera2HardwareInterface::capture_channel_cb_routine(mm_camera_super_buf_t
                                                            void *userdata)
 {
     char value[PROPERTY_VALUE_MAX];
+    cam_focus_mode_type curFocusMode;
     ALOGE("[KPI Perf] %s: E PROFILE_YUV_CB_TO_HAL", __func__);
     QCamera2HardwareInterface *pme = (QCamera2HardwareInterface *)userdata;
     if (pme == NULL ||
@@ -215,7 +216,10 @@ void QCamera2HardwareInterface::capture_channel_cb_routine(mm_camera_super_buf_t
         ALOGE("%s: camera obj not valid", __func__);
         return;
     }
-
+    //cancel auto focus in CAF mode
+    curFocusMode = pme->mParameters.getFocusMode();
+    if (CAM_FOCUS_MODE_CONTINOUS_PICTURE == curFocusMode)
+      pme->cancelAutoFocus();
     QCameraChannel *pChannel = pme->m_channels[QCAMERA_CH_TYPE_CAPTURE];
     if (pChannel == NULL ||
         pChannel->getMyHandle() != recvd_frame->ch_id) {
