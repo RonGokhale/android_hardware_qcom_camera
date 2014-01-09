@@ -33,6 +33,8 @@
 #include <hardware/camera.h>
 #include <hardware/power.h>
 #include <utils/Log.h>
+#include <utils/Mutex.h>
+#include <utils/Condition.h>
 #include <QCameraParameters.h>
 
 #include "QCameraQueue.h"
@@ -104,6 +106,7 @@ typedef struct {
 
 #define QCAMERA_ION_USE_CACHE   true
 #define QCAMERA_ION_USE_NOCACHE false
+#define MAX_ONGOING_JOBS 25
 
 typedef enum {
     QCAMERA_NOTIFY_CALLBACK,
@@ -273,6 +276,7 @@ private:
     int autoFocus();
     int cancelAutoFocus();
     int takePicture();
+    int stopCaptureChannel();
     int cancelPicture();
     int takeLiveSnapshot();
     int cancelLiveSnapshot();
@@ -507,6 +511,54 @@ private:
     int32_t mFlash;
     int32_t mRedEye;
     int32_t mFlashPresence;
+
+    enum DefferedWorkCmd {
+        CMD_DEFF_ALLOCATE_BUFF,
+        CMD_DEFF_PPROC_START,
+        CMD_DEFF_MAX
+    };
+
+    typedef struct {
+        QCameraChannel *ch;
+        cam_stream_type_t type;
+    } DefferAllocBuffArgs;
+
+    typedef union {
+        DefferAllocBuffArgs allocArgs;
+        QCameraChannel *pprocArgs;
+    } DefferWorkArgs;
+
+    bool mDeffOngoingJobs[MAX_ONGOING_JOBS];
+
+    struct DeffWork
+    {
+        DeffWork(DefferedWorkCmd cmd,
+                 uint32_t id,
+                 DefferWorkArgs args)
+            : cmd(cmd)
+            , id(id)
+            , args(args){};
+
+        DefferedWorkCmd cmd;
+        uint32_t id;
+        DefferWorkArgs args;
+    };
+
+    QCameraCmdThread      mDefferedWorkThread;
+    QCameraQueue          mCmdQueue;
+
+    Mutex                 mDeffLock;
+    Condition             mDeffCond;
+
+    int32_t queueDefferedWork(DefferedWorkCmd cmd,
+                              DefferWorkArgs args);
+    int32_t waitDefferedWork(int32_t &job_id);
+    static void *defferedWorkRoutine(void *obj);
+
+    int32_t mSnapshotJob;
+    int32_t mPostviewJob;
+    int32_t mMetadataJob;
+    int32_t mReprocJob;
 };
 
 }; // namespace qcamera
