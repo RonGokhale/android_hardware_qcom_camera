@@ -1101,6 +1101,12 @@ int QCamera2HardwareInterface::openCamera()
         m_max_pic_height = l_curr_height;
       }
     }
+    //restrict jpeg work buffer max size to 3MP for low memory devices
+    if(m_max_pic_width > 2048)
+        m_max_pic_width = 2048;
+    if(m_max_pic_height > 1536)
+        m_max_pic_height = 1536;
+
     //reset the preview and video sizes tables in case they were changed earlier
     copyList(savedSizes[mCameraId].all_preview_sizes, gCamCapability[mCameraId]->preview_sizes_tbl,
              savedSizes[mCameraId].all_preview_sizes_cnt);
