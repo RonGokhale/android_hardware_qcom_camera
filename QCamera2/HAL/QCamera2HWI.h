@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundataion. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundataion. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -45,6 +45,7 @@
 #include "QCameraAllocator.h"
 #include "QCameraPostProc.h"
 #include "QCameraThermalAdapter.h"
+#include "QCameraMem.h"
 
 extern "C" {
 #include <mm_camera_interface.h>
@@ -386,7 +387,8 @@ private:
     bool needProcessPreviewFrame() {return m_stateMachine.isPreviewRunning();};
     bool isNoDisplayMode() {return mParameters.isNoDisplayMode();};
     bool isZSLMode() {return mParameters.isZSLMode();};
-    uint8_t numOfSnapshotsExpected() {return mParameters.getNumOfSnapshots();};
+    uint8_t numOfSnapshotsExpected() {
+        return mParameters.isUbiRefocus() ? 1 : mParameters.getNumOfSnapshots();};
     bool isLongshotEnabled() { return mLongshotEnabled; };
     uint8_t getBufNumRequired(cam_stream_type_t stream_type);
     bool needFDMetadata(qcamera_ch_type_enum_t channel_type);
@@ -394,10 +396,13 @@ private:
                             uint8_t length,
                             cam_dimension_t size);
     int32_t configureBracketing();
-    int32_t configureAFBracketing();
+    int32_t configureAFBracketing(bool enable = true);
     int32_t configureFlashBracketing();
     int32_t startZslBracketing(QCameraPicChannel *pZSLchannel);
     int32_t configureOptiZoom();
+    inline void setOutputImageCount(uint32_t aCount) {mOutputCount = aCount;}
+    inline uint32_t getOutputImageCount() {return mOutputCount;}
+    bool processUFDumps(qcamera_jpeg_evt_payload_t *evt);
 
     static void copyList(cam_dimension_t* src_list,
                    cam_dimension_t* dst_list, uint8_t len);
@@ -481,6 +486,7 @@ private:
     pthread_mutex_t m_lock;
     pthread_cond_t m_cond;
     qcamera_api_result_t m_apiResult;
+    QCameraMemoryPool m_memoryPool;
 
     pthread_mutex_t m_evtLock;
     pthread_cond_t m_evtCond;
@@ -566,6 +572,7 @@ private:
     int32_t mPostviewJob;
     int32_t mMetadataJob;
     int32_t mReprocJob;
+    int32_t mOutputCount;
 };
 
 }; // namespace qcamera
