@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -43,6 +43,34 @@
 #define CEILING16(X) (((X) + 0x000F) & 0xFFF0)
 #define CEILING4(X)  (((X) + 0x0003) & 0xFFFC)
 #define CEILING2(X)  (((X) + 0x0001) & 0xFFFE)
+
+#define CAM_FN_CNT 255
+/** CAM_DUMP_TO_FILE:
+ *  @filename: file name
+ *  @name:filename
+ *  @index: index of the file
+ *  @extn: file extension
+ *  @p_addr: address of the buffer
+ *  @len: buffer length
+ *
+ *  dump the image to the file
+ **/
+#define CAM_DUMP_TO_FILE(path, name, index, extn, p_addr, len) ({ \
+  int rc = 0; \
+  char filename[CAM_FN_CNT]; \
+  if (index > 0) \
+    snprintf(filename, CAM_FN_CNT-1, "%s/%s%d.%s", path, name, index, extn); \
+  else \
+    snprintf(filename, CAM_FN_CNT-1, "%s/%s.%s", path, name, extn); \
+  FILE *fp = fopen(filename, "w+"); \
+  if (fp) { \
+    rc = fwrite(p_addr, 1, len, fp); \
+    ALOGE("%s:%d] written size %d", __func__, __LINE__, len); \
+    fclose(fp); \
+  } else { \
+    ALOGE("%s:%d] open %s failed", __func__, __LINE__, filename); \
+  } \
+})
 
 #define MAX_ZOOMS_CNT 79
 #define MAX_SIZES_CNT 24
@@ -511,6 +539,13 @@ typedef enum {
     CAM_AE_STATE_PRECAPTURE
 } cam_ae_state_t;
 
+typedef enum {
+  CAM_CDS_MODE_OFF,
+  CAM_CDS_MODE_ON,
+  CAM_CDS_MODE_AUTO,
+  CAM_CDS_MODE_MAX
+} cam_cds_mode_type_t;
+
 typedef struct  {
     int32_t left;
     int32_t top;
@@ -540,10 +575,11 @@ typedef enum {
 
 /* event from server */
 typedef enum {
-    CAM_EVENT_TYPE_MAP_UNMAP_DONE  = (1<<0),
-    CAM_EVENT_TYPE_AUTO_FOCUS_DONE = (1<<1),
-    CAM_EVENT_TYPE_ZOOM_DONE       = (1<<2),
-    CAM_EVENT_TYPE_DAEMON_DIED     = (1<<3),
+    CAM_EVENT_TYPE_MAP_UNMAP_DONE        = (1<<0),
+    CAM_EVENT_TYPE_AUTO_FOCUS_DONE       = (1<<1),
+    CAM_EVENT_TYPE_ZOOM_DONE             = (1<<2),
+    CAM_EVENT_TYPE_REPROCESS_STAGE_DONE  = (1<<3),
+    CAM_EVENT_TYPE_DAEMON_DIED           = (1<<4),
     CAM_EVENT_TYPE_MAX
 } cam_event_type_t;
 
@@ -947,6 +983,7 @@ typedef enum {
     CAM_INTF_PARM_SET_VFE_COMMAND,
     CAM_INTF_PARM_SET_PP_COMMAND,
     CAM_INTF_PARM_TINTLESS,
+    CAM_INTF_PARM_CDS_MODE,
 
     /* stream based parameters */
     CAM_INTF_PARM_DO_REPROCESS,
@@ -1096,6 +1133,7 @@ typedef enum {
     CAM_INTF_META_STREAM_ID,
     CAM_INTF_PARM_FOCUS_BRACKETING,
     CAM_INTF_PARM_FLASH_BRACKETING,
+    CAM_INTF_PARM_GET_IMG_PROP,
 
     CAM_INTF_PARM_MAX
 } cam_intf_parm_type_t;
@@ -1306,6 +1344,7 @@ typedef struct {
     uint8_t enable;
     uint8_t burst_count;
     uint8_t focus_steps[MAX_AF_BRACKETING_VALUES];
+    uint8_t output_count;
 } cam_af_bracketing_t;
 
 typedef struct {

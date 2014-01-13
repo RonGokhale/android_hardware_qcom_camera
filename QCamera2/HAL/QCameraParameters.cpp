@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -109,6 +109,7 @@ const char QCameraParameters::KEY_QC_AUTO_HDR_ENABLE [] = "auto-hdr-enable";
 const char QCameraParameters::KEY_QC_SNAPSHOT_BURST_NUM[] = "snapshot-burst-num";
 const char QCameraParameters::KEY_QC_SNAPSHOT_FD_DATA[] = "snapshot-fd-data-enable";
 const char QCameraParameters::KEY_QC_TINTLESS_ENABLE[] = "tintless";
+const char QCameraParameters::KEY_QC_CDS_MODE[] = "cds-mode";
 const char QCameraParameters::KEY_QC_VIDEO_ROTATION[] = "video-rotation";
 const char QCameraParameters::KEY_QC_AF_BRACKET[] = "af-bracket";
 const char QCameraParameters::KEY_QC_SUPPORTED_AF_BRACKET_MODES[] = "af-bracket-values";
@@ -304,6 +305,10 @@ const char QCameraParameters::FLIP_MODE_OFF[] = "off";
 const char QCameraParameters::FLIP_MODE_V[] = "flip-v";
 const char QCameraParameters::FLIP_MODE_H[] = "flip-h";
 const char QCameraParameters::FLIP_MODE_VH[] = "flip-vh";
+
+const char QCameraParameters::CDS_MODE_OFF[] = "off";
+const char QCameraParameters::CDS_MODE_ON[] = "on";
+const char QCameraParameters::CDS_MODE_AUTO[] = "auto";
 
 const char QCameraParameters::KEY_SELECTED_AUTO_SCENE[] = "selected-auto-scene";
 
@@ -564,6 +569,12 @@ const QCameraParameters::QCameraMap QCameraParameters::CHROMA_FLASH_MODES_MAP[] 
 const QCameraParameters::QCameraMap QCameraParameters::OPTI_ZOOM_MODES_MAP[] = {
     { OPTI_ZOOM_OFF, 0 },
     { OPTI_ZOOM_ON,  1 }
+};
+
+const QCameraParameters::QCameraMap QCameraParameters::CDS_MODES_MAP[] = {
+    { CDS_MODE_OFF, CAM_CDS_MODE_OFF },
+    { CDS_MODE_ON, CAM_CDS_MODE_ON },
+    { CDS_MODE_AUTO, CAM_CDS_MODE_AUTO}
 };
 
 #define DEFAULT_CAMERA_AREA "(0, 0, 0, 0, 0)"
@@ -2817,6 +2828,7 @@ int32_t QCameraParameters::setAFBracket(const QCameraParameters& params)
     if (str != NULL) {
         if (prev_str == NULL ||
             strcmp(str, prev_str) != 0) {
+            m_bNeedRestart = true;
             return setAFBracket(str);
         }
     }
@@ -2848,6 +2860,7 @@ int32_t QCameraParameters::setChromaFlash(const QCameraParameters& params)
     if (str != NULL) {
         if (prev_str == NULL ||
             strcmp(str, prev_str) != 0) {
+            m_bNeedRestart = true;
             return setChromaFlash(str);
         }
     }
@@ -2879,6 +2892,7 @@ int32_t QCameraParameters::setOptiZoom(const QCameraParameters& params)
     if (str != NULL) {
         if (prev_str == NULL ||
             strcmp(str, prev_str) != 0) {
+            m_bNeedRestart = true;
             return setOptiZoom(str);
         }
     }
@@ -3036,6 +3050,11 @@ int32_t QCameraParameters::setNumOfSnapshot()
             nExpnum = 1 + getNumOfExtraHDROutBufsIfNeeded();
             break;
         }
+    }
+
+    if (isUbiRefocus()) {
+        nBurstNum = m_pCapability->ubifocus_af_bracketing_need.output_count;
+        nExpnum = 1;
     }
 
     ALOGD("%s: nBurstNum = %d, nExpnum = %d", __func__, nBurstNum, nExpnum);
@@ -3503,6 +3522,7 @@ int32_t QCameraParameters::updateParameters(QCameraParameters& params,
     if ((rc = setBurstNum(params)))                     final_rc = rc;
     if ((rc = setSnapshotFDReq(params)))                final_rc = rc;
     if ((rc = setTintlessValue(params)))                final_rc = rc;
+    if ((rc = setCDSMode(params)))                      final_rc = rc;
 
     // update live snapshot size after all other parameters are set
     if ((rc = setLiveSnapshotSize(params)))             final_rc = rc;
@@ -5078,6 +5098,54 @@ int32_t QCameraParameters::setTintlessValue(const char *tintStr)
 }
 
 /*===========================================================================
+ * FUNCTION   : setCDSMode
+ *
+ * DESCRIPTION: Set CDS mode
+ *
+ * PARAMETERS :
+ *   @params  : user setting parameters
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraParameters::setCDSMode(const QCameraParameters& params)
+{
+    const char *str = params.get(KEY_QC_CDS_MODE);
+    const char *prev_str = get(KEY_QC_CDS_MODE);
+    char *cds_mode_str = NULL;
+    int32_t rc = NO_ERROR;
+
+    if (str) {
+        if (!prev_str || !strcmp(str, prev_str)) {
+            cds_mode_str = (char *)str;
+        }
+    } else {
+        char prop[PROPERTY_VALUE_MAX];
+        memset(prop, 0, sizeof(prop));
+        property_get("persist.camera.CDS", prop, VALUE_OFF);
+        cds_mode_str = prop;
+    }
+
+    if (cds_mode_str) {
+        ALOGV("%s: Set CDS mode = %s", __func__, cds_mode_str);
+
+        int cds_mode = lookupAttr(CDS_MODES_MAP,
+                                  sizeof(CDS_MODES_MAP) / sizeof(QCameraMap),
+                                  cds_mode_str);
+
+        rc = AddSetParmEntryToBatch(m_pParamBuf,
+                                    CAM_INTF_PARM_CDS_MODE,
+                                    sizeof(cds_mode),
+                                    &cds_mode);
+        if (rc != NO_ERROR) {
+            ALOGE("%s:Failed CDS MODE to update table", __func__);
+        }
+    }
+    return rc;
+}
+
+/*===========================================================================
  * FUNCTION   : setDISValue
  *
  * DESCRIPTION: set DIS value
@@ -6576,6 +6644,11 @@ uint8_t QCameraParameters::getNumOfSnapshots()
     if (numOfSnapshot <= 0) {
         numOfSnapshot = 1; // set to default value
     }
+
+    /* update the count for refocus */
+    if (isUbiRefocus())
+       numOfSnapshot += UfOutputCount();
+
     return (uint8_t)numOfSnapshot;
 }
 
@@ -8303,10 +8376,14 @@ uint8_t QCameraParameters::getNumOfExtraBuffersForImageProc()
 
     if (isUbiFocusEnabled()) {
         numOfBufs += m_pCapability->ubifocus_af_bracketing_need.burst_count - 1;
+        if (isUbiRefocus()) {
+            numOfBufs +=
+                m_pCapability->ubifocus_af_bracketing_need.burst_count + 1;
+        }
     } else if (isOptiZoomEnabled()) {
         numOfBufs += m_pCapability->opti_zoom_settings_need.burst_count - 1;
     } else if (isChromaFlashEnabled()) {
-        numOfBufs += 1;
+        numOfBufs += 1; /* flash and non flash */
     }
 
     return numOfBufs * getBurstNum();
