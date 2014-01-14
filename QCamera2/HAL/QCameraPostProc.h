@@ -179,7 +179,6 @@ private:
     static const char *STORE_LOCATION;  // path for storing buffers
     bool mUseSaveProc;                  // use store thread
     bool mUseJpegBurst;                 // use jpeg burst encoding mode
-    uint8_t mNewJpegSessionNeeded;
     bool mJpegMemOpt;
 };
 
