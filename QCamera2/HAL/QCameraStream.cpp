@@ -1149,4 +1149,5 @@ void QCameraStream::releaseFrameData(void *data, void *user_data)
     }
 }
 
+
 }; // namespace qcamera
