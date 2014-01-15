@@ -78,7 +78,6 @@ QCameraPostProcessor::QCameraPostProcessor(QCamera2HardwareInterface *cam_ctrl)
       mSaveFrmCnt(0),
       mUseSaveProc(false),
       mUseJpegBurst(false),
-      mNewJpegSessionNeeded(true),
       mJpegMemOpt(true)
 {
     memset(&mJpegHandle, 0, sizeof(mJpegHandle));
