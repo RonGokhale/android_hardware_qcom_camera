@@ -4990,7 +4990,8 @@ int32_t  QCameraParameters::setExposureTime(const char *expTimeStr)
         int32_t max_exp_time = m_pCapability->max_exposure_time; /* 2000000 */
 
         // expTime == 0 means not to use manual exposure time.
-        if (expTimeUs == 0 ||
+        // expTime == 1 means use auto long exposure time.
+        if (expTimeUs == 0 || expTimeUs == 1 ||
             (expTimeUs >= min_exp_time && expTimeUs <= max_exp_time)) {
             ALOGE("####%s, exposure time: %d", __func__, expTimeUs);
             updateParamEntry(KEY_QC_EXPOSURE_TIME, expTimeStr);
