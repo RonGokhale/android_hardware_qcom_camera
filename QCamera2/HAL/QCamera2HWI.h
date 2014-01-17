@@ -45,7 +45,6 @@
 #include "QCameraAllocator.h"
 #include "QCameraPostProc.h"
 #include "QCameraThermalAdapter.h"
-#include "QCameraMem.h"
 
 extern "C" {
 #include <mm_camera_interface.h>
@@ -276,7 +275,7 @@ private:
     int autoFocus();
     int cancelAutoFocus();
     int takePicture();
-    int stopCaptureChannel(bool destroy);
+    int stopCaptureChannel();
     int cancelPicture();
     int takeLiveSnapshot();
     int cancelLiveSnapshot();
@@ -317,7 +316,6 @@ private:
 
     bool needDebugFps();
     bool isCACEnabled();
-    bool isPreviewRestartEnabled();
     bool needReprocess();
     bool needRotationReprocess();
     bool needScaleReprocess();
@@ -356,7 +354,7 @@ private:
     int32_t addChannel(qcamera_ch_type_enum_t ch_type);
     int32_t startChannel(qcamera_ch_type_enum_t ch_type);
     int32_t stopChannel(qcamera_ch_type_enum_t ch_type);
-    int32_t delChannel(qcamera_ch_type_enum_t ch_type, bool destroy = true);
+    int32_t delChannel(qcamera_ch_type_enum_t ch_type);
     int32_t addPreviewChannel();
     int32_t addSnapshotChannel();
     int32_t addVideoChannel();
@@ -476,7 +474,6 @@ private:
     pthread_mutex_t m_lock;
     pthread_cond_t m_cond;
     qcamera_api_result_t m_apiResult;
-    QCameraMemoryPool m_memoryPool;
 
     pthread_mutex_t m_evtLock;
     pthread_cond_t m_evtCond;
