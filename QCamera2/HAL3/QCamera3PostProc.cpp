@@ -101,10 +101,17 @@ int32_t QCamera3PostProcessor::init(jpeg_encode_callback_t jpeg_cb, void *user_d
     mJpegUserData = user_data;
     mm_dimension max_size;
 
+    if ((0 > m_parent->m_max_pic_dim.width) ||
+            (0 > m_parent->m_max_pic_dim.height)) {
+        ALOGE("%s : Negative dimension %dx%d", __func__,
+                m_parent->m_max_pic_dim.width, m_parent->m_max_pic_dim.height);
+        return BAD_VALUE;
+    }
+
     //set max pic size
     memset(&max_size, 0, sizeof(mm_dimension));
-    max_size.w =  m_parent->m_max_pic_dim.width;
-    max_size.h =  m_parent->m_max_pic_dim.height;
+    max_size.w = (uint32_t)m_parent->m_max_pic_dim.width;
+    max_size.h = (uint32_t)m_parent->m_max_pic_dim.height;
 
 
     mJpegClientHandle = jpeg_open(&mJpegHandle,max_size);
@@ -171,8 +178,13 @@ int32_t QCamera3PostProcessor::start(QCamera3Memory* mMemory, int index,
 {
     int32_t rc = NO_ERROR;
     mJpegMem = mMemory;
-    mJpegMemIndex = index;
     QCamera3HardwareInterface* hal_obj = (QCamera3HardwareInterface*)m_parent->mUserData;
+
+    if (0 > index) {
+        ALOGE("%s: Negative index %d", __func__, index);
+        return BAD_INDEX;
+    }
+    mJpegMemIndex = (uint32_t)index;
 
     if (hal_obj->needReprocess()) {
         while (!m_inputMetaQ.isEmpty()) {
@@ -248,6 +260,7 @@ int32_t QCamera3PostProcessor::getJpegEncodingConfig(mm_jpeg_encode_params_t& en
 {
     CDBG("%s : E", __func__);
     int32_t ret = NO_ERROR;
+    ssize_t bufSize = 0;
 
     encode_parm.jpeg_cb = mJpegCB;
     encode_parm.userdata = mJpegUserData;
@@ -292,7 +305,13 @@ int32_t QCamera3PostProcessor::getJpegEncodingConfig(mm_jpeg_encode_params_t& en
     for (uint32_t i = 0; i < (uint32_t)encode_parm.num_src_bufs; i++) {
         if (pStreamMem != NULL) {
             encode_parm.src_main_buf[i].index = i;
-            encode_parm.src_main_buf[i].buf_size = pStreamMem->getSize(i);
+            bufSize = pStreamMem->getSize(i);
+            if (BAD_INDEX == bufSize) {
+            ALOGE("%s: cannot retrieve buffer size for buffer %u", __func__, i);
+                ret = BAD_VALUE;
+                goto on_error;
+            }
+            encode_parm.src_main_buf[i].buf_size = (size_t)bufSize;
             encode_parm.src_main_buf[i].buf_vaddr = (uint8_t *)pStreamMem->getPtr(i);
             encode_parm.src_main_buf[i].fd = pStreamMem->getFd(i);
             encode_parm.src_main_buf[i].format = MM_JPEG_FMT_YUV;
@@ -312,11 +331,17 @@ int32_t QCamera3PostProcessor::getJpegEncodingConfig(mm_jpeg_encode_params_t& en
         cam_frame_len_offset_t thumb_offset;
         memset(&thumb_offset, 0, sizeof(cam_frame_len_offset_t));
         main_stream->getFrameOffset(thumb_offset);
-        encode_parm.num_tmb_bufs = pStreamMem->getCnt();
-        for (int i = 0; i < pStreamMem->getCnt(); i++) {
+        encode_parm.num_tmb_bufs = (int32_t)pStreamMem->getCnt();
+        for (uint32_t i = 0; i < pStreamMem->getCnt(); i++) {
             if (pStreamMem != NULL) {
                 encode_parm.src_thumb_buf[i].index = i;
-                encode_parm.src_thumb_buf[i].buf_size = pStreamMem->getSize(i);
+                bufSize = pStreamMem->getSize(i);
+                if (BAD_INDEX == bufSize) {
+                    ALOGE("%s: cannot retrieve buffer size for buffer %u", __func__, i);
+                    ret = BAD_VALUE;
+                    goto on_error;
+                }
+                encode_parm.src_thumb_buf[i].buf_size = (uint32_t)bufSize;
                 encode_parm.src_thumb_buf[i].buf_vaddr = (uint8_t *)pStreamMem->getPtr(i);
                 encode_parm.src_thumb_buf[i].fd = pStreamMem->getFd(i);
                 encode_parm.src_thumb_buf[i].format = MM_JPEG_FMT_YUV;
@@ -329,7 +354,13 @@ int32_t QCamera3PostProcessor::getJpegEncodingConfig(mm_jpeg_encode_params_t& en
     //mJpegMem is allocated by framework.
     encode_parm.num_dst_bufs = 1;
     encode_parm.dest_buf[0].index = 0;
-    encode_parm.dest_buf[0].buf_size = mJpegMem->getSize(mJpegMemIndex);
+    bufSize = mJpegMem->getSize(mJpegMemIndex);
+    if (BAD_INDEX == bufSize) {
+        ALOGE("%s: cannot retrieve JPEG buffer size", __func__);
+        ret = BAD_VALUE;
+        goto on_error;
+    }
+    encode_parm.dest_buf[0].buf_size = (uint32_t)bufSize;
     encode_parm.dest_buf[0].buf_vaddr = (uint8_t *)mJpegMem->getPtr(mJpegMemIndex);
     encode_parm.dest_buf[0].fd = mJpegMem->getFd(mJpegMemIndex);
     encode_parm.dest_buf[0].format = MM_JPEG_FMT_YUV;
@@ -914,7 +945,7 @@ int32_t QCamera3PostProcessor::encodeData(qcamera_hal3_jpeg_data_t *jpeg_job_dat
     memset(&jpg_job, 0, sizeof(mm_jpeg_job_t));
     jpg_job.job_type = JPEG_JOB_TYPE_ENCODE;
     jpg_job.encode_job.session_id = mJpegSessionId;
-    jpg_job.encode_job.src_index = main_frame->buf_idx;
+    jpg_job.encode_job.src_index = (int32_t)main_frame->buf_idx;
     jpg_job.encode_job.dst_index = 0;
 
     cam_rect_t crop;

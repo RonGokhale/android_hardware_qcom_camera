@@ -296,7 +296,7 @@ uint32_t jpeg_open(mm_jpeg_ops_t *ops, mm_dimension picture_size)
   char prop[PROPERTY_VALUE_MAX];
 
   property_get("persist.camera.logs", prop, "0");
-  gMmJpegIntfLogLevel = atoi(prop);
+  gMmJpegIntfLogLevel = (uint32_t)atoi(prop);
 
   pthread_mutex_lock(&g_intf_lock);
   /* first time open */
