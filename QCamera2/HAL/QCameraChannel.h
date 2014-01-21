@@ -56,8 +56,7 @@ public:
                               cam_padding_info_t *paddingInfo,
                               stream_cb_routine stream_cb,
                               void *userdata,
-                              bool bDynAllocBuf,
-                              bool bDeffAlloc = false);
+                              bool bDynAllocBuf);
     virtual int32_t start();
     virtual int32_t stop();
     virtual int32_t bufDone(mm_camera_super_buf_t *recvd_frame);
@@ -69,7 +68,6 @@ public:
     QCameraStream *getStreamByIndex(uint8_t index);
     QCameraStream *getStreamByServerID(uint32_t serverID);
     int32_t UpdateStreamBasedParameters(QCameraParameters &param);
-    void deleteChannel();
 
 protected:
     uint32_t m_camHandle;
