@@ -2243,6 +2243,7 @@ int32_t QCameraParameters::setSnapshotHDR(const QCameraParameters& params)
     property_get("persist.camera.snapshot.hdr", prop, VALUE_OFF);
 
     /* logic for setprop to enable/disable */
+/*
     if (prev_str == NULL ||
          strcmp(prev_str, prop) != 0 ) {
          ALOGE("%s :2. Snapshot HDR set to: %s", __func__, prop);
@@ -2251,6 +2252,7 @@ int32_t QCameraParameters::setSnapshotHDR(const QCameraParameters& params)
          m_bNeedRestart = true;
          return setSnapshotHDR(prop);
     }
+*/
     /* logic for app to enable/disable */
     if (str != NULL) {
        if (prev_str == NULL ||
