@@ -1696,7 +1696,12 @@ QCameraHeapMemory *QCamera2HardwareInterface::allocateStreamInfoBuf(
             char value[PROPERTY_VALUE_MAX];
             property_get("persist.camera.is_type", value, "0");
             streamInfo->is_type = static_cast<cam_is_type_t>(atoi(value));
+            /* Ues EIS2.0 for default */
+            if (0 == atoi(value)) {
+              streamInfo->is_type = IS_TYPE_EIS_2_0;
+            }
         }
+		ALOGD("%s: EIS type=%d", __func__, streamInfo->is_type);
         break;
     default:
         break;
