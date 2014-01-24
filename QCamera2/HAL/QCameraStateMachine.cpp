@@ -352,10 +352,6 @@ int32_t QCameraStateMachine::procEvtPreviewStoppedState(qcamera_sm_evt_enum_t ev
         {
             bool needRestart = false;
             rc = m_parent->updateParameters((char*)payload, needRestart);
-            if (needRestart) {
-                // Clear memory pools
-                m_parent->m_memoryPool.clear();
-            }
             if (rc == NO_ERROR) {
                 rc = m_parent->commitParameterChanges();
             }
@@ -674,8 +670,6 @@ int32_t QCameraStateMachine::procEvtPreviewReadyState(qcamera_sm_evt_enum_t evt,
                 if (needRestart) {
                     // need restart preview for parameters to take effect
                     m_parent->unpreparePreview();
-                    // Clear memory pools
-                    m_parent->m_memoryPool.clear();
                     // commit parameter changes to server
                     m_parent->commitParameterChanges();
                     // prepare preview again
@@ -959,8 +953,6 @@ int32_t QCameraStateMachine::procEvtPreviewingState(qcamera_sm_evt_enum_t evt,
                     // need restart preview for parameters to take effect
                     // stop preview
                     m_parent->stopPreview();
-                    // Clear memory pools
-                    m_parent->m_memoryPool.clear();
                     // commit parameter changes to server
                     m_parent->commitParameterChanges();
                     // start preview again
@@ -1693,36 +1685,10 @@ int32_t QCameraStateMachine::procEvtPicTakingState(qcamera_sm_evt_enum_t evt,
             rc = m_parent->processJpegNotify(jpeg_job);
         }
         break;
-    case QCAMERA_SM_EVT_STOP_CAPTURE_CHANNEL:
-        {
-            bool restartPreview = m_parent->isPreviewRestartEnabled();
-            rc = m_parent->stopCaptureChannel(restartPreview);
-
-            if (restartPreview && (NO_ERROR == rc)) {
-                rc = m_parent->preparePreview();
-                if (NO_ERROR == rc) {
-                    m_parent->m_bPreviewStarted = true;
-                    rc = m_parent->startPreview();
-                }
-            }
-
-            result.status = rc;
-            result.request_api = evt;
-            result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            m_parent->signalAPIResult(&result);
-        }
-        break;
     case QCAMERA_SM_EVT_SNAPSHOT_DONE:
         {
             rc = m_parent->cancelPicture();
-
-            bool restartPreview = m_parent->isPreviewRestartEnabled();
-            if (restartPreview) {
-                m_state = QCAMERA_SM_STATE_PREVIEWING;
-            } else {
-                m_state = QCAMERA_SM_STATE_PREVIEW_STOPPED;
-            }
-
+            m_state = QCAMERA_SM_STATE_PREVIEW_STOPPED;
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
@@ -2502,8 +2468,6 @@ int32_t QCameraStateMachine::procEvtPreviewPicTakingState(qcamera_sm_evt_enum_t 
                     // need restart preview for parameters to take effect
                     // stop preview
                     m_parent->stopPreview();
-                    // Clear memory pools
-                    m_parent->m_memoryPool.clear();
                     // commit parameter changes to server
                     m_parent->commitParameterChanges();
                     // start preview again

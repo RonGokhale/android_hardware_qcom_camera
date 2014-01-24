@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -1677,7 +1677,7 @@ int32_t mm_stream_calc_offset_preview(cam_format_t fmt,
         /* 2 planes: Y + CbCr */
         buf_planes->plane_info.num_planes = 2;
 
-        stride = PAD_TO_SIZE(dim->width, CAM_PAD_TO_16);
+        stride = PAD_TO_SIZE(dim->width, CAM_PAD_TO_32);
         scanline = PAD_TO_SIZE(dim->height, CAM_PAD_TO_2);
 
         buf_planes->plane_info.mp[0].offset = 0;
@@ -1689,7 +1689,7 @@ int32_t mm_stream_calc_offset_preview(cam_format_t fmt,
         buf_planes->plane_info.mp[0].width = dim->width;
         buf_planes->plane_info.mp[0].height = dim->height;
 
-        stride = PAD_TO_SIZE(dim->width, CAM_PAD_TO_16);
+        stride = PAD_TO_SIZE(dim->width, CAM_PAD_TO_32);
         scanline = PAD_TO_SIZE(dim->height / 2, CAM_PAD_TO_2);
         buf_planes->plane_info.mp[1].offset = 0;
         buf_planes->plane_info.mp[1].len =
@@ -2655,7 +2655,7 @@ int32_t mm_stream_calc_offset(mm_stream_t *my_obj)
     int32_t rc = 0;
 
     cam_dimension_t dim = my_obj->stream_info->dim;
-    if (my_obj->stream_info->pp_config.feature_mask & CAM_QCOM_FEATURE_CPP &&
+    if (my_obj->stream_info->pp_config.feature_mask & CAM_QCOM_FEATURE_ROTATION &&
         my_obj->stream_info->stream_type != CAM_STREAM_TYPE_VIDEO) {
         if (my_obj->stream_info->pp_config.rotation == ROTATE_90 ||
             my_obj->stream_info->pp_config.rotation == ROTATE_270) {
