@@ -109,29 +109,6 @@ QCameraChannel::~QCameraChannel()
 }
 
 /*===========================================================================
- * FUNCTION   : deleteChannel
- *
- * DESCRIPTION: deletes a camera channel
- *
- * PARAMETERS : none
- *
- * RETURN     : none
- *==========================================================================*/
-void QCameraChannel::deleteChannel()
-{
-    if (m_bIsActive) {
-        stop();
-    }
-
-    for (int i = 0; i < m_numStreams; i++) {
-        if (mStreams[i] != NULL) {
-            mStreams[i]->deleteStream();
-        }
-    }
-    m_camOps->delete_channel(m_camHandle, m_handle);
-}
-
-/*===========================================================================
  * FUNCTION   : init
  *
  * DESCRIPTION: initialization of channel
@@ -184,8 +161,7 @@ int32_t QCameraChannel::addStream(QCameraAllocator &allocator,
                                   cam_padding_info_t *paddingInfo,
                                   stream_cb_routine stream_cb,
                                   void *userdata,
-                                  bool bDynAllocBuf,
-                                  bool bDeffAlloc)
+                                  bool bDynAllocBuf)
 {
     int32_t rc = NO_ERROR;
     if (m_numStreams >= MAX_STREAM_NUM_IN_BUNDLE) {
@@ -197,8 +173,7 @@ int32_t QCameraChannel::addStream(QCameraAllocator &allocator,
                                                m_camHandle,
                                                m_handle,
                                                m_camOps,
-                                               paddingInfo,
-                                               bDeffAlloc);
+                                               paddingInfo);
     if (pStream == NULL) {
         ALOGE("%s: No mem for Stream", __func__);
         return NO_MEMORY;
@@ -229,11 +204,6 @@ int32_t QCameraChannel::addStream(QCameraAllocator &allocator,
 int32_t QCameraChannel::start()
 {
     int32_t rc = NO_ERROR;
-
-    for (int i = 0; i < m_numStreams; ++i) {
-        if ( mStreams[i]->isDeffered() )
-            mStreams[i]->configStream();
-    }
 
     if (m_numStreams > 1) {
         // there is more than one stream in the channel
@@ -423,10 +393,6 @@ QCameraStream *QCameraChannel::getStreamByServerID(uint32_t serverID)
  *==========================================================================*/
 QCameraStream *QCameraChannel::getStreamByIndex(uint8_t index)
 {
-    if (index >= MAX_STREAM_NUM_IN_BUNDLE) {
-        return NULL;
-    }
-
     if (index < m_numStreams) {
         return mStreams[index];
     }
@@ -820,9 +786,7 @@ int32_t QCameraReprocessChannel::addReprocStreamsFromSource(QCameraAllocator& al
                 }
             }
 
-            uint32_t mask;
-            mask = streamInfo->reprocess_config.pp_feature_config.feature_mask;
-            if (mask & CAM_QCOM_FEATURE_CPP) {
+            if (streamInfo->reprocess_config.pp_feature_config.feature_mask & CAM_QCOM_FEATURE_ROTATION) {
                 if (streamInfo->reprocess_config.pp_feature_config.rotation == ROTATE_90 ||
                     streamInfo->reprocess_config.pp_feature_config.rotation == ROTATE_270) {
                     // rotated by 90 or 270, need to switch width and height
@@ -832,9 +796,8 @@ int32_t QCameraReprocessChannel::addReprocStreamsFromSource(QCameraAllocator& al
                 }
             }
 
-            cam_stream_type_t type = CAM_STREAM_TYPE_DEFAULT;
-            type = streamInfo->reprocess_config.online.input_stream_type;
-            if (type == CAM_STREAM_TYPE_SNAPSHOT) {
+            if (param.isZSLMode() &&
+                (streamInfo->reprocess_config.online.input_stream_type == CAM_STREAM_TYPE_SNAPSHOT)) {
                 // ZSL mode snapshot need reprocess to do the flip
                 int flipMode =
                     param.getFlipMode(streamInfo->reprocess_config.online.input_stream_type);
@@ -844,12 +807,11 @@ int32_t QCameraReprocessChannel::addReprocStreamsFromSource(QCameraAllocator& al
                 }
             }
 
-            mask = streamInfo->reprocess_config.pp_feature_config.feature_mask;
-            if (mask & CAM_QCOM_FEATURE_SCALE) {
+            if(streamInfo->reprocess_config.pp_feature_config.feature_mask & CAM_QCOM_FEATURE_SCALE){
                 //we only Scale Snapshot frame
                 if(pStream->isTypeOf(CAM_STREAM_TYPE_SNAPSHOT)){
                     //also check whether rotation is needed
-                    if((mask & CAM_QCOM_FEATURE_CPP) &&
+                    if((streamInfo->reprocess_config.pp_feature_config.feature_mask & CAM_QCOM_FEATURE_ROTATION) &&
                        (streamInfo->reprocess_config.pp_feature_config.rotation == ROTATE_90 ||
                         streamInfo->reprocess_config.pp_feature_config.rotation == ROTATE_270)){
                         //need swap
