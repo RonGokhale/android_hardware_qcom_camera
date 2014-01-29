@@ -2260,6 +2260,10 @@ int QCamera2HardwareInterface::takePicture()
                 return rc;
             }
         } else {
+
+            stopChannel(QCAMERA_CH_TYPE_PREVIEW);
+            delChannel(QCAMERA_CH_TYPE_PREVIEW);
+
             rc = addRawChannel();
             if (rc == NO_ERROR) {
                 // start postprocessor
@@ -2537,6 +2541,7 @@ int QCamera2HardwareInterface::sendCommand(int32_t command, int32_t /*arg1*/, in
         // is not active.
         if ( !m_stateMachine.isCaptureRunning() ) {
             mLongshotEnabled = true;
+            rc = setLongShot(mLongshotEnabled);
         } else {
             rc = NO_INIT;
         }
@@ -2547,6 +2552,7 @@ int QCamera2HardwareInterface::sendCommand(int32_t command, int32_t /*arg1*/, in
             processEvt(QCAMERA_SM_EVT_SNAPSHOT_DONE, NULL);
         }
         mLongshotEnabled = false;
+        rc = setLongShot(mLongshotEnabled);
         break;
     case CAMERA_CMD_HISTOGRAM_ON:
     case CAMERA_CMD_HISTOGRAM_OFF:
@@ -3595,6 +3601,7 @@ int32_t QCamera2HardwareInterface::addRawChannel()
         delete pChannel;
         return rc;
     }
+    waitDefferedWork(mMetadataJob);
 
     rc = addStreamToChannel(pChannel, CAM_STREAM_TYPE_RAW,
                             raw_stream_cb_routine, this);
@@ -5235,6 +5242,24 @@ QCameraExif *QCamera2HardwareInterface::getExifData()
 int32_t QCamera2HardwareInterface::setHistogram(bool histogram_en)
 {
     return mParameters.setHistogram(histogram_en);
+}
+
+/*===========================================================================
+ * FUNCTION   : setLongShot
+ *
+ * DESCRIPTION: set if LongShot should be enabled
+ *
+ * PARAMETERS :
+ *   @longshot_en : bool flag if LongShot should be enabled
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+
+int32_t QCamera2HardwareInterface::setLongShot(bool longshot_en)
+{
+    return mParameters.setLongShot(longshot_en);
 }
 
 /*===========================================================================

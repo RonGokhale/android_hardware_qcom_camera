@@ -576,6 +576,7 @@ QCameraParameters::QCameraParameters()
       m_bSnapshotFlipChanged(false),
       m_bFixedFrameRateSet(false),
       m_bHDREnabled(false),
+      m_bLongShotEnabled(false),
       m_bAVTimerEnabled(false),
       m_AdjustFPS(NULL),
       m_bHDR1xFrameEnabled(true),
@@ -5490,7 +5491,13 @@ cam_denoise_process_type_t QCameraParameters::getWaveletDenoiseProcessPlate()
 {
     char prop[PROPERTY_VALUE_MAX];
     memset(prop, 0, sizeof(prop));
-    cam_denoise_process_type_t processPlate = CAM_WAVELET_DENOISE_CBCR_ONLY;
+    cam_denoise_process_type_t processPlate = CAM_WAVELET_DENOISE_YCBCR_PLANE;
+
+    // Check if it's single shot, if not, only do chroma denoise
+    int numOfSnapshot = getInt(KEY_QC_NUM_SNAPSHOT_PER_SHUTTER);
+    if ((numOfSnapshot > 1) || (isHDREnabled()) || (m_bLongShotEnabled)) {
+        processPlate = CAM_WAVELET_DENOISE_CBCR_ONLY;
+    }
     property_get("persist.denoise.process.plates", prop, "");
     if (strlen(prop) > 0) {
         switch(atoi(prop)) {
@@ -6579,6 +6586,33 @@ int32_t QCameraParameters::updateRecordingHintValue(int32_t value)
         ALOGE("%s:Failed to update recording hint", __func__);
         return rc;
     }
+
+    return rc;
+}
+
+/*===========================================================================
+ * FUNCTION   : setLongShot
+ *
+ * DESCRIPTION: Get notice if LongShot is enable
+ *
+ * PARAMETERS :
+ *   @enabled : if LongShot is enabled
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraParameters::setLongShot(bool enabled)
+{
+    int32_t rc = NO_ERROR;
+    if (m_bLongShotEnabled == enabled) {
+        ALOGV("%s: LongShot flag not changed, no ops here", __func__);
+        return NO_ERROR;
+    }
+
+    m_bLongShotEnabled = enabled;
+
+    ALOGD(" LongShot -> %s", m_bLongShotEnabled ? "Enabled" : "Disabled");
 
     return rc;
 }
