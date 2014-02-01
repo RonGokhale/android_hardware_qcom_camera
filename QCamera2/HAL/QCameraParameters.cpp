@@ -622,6 +622,7 @@ QCameraParameters::QCameraParameters()
       m_bFixedFrameRateSet(false),
       m_bHDREnabled(false),
       m_bAVTimerEnabled(false),
+      m_bMobiEnabled(false),
       m_AdjustFPS(NULL),
       m_bHDR1xFrameEnabled(true),
       m_HDRSceneEnabled(false),
@@ -3535,7 +3536,7 @@ int32_t QCameraParameters::setMobicat(const QCameraParameters& )
                                 sizeof(tune_cmd_t),
                                 &tune_cmd);
     }
-
+    m_bMobiEnabled = enableMobi;
     return ret;
 }
 
@@ -5860,6 +5861,34 @@ int32_t QCameraParameters::setAndCommitZoom(int zoom_level)
     }
     ALOGD("%s: X",__func__);
     return rc;
+}
+
+/*===========================================================================
+ * FUNCTION   : isOptiZoomEnabled
+ *
+ * DESCRIPTION: checks whether optizoom is enabled
+ *
+ * PARAMETERS :
+ *
+ * RETURN     : true - enabled, false - disabled
+ *
+ *==========================================================================*/
+bool QCameraParameters::isOptiZoomEnabled()
+{
+    if (m_bOptiZoomOn) {
+        uint8_t zoom_level = (uint8_t) getInt(CameraParameters::KEY_ZOOM);
+        cam_opti_zoom_t *opti_zoom_settings_need =
+                &(m_pCapability->opti_zoom_settings_need);
+        uint8_t zoom_threshold = opti_zoom_settings_need->zoom_threshold;
+        ALOGD("%s: current zoom level =%d & zoom_threshold =%d",
+                __func__, zoom_level, zoom_threshold);
+
+        if (zoom_level >= zoom_threshold) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 /*===========================================================================
@@ -8411,6 +8440,21 @@ bool QCameraParameters::isHDREnabled()
 bool QCameraParameters::isAVTimerEnabled()
 {
     return m_bAVTimerEnabled;
+}
+
+/*===========================================================================
+ * FUNCTION   : isMobicatEnabled
+ *
+ * DESCRIPTION: if MobicatEnabled is enabled
+ *
+ * PARAMETERS : none
+ *
+ * RETURN     : true: needed
+ *              false: no need
+ *==========================================================================*/
+bool QCameraParameters::isMobicatEnabled()
+{
+    return m_bMobiEnabled;
 }
 
 /*===========================================================================

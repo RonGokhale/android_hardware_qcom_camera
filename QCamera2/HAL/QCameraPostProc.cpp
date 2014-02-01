@@ -338,6 +338,10 @@ int32_t QCameraPostProcessor::getJpegEncodingConfig(mm_jpeg_encode_params_t& enc
     int32_t ret = NO_ERROR;
     uint32_t out_size;
 
+    if (m_parent->mParameters.generateThumbFromMain()) {
+        thumb_stream = NULL;
+    }
+
     char prop[PROPERTY_VALUE_MAX];
     property_get("persist.camera.jpeg_burst", prop, "0");
     mUseJpegBurst = (atoi(prop) > 0) && !mUseSaveProc;
@@ -420,8 +424,15 @@ int32_t QCameraPostProcessor::getJpegEncodingConfig(mm_jpeg_encode_params_t& enc
     }
 
     if (m_bThumbnailNeeded == TRUE) {
+        m_parent->getThumbnailSize(encode_parm.thumb_dim.dst_dim);
         if (thumb_stream == NULL) {
             thumb_stream = main_stream;
+
+            if ((90 == m_parent->getJpegRotation())
+                    || (270 == m_parent->getJpegRotation())) {
+                IMG_SWAP(encode_parm.thumb_dim.dst_dim.width,
+                        encode_parm.thumb_dim.dst_dim.height);
+            }
         }
         pStreamMem = thumb_stream->getStreamBufs();
         if (pStreamMem == NULL) {
@@ -448,14 +459,21 @@ int32_t QCameraPostProcessor::getJpegEncodingConfig(mm_jpeg_encode_params_t& enc
         thumb_stream->getFormat(img_fmt_thumb);
         encode_parm.thumb_color_format = getColorfmtFromImgFmt(img_fmt_thumb);
 
-        memset(&crop, 0, sizeof(cam_rect_t));
-        thumb_stream->getCropInfo(crop);
+        // crop is the same if frame is the same
+        if (thumb_stream != main_stream) {
+            memset(&crop, 0, sizeof(cam_rect_t));
+            thumb_stream->getCropInfo(crop);
+        }
+
         memset(&src_dim, 0, sizeof(cam_dimension_t));
         thumb_stream->getFrameDimension(src_dim);
         encode_parm.thumb_dim.src_dim = src_dim;
-        m_parent->getThumbnailSize(encode_parm.thumb_dim.dst_dim);
 
-        encode_parm.thumb_rotation = m_parent->getJpegRotation();
+        if ((thumb_stream != main_stream) ||
+                (!m_parent->needRotationReprocess())) {
+            encode_parm.thumb_rotation = m_parent->getJpegRotation();
+        }
+
         encode_parm.thumb_dim.crop = crop;
     }
 
@@ -1442,23 +1460,22 @@ int32_t QCameraPostProcessor::encodeData(qcamera_jpeg_data_t *jpeg_job_data,
     crop.height = src_dim.height;
     crop.width = src_dim.width;
 
-    if (hdr_output_crop) {
-        memset(&param, 0, sizeof(cam_stream_parm_buffer_t));
-        param.type = CAM_STREAM_PARAM_TYPE_GET_OUTPUT_CROP;
+    memset(&param, 0, sizeof(cam_stream_parm_buffer_t));
+    param.type = CAM_STREAM_PARAM_TYPE_GET_OUTPUT_CROP;
 
-        ret = main_stream->getParameter(param);
-        if (ret != NO_ERROR) {
-            ALOGE("%s: stream getParameter for reprocess failed", __func__);
-        } else {
-           for (int i = 0; i < param.outputCrop.num_of_streams; i++) {
-               if (param.outputCrop.crop_info[i].stream_id
-                   == main_stream->getMyServerID()) {
-                       crop = param.outputCrop.crop_info[i].crop;
-                       main_stream->setCropInfo(crop);
-               }
+    ret = main_stream->getParameter(param);
+    if (ret != NO_ERROR) {
+        ALOGE("%s: stream getParameter for reprocess failed", __func__);
+    } else {
+       for (int i = 0; i < param.outputCrop.num_of_streams; i++) {
+           if (param.outputCrop.crop_info[i].stream_id
+               == main_stream->getMyServerID()) {
+                   crop = param.outputCrop.crop_info[i].crop;
+                   main_stream->setCropInfo(crop);
            }
-        }
+       }
     }
+
     if (img_feature_enabled) {
         memset(&param, 0, sizeof(cam_stream_parm_buffer_t));
         param.type = CAM_STREAM_PARAM_TYPE_GET_IMG_PROP;
@@ -1523,23 +1540,32 @@ int32_t QCameraPostProcessor::encodeData(qcamera_jpeg_data_t *jpeg_job_data,
 
     // thumbnail dim
     if (m_bThumbnailNeeded == TRUE) {
+        m_parent->getThumbnailSize(jpg_job.encode_job.thumb_dim.dst_dim);
+
         if (thumb_stream == NULL) {
             // need jpeg thumbnail, but no postview/preview stream exists
             // we use the main stream/frame to encode thumbnail
             thumb_stream = main_stream;
             thumb_frame = main_frame;
+
+            if ((90 == m_parent->getJpegRotation())
+                    || (270 == m_parent->getJpegRotation())) {
+                IMG_SWAP(jpg_job.encode_job.thumb_dim.dst_dim.width,
+                        jpg_job.encode_job.thumb_dim.dst_dim.height);
+            }
         }
 
         memset(&src_dim, 0, sizeof(cam_dimension_t));
         thumb_stream->getFrameDimension(src_dim);
         jpg_job.encode_job.thumb_dim.src_dim = src_dim;
 
-        crop.left = 0;
-        crop.top = 0;
-        crop.height = src_dim.height;
-        crop.width = src_dim.width;
+        // crop is the same if frame is the same
+        if (thumb_frame != main_frame) {
+            crop.left = 0;
+            crop.top = 0;
+            crop.height = src_dim.height;
+            crop.width = src_dim.width;
 
-        if (hdr_output_crop) {
             memset(&param, 0, sizeof(cam_stream_parm_buffer_t));
             param.type = CAM_STREAM_PARAM_TYPE_GET_OUTPUT_CROP;
 
@@ -1547,17 +1573,15 @@ int32_t QCameraPostProcessor::encodeData(qcamera_jpeg_data_t *jpeg_job_data,
             if (ret != NO_ERROR) {
                 ALOGE("%s: stream getParameter for reprocess failed", __func__);
             } else {
-               for (int i = 0; i < param.outputCrop.num_of_streams; i++) {
-                   if (param.outputCrop.crop_info[i].stream_id
-                       == thumb_stream->getMyServerID()) {
-                           crop = param.outputCrop.crop_info[i].crop;
-                           thumb_stream->setCropInfo(crop);
+                for (int i = 0; i < param.outputCrop.num_of_streams; i++) {
+                    if (param.outputCrop.crop_info[i].stream_id
+                            == thumb_stream->getMyServerID()) {
+                        crop = param.outputCrop.crop_info[i].crop;
+                        thumb_stream->setCropInfo(crop);
                    }
                }
             }
         }
-
-        m_parent->getThumbnailSize(jpg_job.encode_job.thumb_dim.dst_dim);
 
         jpg_job.encode_job.thumb_dim.crop = crop;
         jpg_job.encode_job.thumb_index = thumb_frame->buf_idx;
@@ -1578,6 +1602,14 @@ int32_t QCameraPostProcessor::encodeData(qcamera_jpeg_data_t *jpeg_job_data,
     m_parent->mExifParams.flash_presence = (exif_flash_func_pre_t) m_parent->getFlashPresence();
 
     jpg_job.encode_job.cam_exif_params = m_parent->mExifParams;
+
+    if (NULL != jpg_job.encode_job.p_metadata &&
+        m_parent->mParameters.isMobicatEnabled()) {
+        memcpy(jpg_job.encode_job.p_metadata->
+            chromatix_mobicat_af_data.private_mobicat_af_data,
+            jpg_job.encode_job.cam_exif_params.af_mobicat_params,
+            sizeof(jpg_job.encode_job.cam_exif_params.af_mobicat_params));
+    }
 
     ALOGE("[KPI Perf] %s : PROFILE_JPEG_JOB_START", __func__);
     ret = mJpegHandle.start_job(&jpg_job, &jobId);
