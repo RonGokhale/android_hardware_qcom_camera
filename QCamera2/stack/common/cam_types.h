@@ -58,7 +58,7 @@
 #define CAM_DUMP_TO_FILE(path, name, index, extn, p_addr, len) ({ \
   int rc = 0; \
   char filename[CAM_FN_CNT]; \
-  if (index > 0) \
+  if (index >= 0) \
     snprintf(filename, CAM_FN_CNT-1, "%s/%s%d.%s", path, name, index, extn); \
   else \
     snprintf(filename, CAM_FN_CNT-1, "%s/%s.%s", path, name, extn); \
@@ -377,7 +377,10 @@ typedef struct {
 typedef struct {
     float min_fps;
     float max_fps;
+    float video_min_fps;
+    float video_max_fps;
 } cam_fps_range_t;
+
 
 typedef enum {
     CAM_HFR_MODE_OFF,
@@ -824,6 +827,7 @@ typedef struct {
     float exp_time;
     int iso_value;
     uint32_t flash_needed;
+    int settled;
 } cam_ae_params_t;
 
 
@@ -967,7 +971,6 @@ typedef enum {
     CAM_INTF_PARM_FRAMESKIP,
     CAM_INTF_PARM_ZSL_MODE,  /* indicating if it's running in ZSL mode */
     CAM_INTF_PARM_HDR_NEED_1X, /* if HDR needs 1x output */ /* 40 */
-    CAM_INTF_PARM_LOCK_CAF,
     CAM_INTF_PARM_VIDEO_HDR,
     CAM_INTF_PARM_ROTATION,
     CAM_INTF_PARM_SCALE,
