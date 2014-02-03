@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2014, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -160,7 +160,7 @@ typedef enum {
 typedef struct {
     int                     fd;
     int                     main_ion_fd;
-    struct ion_handle *     handle;
+    ion_user_handle_t       handle;
     uint32_t                size;
     void *                  data;
 } mm_camera_app_meminfo_t;
@@ -244,6 +244,8 @@ typedef struct {
     mm_camera_queue_t pp_frames;
     mm_camera_stream_t *reproc_stream;
     cam_metadata_info_t *metadata;
+    int8_t is_chromatix_reload;
+    tune_chromatix_t tune_data;
 } mm_camera_test_obj_t;
 
 typedef struct {
