@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -274,6 +274,15 @@ typedef struct{
     /* picture sizes need scale*/
     uint8_t scale_picture_sizes_cnt;
     cam_dimension_t scale_picture_sizes[MAX_SCALE_SIZES_CNT];
+
+    uint8_t flash_available;
+
+    cam_rational_type_t base_gain_factor;    /* sensor base gain factor */
+    /* AF Bracketing info */
+    cam_af_bracketing_t  ubifocus_af_bracketing_need;
+    /* opti Zoom info */
+    cam_opti_zoom_t      opti_zoom_settings_need;
+
 } cam_capability_t;
 
 typedef enum {
@@ -288,6 +297,7 @@ typedef enum {
     CAM_STREAM_PARAM_TYPE_SET_FLIP = CAM_INTF_PARM_STREAM_FLIP,
     CAM_STREAM_PARAM_SET_STREAM_CONSUMER,
     CAM_STREAM_PARAM_TYPE_GET_OUTPUT_CROP = CAM_INTF_PARM_GET_OUTPUT_CROP,
+    CAM_STREAM_PARAM_TYPE_GET_IMG_PROP = CAM_INTF_PARM_GET_IMG_PROP,
     CAM_STREAM_PARAM_TYPE_MAX
 } cam_stream_param_type_e;
 
@@ -308,6 +318,18 @@ typedef struct {
     uint32_t flip_mask;
 } cam_flip_mode_t;
 
+#define IMG_NAME_SIZE 32
+typedef struct {
+    cam_rect_t crop;  /* crop info for the image */
+    cam_dimension_t input; /* input dimension of the image */
+    cam_dimension_t output; /* output dimension of the image */
+    char name[IMG_NAME_SIZE]; /* optional name of the ext*/
+    int is_raw_image; /* image is raw */
+    cam_format_t format; /* image format */
+    int analysis_image; /* image is used for analysis. hence skip thumbnail */
+    uint32_t size; /* size of the image */
+} cam_stream_img_prop_t;
+
 typedef struct {
     cam_stream_param_type_e type;
     union {
@@ -316,6 +338,7 @@ typedef struct {
         cam_flip_mode_t flipInfo;       /* flip mode */
         cam_stream_consumer_t consumer; /* stream consumer */
         cam_crop_data_t outputCrop;     /* output crop for current frame */
+        cam_stream_img_prop_t imgProp;  /* image properties of current frame */
     };
 } cam_stream_parm_buffer_t;
 
@@ -446,6 +469,7 @@ typedef union {
     INCLUDE(CAM_INTF_PARM_MAX_DIMENSION,            cam_dimension_t,             1);
     INCLUDE(CAM_INTF_PARM_RAW_DIMENSION,            cam_dimension_t,             1);
     INCLUDE(CAM_INTF_PARM_TINTLESS,                 int32_t,                     1);
+    INCLUDE(CAM_INTF_PARM_CDS_MODE,                 cam_cds_mode_type_t,         1);
     INCLUDE(CAM_INTF_PARM_EZTUNE_CMD,               cam_eztune_cmd_data_t,       1);
 
     /* HAL3 specific */
@@ -490,8 +514,9 @@ typedef union {
     INCLUDE(CAM_INTF_META_TONEMAP_MODE,             uint8_t,                     1);
     INCLUDE(CAM_INTF_META_FLASH_MODE,               uint8_t,                     1);
     INCLUDE(CAM_INTF_PARM_STATS_DEBUG_MASK,         uint32_t,                    1);
+    INCLUDE(CAM_INTF_PARM_FOCUS_BRACKETING,         cam_af_bracketing_t,         1);
+    INCLUDE(CAM_INTF_PARM_FLASH_BRACKETING,         cam_flash_bracketing_t,      1);
 } parm_type_t;
-
 
 typedef union {
 /**************************************************************************************
