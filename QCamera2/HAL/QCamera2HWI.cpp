@@ -1466,7 +1466,8 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
                 }
                 else {
                     // ZSL Burst or Longshot case
-                    bufferCnt = zslQBuffers + minCircularBufNum;
+                    bufferCnt = zslQBuffers + minCircularBufNum +
+                            mParameters.getNumOfExtraBuffersForImageProc();
                 }
             } else {
                 bufferCnt = minCaptureBuffers +
