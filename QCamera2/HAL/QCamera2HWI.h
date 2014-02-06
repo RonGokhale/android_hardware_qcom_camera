@@ -32,9 +32,13 @@
 
 #include <hardware/camera.h>
 #include <hardware/power.h>
+#if defined(USE_DLOG)
+  #include <dlog/dlog.h>
+#elif defined(_ANDROID_)
 #include <utils/Log.h>
 #include <utils/Mutex.h>
 #include <utils/Condition.h>
+#endif
 #include <QCameraParameters.h>
 
 #include "QCameraQueue.h"
@@ -51,6 +55,16 @@ extern "C" {
 #include <mm_camera_interface.h>
 #include <mm_jpeg_interface.h>
 }
+#ifndef _ANDROID_
+enum MetaBufferType {
+   kMetadataBufferTypeCameraSource  = 0,
+   kMetadataBufferTypeGrallocSource = 1,
+};
+struct encoder_media_buffer_type {
+   MetaBufferType buffer_type;
+   native_handle *meta_handle;
+};
+#endif
 
 #if DISABLE_DEBUG_LOG
 

@@ -27,10 +27,7 @@
  *
  */
 
-#define ALOG_NIDEBUG 0
-#define LOG_TAG "QualcommCamera"
-#include <utils/Log.h>
-#include <utils/threads.h>
+#define LOG_TAG "QCameraWrapper"
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <binder/IMemory.h>
