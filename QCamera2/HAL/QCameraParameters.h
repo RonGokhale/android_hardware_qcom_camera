@@ -55,7 +55,8 @@ public:
 class QCameraAdjustFPS
 {
 public:
-    virtual int recalcFPSRange(int &minFPS, int &maxFPS) = 0;
+    virtual int recalcFPSRange(int &minFPS, int &maxFPS,
+            int &vidMinFps, int &vidMaxFps) = 0;
     virtual ~QCameraAdjustFPS() {}
 };
 
@@ -176,6 +177,7 @@ public:
     static const char KEY_QC_ORIENTATION[];
 
     static const char KEY_QC_VIDEO_HIGH_FRAME_RATE[];
+    static const char KEY_QC_VIDEO_HIGH_SPEED_RECORDING[];
     static const char KEY_QC_SUPPORTED_VIDEO_HIGH_FRAME_RATE_MODES[];
     static const char KEY_QC_HIGH_DYNAMIC_RANGE_IMAGING[];
     static const char KEY_QC_SUPPORTED_HDR_IMAGING_MODES[];
@@ -494,6 +496,8 @@ public:
     bool isZSLMode() {return m_bZslMode;};
     bool isNoDisplayMode() {return m_bNoDisplayMode;};
     bool isWNREnabled() {return m_bWNROn;};
+    bool isHfrMode() {return m_bHfrMode;};
+    void getHfrFps(cam_fps_range_t &pFpsRange) { pFpsRange = m_hfrFpsRange;};
     uint8_t getNumOfSnapshots();
     uint8_t getNumOfExtraHDRInBufsIfNeeded();
     uint8_t getNumOfExtraHDROutBufsIfNeeded();
@@ -521,7 +525,6 @@ public:
     bool isFaceDetectionEnabled() {return ((m_nFaceProcMask & CAM_FACE_PROCESS_MASK_DETECTION) != 0);};
     int32_t setHistogram(bool enabled);
     int32_t setFaceDetection(bool enabled);
-    int32_t setLockCAF(bool bLock);
     int32_t setFrameSkip(enum msm_vfe_frame_skip_pattern pattern);
     qcamera_thermal_mode getThermalMode() {return m_ThermalMode;};
     int32_t updateRecordingHintValue(int32_t value);
@@ -531,6 +534,7 @@ public:
     int32_t restoreAEBracket();
     int32_t updateRAW(cam_dimension_t max_dim);
     bool isAVTimerEnabled();
+    bool isMobicatEnabled();
 
     cam_focus_mode_type getFocusMode() const {return mFocusMode;};
     int32_t setNumOfSnapshot();
@@ -545,11 +549,6 @@ public:
     int getFlipMode(cam_stream_type_t streamType);
     bool isSnapshotFDNeeded();
 
-    void setLockCAFNeeded(bool bNeedflag) {m_bNeedLockCAF = bNeedflag;};
-    bool isLockCAFNeeded() {return m_bNeedLockCAF;};
-    bool isCAFLocked() {return m_bCAFLocked;};
-    void setAFRunning(bool bflag) {m_bAFRunning = bflag;};
-    bool isAFRunning() {return m_bAFRunning;};
     bool isHDR1xFrameEnabled() {return m_bHDR1xFrameEnabled;}
     bool isYUVFrameInfoNeeded();
     const char*getFrameFmtString(cam_format_t fmt);
@@ -570,7 +569,7 @@ public:
     bool needThumbnailReprocess(uint32_t *pFeatureMask);
     inline bool isUbiFocusEnabled() {return m_bAFBracketingOn;};
     inline bool isChromaFlashEnabled() {return m_bChromaFlashOn;};
-    inline bool isOptiZoomEnabled() {return m_bOptiZoomOn;};
+    bool isOptiZoomEnabled();
     int32_t commitAFBracket(cam_af_bracketing_t afBracket);
     int32_t commitFlashBracket(cam_flash_bracketing_t flashBracket);
     int32_t set3ALock(const char *lockStr);
@@ -615,6 +614,7 @@ private:
     int32_t setMCEValue(const QCameraParameters& );
     int32_t setDISValue(const QCameraParameters& params);
     int32_t setHighFrameRate(const QCameraParameters& );
+    int32_t setHighSpeedRecording(const QCameraParameters& );
     int32_t setLensShadeValue(const QCameraParameters& );
     int32_t setExposureCompensation(const QCameraParameters& );
     int32_t setWhiteBalance(const QCameraParameters& );
@@ -649,7 +649,8 @@ private:
     bool UpdateHFRFrameRate(const QCameraParameters& params);
 
     int32_t setAutoExposure(const char *autoExp);
-    int32_t setPreviewFpsRange(int minFPS,int maxFPS);
+    int32_t setPreviewFpsRange(int min_fps,int max_fps,
+            int vid_min_fps,int vid_max_fps);
     int32_t setEffect(const char *effect);
     int32_t setBrightness(int brightness);
     int32_t setFocusMode(const char *focusMode);
@@ -770,9 +771,6 @@ private:
     bool m_bNeedRestart;            // if preview needs restart after parameters updated
     bool m_bNoDisplayMode;
     bool m_bWNROn;
-    bool m_bNeedLockCAF;
-    bool m_bCAFLocked;
-    bool m_bAFRunning;
     bool m_bInited;
     int m_nBurstNum;
     cam_exp_bracketing_t m_AEBracketingClient;
@@ -787,6 +785,7 @@ private:
     cam_dimension_t m_rawSize; // live snapshot size
     bool m_bHDREnabled;             // if HDR is enabled
     bool m_bAVTimerEnabled;    //if AVTimer is enabled
+    bool m_bMobiEnabled;
     QCameraAdjustFPS *m_AdjustFPS;
     bool m_bHDR1xFrameEnabled;          // if frame with exposure compensation 0 during HDR is enabled
     bool m_HDRSceneEnabled; // Auto HDR indication
@@ -803,6 +802,8 @@ private:
     bool m_bChromaFlashOn;
     bool m_bOptiZoomOn;
     bool m_bUbiRefocus;
+    cam_fps_range_t m_hfrFpsRange;
+    bool m_bHfrMode;
 };
 
 }; // namespace qcamera

@@ -108,6 +108,14 @@ typedef struct {
 #define QCAMERA_ION_USE_NOCACHE false
 #define MAX_ONGOING_JOBS 25
 
+/** IMG_SWAP
+ *  @a: input a
+ *  @b: input b
+ *
+ *  Swaps the input values
+ **/
+#define IMG_SWAP(a, b) ({typeof(a) c; c=a; a=b; b=c;})
+
 typedef enum {
     QCAMERA_NOTIFY_CALLBACK,
     QCAMERA_DATA_CALLBACK,
@@ -245,7 +253,8 @@ public:
     virtual int thermalEvtHandle(qcamera_thermal_level_enum_t level,
             void *userdata, void *data);
 
-    virtual int recalcFPSRange(int &minFPS, int &maxFPS);
+    virtual int recalcFPSRange(int &minFPS, int &maxFPS,
+            int &vidMinFps, int &vidMaxFps);
 
     // Implementation of QCameraTorchInterface
     virtual int prepareTorchCamera();
@@ -387,6 +396,7 @@ private:
     bool needProcessPreviewFrame() {return m_stateMachine.isPreviewRunning();};
     bool isNoDisplayMode() {return mParameters.isNoDisplayMode();};
     bool isZSLMode() {return mParameters.isZSLMode();};
+    bool isHFRMode() {return mParameters.isHfrMode();};
     uint8_t numOfSnapshotsExpected() {
         return mParameters.isUbiRefocus() ? 1 : mParameters.getNumOfSnapshots();};
     bool isLongshotEnabled() { return mLongshotEnabled; };

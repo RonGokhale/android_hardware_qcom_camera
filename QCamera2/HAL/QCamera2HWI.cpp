@@ -1434,7 +1434,8 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
     case CAM_STREAM_TYPE_PREVIEW:
         {
             if (mParameters.isZSLMode()) {
-                bufferCnt = zslQBuffers + minCircularBufNum;
+                bufferCnt = zslQBuffers + minCircularBufNum +
+                            mParameters.getNumOfExtraBuffersForImageProc();
             } else {
                 bufferCnt = CAMERA_MIN_STREAMING_BUFFERS +
                             mParameters.getMaxUnmatchedFramesInQueue();
@@ -1504,7 +1505,10 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
     case CAM_STREAM_TYPE_METADATA:
         {
             if (mParameters.isZSLMode()) {
-                bufferCnt = zslQBuffers + minCircularBufNum;
+                bufferCnt = zslQBuffers + minCircularBufNum +
+                            mParameters.getNumOfExtraHDRInBufsIfNeeded() -
+                            mParameters.getNumOfExtraHDROutBufsIfNeeded() +
+                            mParameters.getNumOfExtraBuffersForImageProc();
             } else {
                 bufferCnt = minCaptureBuffers +
                             mParameters.getNumOfExtraHDRInBufsIfNeeded() -
@@ -2083,48 +2087,9 @@ int QCamera2HardwareInterface::autoFocus()
     switch (focusMode) {
     case CAM_FOCUS_MODE_AUTO:
     case CAM_FOCUS_MODE_MACRO:
-        {
-            rc = mCameraHandle->ops->do_auto_focus(mCameraHandle->camera_handle);
-            if (rc == NO_ERROR) {
-                mParameters.setAFRunning(true);
-            }
-        }
-        break;
     case CAM_FOCUS_MODE_CONTINOUS_VIDEO:
-        // According to Google API definition, the focus callback will immediately
-        // return with a boolean that indicates whether the focus is sharp or not.
-        // The focus position is locked after autoFocus call.
-        // in this sense, the effect is the same as cancel_auto_focus
-        {
-            rc = mParameters.setLockCAF(true);
-
-            // send evt notify that foucs is done
-            sendEvtNotify(CAMERA_MSG_FOCUS,
-                          (m_currentFocusState == CAM_AF_FOCUSED)? true : false,
-                          0);
-        }
-        break;
     case CAM_FOCUS_MODE_CONTINOUS_PICTURE:
-        // According to Google API definition, if the autofocus is in the middle
-        // of scanning, the focus callback will return when it completes. If the
-        // autofocus is not scanning, focus callback will immediately return with
-        // a boolean that indicates whether the focus is sharp or not. The apps
-        // can then decide if they want to take a picture immediately or to change
-        // the focus mode to auto, and run a full autofocus cycle. The focus position
-        // is locked after autoFocus call.
-        if (m_currentFocusState != CAM_AF_SCANNING) {
-            // lock focus
-            rc = mParameters.setLockCAF(true);
-
-            // send evt notify that foucs is done
-            sendEvtNotify(CAMERA_MSG_FOCUS,
-                          (m_currentFocusState == CAM_AF_FOCUSED)? true : false,
-                          0);
-        } else {
-            // set flag that lock CAF is needed once focus state becomes focsued/not focused
-            mParameters.setLockCAFNeeded(true);
-            rc = NO_ERROR;
-        }
+        rc = mCameraHandle->ops->do_auto_focus(mCameraHandle->camera_handle);
         break;
     case CAM_FOCUS_MODE_INFINITY:
     case CAM_FOCUS_MODE_FIXED:
@@ -2156,20 +2121,9 @@ int QCamera2HardwareInterface::cancelAutoFocus()
     switch (focusMode) {
     case CAM_FOCUS_MODE_AUTO:
     case CAM_FOCUS_MODE_MACRO:
-        if (mParameters.isAFRunning()) {
-            rc = mCameraHandle->ops->cancel_auto_focus(mCameraHandle->camera_handle);
-            if (rc == NO_ERROR) {
-                mParameters.setAFRunning(false);
-            }
-        }
-        break;
     case CAM_FOCUS_MODE_CONTINOUS_VIDEO:
     case CAM_FOCUS_MODE_CONTINOUS_PICTURE:
-        if (mParameters.isCAFLocked()) {
-            // resume CAF by unlock CAF
-            rc = mParameters.setLockCAF(false);;
-            mParameters.setLockCAFNeeded(false);
-        }
+        rc = mCameraHandle->ops->cancel_auto_focus(mCameraHandle->camera_handle);
         break;
     case CAM_FOCUS_MODE_INFINITY:
     case CAM_FOCUS_MODE_FIXED:
@@ -2203,6 +2157,21 @@ bool QCamera2HardwareInterface::processUFDumps(qcamera_jpeg_evt_payload_t *evt)
        int index = getOutputImageCount();
        bool allFocusImage = (index == ((int)mParameters.UfOutputCount()-1));
        char name[CAM_FN_CNT];
+
+       camera_memory_t *jpeg_mem = NULL;
+       omx_jpeg_ouput_buf_t *jpeg_out = NULL;
+       uint32_t dataLen;
+       uint8_t *dataPtr;
+       if (!m_postprocessor.getJpegMemOpt()) {
+           dataLen = evt->out_data.buf_filled_len;
+           dataPtr = evt->out_data.buf_vaddr;
+       } else {
+           jpeg_out  = (omx_jpeg_ouput_buf_t*) evt->out_data.buf_vaddr;
+           jpeg_mem = (camera_memory_t *)jpeg_out->mem_hdl;
+           dataPtr = (uint8_t *)jpeg_mem->data;
+           dataLen = jpeg_mem->size;
+       }
+
        if (allFocusImage)  {
            strncpy(name, "AllFocusImage", CAM_FN_CNT - 1);
            index = -1;
@@ -2210,11 +2179,10 @@ bool QCamera2HardwareInterface::processUFDumps(qcamera_jpeg_evt_payload_t *evt)
            strncpy(name, "0", CAM_FN_CNT - 1);
        }
        CAM_DUMP_TO_FILE("/data/local/ubifocus", name, index, "jpg",
-           (uint8_t *)evt->out_data.buf_vaddr,
-           evt->out_data.buf_filled_len);
+           dataPtr, dataLen);
        ALOGE("%s:%d] Dump the image %d %d allFocusImage %d", __func__, __LINE__,
            getOutputImageCount(), index, allFocusImage);
-       setOutputImageCount(index + 1);
+       setOutputImageCount(getOutputImageCount() + 1);
        if (!allFocusImage) {
            ret = false;
        }
@@ -2401,28 +2369,15 @@ int32_t QCamera2HardwareInterface::configureZSLHDRBracketing()
 int32_t QCamera2HardwareInterface::configureOptiZoom()
 {
     int32_t rc = NO_ERROR;
-    //Get current zoom level and zoom threshold value to start opti zoom.
-    uint8_t zoom_level =
-        (uint8_t) mParameters.getInt(CameraParameters::KEY_ZOOM);
-    cam_opti_zoom_t *opti_zoom_settings_need =
-        &gCamCapability[mCameraId]->opti_zoom_settings_need;
-    uint8_t zoom_threshold = opti_zoom_settings_need->zoom_threshold;
-    ALOGD("%s: current zoom level =%d & zoom_threshold =%d",
-          __func__, zoom_level,zoom_threshold);
-    if(zoom_level >= zoom_threshold) {
-        //set zoom level to 1x;
-        mParameters.setAndCommitZoom(0);
-        //store current zoom level.
-        mZoomLevel = zoom_level;
-        mParameters.set3ALock(QCameraParameters::VALUE_TRUE);
-        mIs3ALocked = true;
-    } else {
-       //zoom threshold is less than current zoom level.
-       //dont start OptiZoom, current zoom level should
-       //be greater than threshold to start opti zoom.
-       //TODO:
-       return BAD_VALUE;
-    }
+
+    //store current zoom level.
+    mZoomLevel = (uint8_t) mParameters.getInt(CameraParameters::KEY_ZOOM);
+
+    //set zoom level to 1x;
+    mParameters.setAndCommitZoom(0);
+
+    mParameters.set3ALock(QCameraParameters::VALUE_TRUE);
+    mIs3ALocked = true;
 
     return rc;
 }
@@ -3266,22 +3221,16 @@ int32_t QCamera2HardwareInterface::processAutoFocusEvent(cam_auto_focus_data_t &
     switch (focusMode) {
     case CAM_FOCUS_MODE_AUTO:
     case CAM_FOCUS_MODE_MACRO:
-        if (mParameters.isAFRunning()) {
-            if (focus_data.focus_state == CAM_AF_SCANNING) {
-                // in the middle of focusing, just ignore it
-                break;
-            }
-
-            // update focus distance
-            mParameters.updateFocusDistances(&focus_data.focus_dist);
-            ret = sendEvtNotify(CAMERA_MSG_FOCUS,
-                                (focus_data.focus_state == CAM_AF_FOCUSED)? true : false,
-                                0);
-            mParameters.setAFRunning(false);
-        } else {
-            ret = UNKNOWN_ERROR;
-            ALOGE("%s: autoFocusEvent when no auto_focus running", __func__);
+        if (focus_data.focus_state == CAM_AF_SCANNING) {
+            // in the middle of focusing, just ignore it
+            break;
         }
+
+        // update focus distance
+        mParameters.updateFocusDistances(&focus_data.focus_dist);
+        ret = sendEvtNotify(CAMERA_MSG_FOCUS,
+                            (focus_data.focus_state == CAM_AF_FOCUSED)? true : false,
+                            0);
         break;
     case CAM_FOCUS_MODE_CONTINOUS_VIDEO:
     case CAM_FOCUS_MODE_CONTINOUS_PICTURE:
@@ -3289,10 +3238,6 @@ int32_t QCamera2HardwareInterface::processAutoFocusEvent(cam_auto_focus_data_t &
             focus_data.focus_state == CAM_AF_NOT_FOCUSED) {
             // update focus distance
             mParameters.updateFocusDistances(&focus_data.focus_dist);
-            if (mParameters.isLockCAFNeeded()) {
-                mParameters.setLockCAFNeeded(false);
-                ret = mParameters.setLockCAF(true);
-            }
 
             ret = sendEvtNotify(CAMERA_MSG_FOCUS,
                   (focus_data.focus_state == CAM_AF_FOCUSED)? true : false,
@@ -4302,6 +4247,10 @@ QCameraReprocessChannel *QCamera2HardwareInterface::addOnlineReprocChannel(
             pp_config.sharpness = mParameters.getInt(QCameraParameters::KEY_QC_SHARPNESS);
         }
 
+        if (gCamCapability[mCameraId]->min_required_pp_mask & CAM_QCOM_FEATURE_CROP) {
+            pp_config.feature_mask |= CAM_QCOM_FEATURE_CROP;
+        }
+
         if (mParameters.isWNREnabled()) {
             pp_config.feature_mask |= CAM_QCOM_FEATURE_DENOISE2D;
             pp_config.denoise2d.denoise_enable = 1;
@@ -4362,17 +4311,9 @@ QCameraReprocessChannel *QCamera2HardwareInterface::addOnlineReprocChannel(
     }
 
     if(mParameters.isOptiZoomEnabled()) {
-        uint8_t zoom_level =
-            (uint8_t) mParameters.getInt(CameraParameters::KEY_ZOOM);
-        uint8_t zoom_threshold =
-            gCamCapability[mCameraId]->opti_zoom_settings_need.zoom_threshold;
-        //Check for threshold value of zoom required for optizoom algo.
-        //if it is above then threshold then only set feature mask, and
-        //pass zoom level.
-        if (zoom_level >= zoom_threshold) {
-           pp_config.feature_mask |= CAM_QCOM_FEATURE_OPTIZOOM;
-           pp_config.zoom_level = zoom_level;
-        }
+        pp_config.feature_mask |= CAM_QCOM_FEATURE_OPTIZOOM;
+        pp_config.zoom_level =
+                (uint8_t) mParameters.getInt(CameraParameters::KEY_ZOOM);
     } else {
         pp_config.feature_mask &= ~CAM_QCOM_FEATURE_OPTIZOOM;
     }
@@ -4382,8 +4323,7 @@ QCameraReprocessChannel *QCamera2HardwareInterface::addOnlineReprocChannel(
     temp_feature_mask &= ~CAM_QCOM_FEATURE_DENOISE2D;
     temp_feature_mask &= ~CAM_QCOM_FEATURE_HDR;
     if (temp_feature_mask && mParameters.isHDREnabled()) {
-          minStreamBufNum =
-              gCamCapability[mCameraId]->hdr_bracketing_setting.num_frames;
+        minStreamBufNum = 1 + mParameters.getNumOfExtraHDRInBufsIfNeeded();
     }
 
     // Add non inplace image lib buffers only when ppproc is present,
@@ -5041,11 +4981,27 @@ int QCamera2HardwareInterface::calcThermalLevel(
             cam_fps_range_t &adjustedRange,
             enum msm_vfe_frame_skip_pattern &skipPattern)
 {
+    // Initialize video fps to preview fps
+    int minVideoFps = minFPS, maxVideoFps = maxFPS;
+    cam_fps_range_t videoFps;
+    // If HFR mode, update video fps accordingly
+    if(isHFRMode()) {
+        mParameters.getHfrFps(videoFps);
+        minVideoFps = videoFps.video_min_fps;
+        maxVideoFps = videoFps.video_max_fps;
+    }
+
+    ALOGE("%s: level: %d, preview minfps %d, preview maxfpS %d"
+          "video minfps %d, video maxfpS %d",
+          __func__, level, minFPS, maxFPS, minVideoFps, maxVideoFps);
+
     switch(level) {
     case QCAMERA_THERMAL_NO_ADJUSTMENT:
         {
             adjustedRange.min_fps = minFPS / 1000.0f;
             adjustedRange.max_fps = maxFPS / 1000.0f;
+            adjustedRange.video_min_fps = minVideoFps / 1000.0f;
+            adjustedRange.video_max_fps = maxVideoFps / 1000.0f;
             skipPattern = NO_SKIP;
         }
         break;
@@ -5053,11 +5009,19 @@ int QCamera2HardwareInterface::calcThermalLevel(
         {
             adjustedRange.min_fps = (minFPS / 2) / 1000.0f;
             adjustedRange.max_fps = (maxFPS / 2) / 1000.0f;
+            adjustedRange.video_min_fps = (minVideoFps / 2) / 1000.0f;
+            adjustedRange.video_max_fps = (maxVideoFps / 2 ) / 1000.0f;
             if ( adjustedRange.min_fps < 1 ) {
                 adjustedRange.min_fps = 1;
             }
             if ( adjustedRange.max_fps < 1 ) {
                 adjustedRange.max_fps = 1;
+            }
+            if ( adjustedRange.video_min_fps < 1 ) {
+                adjustedRange.video_min_fps = 1;
+            }
+            if ( adjustedRange.video_max_fps < 1 ) {
+                adjustedRange.video_max_fps = 1;
             }
             skipPattern = EVERY_2FRAME;
         }
@@ -5066,11 +5030,19 @@ int QCamera2HardwareInterface::calcThermalLevel(
         {
             adjustedRange.min_fps = (minFPS / 4) / 1000.0f;
             adjustedRange.max_fps = (maxFPS / 4) / 1000.0f;
+            adjustedRange.video_min_fps = (minVideoFps / 4) / 1000.0f;
+            adjustedRange.video_max_fps = (maxVideoFps / 4 ) / 1000.0f;
             if ( adjustedRange.min_fps < 1 ) {
                 adjustedRange.min_fps = 1;
             }
             if ( adjustedRange.max_fps < 1 ) {
                 adjustedRange.max_fps = 1;
+            }
+            if ( adjustedRange.video_min_fps < 1 ) {
+                adjustedRange.video_min_fps = 1;
+            }
+            if ( adjustedRange.video_max_fps < 1 ) {
+                adjustedRange.video_max_fps = 1;
             }
             skipPattern = EVERY_4FRAME;
         }
@@ -5088,6 +5060,8 @@ int QCamera2HardwareInterface::calcThermalLevel(
                 }
             }
             skipPattern = MAX_SKIP;
+            adjustedRange.video_min_fps = adjustedRange.min_fps;
+            adjustedRange.video_max_fps = adjustedRange.max_fps;
         }
         break;
     default:
@@ -5097,13 +5071,9 @@ int QCamera2HardwareInterface::calcThermalLevel(
         }
         break;
     }
-
-    ALOGV("%s: Thermal level %d, FPS range [%3.2f,%3.2f], frameskip %d",
-          __func__,
-          level,
-          adjustedRange.min_fps,
-          adjustedRange.max_fps,
-          skipPattern);
+    ALOGE("%s: Thermal level %d, FPS [%3.2f,%3.2f, %3.2f,%3.2f], frameskip %d",
+          __func__, level, adjustedRange.min_fps, adjustedRange.max_fps,
+          adjustedRange.video_min_fps, adjustedRange.video_max_fps,skipPattern);
 
     return NO_ERROR;
 }
@@ -5122,7 +5092,8 @@ int QCamera2HardwareInterface::calcThermalLevel(
  *              NO_ERROR  -- success
  *              none-zero failure code
  *==========================================================================*/
-int QCamera2HardwareInterface::recalcFPSRange(int &minFPS, int &maxFPS)
+int QCamera2HardwareInterface::recalcFPSRange(int &minFPS, int &maxFPS,
+        int &vidMinFps, int &vidMaxFps)
 {
     cam_fps_range_t adjustedRange;
     enum msm_vfe_frame_skip_pattern skipPattern;
@@ -5133,6 +5104,8 @@ int QCamera2HardwareInterface::recalcFPSRange(int &minFPS, int &maxFPS)
                      skipPattern);
     minFPS = adjustedRange.min_fps;
     maxFPS = adjustedRange.max_fps;
+    vidMinFps = adjustedRange.video_min_fps;
+    vidMaxFps = adjustedRange.video_max_fps;
 
     return NO_ERROR;
 }
