@@ -482,6 +482,7 @@ private:
     QCameraParameters mParameters;
     int32_t               mMsgEnabled;
     int                   mStoreMetaDataInFrame;
+    int                   mNumSnapshots;
 
     camera_notify_callback         mNotifyCb;
     camera_data_callback           mDataCb;
