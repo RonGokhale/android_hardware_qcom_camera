@@ -1,7 +1,5 @@
 /*
-**
-** Copyright 2008, The Android Open Source Project
-** Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+** Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
 ** Not a Contribution. Apache license notifications and license are
 ** retained for attribution purposes only.
 **
@@ -188,6 +186,7 @@ public:
     static const char KEY_QC_NO_DISPLAY_MODE[];
     static const char KEY_QC_RAW_PICUTRE_SIZE[];
     static const char KEY_QC_TINTLESS_ENABLE[];
+    static const char KEY_QC_CDS_MODE[];
 
     // DENOISE
     static const char KEY_QC_DENOISE[];
@@ -239,6 +238,18 @@ public:
     static const char EFFECT_EMBOSS[];
     static const char EFFECT_SKETCH[];
     static const char EFFECT_NEON[];
+
+    //AF Bracketing
+    static const char KEY_QC_AF_BRACKET[];
+    static const char KEY_QC_SUPPORTED_AF_BRACKET_MODES[];
+
+    //Chroma Flash
+    static const char KEY_QC_CHROMA_FLASH[];
+    static const char KEY_QC_SUPPORTED_CHROMA_FLASH_MODES[];
+
+    //Opti Zoom
+    static const char KEY_QC_OPTI_ZOOM[];
+    static const char KEY_QC_SUPPORTED_OPTI_ZOOM_MODES[];
 
     // Values for Touch AF/AEC
     static const char TOUCH_AF_AEC_OFF[];
@@ -389,6 +400,18 @@ public:
     static const char AE_BRACKET_OFF[];
     static const char AE_BRACKET[];
 
+    // Values for AF Bracketing settings.
+    static const char AF_BRACKET_OFF[];
+    static const char AF_BRACKET_ON[];
+
+    // Values for Chroma Flash settings.
+    static const char CHROMA_FLASH_OFF[];
+    static const char CHROMA_FLASH_ON[];
+
+    // Values for Opti Zoom settings.
+    static const char OPTI_ZOOM_OFF[];
+    static const char OPTI_ZOOM_ON[];
+
     // Values for HFR settings.
     static const char VIDEO_HFR_OFF[];
     static const char VIDEO_HFR_2X[];
@@ -413,6 +436,11 @@ public:
     static const char FLIP_MODE_V[];
     static const char FLIP_MODE_H[];
     static const char FLIP_MODE_VH[];
+
+    //Values for CDS Mode
+    static const char CDS_MODE_OFF[];
+    static const char CDS_MODE_ON[];
+    static const char CDS_MODE_AUTO[];
 
     static const char KEY_SELECTED_AUTO_SCENE[];
 
@@ -534,8 +562,25 @@ public:
 
     const char *getASDStateString(cam_auto_scene_t scene);
     bool isHDRThumbnailProcessNeeded() { return m_bHDRThumbnailProcessNeeded; };
-	int getAutoFlickerMode();
+    int getAutoFlickerMode();
 
+    bool setStreamConfigure(bool isCapture, bool previewAsPostview);
+    uint8_t getNumOfExtraBuffersForImageProc();
+    bool needThumbnailReprocess(uint32_t *pFeatureMask);
+    inline bool isUbiFocusEnabled() {return m_bAFBracketingOn;};
+    inline bool isChromaFlashEnabled() {return m_bChromaFlashOn;};
+    inline bool isOptiZoomEnabled() {return m_bOptiZoomOn;};
+    int32_t commitAFBracket(cam_af_bracketing_t afBracket);
+    int32_t commitFlashBracket(cam_flash_bracketing_t flashBracket);
+    int32_t set3ALock(const char *lockStr);
+    int32_t setAndCommitZoom(int zoom_level);
+    uint8_t getBurstCountForBracketing();
+    inline bool isUbiRefocus() {return isUbiFocusEnabled() &&
+        (m_pCapability->ubifocus_af_bracketing_need.output_count > 1);};
+    inline uint32_t UfOutputCount() {
+        return m_pCapability->ubifocus_af_bracketing_need.output_count;};
+    inline bool generateThumbFromMain() {return isUbiFocusEnabled() ||
+        isChromaFlashEnabled() || isOptiZoomEnabled(); }
 private:
     int32_t setPreviewSize(const QCameraParameters& );
     int32_t setVideoSize(const QCameraParameters& );
@@ -580,6 +625,9 @@ private:
     int32_t setSceneFocusMode(const QCameraParameters& );
     int32_t setSelectableZoneAf(const QCameraParameters& );
     int32_t setAEBracket(const QCameraParameters& );
+    int32_t setAFBracket(const QCameraParameters& );
+    int32_t setChromaFlash(const QCameraParameters& );
+    int32_t setOptiZoom(const QCameraParameters& );
     int32_t setRedeyeReduction(const QCameraParameters& );
     int32_t setGpsLocation(const QCameraParameters& );
     int32_t setRecordingHint(const QCameraParameters& );
@@ -595,6 +643,7 @@ private:
     int32_t setSnapshotFDReq(const QCameraParameters& );
     int32_t setStatsDebugMask();
     int32_t setTintlessValue(const QCameraParameters& params);
+    int32_t setCDSMode(const QCameraParameters& params);
     int32_t setMobicat(const QCameraParameters& params);
     bool UpdateHFRFrameRate(const QCameraParameters& params);
 
@@ -627,6 +676,9 @@ private:
     int32_t setSceneMode(const char *sceneModeStr);
     int32_t setSelectableZoneAf(const char *selZoneAFStr);
     int32_t setAEBracket(const char *aecBracketStr);
+    int32_t setAFBracket(const char *afBracketStr);
+    int32_t setChromaFlash(const char *chromaFlashStr);
+    int32_t setOptiZoom(const char *optiZoomStr);
     int32_t setRedeyeReduction(const char *redeyeStr);
     int32_t setWaveletDenoise(const char *wnrStr);
     int32_t setFaceRecognition(const char *faceRecog, int maxFaces);
@@ -694,6 +746,10 @@ private:
     static const QCameraMap TRUE_FALSE_MODES_MAP[];
     static const QCameraMap TOUCH_AF_AEC_MODES_MAP[];
     static const QCameraMap FLIP_MODES_MAP[];
+    static const QCameraMap AF_BRACKETING_MODES_MAP[];
+    static const QCameraMap CHROMA_FLASH_MODES_MAP[];
+    static const QCameraMap OPTI_ZOOM_MODES_MAP[];
+    static const QCameraMap CDS_MODES_MAP[];
 
     cam_capability_t *m_pCapability;
     mm_camera_vtbl_t *m_pCamOpsTbl;
@@ -741,6 +797,11 @@ private:
 
     DefaultKeyedVector<String8,String8> m_tempMap; // map for temororily store parameters to be set
     cam_fps_range_t m_default_fps_range;
+
+    bool m_bAFBracketingOn;
+    bool m_bChromaFlashOn;
+    bool m_bOptiZoomOn;
+    bool m_bUbiRefocus;
 };
 
 }; // namespace qcamera

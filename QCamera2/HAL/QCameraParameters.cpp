@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -109,7 +109,14 @@ const char QCameraParameters::KEY_QC_AUTO_HDR_ENABLE [] = "auto-hdr-enable";
 const char QCameraParameters::KEY_QC_SNAPSHOT_BURST_NUM[] = "snapshot-burst-num";
 const char QCameraParameters::KEY_QC_SNAPSHOT_FD_DATA[] = "snapshot-fd-data-enable";
 const char QCameraParameters::KEY_QC_TINTLESS_ENABLE[] = "tintless";
+const char QCameraParameters::KEY_QC_CDS_MODE[] = "cds-mode";
 const char QCameraParameters::KEY_QC_VIDEO_ROTATION[] = "video-rotation";
+const char QCameraParameters::KEY_QC_AF_BRACKET[] = "af-bracket";
+const char QCameraParameters::KEY_QC_SUPPORTED_AF_BRACKET_MODES[] = "af-bracket-values";
+const char QCameraParameters::KEY_QC_CHROMA_FLASH[] = "chroma-flash";
+const char QCameraParameters::KEY_QC_SUPPORTED_CHROMA_FLASH_MODES[] = "chroma-flash-values";
+const char QCameraParameters::KEY_QC_OPTI_ZOOM[] = "opti-zoom";
+const char QCameraParameters::KEY_QC_SUPPORTED_OPTI_ZOOM_MODES[] = "opti-zoom-values";
 
 // Values for effect settings.
 const char QCameraParameters::EFFECT_EMBOSS[] = "emboss";
@@ -281,11 +288,27 @@ const char QCameraParameters::VIDEO_HFR_5X[] = "150";
 const char QCameraParameters::AE_BRACKET_OFF[] = "Off";
 const char QCameraParameters::AE_BRACKET[] = "AE-Bracket";
 
+// Values for AF Bracketing setting.
+const char QCameraParameters::AF_BRACKET_OFF[] = "af-bracket-off";
+const char QCameraParameters::AF_BRACKET_ON[] = "af-bracket-on";
+
+// Values for Chroma Flash setting.
+const char QCameraParameters::CHROMA_FLASH_OFF[] = "chroma-flash-off";
+const char QCameraParameters::CHROMA_FLASH_ON[] = "chroma-flash-on";
+
+// Values for Opti Zoom setting.
+const char QCameraParameters::OPTI_ZOOM_OFF[] = "opti-zoom-off";
+const char QCameraParameters::OPTI_ZOOM_ON[] = "opti-zoom-on";
+
 // Values for FLIP settings.
 const char QCameraParameters::FLIP_MODE_OFF[] = "off";
 const char QCameraParameters::FLIP_MODE_V[] = "flip-v";
 const char QCameraParameters::FLIP_MODE_H[] = "flip-h";
 const char QCameraParameters::FLIP_MODE_VH[] = "flip-vh";
+
+const char QCameraParameters::CDS_MODE_OFF[] = "off";
+const char QCameraParameters::CDS_MODE_ON[] = "on";
+const char QCameraParameters::CDS_MODE_AUTO[] = "auto";
 
 const char QCameraParameters::KEY_SELECTED_AUTO_SCENE[] = "selected-auto-scene";
 
@@ -533,6 +556,27 @@ const QCameraParameters::QCameraMap QCameraParameters::FLIP_MODES_MAP[] = {
     {FLIP_MODE_VH, FLIP_V_H}
 };
 
+const QCameraParameters::QCameraMap QCameraParameters::AF_BRACKETING_MODES_MAP[] = {
+    { AF_BRACKET_OFF, 0 },
+    { AF_BRACKET_ON,  1 }
+};
+
+const QCameraParameters::QCameraMap QCameraParameters::CHROMA_FLASH_MODES_MAP[] = {
+    { CHROMA_FLASH_OFF, 0 },
+    { CHROMA_FLASH_ON,  1 }
+};
+
+const QCameraParameters::QCameraMap QCameraParameters::OPTI_ZOOM_MODES_MAP[] = {
+    { OPTI_ZOOM_OFF, 0 },
+    { OPTI_ZOOM_ON,  1 }
+};
+
+const QCameraParameters::QCameraMap QCameraParameters::CDS_MODES_MAP[] = {
+    { CDS_MODE_OFF, CAM_CDS_MODE_OFF },
+    { CDS_MODE_ON, CAM_CDS_MODE_ON },
+    { CDS_MODE_AUTO, CAM_CDS_MODE_AUTO}
+};
+
 #define DEFAULT_CAMERA_AREA "(0, 0, 0, 0, 0)"
 #define DATA_PTR(MEM_OBJ,INDEX) MEM_OBJ->getPtr( INDEX )
 #define MIN_PP_BUF_CNT 1
@@ -586,7 +630,10 @@ QCameraParameters::QCameraParameters()
       m_bHDRThumbnailProcessNeeded(false),
       m_bHDR1xExtraBufferNeeded(true),
       m_bHDROutputCropEnabled(false),
-      m_tempMap()
+      m_tempMap(),
+      m_bAFBracketingOn(false),
+      m_bChromaFlashOn(false),
+      m_bOptiZoomOn(false)
 {
     char value[PROPERTY_VALUE_MAX];
     // TODO: may move to parameter instead of sysprop
@@ -658,7 +705,10 @@ QCameraParameters::QCameraParameters(const String8 &params)
     m_bHDRThumbnailProcessNeeded(false),
     m_bHDR1xExtraBufferNeeded(true),
     m_bHDROutputCropEnabled(false),
-    m_tempMap()
+    m_tempMap(),
+    m_bAFBracketingOn(false),
+    m_bChromaFlashOn(false),
+    m_bOptiZoomOn(false)
 {
     memset(&m_LiveSnapshotSize, 0, sizeof(m_LiveSnapshotSize));
     m_pTorch = NULL;
@@ -2754,6 +2804,103 @@ int32_t QCameraParameters::setAEBracket(const QCameraParameters& params)
 }
 
 /*===========================================================================
+ * FUNCTION   : setAFBracket
+ *
+ * DESCRIPTION: set AF bracket from user setting
+ *
+ * PARAMETERS :
+ *   @params  : user setting parameters
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraParameters::setAFBracket(const QCameraParameters& params)
+{
+    if ((m_pCapability->qcom_supported_feature_mask &
+        CAM_QCOM_FEATURE_UBIFOCUS) == 0){
+        ALOGD("%s: AF Bracketing is not supported",__func__);
+        return NO_ERROR;
+    }
+    const char *str = params.get(KEY_QC_AF_BRACKET);
+    const char *prev_str = get(KEY_QC_AF_BRACKET);
+    ALOGD("%s: str =%s & prev_str =%s",__func__, str, prev_str);
+    if (str != NULL) {
+        if (prev_str == NULL ||
+            strcmp(str, prev_str) != 0) {
+            m_bNeedRestart = true;
+            return setAFBracket(str);
+        }
+    }
+    return NO_ERROR;
+}
+
+/*===========================================================================
+ * FUNCTION   : setChromaFlash
+ *
+ * DESCRIPTION: set chroma flash from user setting
+ *
+ * PARAMETERS :
+ *   @params  : user setting parameters
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraParameters::setChromaFlash(const QCameraParameters& params)
+{
+    if ((m_pCapability->qcom_supported_feature_mask &
+        CAM_QCOM_FEATURE_CHROMA_FLASH) == 0) {
+        ALOGD("%s: Chroma Flash is not supported",__func__);
+        return NO_ERROR;
+    }
+    const char *str = params.get(KEY_QC_CHROMA_FLASH);
+    const char *prev_str = get(KEY_QC_CHROMA_FLASH);
+    ALOGD("%s: str =%s & prev_str =%s",__func__, str, prev_str);
+    if (str != NULL) {
+        if (prev_str == NULL ||
+            strcmp(str, prev_str) != 0) {
+            m_bNeedRestart = true;
+            return setChromaFlash(str);
+        }
+    }
+    return NO_ERROR;
+}
+
+/*===========================================================================
+ * FUNCTION   : setOptiZoom
+ *
+ * DESCRIPTION: set opti zoom from user setting
+ *
+ * PARAMETERS :
+ *   @params  : user setting parameters
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraParameters::setOptiZoom(const QCameraParameters& params)
+{
+    if ((m_pCapability->qcom_supported_feature_mask &
+        CAM_QCOM_FEATURE_OPTIZOOM) == 0){
+        ALOGD("%s: Opti Zoom is not supported",__func__);
+        return NO_ERROR;
+    }
+    const char *str = params.get(KEY_QC_OPTI_ZOOM);
+    const char *prev_str = get(KEY_QC_OPTI_ZOOM);
+    ALOGD("%s: str =%s & prev_str =%s",__func__, str, prev_str);
+    if (str != NULL) {
+        if (prev_str == NULL ||
+            strcmp(str, prev_str) != 0) {
+            m_bNeedRestart = true;
+            return setOptiZoom(str);
+        }
+    }
+    return NO_ERROR;
+}
+
+
+/*===========================================================================
  * FUNCTION   : setRedeyeReduction
  *
  * DESCRIPTION: set red eye reduction setting from user setting
@@ -2903,6 +3050,11 @@ int32_t QCameraParameters::setNumOfSnapshot()
             nExpnum = 1 + getNumOfExtraHDROutBufsIfNeeded();
             break;
         }
+    }
+
+    if (isUbiRefocus()) {
+        nBurstNum = m_pCapability->ubifocus_af_bracketing_need.output_count;
+        nExpnum = 1;
     }
 
     ALOGD("%s: nBurstNum = %d, nExpnum = %d", __func__, nBurstNum, nExpnum);
@@ -3370,11 +3522,15 @@ int32_t QCameraParameters::updateParameters(QCameraParameters& params,
     if ((rc = setBurstNum(params)))                     final_rc = rc;
     if ((rc = setSnapshotFDReq(params)))                final_rc = rc;
     if ((rc = setTintlessValue(params)))                final_rc = rc;
+    if ((rc = setCDSMode(params)))                      final_rc = rc;
 
     // update live snapshot size after all other parameters are set
     if ((rc = setLiveSnapshotSize(params)))             final_rc = rc;
     if ((rc = setStatsDebugMask()))                     final_rc = rc;
     if ((rc = setMobicat(params)))                      final_rc = rc;
+    if ((rc = setAFBracket(params)))                    final_rc = rc;
+    if ((rc = setChromaFlash(params)))                  final_rc = rc;
+    if ((rc = setOptiZoom(params)))                     final_rc = rc;
 
 UPDATE_PARAM_DONE:
     needRestart = m_bNeedRestart;
@@ -3779,6 +3935,36 @@ int32_t QCameraParameters::initDefaultParameters()
             sizeof(BRACKETING_MODES_MAP) / sizeof(QCameraMap));
     set(KEY_QC_SUPPORTED_AE_BRACKET_MODES, bracketingValues);
     setAEBracket(AE_BRACKET_OFF);
+
+    //Set AF Bracketing.
+    if ((m_pCapability->qcom_supported_feature_mask &
+        CAM_QCOM_FEATURE_UBIFOCUS) > 0){
+            String8 afBracketingValues = createValuesStringFromMap(
+                AF_BRACKETING_MODES_MAP,
+                sizeof(AF_BRACKETING_MODES_MAP) / sizeof(QCameraMap));
+            set(KEY_QC_SUPPORTED_AF_BRACKET_MODES, afBracketingValues);
+            setAFBracket(AF_BRACKET_OFF);
+    }
+
+    //Set Chroma Flash.
+    if ((m_pCapability->qcom_supported_feature_mask &
+        CAM_QCOM_FEATURE_CHROMA_FLASH) > 0){
+          String8 chromaFlashValues = createValuesStringFromMap(
+              CHROMA_FLASH_MODES_MAP,
+              sizeof(CHROMA_FLASH_MODES_MAP) / sizeof(QCameraMap));
+          set(KEY_QC_SUPPORTED_CHROMA_FLASH_MODES, chromaFlashValues);
+          setChromaFlash(CHROMA_FLASH_OFF);
+    }
+
+    //Set Opti Zoom.
+    if ((m_pCapability->qcom_supported_feature_mask &
+        CAM_QCOM_FEATURE_OPTIZOOM) > 0){
+            String8 optiZoomValues = createValuesStringFromMap(
+                OPTI_ZOOM_MODES_MAP,
+                sizeof(OPTI_ZOOM_MODES_MAP) / sizeof(QCameraMap));
+            set(KEY_QC_SUPPORTED_OPTI_ZOOM_MODES, optiZoomValues);
+            setOptiZoom(OPTI_ZOOM_OFF);
+    }
 
     // Set Denoise
     if ((m_pCapability->qcom_supported_feature_mask & CAM_QCOM_FEATURE_DENOISE2D) > 0){
@@ -4766,8 +4952,9 @@ int32_t QCameraParameters::setAecLock(const char *aecLockStr)
 {
     if (aecLockStr != NULL) {
         int32_t value = lookupAttr(TRUE_FALSE_MODES_MAP,
-                                   sizeof(TRUE_FALSE_MODES_MAP)/sizeof(QCameraMap),
-                                   aecLockStr);
+                                  sizeof(TRUE_FALSE_MODES_MAP)/
+                                      sizeof(QCameraMap),
+                                  aecLockStr);
         if (value != NAME_NOT_FOUND) {
             ALOGV("%s: Setting AECLock value %s", __func__, aecLockStr);
             updateParamEntry(KEY_AUTO_EXPOSURE_LOCK, aecLockStr);
@@ -4777,7 +4964,8 @@ int32_t QCameraParameters::setAecLock(const char *aecLockStr)
                                           &value);
         }
     }
-    ALOGE("Invalid AECLock value: %s", (aecLockStr == NULL) ? "NULL" : aecLockStr);
+    ALOGE("Invalid AECLock value: %s",
+        (aecLockStr == NULL) ? "NULL" : aecLockStr);
     return BAD_VALUE;
 }
 
@@ -4907,6 +5095,54 @@ int32_t QCameraParameters::setTintlessValue(const char *tintStr)
     }
     ALOGE("Invalid Tintless value: %s", (tintStr == NULL) ? "NULL" : tintStr);
     return BAD_VALUE;
+}
+
+/*===========================================================================
+ * FUNCTION   : setCDSMode
+ *
+ * DESCRIPTION: Set CDS mode
+ *
+ * PARAMETERS :
+ *   @params  : user setting parameters
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraParameters::setCDSMode(const QCameraParameters& params)
+{
+    const char *str = params.get(KEY_QC_CDS_MODE);
+    const char *prev_str = get(KEY_QC_CDS_MODE);
+    char *cds_mode_str = NULL;
+    int32_t rc = NO_ERROR;
+
+    if (str) {
+        if (!prev_str || !strcmp(str, prev_str)) {
+            cds_mode_str = (char *)str;
+        }
+    } else {
+        char prop[PROPERTY_VALUE_MAX];
+        memset(prop, 0, sizeof(prop));
+        property_get("persist.camera.CDS", prop, VALUE_OFF);
+        cds_mode_str = prop;
+    }
+
+    if (cds_mode_str) {
+        ALOGV("%s: Set CDS mode = %s", __func__, cds_mode_str);
+
+        int cds_mode = lookupAttr(CDS_MODES_MAP,
+                                  sizeof(CDS_MODES_MAP) / sizeof(QCameraMap),
+                                  cds_mode_str);
+
+        rc = AddSetParmEntryToBatch(m_pParamBuf,
+                                    CAM_INTF_PARM_CDS_MODE,
+                                    sizeof(cds_mode),
+                                    &cds_mode);
+        if (rc != NO_ERROR) {
+            ALOGE("%s:Failed CDS MODE to update table", __func__);
+        }
+    }
+    return rc;
 }
 
 /*===========================================================================
@@ -5399,6 +5635,295 @@ int32_t QCameraParameters::setAEBracket(const char *aecBracketStr)
                                   CAM_INTF_PARM_HDR,
                                   sizeof(expBracket),
                                   &expBracket);
+}
+
+/*===========================================================================
+ * FUNCTION   : set3ALock
+ *
+ * DESCRIPTION: enable/disable 3A lock.
+ *
+ * PARAMETERS :
+ *   @lockStr : lock value string.
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraParameters::set3ALock(const char *lockStr)
+{
+    int32_t rc = NO_ERROR;
+    if (lockStr != NULL) {
+        int32_t value = lookupAttr(TRUE_FALSE_MODES_MAP,
+                                   sizeof(TRUE_FALSE_MODES_MAP)/sizeof(QCameraMap),
+                                   lockStr);
+        if (value != NAME_NOT_FOUND) {
+            ALOGD("%s: Setting Lock lockStr =%s", __func__, lockStr);
+            if(initBatchUpdate(m_pParamBuf) < 0 ) {
+                ALOGE("%s:Failed to initialize group update table", __func__);
+                return BAD_TYPE;
+            }
+            int32_t focus_mode;
+            if (value == 1) {
+                if (isUbiFocusEnabled()) {
+                    //For Ubi focus move focus to infinity.
+                    focus_mode = CAM_FOCUS_MODE_INFINITY;
+                } else if (isOptiZoomEnabled()){
+                    //For optizoom set focus as fixed.
+                    focus_mode = CAM_FOCUS_MODE_FIXED;
+                }
+            } else {
+               // retrieve previous focus value.
+               const char *focus = get(KEY_FOCUS_MODE);
+               focus_mode = lookupAttr(FOCUS_MODES_MAP,
+                               sizeof(FOCUS_MODES_MAP)/sizeof(QCameraMap),
+                               focus);
+               ALOGV("%s: focus mode %s", __func__, focus);
+            }
+            //Lock AWB
+            rc = AddSetParmEntryToBatch(m_pParamBuf,
+                                    CAM_INTF_PARM_AWB_LOCK,
+                                    sizeof(value),
+                                    &value);
+            if (NO_ERROR != rc) {
+                return rc;
+            }
+            //Lock AEC
+            rc = AddSetParmEntryToBatch(m_pParamBuf,
+                                    CAM_INTF_PARM_AEC_LOCK,
+                                    sizeof(value),
+                                    &value);
+            if (NO_ERROR != rc) {
+                return rc;
+            }
+            rc = AddSetParmEntryToBatch(m_pParamBuf,
+                                    CAM_INTF_PARM_FOCUS_MODE,
+                                    sizeof(focus_mode),
+                                    &focus_mode);
+            if (NO_ERROR != rc) {
+                return rc;
+            }
+
+            rc = commitSetBatch();
+            if (rc != NO_ERROR) {
+                ALOGE("%s:Failed to commit batch", __func__);
+            }
+        }
+    }
+    return rc;
+}
+
+/*===========================================================================
+ * FUNCTION   : setAndCommitZoom
+ *
+ * DESCRIPTION: set zoom.
+ *
+ * PARAMETERS :
+ *     @zoom_level : zoom level to set.
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraParameters::setAndCommitZoom(int zoom_level)
+{
+    ALOGD("%s: E",__func__);
+    int32_t rc = NO_ERROR;
+        if(initBatchUpdate(m_pParamBuf) < 0 ) {
+            ALOGE("%s:Failed to initialize group update table", __func__);
+            return BAD_TYPE;
+        }
+        rc = AddSetParmEntryToBatch(m_pParamBuf,
+                              CAM_INTF_PARM_ZOOM,
+                              sizeof(zoom_level),
+                              &zoom_level);
+
+        if (rc != NO_ERROR) {
+             ALOGE("%s:Failed to update table", __func__);
+             return rc;
+        }
+    rc = commitSetBatch();
+    if (rc != NO_ERROR) {
+        ALOGE("%s:Failed to set Flash value", __func__);
+    }
+    ALOGD("%s: X",__func__);
+    return rc;
+}
+
+/*===========================================================================
+ * FUNCTION   : commitAFBracket
+ *
+ * DESCRIPTION: commit AF Bracket.
+ *
+ * PARAMETERS :
+ *   @AFBracket : AF bracketing configuration
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraParameters::commitAFBracket(cam_af_bracketing_t afBracket)
+{
+
+    int32_t rc = NO_ERROR;
+    if(initBatchUpdate(m_pParamBuf) < 0 ) {
+        ALOGE("%s:Failed to initialize group update table", __func__);
+        return BAD_TYPE;
+    }
+
+    rc = AddSetParmEntryToBatch(m_pParamBuf,
+            CAM_INTF_PARM_FOCUS_BRACKETING,
+            sizeof(afBracket),
+            &afBracket);
+    if (rc != NO_ERROR) {
+        ALOGE("%s:Failed to update table", __func__);
+        return rc;
+    }
+
+    rc = commitSetBatch();
+    if (rc != NO_ERROR) {
+        ALOGE("%s:Failed to commit batch", __func__);
+    }
+
+    return rc;
+}
+
+/*===========================================================================
+ * FUNCTION   : commitFlashBracket
+ *
+ * DESCRIPTION: commit Flash Bracket.
+ *
+ * PARAMETERS :
+ *   @AFBracket : Flash bracketing configuration
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraParameters::commitFlashBracket(
+    cam_flash_bracketing_t flashBracket)
+{
+    ALOGD("%s: E",__func__);
+    int32_t rc = NO_ERROR;
+    if(initBatchUpdate(m_pParamBuf) < 0 ) {
+        ALOGE("%s:Failed to initialize group update table", __func__);
+        return BAD_TYPE;
+    }
+
+    rc = AddSetParmEntryToBatch(m_pParamBuf,
+            CAM_INTF_PARM_FLASH_BRACKETING,
+            sizeof(flashBracket),
+            &flashBracket);
+    if (rc != NO_ERROR) {
+        ALOGE("%s:Failed to update table", __func__);
+        return rc;
+    }
+
+    rc = commitSetBatch();
+    if (rc != NO_ERROR) {
+        ALOGE("%s:Failed to commit batch", __func__);
+    }
+
+    ALOGD("%s: X",__func__);
+    return rc;
+}
+
+/*===========================================================================
+ * FUNCTION   : setAFBracket
+ *
+ * DESCRIPTION: set AF bracket value
+ *
+ * PARAMETERS :
+ *   @afBracketStr : AF bracket value string
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraParameters::setAFBracket(const char *afBracketStr)
+{
+    ALOGD("%s: afBracketStr =%s",__func__,afBracketStr);
+
+    if(afBracketStr != NULL) {
+        int value = lookupAttr(AF_BRACKETING_MODES_MAP,
+                              sizeof(AF_BRACKETING_MODES_MAP)/
+                                  sizeof(QCameraMap),
+                              afBracketStr);
+        if (value != NAME_NOT_FOUND) {
+            m_bAFBracketingOn = (value != 0);
+            updateParamEntry(KEY_QC_AF_BRACKET, afBracketStr);
+            return NO_ERROR;
+        }
+    }
+
+    ALOGE("Invalid af bracket value: %s",
+        (afBracketStr == NULL) ? "NULL" : afBracketStr);
+    return BAD_VALUE;
+}
+
+/*===========================================================================
+ * FUNCTION   : setChromaFlash
+ *
+ * DESCRIPTION: set chroma flash value
+ *
+ * PARAMETERS :
+ *   @aecBracketStr : chroma flash value string
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraParameters::setChromaFlash(const char *chromaFlashStr)
+{
+    ALOGD("%s: chromaFlashStr =%s",__func__,chromaFlashStr);
+    if(chromaFlashStr != NULL) {
+        int value = lookupAttr(CHROMA_FLASH_MODES_MAP,
+                              sizeof(CHROMA_FLASH_MODES_MAP)/sizeof(QCameraMap),
+                              chromaFlashStr);
+        if(value != NAME_NOT_FOUND) {
+            m_bChromaFlashOn = (value != 0);
+            updateParamEntry(KEY_QC_CHROMA_FLASH, chromaFlashStr);
+            //set flash value.
+            value = m_bChromaFlashOn ? CAM_FLASH_MODE_ON: CAM_FLASH_MODE_OFF;
+            return AddSetParmEntryToBatch(m_pParamBuf,
+                                   CAM_INTF_PARM_LED_MODE,
+                                   sizeof(value),
+                                   &value);
+        }
+    }
+
+    ALOGE("Invalid chroma flash value: %s",
+        (chromaFlashStr == NULL) ? "NULL" : chromaFlashStr);
+    return BAD_VALUE;
+}
+
+/*===========================================================================
+ * FUNCTION   : setOptiZoom
+ *
+ * DESCRIPTION: set opti zoom value
+ *
+ * PARAMETERS :
+ *   @aecBracketStr : opti zoom value string
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraParameters::setOptiZoom(const char *optiZoomStr)
+{
+    ALOGD("%s: optiZoomStr =%s",__func__,optiZoomStr);
+    if(optiZoomStr != NULL) {
+        int value = lookupAttr(OPTI_ZOOM_MODES_MAP,
+                               sizeof(OPTI_ZOOM_MODES_MAP)/sizeof(QCameraMap),
+                               optiZoomStr);
+        if(value != NAME_NOT_FOUND) {
+            m_bOptiZoomOn = (value != 0);
+            updateParamEntry(KEY_QC_OPTI_ZOOM, optiZoomStr);
+            return NO_ERROR;
+        }
+    }
+    ALOGE("Invalid opti zoom value: %s",
+        (optiZoomStr == NULL) ? "NULL" : optiZoomStr);
+    return BAD_VALUE;
 }
 
 /*===========================================================================
@@ -6119,7 +6644,41 @@ uint8_t QCameraParameters::getNumOfSnapshots()
     if (numOfSnapshot <= 0) {
         numOfSnapshot = 1; // set to default value
     }
+
+    /* update the count for refocus */
+    if (isUbiRefocus())
+       numOfSnapshot += UfOutputCount();
+
     return (uint8_t)numOfSnapshot;
+}
+
+/*===========================================================================
+ * FUNCTION   : getBurstCountForBracketing
+ *
+ * DESCRIPTION: get burst count for AF/AE/Flash bracketing.
+ *
+ * PARAMETERS : none
+ *
+ * RETURN     : number of snapshot required for bracketing.
+ *==========================================================================*/
+uint8_t QCameraParameters::getBurstCountForBracketing()
+{
+    int burstCount = 0;
+    if (isUbiFocusEnabled()) {
+        //number of snapshots required for Ubi Focus.
+        burstCount = m_pCapability->ubifocus_af_bracketing_need.burst_count;
+    } else if (isOptiZoomEnabled()) {
+        //number of snapshots required for Opti Zoom.
+        burstCount = m_pCapability->opti_zoom_settings_need.burst_count;
+    } else if (isChromaFlashEnabled()) {
+        //number of snapshots required for Chroma Flash.
+        //TODO: remove hardcoded value, add in capability.
+        burstCount = 2;
+    }
+    if (burstCount <= 0) {
+        burstCount = 1;
+    }
+    return (uint8_t)burstCount;
 }
 
 /*===========================================================================
@@ -7125,6 +7684,10 @@ int32_t QCameraParameters::AddSetParmEntryToBatch(parm_buffer_t *p_table,
     int position = paramType;
     int current, next;
 
+    if (position >= CAM_INTF_PARM_MAX) {
+        ALOGE("%s: Error invalid param type ", __func__);
+        return BAD_VALUE;
+    }
     /*************************************************************************
     *                 Code to take care of linking next flags                *
     *************************************************************************/
@@ -7136,7 +7699,8 @@ int32_t QCameraParameters::AddSetParmEntryToBatch(parm_buffer_t *p_table,
         SET_FIRST_PARAM_ID(p_table, position);
     } else {
         /* Search for the position in the linked list where we need to slot in*/
-        while (position > GET_NEXT_PARAM_ID(current, p_table))
+        while ((current < CAM_INTF_PARM_MAX) &&
+            (position > GET_NEXT_PARAM_ID(current, p_table)))
             current = GET_NEXT_PARAM_ID(current, p_table);
 
         /*If node already exists no need to alter linking*/
@@ -7771,6 +8335,58 @@ bool QCameraParameters::isHDREnabled()
 bool QCameraParameters::isAVTimerEnabled()
 {
     return m_bAVTimerEnabled;
+}
+
+/*===========================================================================
+ * FUNCTION   : needThumbnailReprocess
+ *
+ * DESCRIPTION: Check if thumbnail reprocessing is needed
+ *
+ * PARAMETERS : @pFeatureMask - feature mask
+ *
+ * RETURN     : true: needed
+ *              false: no need
+ *==========================================================================*/
+bool QCameraParameters::needThumbnailReprocess(uint32_t *pFeatureMask)
+{
+    if (isUbiFocusEnabled() || isChromaFlashEnabled() ||
+        isOptiZoomEnabled()) {
+        *pFeatureMask &= ~CAM_QCOM_FEATURE_CHROMA_FLASH;
+        *pFeatureMask &= ~CAM_QCOM_FEATURE_UBIFOCUS;
+        *pFeatureMask &= ~CAM_QCOM_FEATURE_OPTIZOOM;
+        return false;
+    } else {
+        return true;
+    }
+}
+
+/*===========================================================================
+ * FUNCTION   : getNumOfExtraBuffersForImageProc
+ *
+ * DESCRIPTION: get number of extra input buffers needed by image processing
+ *
+ * PARAMETERS : none
+ *
+ * RETURN     : number of extra buffers needed by ImageProc;
+ *              0 if not ImageProc enabled
+ *==========================================================================*/
+uint8_t QCameraParameters::getNumOfExtraBuffersForImageProc()
+{
+    uint8_t numOfBufs = 0;
+
+    if (isUbiFocusEnabled()) {
+        numOfBufs += m_pCapability->ubifocus_af_bracketing_need.burst_count - 1;
+        if (isUbiRefocus()) {
+            numOfBufs +=
+                m_pCapability->ubifocus_af_bracketing_need.burst_count + 1;
+        }
+    } else if (isOptiZoomEnabled()) {
+        numOfBufs += m_pCapability->opti_zoom_settings_need.burst_count - 1;
+    } else if (isChromaFlashEnabled()) {
+        numOfBufs += 1; /* flash and non flash */
+    }
+
+    return numOfBufs * getBurstNum();
 }
 
 }; // namespace qcamera
