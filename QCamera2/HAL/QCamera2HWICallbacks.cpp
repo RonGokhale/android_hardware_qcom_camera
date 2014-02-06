@@ -262,10 +262,14 @@ void QCamera2HardwareInterface::capture_channel_cb_routine(mm_camera_super_buf_t
         return;
     }
     *frame = *recvd_frame;
+#ifdef _ANDROID_
 
     // DUMP YUV before reprocess if needed
     property_get("persist.camera.nonzsl.yuv", value, "0");
     dump_yuv = atoi(value) > 0 ? true : false;
+#else
+    dump_yuv = false;
+#endif
     if ( dump_yuv ) {
         for ( int i= 0 ; i < recvd_frame->num_bufs ; i++ ) {
             if ( recvd_frame->bufs[i]->stream_type == CAM_STREAM_TYPE_SNAPSHOT ) {
@@ -278,9 +282,13 @@ void QCamera2HardwareInterface::capture_channel_cb_routine(mm_camera_super_buf_t
             }
         }
     }
+#ifdef _ANDROID_
 
     property_get("persist.camera.dumpmetadata", value, "0");
     int32_t enabled = atoi(value);
+#else
+    int32_t enabled = 0;
+#endif
     if (enabled) {
         mm_camera_buf_def_t *pMetaFrame = NULL;
         QCameraStream *pStream = NULL;
@@ -412,6 +420,8 @@ void QCamera2HardwareInterface::preview_stream_cb_routine(mm_camera_super_buf_t 
                                                           void *userdata)
 {
     CDBG("[KPI Perf] %s : BEGIN", __func__);
+    ALOGD("[KPI Perf] %s : BEGIN", __func__);
+#ifdef _ANDROID_
     int err = NO_ERROR;
     QCamera2HardwareInterface *pme = (QCamera2HardwareInterface *)userdata;
     QCameraGrallocMemory *memory = (QCameraGrallocMemory *)super_frame->bufs[0]->mem_info;
@@ -542,6 +552,8 @@ void QCamera2HardwareInterface::preview_stream_cb_routine(mm_camera_super_buf_t 
 
     free(super_frame);
     CDBG("[KPI Perf] %s : END", __func__);
+#endif //_ANDROID_
+    ALOGD("[KPI Perf] %s : END", __func__);
     return;
 }
 
@@ -666,7 +678,11 @@ void QCamera2HardwareInterface::postview_stream_cb_routine(mm_camera_super_buf_t
 {
     int err = NO_ERROR;
     QCamera2HardwareInterface *pme = (QCamera2HardwareInterface *)userdata;
+#ifdef _ANDROID_
     QCameraGrallocMemory *memory = (QCameraGrallocMemory *)super_frame->bufs[0]->mem_info;
+#else
+    QCameraStreamMemory *memory = (QCameraStreamMemory *)super_frame->bufs[0]->mem_info;
+#endif
 
     if (pme == NULL) {
         ALOGE("%s: Invalid hardware object", __func__);
@@ -821,8 +837,12 @@ void QCamera2HardwareInterface::snapshot_channel_cb_routine(mm_camera_super_buf_
         return;
     }
 
+#ifdef _ANDROID_
     property_get("persist.camera.dumpmetadata", value, "0");
     int32_t enabled = atoi(value);
+#else
+    int32_t enabled = 0;
+#endif
     if (enabled) {
         QCameraChannel *pChannel = pme->m_channels[QCAMERA_CH_TYPE_SNAPSHOT];
         if (pChannel == NULL ||
@@ -1339,7 +1359,11 @@ void QCamera2HardwareInterface::dumpJpegToFile(const void *data,
 {
     char value[PROPERTY_VALUE_MAX];
     property_get("persist.camera.dumpimg", value, "0");
+#ifdef _ANDROID_
     int32_t enabled = atoi(value);
+#else
+    int32_t enabled = 1 << 5;
+#endif
     int frm_num = 0;
     uint32_t skip_mode = 0;
 
@@ -1494,8 +1518,12 @@ void QCamera2HardwareInterface::dumpFrameToFile(QCameraStream *stream,
                                                 int dump_type)
 {
     char value[PROPERTY_VALUE_MAX];
+#ifdef _ANDROID_
     property_get("persist.camera.dumpimg", value, "0");
     int32_t enabled = atoi(value);
+#else
+    int32_t enabled = 1;
+#endif
     int frm_num = 0;
     uint32_t skip_mode = 0;
     int mDumpFrmCnt = 0;

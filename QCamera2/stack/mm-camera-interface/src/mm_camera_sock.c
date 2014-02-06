@@ -39,6 +39,7 @@
 #include "mm_camera_dbg.h"
 #include "mm_camera_sock.h"
 
+#define UNIX_PATH_MAX  108
 /*===========================================================================
  * FUNCTION   : mm_camera_socket_create
  *

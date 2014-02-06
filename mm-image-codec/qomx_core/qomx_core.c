@@ -25,14 +25,28 @@ WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
 OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
 
+#if defined(USE_DLOG)
+  #include <dlog/dlog.h>
+#elif defined(_ANDROID_)
+  #include <utils/Log.h>
+#else
+    #include <stdio.h>
+#endif
+#undef CDBG
+#undef LOGE
+#undef LOGD
+#define LOG_DEBUG
 #define LOG_NDEBUG 0
 #define LOG_NIDEBUG 0
 #define LOG_TAG "qomx_image_core"
-#include <utils/Log.h>
 
 #include "qomx_core.h"
 
 #define BUFF_SIZE 255
+#if !defined(USE_DLOG) &&  !defined(_ANDROID_)
+  #define ALOGE(fmt, args...) fprintf(stderr, ""fmt"\n", ##args)
+  #define ALOGD(fmt, args...) fprintf(stderr, ""fmt"\n", ##args)
+#endif
 
 static omx_core_t *g_omxcore;
 static pthread_mutex_t g_omxcore_lock = PTHREAD_MUTEX_INITIALIZER;

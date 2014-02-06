@@ -35,6 +35,7 @@
 #include <fcntl.h>
 #include <poll.h>
 #include <linux/media.h>
+#include <inttypes.h>
 #include <signal.h>
 #include <cutils/properties.h>
 #include <stdlib.h>
@@ -1400,13 +1401,18 @@ uint8_t get_num_of_cameras()
     uint32_t log_level;
     uint32_t debug_mask;
 
+
     /*  Higher 4 bits : Value of Debug log level (Default level is 1 to print all CDBG_HIGH)
         Lower 28 bits : Control mode for sub module logging(Only 3 sub modules in HAL)
                         0x1 for HAL
                         0x10 for mm-camera-interface
                         0x100 for mm-jpeg-interface  */
+#ifdef _ANDROID_
     property_get("persist.camera.hal.debug.mask", prop, "268435463"); // 0x10000007=268435463
     temp = atoi(prop);
+#else
+    temp = 268435463;
+#endif
     log_level = ((temp >> 28) & 0xF);
     debug_mask = (temp & HAL_DEBUG_MASK_MM_CAMERA_INTERFACE);
     if (debug_mask > 0)
@@ -1415,13 +1421,15 @@ uint8_t get_num_of_cameras()
         gMmCameraIntfLogLevel = 0; // Debug logs are not required if debug_mask is zero
 
     CDBG_HIGH("%s gMmCameraIntfLogLevel=%d",__func__, gMmCameraIntfLogLevel);
-
+#ifdef _ANDROID_
     property_get("vold.decrypt", prop, "0");
     int decrypt = atoi(prop);
+#else
+    int decrypt = 0;
     if (decrypt == 1) {
         return 0;
     }
-
+#endif
     /* lock the mutex */
     pthread_mutex_lock(&g_intf_lock);
 

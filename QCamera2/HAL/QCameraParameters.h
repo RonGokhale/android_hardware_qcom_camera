@@ -19,7 +19,6 @@
 #ifndef ANDROID_HARDWARE_QCAMERA_PARAMETERS_H
 #define ANDROID_HARDWARE_QCAMERA_PARAMETERS_H
 
-#include <camera/CameraParameters.h>
 #include <cutils/properties.h>
 #include <hardware/camera.h>
 #include <stdlib.h>
@@ -27,7 +26,11 @@
 #include "cam_intf.h"
 #include "QCameraMem.h"
 #include "QCameraThermalAdapter.h"
-
+#ifdef _ANDROID_
+#include <camera/CameraParameters.h>
+#else
+#include "CameraParameters.h"
+#endif
 extern "C" {
 #include <mm_jpeg_interface.h>
 }

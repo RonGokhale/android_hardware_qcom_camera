@@ -77,7 +77,7 @@ QCameraPostProcessor::QCameraPostProcessor(QCamera2HardwareInterface *cam_ctrl)
       mSaveFrmCnt(0),
       mUseSaveProc(false),
       mUseJpegBurst(false),
-      mJpegMemOpt(true),
+      mJpegMemOpt(false),
       mNewJpegSessionNeeded(true),
       mMultipleStages(false),
       m_JpegOutputMemCount(0)

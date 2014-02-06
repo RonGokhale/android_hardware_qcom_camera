@@ -32,6 +32,7 @@
 
 #include <hardware/camera.h>
 #include "QCameraStream.h"
+#include <utils/List.h>
 
 extern "C" {
 #include <mm_camera_interface.h>
