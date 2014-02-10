@@ -1112,7 +1112,7 @@ int QCamera2HardwareInterface::openCamera()
     gCamCapability[mCameraId]->video_sizes_tbl_cnt = savedSizes[mCameraId].all_video_sizes_cnt;
 
     //check if video size 4k x 2k support is enabled
-    property_get("sys.camera.4k2k.enable", value, "0");
+    property_get("persist.camera.4k2k.enable", value, "0");
     enable_4k2k = atoi(value) > 0 ? 1 : 0;
     ALOGD("%s: enable_4k2k is %d", __func__, enable_4k2k);
     if (!enable_4k2k) {
@@ -1337,7 +1337,6 @@ int QCamera2HardwareInterface::getCapabilities(int cameraId,
     pthread_mutex_lock(&g_camlock);
     p_info = get_cam_info(cameraId);
     memcpy(info, p_info, sizeof (struct camera_info));
-    property_set("camera.4k2k.enable", "0");
     pthread_mutex_unlock(&g_camlock);
     return rc;
 }
@@ -1589,7 +1588,7 @@ QCameraMemory *QCamera2HardwareInterface::allocateStreamBuf(cam_stream_type_t st
         break;
     case CAM_STREAM_TYPE_POSTVIEW:
         {
-            if (isPreviewRestartEnabled()) {
+            if (isPreviewRestartEnabled() || isNoDisplayMode()) {
                 mem = new QCameraStreamMemory(mGetMemory, bCachedMem);
             } else {
                 cam_dimension_t dim;
@@ -3254,6 +3253,12 @@ int32_t QCamera2HardwareInterface::processAutoFocusEvent(cam_auto_focus_data_t &
         ALOGD("%s: no ops for autofocus event in focusmode %d", __func__, focusMode);
         break;
     }
+
+    // we save cam_auto_focus_data_t.focus_pos to parameters,
+    // in any focus mode.
+    ALOGD("%s, update focus position: %d", __func__, focus_data.focus_pos);
+    mParameters.updateCurrentFocusPosition(focus_data.focus_pos);
+
     ALOGD("%s: X",__func__);
     return ret;
 }
@@ -3357,6 +3362,25 @@ int32_t QCamera2HardwareInterface::processHDRData(cam_asd_hdr_scene_data_t hdr_s
 }
 
 /*===========================================================================
+ * FUNCTION   : transAwbMetaToParams
+ *
+ * DESCRIPTION: translate awb params from metadata callback to QCameraParameters
+ *
+ * PARAMETERS :
+ *   @awb_params : awb params from metadata callback
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCamera2HardwareInterface::transAwbMetaToParams(cam_awb_params_t &awb_params)
+{
+    ALOGD("%s, cct value: %d", __func__, awb_params.cct_value);
+
+    return mParameters.updateCCTValue(awb_params.cct_value);
+}
+
+/*===========================================================================
  * FUNCTION   : processPrepSnapshotDone
  *
  * DESCRIPTION: process prep snapshot done event
@@ -3438,6 +3462,22 @@ int32_t QCamera2HardwareInterface::processASDUpdate(cam_auto_scene_t scene)
 
 }
 
+/*===========================================================================
+ * FUNCTION   : processAWBUpdate
+ *
+ * DESCRIPTION: process AWB update event
+ *
+ * PARAMETERS :
+ *   @awb_params: current awb parameters from back-end.
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCamera2HardwareInterface::processAWBUpdate(cam_awb_params_t &awb_params)
+{
+    return transAwbMetaToParams(awb_params);
+}
 
 /*===========================================================================
  * FUNCTION   : processJpegNotify

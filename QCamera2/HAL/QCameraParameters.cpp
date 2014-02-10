@@ -56,6 +56,9 @@ const char QCameraParameters::KEY_QC_SCENE_DETECT[] = "scene-detect";
 const char QCameraParameters::KEY_QC_SUPPORTED_SCENE_DETECT[] = "scene-detect-values";
 const char QCameraParameters::KEY_QC_ISO_MODE[] = "iso";
 const char QCameraParameters::KEY_QC_SUPPORTED_ISO_MODES[] = "iso-values";
+const char QCameraParameters::KEY_QC_EXPOSURE_TIME[] = "exposure-time";
+const char QCameraParameters::KEY_QC_MIN_EXPOSURE_TIME[] = "min-exposure-time";
+const char QCameraParameters::KEY_QC_MAX_EXPOSURE_TIME[] = "max-exposure-time";
 const char QCameraParameters::KEY_QC_LENSSHADE[] = "lensshade";
 const char QCameraParameters::KEY_QC_SUPPORTED_LENSSHADE_MODES[] = "lensshade-values";
 const char QCameraParameters::KEY_QC_AUTO_EXPOSURE[] = "auto-exposure";
@@ -64,6 +67,13 @@ const char QCameraParameters::KEY_QC_DENOISE[] = "denoise";
 const char QCameraParameters::KEY_QC_SUPPORTED_DENOISE[] = "denoise-values";
 const char QCameraParameters::KEY_QC_FOCUS_ALGO[] = "selectable-zone-af";
 const char QCameraParameters::KEY_QC_SUPPORTED_FOCUS_ALGOS[] = "selectable-zone-af-values";
+const char QCameraParameters::KEY_QC_MANUAL_FOCUS_POSITION[] = "manual-focus-position";
+const char QCameraParameters::KEY_QC_MANUAL_FOCUS_POS_TYPE[] = "manual-focus-pos-type";
+const char QCameraParameters::KEY_QC_CURRENT_FOCUS_POSITION[] = "current-focus-position";
+const char QCameraParameters::KEY_QC_MIN_FOCUS_POS_INDEX[] = "min-focus-pos-index";
+const char QCameraParameters::KEY_QC_MAX_FOCUS_POS_INDEX[] = "max-focus-pos-index";
+const char QCameraParameters::KEY_QC_MIN_FOCUS_POS_DAC[] = "min-focus-pos-dac";
+const char QCameraParameters::KEY_QC_MAX_FOCUS_POS_DAC[] = "max-focus-pos-dac";
 const char QCameraParameters::KEY_QC_FACE_DETECTION[] = "face-detection";
 const char QCameraParameters::KEY_QC_SUPPORTED_FACE_DETECTION[] = "face-detection-values";
 const char QCameraParameters::KEY_QC_FACE_RECOGNITION[] = "face-recognition";
@@ -118,6 +128,10 @@ const char QCameraParameters::KEY_QC_CHROMA_FLASH[] = "chroma-flash";
 const char QCameraParameters::KEY_QC_SUPPORTED_CHROMA_FLASH_MODES[] = "chroma-flash-values";
 const char QCameraParameters::KEY_QC_OPTI_ZOOM[] = "opti-zoom";
 const char QCameraParameters::KEY_QC_SUPPORTED_OPTI_ZOOM_MODES[] = "opti-zoom-values";
+const char QCameraParameters::KEY_QC_WB_MANUAL_CCT[] = "wb-manual-cct";
+const char QCameraParameters::KEY_QC_WB_CURRENT_CCT[] = "wb-current-cct";
+const char QCameraParameters::KEY_QC_MIN_WB_CCT[] = "min-wb-cct";
+const char QCameraParameters::KEY_QC_MAX_WB_CCT[] = "max-wb-cct";
 
 // Values for effect settings.
 const char QCameraParameters::EFFECT_EMBOSS[] = "emboss";
@@ -219,6 +233,7 @@ const char QCameraParameters::ISO_200[] = "ISO200";
 const char QCameraParameters::ISO_400[] = "ISO400";
 const char QCameraParameters::ISO_800[] = "ISO800";
 const char QCameraParameters::ISO_1600[] = "ISO1600";
+const char QCameraParameters::ISO_3200[] = "ISO3200";
 
 // Values for auto exposure settings.
 const char QCameraParameters::AUTO_EXPOSURE_FRAME_AVG[] = "frame-average";
@@ -429,7 +444,8 @@ const QCameraParameters::QCameraMap QCameraParameters::FOCUS_MODES_MAP[] = {
     { FOCUS_MODE_FIXED,              CAM_FOCUS_MODE_FIXED },
     { FOCUS_MODE_EDOF,               CAM_FOCUS_MODE_EDOF },
     { FOCUS_MODE_CONTINUOUS_PICTURE, CAM_FOCUS_MODE_CONTINOUS_PICTURE },
-    { FOCUS_MODE_CONTINUOUS_VIDEO,   CAM_FOCUS_MODE_CONTINOUS_VIDEO }
+    { FOCUS_MODE_CONTINUOUS_VIDEO,   CAM_FOCUS_MODE_CONTINOUS_VIDEO },
+    { FOCUS_MODE_MANUAL_POSITION,    CAM_FOCUS_MODE_MANUAL},
 };
 
 const QCameraParameters::QCameraMap QCameraParameters::EFFECT_MODES_MAP[] = {
@@ -492,7 +508,8 @@ const QCameraParameters::QCameraMap QCameraParameters::WHITE_BALANCE_MODES_MAP[]
     { WHITE_BALANCE_DAYLIGHT,        CAM_WB_MODE_DAYLIGHT },
     { WHITE_BALANCE_CLOUDY_DAYLIGHT, CAM_WB_MODE_CLOUDY_DAYLIGHT },
     { WHITE_BALANCE_TWILIGHT,        CAM_WB_MODE_TWILIGHT },
-    { WHITE_BALANCE_SHADE,           CAM_WB_MODE_SHADE }
+    { WHITE_BALANCE_SHADE,           CAM_WB_MODE_SHADE },
+    { WHITE_BALANCE_MANUAL_CCT,      CAM_WB_MODE_CCT},
 };
 
 const QCameraParameters::QCameraMap QCameraParameters::ANTIBANDING_MODES_MAP[] = {
@@ -509,7 +526,8 @@ const QCameraParameters::QCameraMap QCameraParameters::ISO_MODES_MAP[] = {
     { ISO_200,   CAM_ISO_MODE_200 },
     { ISO_400,   CAM_ISO_MODE_400 },
     { ISO_800,   CAM_ISO_MODE_800 },
-    { ISO_1600,  CAM_ISO_MODE_1600 }
+    { ISO_1600,  CAM_ISO_MODE_1600 },
+    { ISO_3200,  CAM_ISO_MODE_3200 }
 };
 
 const QCameraParameters::QCameraMap QCameraParameters::HFR_MODES_MAP[] = {
@@ -629,6 +647,8 @@ QCameraParameters::QCameraParameters()
       m_bHDRThumbnailProcessNeeded(false),
       m_bHDR1xExtraBufferNeeded(true),
       m_bHDROutputCropEnabled(false),
+      m_curCCT(-1),
+      m_curFocusPos(-1),
       m_tempMap(),
       m_bAFBracketingOn(false),
       m_bChromaFlashOn(false),
@@ -1893,6 +1913,35 @@ int32_t QCameraParameters::setSceneFocusMode(const QCameraParameters& params)
 }
 
 /*===========================================================================
+ * FUNCTION   : setFocusPosition
+ *
+ * DESCRIPTION: set focus position from user setting
+ *
+ * PARAMETERS :
+ *   @params  : user setting parameters
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t  QCameraParameters::setFocusPosition(const QCameraParameters& params)
+{
+    const char *pos = params.get(KEY_QC_MANUAL_FOCUS_POSITION);
+    const char *prev_pos = get(KEY_QC_MANUAL_FOCUS_POSITION);
+    const char *type = params.get(KEY_QC_MANUAL_FOCUS_POS_TYPE);
+    const char *prev_type = get(KEY_QC_MANUAL_FOCUS_POS_TYPE);
+
+    if ((pos != NULL) && (type != NULL)) {
+        if (prev_pos  == NULL || (strcmp(pos, prev_pos) != 0) ||
+            prev_type == NULL || (strcmp(type, prev_type) != 0)) {
+            return setFocusPosition(type, pos);
+        }
+    }
+
+    return NO_ERROR;
+}
+
+/*===========================================================================
  * FUNCTION   : setBrightness
  *
  * DESCRIPTION: set brightness control value from user setting
@@ -2153,6 +2202,32 @@ int32_t QCameraParameters::setWhiteBalance(const QCameraParameters& params)
 }
 
 /*===========================================================================
+ * FUNCTION   : setWBManualCCT
+ *
+ * DESCRIPTION: set wb cct value from user setting
+ *
+ * PARAMETERS :
+ *   @params  : user setting parameters
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t  QCameraParameters::setWBManualCCT(const QCameraParameters& params)
+{
+    const char *str = params.get(KEY_QC_WB_MANUAL_CCT);
+    const char *prev_str = get(KEY_QC_WB_MANUAL_CCT);
+    if (str != NULL) {
+        if (prev_str == NULL ||
+            strcmp(str, prev_str) != 0) {
+            return setWBManualCCT(str);
+        }
+    }
+
+    return NO_ERROR;
+}
+
+/*===========================================================================
  * FUNCTION   : setAntibanding
  *
  * DESCRIPTION: set antibanding value from user setting
@@ -2366,6 +2441,32 @@ int32_t  QCameraParameters::setISOValue(const QCameraParameters& params)
             return setISOValue(str);
         }
     }
+    return NO_ERROR;
+}
+
+/*===========================================================================
+ * FUNCTION   : setExposureTime
+ *
+ * DESCRIPTION: set exposure time from user setting
+ *
+ * PARAMETERS :
+ *   @params  : user setting parameters
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t  QCameraParameters::setExposureTime(const QCameraParameters& params)
+{
+    const char *str = params.get(KEY_QC_EXPOSURE_TIME);
+    const char *prev_str = get(KEY_QC_EXPOSURE_TIME);
+    if (str != NULL) {
+        if (prev_str == NULL ||
+            strcmp(str, prev_str) != 0) {
+            return setExposureTime(str);
+        }
+    }
+
     return NO_ERROR;
 }
 
@@ -3593,6 +3694,7 @@ int32_t QCameraParameters::updateParameters(QCameraParameters& params,
     if ((rc = setContrast(params)))                     final_rc = rc;
     if ((rc = setFocusMode(params)))                    final_rc = rc;
     if ((rc = setISOValue(params)))                     final_rc = rc;
+    if ((rc = setExposureTime(params)))                 final_rc = rc;
     if ((rc = setSkinToneEnhancement(params)))          final_rc = rc;
     if ((rc = setFlash(params)))                        final_rc = rc;
     if ((rc = setAecLock(params)))                      final_rc = rc;
@@ -3605,8 +3707,10 @@ int32_t QCameraParameters::updateParameters(QCameraParameters& params,
     if ((rc = setAntibanding(params)))                  final_rc = rc;
     if ((rc = setExposureCompensation(params)))         final_rc = rc;
     if ((rc = setWhiteBalance(params)))                 final_rc = rc;
+    if ((rc = setWBManualCCT(params)))                  final_rc = rc;
     if ((rc = setSceneMode(params)))                    final_rc = rc;
     if ((rc = setFocusAreas(params)))                   final_rc = rc;
+    if ((rc = setFocusPosition(params)))                final_rc = rc;
     if ((rc = setMeteringAreas(params)))                final_rc = rc;
     if ((rc = setSelectableZoneAf(params)))             final_rc = rc;
     if ((rc = setRedeyeReduction(params)))              final_rc = rc;
@@ -3888,6 +3992,17 @@ int32_t QCameraParameters::initDefaultParameters()
         setMeteringAreas(DEFAULT_CAMERA_AREA);
     }
 
+    // set focus position, we should get them from m_pCapability
+    m_pCapability->min_focus_pos[CAM_MANUAL_FOCUS_MODE_INDEX] = 40;
+    m_pCapability->max_focus_pos[CAM_MANUAL_FOCUS_MODE_INDEX] = 60;
+    set(KEY_QC_MIN_FOCUS_POS_INDEX, m_pCapability->min_focus_pos[CAM_MANUAL_FOCUS_MODE_INDEX]);
+    set(KEY_QC_MAX_FOCUS_POS_INDEX, m_pCapability->max_focus_pos[CAM_MANUAL_FOCUS_MODE_INDEX]);
+
+    m_pCapability->min_focus_pos[CAM_MANUAL_FOCUS_MODE_DAC_CODE] = 0;
+    m_pCapability->max_focus_pos[CAM_MANUAL_FOCUS_MODE_DAC_CODE] = 1023;
+    set(KEY_QC_MIN_FOCUS_POS_DAC, m_pCapability->min_focus_pos[CAM_MANUAL_FOCUS_MODE_DAC_CODE]);
+    set(KEY_QC_MIN_FOCUS_POS_DAC, m_pCapability->max_focus_pos[CAM_MANUAL_FOCUS_MODE_DAC_CODE]);
+
     // Set Saturation
     set(KEY_QC_MIN_SATURATION, m_pCapability->saturation_ctrl.min_value);
     set(KEY_QC_MAX_SATURATION, m_pCapability->saturation_ctrl.max_value);
@@ -3960,6 +4075,12 @@ int32_t QCameraParameters::initDefaultParameters()
     set(KEY_SUPPORTED_WHITE_BALANCE, whitebalanceValues);
     setWhiteBalance(WHITE_BALANCE_AUTO);
 
+    // set supported wb cct, we should get them from m_pCapability
+    m_pCapability->min_wb_cct = 2000;
+    m_pCapability->max_wb_cct = 8000;
+    set(KEY_QC_MIN_WB_CCT, m_pCapability->min_wb_cct);
+    set(KEY_QC_MAX_WB_CCT, m_pCapability->max_wb_cct);
+
     // Set Flash mode
     if(m_pCapability->supported_flash_modes_cnt > 0) {
        String8 flashValues = createValuesString(
@@ -3990,6 +4111,13 @@ int32_t QCameraParameters::initDefaultParameters()
             sizeof(ISO_MODES_MAP) / sizeof(QCameraMap));
     set(KEY_QC_SUPPORTED_ISO_MODES, isoValues);
     setISOValue(ISO_AUTO);
+
+    // Set exposure time, we should get them from m_pCapability
+    m_pCapability->min_exposure_time = 200;
+    m_pCapability->max_exposure_time = 2000000;
+    set(KEY_QC_MIN_EXPOSURE_TIME, m_pCapability->min_exposure_time);
+    set(KEY_QC_MAX_EXPOSURE_TIME, m_pCapability->max_exposure_time);
+    //setExposureTime("0");
 
     // Set HFR
     String8 hfrValues = createHfrValuesString(
@@ -4222,7 +4350,7 @@ int32_t QCameraParameters::init(cam_capability_t *capabilities,
 
     //Allocate Set Param Buffer
     m_pParamHeap = new QCameraHeapMemory(QCAMERA_ION_USE_CACHE);
-    rc = m_pParamHeap->allocate(1, sizeof(parm_buffer_t));
+    rc = m_pParamHeap->allocate(1, ONE_MB_OF_PARAMS);
     if(rc != OK) {
         rc = NO_MEMORY;
         ALOGE("Failed to allocate SETPARM Heap memory");
@@ -4233,13 +4361,14 @@ int32_t QCameraParameters::init(cam_capability_t *capabilities,
     rc = m_pCamOpsTbl->ops->map_buf(m_pCamOpsTbl->camera_handle,
                              CAM_MAPPING_BUF_TYPE_PARM_BUF,
                              m_pParamHeap->getFd(0),
-                             sizeof(parm_buffer_t));
+                             ONE_MB_OF_PARAMS);
     if(rc < 0) {
         ALOGE("%s:failed to map SETPARM buffer",__func__);
         rc = FAILED_TRANSACTION;
         goto TRANS_INIT_ERROR2;
     }
-    m_pParamBuf = (parm_buffer_t*) DATA_PTR(m_pParamHeap,0);
+    m_pParamBuf = (parm_buffer_new_t*) DATA_PTR(m_pParamHeap,0);
+    sem_init(&m_pParamBuf->cam_sync_sem, 0, 0);
 
     initDefaultParameters();
 
@@ -4272,6 +4401,8 @@ void QCameraParameters::deinit()
     if (!m_bInited) {
         return;
     }
+
+    sem_destroy(&m_pParamBuf->cam_sync_sem);
 
     //clear all entries in the map
     String8 emptyStr;
@@ -4635,6 +4766,75 @@ int32_t QCameraParameters::setFocusMode(const char *focusMode)
 }
 
 /*===========================================================================
+ * FUNCTION   : setFocusPosition
+ *
+ * DESCRIPTION: set focus position
+ *
+ * PARAMETERS :
+ *   @typeStr : focus position type, index or dac_code
+ *   @posStr : focus positon.
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t  QCameraParameters::setFocusPosition(const char *typeStr, const char *posStr)
+{
+    ALOGD("%s, type:%s, pos: %s", __func__, typeStr, posStr);
+    int32_t type = atoi(typeStr);
+    int32_t pos  = atoi(posStr);
+
+    if ((type >= CAM_MANUAL_FOCUS_MODE_INDEX) &&
+        (type < CAM_MANUAL_FOCUS_MODE_MAX)) {
+
+        // get max and min focus position from m_pCapability
+        int32_t minFocusPos = m_pCapability->min_focus_pos[type];
+        int32_t maxFocusPos = m_pCapability->max_focus_pos[type];
+        ALOGD("%s, focusPos min: %d, max: %d", __func__, minFocusPos, maxFocusPos);
+
+        if (pos >= minFocusPos && pos <= maxFocusPos) {
+            updateParamEntry(KEY_QC_MANUAL_FOCUS_POS_TYPE, typeStr);
+            updateParamEntry(KEY_QC_MANUAL_FOCUS_POSITION, posStr);
+
+            cam_manual_focus_parm_t manual_focus;
+            manual_focus.flag = (cam_manual_focus_mode_type)type;
+            manual_focus.af_manual_lens_position = pos;
+            return AddSetParmEntryToBatch(m_pParamBuf,
+                                          CAM_INTF_PARM_MANUAL_FOCUS_POS,
+                                          sizeof(manual_focus),
+                                          &manual_focus);
+        }
+    }
+
+    ALOGE("%s, invalid params, type:%d, pos: %d", __func__, type, pos);
+    return BAD_VALUE;
+}
+
+/*===========================================================================
+ * FUNCTION   : updateCurrentFocusPosition
+ *
+ * DESCRIPTION: update current focus position from metadata callback
+ *
+ * PARAMETERS :
+ *   @pos : current focus position
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t  QCameraParameters::updateCurrentFocusPosition(int32_t pos)
+{
+    if (pos != m_curFocusPos) {
+        ALOGE("update focus position. old:%d, now:%d", m_curFocusPos, pos);
+        m_curFocusPos = pos;
+        set(KEY_QC_CURRENT_FOCUS_POSITION, pos);
+    }
+
+    return NO_ERROR;
+}
+
+
+/*===========================================================================
  * FUNCTION   : setSharpness
  *
  * DESCRIPTION: set sharpness control value
@@ -4942,6 +5142,42 @@ int32_t  QCameraParameters::setISOValue(const char *isoValue)
     }
     ALOGE("Invalid ISO value: %s",
           (isoValue == NULL) ? "NULL" : isoValue);
+    return BAD_VALUE;
+}
+
+/*===========================================================================
+ * FUNCTION   : setExposureTime
+ *
+ * DESCRIPTION: set exposure time
+ *
+ * PARAMETERS :
+ *   @expTimeStr : string of exposure time, range (1/5, 2000) in ms
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t  QCameraParameters::setExposureTime(const char *expTimeStr)
+{
+    if (expTimeStr != NULL) {
+        int32_t expTimeUs = atoi(expTimeStr);
+        int32_t min_exp_time = m_pCapability->min_exposure_time; /* 200 */
+        int32_t max_exp_time = m_pCapability->max_exposure_time; /* 2000000 */
+
+        // expTime == 0 means not to use manual exposure time.
+        if (expTimeUs == 0 ||
+            (expTimeUs >= min_exp_time && expTimeUs <= max_exp_time)) {
+            ALOGD("%s, exposure time: %d", __func__, expTimeUs);
+            updateParamEntry(KEY_QC_EXPOSURE_TIME, expTimeStr);
+            return AddSetParmEntryToBatch(m_pParamBuf,
+                                          CAM_INTF_PARM_EXPOSURE_TIME,
+                                          sizeof(expTimeUs),
+                                          &expTimeUs);
+        }
+    }
+
+    ALOGE("Invalid exposure time, value: %s",
+          (expTimeStr == NULL) ? "NULL" : expTimeStr);
     return BAD_VALUE;
 }
 
@@ -5412,6 +5648,52 @@ int32_t QCameraParameters::setWhiteBalance(const char *wbStr)
     ALOGE("Invalid WhiteBalance value: %s", (wbStr == NULL) ? "NULL" : wbStr);
     return BAD_VALUE;
 }
+
+/*===========================================================================
+ * FUNCTION   : setWBManualCCT
+ *
+ * DESCRIPTION: set setWBManualCCT time
+ *
+ * PARAMETERS :
+ *   @cctStr : string of wb cct, range (2000, 8000) in K.
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t  QCameraParameters::setWBManualCCT(const char *cctStr)
+{
+    if (cctStr != NULL) {
+        int32_t cctVal = atoi(cctStr);
+        int32_t minCct = m_pCapability->min_wb_cct; /* 2000K */
+        int32_t maxCct = m_pCapability->max_wb_cct; /* 8000K */
+
+        if (cctVal >= minCct && cctVal <= maxCct) {
+            ALOGD("%s, cct value: %d", __func__, cctVal);
+            updateParamEntry(KEY_QC_WB_MANUAL_CCT, cctStr);
+            return AddSetParmEntryToBatch(m_pParamBuf,
+                                          CAM_INTF_PARM_WB_CCT,
+                                          sizeof(cctVal),
+                                          &cctVal);
+        }
+    }
+
+    ALOGE("Invalid cct, value: %s",
+          (cctStr == NULL) ? "NULL" : cctStr);
+    return BAD_VALUE;
+}
+
+int32_t QCameraParameters::updateCCTValue(int32_t cct)
+{
+    if (cct != m_curCCT) {
+        ALOGD("update current cct value. old:%d, now:%d", m_curCCT, cct);
+        m_curCCT = cct;
+        set(KEY_QC_WB_CURRENT_CCT, cct);
+    }
+
+    return NO_ERROR;
+}
+
 int QCameraParameters::getAutoFlickerMode()
 {
     /* Enable Advanced Auto Antibanding where we can set
@@ -7067,6 +7349,9 @@ uint16_t QCameraParameters::getExifIsoSpeed()
     case CAM_ISO_MODE_1600:
         isoSpeed = 1600;
         break;
+    case CAM_ISO_MODE_3200:
+        isoSpeed = 3200;
+        break;
     }
     return isoSpeed;
 }
@@ -7492,7 +7777,7 @@ int32_t QCameraParameters::updateRAW(cam_dimension_t max_dim)
         ALOGE("%s:Failed to get commit CAM_INTF_PARM_RAW_DIMENSION", __func__);
         return rc;
     }
-    memcpy(&raw_dim,POINTER_OF(CAM_INTF_PARM_RAW_DIMENSION,m_pParamBuf),sizeof(cam_dimension_t));
+    memcpy(&raw_dim,POINTER_OF_PARAM(CAM_INTF_PARM_RAW_DIMENSION,m_pParamBuf),sizeof(cam_dimension_t));
     ALOGE("%s : RAW Dimension = %d X %d",__func__,raw_dim.width,raw_dim.height);
     if (raw_dim.width == 0 || raw_dim.height == 0) {
         ALOGE("%s: Error getting RAW size. Setting to Capability value",__func__);
@@ -7754,15 +8039,17 @@ const char *QCameraParameters::getFrameFmtString(cam_format_t fmt)
  *              NO_ERROR  -- success
  *              none-zero failure code
  *==========================================================================*/
-int32_t QCameraParameters::initBatchUpdate(parm_buffer_t *p_table)
+int32_t QCameraParameters::initBatchUpdate(void *p_table)
 {
-    int32_t hal_version = CAM_HAL_V1;
     m_tempMap.clear();
+    ALOGD("%s:Initializing batch parameter set",__func__);
 
-    memset(p_table, 0, sizeof(parm_buffer_t));
-    p_table->first_flagged_entry = CAM_INTF_PARM_MAX;
-    AddSetParmEntryToBatch(p_table, CAM_INTF_PARM_HAL_VERSION,
-                sizeof(hal_version), &hal_version);
+    parm_buffer_new_t *param_buf = (parm_buffer_new_t *)p_table;
+    memset(param_buf, 0, sizeof(ONE_MB_OF_PARAMS));
+    param_buf->num_entry = 0;
+    param_buf->curr_size = 0;
+    param_buf->tot_rem_size = ONE_MB_OF_PARAMS - sizeof(parm_buffer_new_t);
+
     return NO_ERROR;
 }
 
@@ -7781,50 +8068,57 @@ int32_t QCameraParameters::initBatchUpdate(parm_buffer_t *p_table)
  *              NO_ERROR  -- success
  *              none-zero failure code
  *==========================================================================*/
-int32_t QCameraParameters::AddSetParmEntryToBatch(parm_buffer_t *p_table,
+int32_t QCameraParameters::AddSetParmEntryToBatch(void *p_table,
                                                   cam_intf_parm_type_t paramType,
                                                   uint32_t paramLength,
                                                   void *paramValue)
 {
-    int position = paramType;
-    int current, next;
+    uint32_t j = 0;
+    parm_buffer_new_t *param_buf = (parm_buffer_new_t *)p_table;
+    uint32_t num_entry = param_buf->num_entry;
+    uint32_t size_req = paramLength + sizeof(parm_entry_type_new_t);
+    uint32_t aligned_size_req = (size_req + 3) & (~3);
+    parm_entry_type_new_t *curr_param = (parm_entry_type_new_t *)&param_buf->entry[0];
 
-    if (position >= CAM_INTF_PARM_MAX) {
-        ALOGE("%s: Error invalid param type ", __func__);
-        return BAD_VALUE;
-    }
-    /*************************************************************************
-    *                 Code to take care of linking next flags                *
-    *************************************************************************/
-    current = GET_FIRST_PARAM_ID(p_table);
-    if (position == current){
-        //DO NOTHING
-    } else if (position < current){
-        SET_NEXT_PARAM_ID(position, p_table, current);
-        SET_FIRST_PARAM_ID(p_table, position);
-    } else {
-        /* Search for the position in the linked list where we need to slot in*/
-        while ((current < CAM_INTF_PARM_MAX) &&
-            (position > GET_NEXT_PARAM_ID(current, p_table)))
-            current = GET_NEXT_PARAM_ID(current, p_table);
-
-        /*If node already exists no need to alter linking*/
-        if (position != GET_NEXT_PARAM_ID(current, p_table)) {
-            next = GET_NEXT_PARAM_ID(current, p_table);
-            SET_NEXT_PARAM_ID(current, p_table, position);
-            SET_NEXT_PARAM_ID(position, p_table, next);
-        }
+    /* first search if the key is already present in the batch list
+     * this is a search penalty but as the batch list is never more
+     * than a few tens of entries at most,it should be ok.
+     * if search performance becomes a bottleneck, we can
+     * think of implementing a hashing mechanism.
+     * but it is still better than the huge memory required for
+     * direct indexing
+     */
+    for (j = 0; j < num_entry; j++) {
+      if (paramType == curr_param->entry_type) {
+        ALOGD("%s:Batch parameter overwrite for param: %d",
+                                                __func__, paramType);
+        break;
+      }
+      curr_param = GET_NEXT_PARAM(curr_param, parm_entry_type_new_t);
     }
 
-    /*************************************************************************
-    *                   Copy contents into entry                             *
-    *************************************************************************/
+    //new param, search not found
+    if (j == num_entry) {
+      if (aligned_size_req > param_buf->tot_rem_size) {
+        ALOGE("%s:Batch buffer running out of size, commit and resend",__func__);
+        commitSetBatch();
+        initBatchUpdate(p_table);
+      }
 
-    if (paramLength > sizeof(parm_type_t)) {
-        ALOGE("%s:Size of input larger than max entry size",__func__);
-        return BAD_VALUE;
+      curr_param = (parm_entry_type_new_t *)(&param_buf->entry[0] +
+                                                  param_buf->curr_size);
+      param_buf->curr_size += aligned_size_req;
+      param_buf->tot_rem_size -= aligned_size_req;
+      param_buf->num_entry++;
     }
-    memcpy(POINTER_OF(paramType,p_table), paramValue, paramLength);
+
+    curr_param->entry_type = paramType;
+    curr_param->size = (int32_t)paramLength;
+    curr_param->aligned_size = aligned_size_req;
+    memcpy(&curr_param->data[0], paramValue, paramLength);
+    ALOGD("%s: num_entry: %d, paramType: %d, paramLength: %d, aligned_size_req: %d",
+            __func__, param_buf->num_entry, paramType, paramLength, aligned_size_req);
+
     return NO_ERROR;
 }
 
@@ -7841,33 +8135,58 @@ int32_t QCameraParameters::AddSetParmEntryToBatch(parm_buffer_t *p_table,
  *              NO_ERROR  -- success
  *              none-zero failure code
  *==========================================================================*/
-int32_t QCameraParameters::AddGetParmEntryToBatch(parm_buffer_t *p_table,
+int32_t QCameraParameters::AddGetParmEntryToBatch(void *p_table,
                                                   cam_intf_parm_type_t paramType)
 {
-    int position = paramType;
-    int current, next;
+    ///in get params, we have no information on the size of the param requested
+    //for, hence we assume the largest size and reserve space for the same
+    uint32_t j = 0;
+    uint32_t paramLength = sizeof(parm_type_t);
+    parm_buffer_new_t *param_buf = (parm_buffer_new_t *)p_table;
+    uint32_t num_entry = param_buf->num_entry;
+    uint32_t size_req = paramLength + sizeof(parm_entry_type_new_t) - sizeof(char);
+    uint32_t aligned_size_req = (size_req + 3) & (~3);
+    parm_entry_type_new_t *curr_param = (parm_entry_type_new_t *)&param_buf->entry[0];
 
-    /*************************************************************************
-    *                 Code to take care of linking next flags                *
-    *************************************************************************/
-    current = GET_FIRST_PARAM_ID(p_table);
-    if (position == current){
-        //DO NOTHING
-    } else if (position < current){
-        SET_NEXT_PARAM_ID(position, p_table, current);
-        SET_FIRST_PARAM_ID(p_table, position);
-    } else {
-        /* Search for the position in the linked list where we need to slot in*/
-        while (position > GET_NEXT_PARAM_ID(current, p_table))
-            current = GET_NEXT_PARAM_ID(current, p_table);
-
-        /*If node already exists no need to alter linking*/
-        if (position != GET_NEXT_PARAM_ID(current, p_table)) {
-            next=GET_NEXT_PARAM_ID(current, p_table);
-            SET_NEXT_PARAM_ID(current, p_table, position);
-            SET_NEXT_PARAM_ID(position, p_table, next);
-        }
+    /* first search if the key is already present in the batch list
+     * this is a search penalty but as the batch list is never more
+     * than a few tens of entries at most,it should be ok.
+     * if search performance becomes a bottleneck, we can
+     * think of implementing a hashing mechanism.
+     * but it is still better than the huge memory required for
+     * direct indexing
+     */
+    for (j = 0; j < num_entry; j++) {
+      if (paramType == curr_param->entry_type) {
+        ALOGD("%s:Batch parameter overwrite for param: %d",
+                                                __func__, paramType);
+        break;
+      }
+      curr_param = GET_NEXT_PARAM(curr_param, parm_entry_type_new_t);
     }
+
+    //new param, search not found
+    if (j == num_entry) {
+      if (aligned_size_req > param_buf->tot_rem_size) {
+        ALOGE("%s:Batch buffer running out of size, commit and resend",__func__);
+        //this is an extreme corner case
+        //if the size of the batch set is full, we return error
+        //the caller is expected to commit the get batch, use the params
+        //returned, initialize the batch again and continue
+        return NO_MEMORY;
+      }
+
+      curr_param = (parm_entry_type_new_t *)(&param_buf->entry[0] +
+                                                  param_buf->curr_size);
+      param_buf->curr_size += aligned_size_req;
+      param_buf->tot_rem_size -= aligned_size_req;
+      param_buf->num_entry++;
+    }
+
+    curr_param->entry_type = paramType;
+    curr_param->size = (int32_t)paramLength;
+    curr_param->aligned_size = aligned_size_req;
+    ALOGD("%s:num_entry: %d, paramType: %d ",__func__, param_buf->num_entry, paramType);
 
     return NO_ERROR;
 }
@@ -7886,8 +8205,11 @@ int32_t QCameraParameters::AddGetParmEntryToBatch(parm_buffer_t *p_table,
 int32_t QCameraParameters::commitSetBatch()
 {
     int32_t rc = NO_ERROR;
-    if (m_pParamBuf->first_flagged_entry < CAM_INTF_PARM_MAX) {
-        rc = m_pCamOpsTbl->ops->set_parms(m_pCamOpsTbl->camera_handle, m_pParamBuf);
+    if (m_pParamBuf->num_entry > 0) {
+        rc = m_pCamOpsTbl->ops->set_parms(m_pCamOpsTbl->camera_handle,
+                                                      (void *)m_pParamBuf);
+        ALOGD("%s:waiting for commitSetBatch to complete",__func__);
+        sem_wait(&m_pParamBuf->cam_sync_sem);
     }
     if (rc == NO_ERROR) {
         // commit change from temp storage into param map
@@ -7909,8 +8231,11 @@ int32_t QCameraParameters::commitSetBatch()
  *==========================================================================*/
 int32_t QCameraParameters::commitGetBatch()
 {
-    if (m_pParamBuf->first_flagged_entry < CAM_INTF_PARM_MAX) {
-        return m_pCamOpsTbl->ops->get_parms(m_pCamOpsTbl->camera_handle, m_pParamBuf);
+    if (m_pParamBuf->num_entry > 0) {
+        return m_pCamOpsTbl->ops->get_parms(m_pCamOpsTbl->camera_handle,
+                                                          (void *)m_pParamBuf);
+        ALOGD("%s:waiting for commitGetBatch to complete",__func__);
+        sem_wait(&m_pParamBuf->cam_sync_sem);
     } else {
         return NO_ERROR;
     }
