@@ -1661,6 +1661,11 @@ int32_t mm_channel_superbuf_comp_and_enqueue(
     }
 
     if ( found_super_buf ) {
+            if(super_buf->super_buf[buf_s_idx].frame_idx == buf_info->frame_idx){
+                mm_channel_qbuf(ch_obj, buf_info->buf);
+                pthread_mutex_unlock(&queue->que.lock);
+                return 0;
+            }
             super_buf->super_buf[buf_s_idx] = *buf_info;
 
             /* check if superbuf is all matched */
