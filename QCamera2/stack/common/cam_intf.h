@@ -31,8 +31,10 @@
 #define __QCAMERA_INTF_H__
 
 #include <media/msmb_isp.h>
+#include <semaphore.h>
 #include "cam_types.h"
 
+#define ONE_MB_OF_PARAMS (1024 * 1024)
 #define CAM_PRIV_IOCTL_BASE (V4L2_CID_PRIVATE_BASE + 14)
 typedef enum {
     /* session based parameters */
@@ -62,6 +64,10 @@ typedef struct{
     /* supported iso modes */
     uint8_t supported_iso_modes_cnt;
     cam_iso_mode_type supported_iso_modes[CAM_ISO_MODE_MAX];
+
+    /* supported exposure time */
+    int32_t min_exposure_time;
+    int32_t max_exposure_time;
 
     /* supported flash modes */
     uint8_t supported_flash_modes_cnt;
@@ -93,9 +99,17 @@ typedef struct{
     uint8_t supported_white_balances_cnt;
     cam_wb_mode_type supported_white_balances[CAM_WB_MODE_MAX];
 
+    /* supported manual wb cct */
+    int32_t min_wb_cct;
+    int32_t max_wb_cct;
+
     /* supported focus modes */
     uint8_t supported_focus_modes_cnt;
     cam_focus_mode_type supported_focus_modes[CAM_FOCUS_MODE_MAX];
+
+    /* supported manual focus position */
+    int32_t min_focus_pos[CAM_MANUAL_FOCUS_MODE_MAX];
+    int32_t max_focus_pos[CAM_MANUAL_FOCUS_MODE_MAX];
 
     int exposure_compensation_min;       /* min value of exposure compensation index */
     int exposure_compensation_max;       /* max value of exposure compensation index */
@@ -407,6 +421,10 @@ typedef struct {
 #define INCLUDE(PARAM_ID,DATATYPE,COUNT)  \
         DATATYPE member_variable_##PARAM_ID[ COUNT ]
 
+#define GET_NEXT_PARAM(TABLE_PTR, TYPE)    \
+        (TYPE *)((char *)TABLE_PTR +       \
+               TABLE_PTR->aligned_size)    \
+
 typedef union {
 /**************************************************************************************
  *          ID from (cam_intf_parm_type_t)          DATATYPE                     COUNT
@@ -419,6 +437,7 @@ typedef union {
     INCLUDE(CAM_INTF_PARM_AEC_ENABLE,               int32_t,                     1);
     INCLUDE(CAM_INTF_PARM_FPS_RANGE,                cam_fps_range_t,             1);
     INCLUDE(CAM_INTF_PARM_FOCUS_MODE,               uint8_t,                     1);
+    INCLUDE(CAM_INTF_PARM_MANUAL_FOCUS_POS,         cam_manual_focus_parm_t,     1);
     INCLUDE(CAM_INTF_PARM_AWB_LOCK,                 int32_t,                     1);
     INCLUDE(CAM_INTF_PARM_AWB_ENABLE,               int32_t,                     1);
     INCLUDE(CAM_INTF_PARM_AF_ENABLE,                int32_t,                     1);
@@ -436,6 +455,7 @@ typedef union {
     INCLUDE(CAM_INTF_PARM_SATURATION,               int32_t,                     1);
     INCLUDE(CAM_INTF_PARM_BRIGHTNESS,               int32_t,                     1);
     INCLUDE(CAM_INTF_PARM_ISO,                      int32_t,                     1);
+    INCLUDE(CAM_INTF_PARM_EXPOSURE_TIME,            int32_t,                     1);
     INCLUDE(CAM_INTF_PARM_ZOOM,                     int32_t,                     1);
     INCLUDE(CAM_INTF_PARM_ROLLOFF,                  int32_t,                     1);
     INCLUDE(CAM_INTF_PARM_MODE,                     int32_t,                     1);
@@ -470,6 +490,7 @@ typedef union {
     INCLUDE(CAM_INTF_PARM_RAW_DIMENSION,            cam_dimension_t,             1);
     INCLUDE(CAM_INTF_PARM_TINTLESS,                 int32_t,                     1);
     INCLUDE(CAM_INTF_PARM_CDS_MODE,                 cam_cds_mode_type_t,         1);
+    INCLUDE(CAM_INTF_PARM_WB_CCT,                   int32_t,                     1);
     INCLUDE(CAM_INTF_PARM_EZTUNE_CMD,               cam_eztune_cmd_data_t,       1);
 
     /* HAL3 specific */
@@ -592,9 +613,43 @@ typedef struct {
     uint8_t next_flagged_entry;
 } parm_entry_type_t;
 
+//we need to align these contiguous param structures in memory
+typedef struct {
+    cam_intf_parm_type_t entry_type;
+    uint32_t size;
+    uint32_t aligned_size;
+    char data[1];
+} parm_entry_type_new_t;
+
 typedef struct {
     uint8_t first_flagged_entry;
     parm_entry_type_t entry[CAM_INTF_PARM_MAX];
 } parm_buffer_t;
+
+typedef struct {
+    uint32_t num_entry;
+    uint32_t tot_rem_size;
+    uint32_t curr_size;
+    //there is no clear documentation in Android on the use of a
+    //named semaphore for inter-process synchronization, like
+    //the ones available in System V and Posix. However, as this
+    //semaphore will reside in a mapped memory between two
+    //processes, it's expected to work well. Detailed testing may
+    //be necessary. Semaphore is kicked in only in the extreme
+    //case of a batch set param, where memory memory for the
+    //initial batch is exhausted and caller waits before they are
+    //copied in the camera daemon
+    sem_t   cam_sync_sem;
+    char entry[1];
+} parm_buffer_new_t;
+
+#ifdef  __cplusplus
+extern "C" {
+#endif
+void *POINTER_OF_PARAM(cam_intf_parm_type_t PARAM_ID,
+                    void *TABLE_PTR);
+#ifdef  __cplusplus
+}
+#endif
 
 #endif /* __QCAMERA_INTF_H__ */
