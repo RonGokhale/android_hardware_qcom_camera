@@ -2798,11 +2798,7 @@ int32_t QCameraParameters::setMeteringAreas(const QCameraParameters& params)
             return BAD_VALUE;
         }
 
-        const char *prev_str = get(KEY_METERING_AREAS);
-        if (prev_str == NULL ||
-            strcmp(str, prev_str) != 0) {
-            return setMeteringAreas(str);
-        }
+        return setMeteringAreas(str);
     }
     return NO_ERROR;
 }
