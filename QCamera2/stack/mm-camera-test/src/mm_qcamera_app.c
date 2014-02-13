@@ -1044,7 +1044,7 @@ int set3Acommand(mm_camera_test_obj_t *test_obj, cam_eztune_cmd_data_t *value)
 ERROR:
     return rc;
 }
-
+#if 0
 int getChromatix(mm_camera_test_obj_t *test_obj, tune_chromatix_t *value)
 {
     int rc = MM_CAMERA_OK;
@@ -1109,7 +1109,7 @@ int setReloadChromatix(mm_camera_test_obj_t *test_obj, tune_chromatix_t *value)
 ERROR:
     return rc;
 }
-
+#endif
 int getAutofocusParams(mm_camera_test_obj_t *test_obj, tune_autofocus_t *value)
 {
     int rc = MM_CAMERA_OK;
@@ -2372,7 +2372,7 @@ int mm_camera_lib_send_command(mm_camera_lib_handle *handle,
                 CDBG_ERROR("%s:capture error %d\n", __func__, rc);
                 goto EXIT;
             }
-
+#if 0
             if (handle->test_obj.is_chromatix_reload == TRUE) {
               /**Re-load Chromatix is taken care to make sure Tuned data **
               ** is not lost when capture Snapshot                       **/
@@ -2383,6 +2383,7 @@ int mm_camera_lib_send_command(mm_camera_lib_handle *handle,
                 goto EXIT;
               }
             }
+#endif
             break;
 
         case MM_CAMERA_LIB_SET_FOCUS_MODE: {
@@ -2459,8 +2460,10 @@ int mm_camera_lib_send_command(mm_camera_lib_handle *handle,
         }
 
        case MM_CAMERA_LIB_GET_CHROMATIX: {
+           /*
            rc = getChromatix(&handle->test_obj,
                 (tune_chromatix_t *)out_data);
+           */
            if (rc != MM_CAMERA_OK) {
              CDBG_ERROR("%s: getChromatix failed\n", __func__);
              goto EXIT;
@@ -2469,8 +2472,10 @@ int mm_camera_lib_send_command(mm_camera_lib_handle *handle,
        }
 
        case MM_CAMERA_LIB_SET_RELOAD_CHROMATIX: {
+           /*
            rc = setReloadChromatix(&handle->test_obj,
              (tune_chromatix_t *)in_data);
+           */
            if (rc != MM_CAMERA_OK) {
              CDBG_ERROR("%s: setReloadChromatix failed\n", __func__);
              goto EXIT;
