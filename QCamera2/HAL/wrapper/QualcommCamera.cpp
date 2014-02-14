@@ -28,10 +28,7 @@
  */
 
 #define LOG_TAG "QCameraWrapper"
-<<<<<<< HEAD
-=======
 
->>>>>>> b647872... QCamera2: Adapt HAL to non Android Linux platform
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <binder/IMemory.h>

@@ -33,10 +33,10 @@
 #include <hardware/camera.h>
 #ifdef _ANDROID_
 #include <utils/Mutex.h>
-#include <utils/List.h>
 #else
 #include "Mutex.h"
 #endif
+#include <utils/List.h>
 
 extern "C" {
 #include <sys/types.h>
