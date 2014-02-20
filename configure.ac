@@ -100,5 +100,5 @@ AC_OUTPUT([ \
   QCamera2/stack/Makefile \
   QCamera2/stack/mm-camera-interface/Makefile \
   QCamera2/stack/mm-jpeg-interface/Makefile \
+  QCamera2/HAL/Makefile
 ])
-

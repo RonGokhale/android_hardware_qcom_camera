@@ -40,6 +40,7 @@
 #else
 #include <cutils/native_handle.h>
 #endif
+
 #include "QCamera2HWI.h"
 #include "QCameraMem.h"
 #ifdef _ANDROID_

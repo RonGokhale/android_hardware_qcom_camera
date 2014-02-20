@@ -362,6 +362,7 @@ void QCamera2HardwareInterface::postproc_channel_cb_routine(mm_camera_super_buf_
  *             will be dequeued from display and needs to be returned back
  *             to kernel for future use.
  *==========================================================================*/
+
 void QCamera2HardwareInterface::preview_stream_cb_routine(mm_camera_super_buf_t *super_frame,
                                                           QCameraStream * stream,
                                                           void *userdata)
@@ -479,7 +480,9 @@ void QCamera2HardwareInterface::preview_stream_cb_routine(mm_camera_super_buf_t 
     }
 
     free(super_frame);
+
 #endif //_ANDROID_
+
     ALOGD("[KPI Perf] %s : END", __func__);
     return;
 }
@@ -590,6 +593,7 @@ void QCamera2HardwareInterface::postview_stream_cb_routine(mm_camera_super_buf_t
 #ifdef _ANDROID_
     QCameraGrallocMemory *memory = (QCameraGrallocMemory *)super_frame->bufs[0]->mem_info;
 #else
+    //TODO:: Replace gralloc memory with ION Memory for postview stream.
     QCameraStreamMemory *memory = (QCameraStreamMemory *)super_frame->bufs[0]->mem_info;
 #endif
 

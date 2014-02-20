@@ -996,8 +996,8 @@ QCamera2HardwareInterface::QCamera2HardwareInterface(int cameraId)
         ALOGE("%s: %s module not found", __func__, POWER_HARDWARE_MODULE_ID);
     }
 #endif
-#endif
 
+#endif //_ANDROID_
     memset(mDeffOngoingJobs, 0, sizeof(mDeffOngoingJobs));
 
     mDefferedWorkThread.launch(defferedWorkRoutine, this);
@@ -1590,6 +1590,7 @@ QCameraMemory *QCamera2HardwareInterface::allocateStreamBuf(cam_stream_type_t st
                 mem = grallocMemory;
             }
 #else
+             //Use ION memory for non android platform.
              mem = new QCameraStreamMemory(mGetMemory, bCachedMem);
 #endif //_ANDROID_
         }
@@ -2017,7 +2018,7 @@ int QCamera2HardwareInterface::startRecording()
         }
     }
 #endif
-#endif
+#endif //_ANDROID_
     ALOGD("%s: X", __func__);
     return rc;
 }
@@ -2045,7 +2046,7 @@ int QCamera2HardwareInterface::stopRecording()
         }
     }
 #endif
-#endif
+#endif //_ANDROID_
     ALOGD("%s: X", __func__);
     return rc;
 }
