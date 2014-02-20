@@ -33,8 +33,10 @@
 #include <hardware/camera.h>
 #include <stdlib.h>
 #include <utils/Errors.h>
+#ifdef _ANDROID_
 #include <gralloc_priv.h>
 #include <gui/Surface.h>
+#endif
 
 #include "QCamera2HWI.h"
 #include "QCameraMem.h"
@@ -988,10 +990,12 @@ QCamera2HardwareInterface::QCamera2HardwareInterface(int cameraId)
 
     memset(m_channels, 0, sizeof(m_channels));
 
+#ifdef _ANDROID_
 #ifdef HAS_MULTIMEDIA_HINTS
     if (hw_get_module(POWER_HARDWARE_MODULE_ID, (const hw_module_t **)&m_pPowerModule)) {
         ALOGE("%s: %s module not found", __func__, POWER_HARDWARE_MODULE_ID);
     }
+#endif
 #endif
 
     memset(mDeffOngoingJobs, 0, sizeof(mDeffOngoingJobs));
@@ -1045,9 +1049,11 @@ int QCamera2HardwareInterface::openCamera(struct hw_device_t **hw_device)
     rc = openCamera();
     if (rc == NO_ERROR){
         *hw_device = &mCameraDevice.common;
+#ifdef _ANDROID_
         if (m_thermalAdapter.init(this) != 0) {
           ALOGE("Init thermal adapter failed");
         }
+#endif
     }
     else
         *hw_device = NULL;
@@ -1178,12 +1184,12 @@ int QCamera2HardwareInterface::openCamera()
     }
 
     mParameters.init(gCamCapability[mCameraId], mCameraHandle, this, this);
-
+#ifdef _ANDROID_
     rc = m_thermalAdapter.init(this);
     if (rc != 0) {
         ALOGE("Init thermal adapter failed");
     }
-
+#endif
     mCameraOpened = true;
 
     return NO_ERROR;
@@ -1226,8 +1232,9 @@ int QCamera2HardwareInterface::closeCamera()
     m_postprocessor.stop();
     m_postprocessor.deinit();
 
+#ifdef _ANDROID_
     m_thermalAdapter.deinit();
-
+#endif
     // delete all channels if not already deleted
     for (i = 0; i < QCAMERA_CH_TYPE_MAX; i++) {
         if (m_channels[i] != NULL) {
@@ -1564,6 +1571,7 @@ QCameraMemory *QCamera2HardwareInterface::allocateStreamBuf(cam_stream_type_t st
     switch (stream_type) {
     case CAM_STREAM_TYPE_PREVIEW:
         {
+#ifdef _ANDROID_
             if (isNoDisplayMode()) {
                 mem = new QCameraStreamMemory(mGetMemory,
                                               bCachedMem,
@@ -1581,28 +1589,27 @@ QCameraMemory *QCamera2HardwareInterface::allocateStreamBuf(cam_stream_type_t st
                         mParameters.getPreviewHalPixelFormat());
                 mem = grallocMemory;
             }
+#else
+             mem = new QCameraStreamMemory(mGetMemory, bCachedMem);
+#endif //_ANDROID_
         }
         break;
     case CAM_STREAM_TYPE_POSTVIEW:
         {
-            if (isPreviewRestartEnabled()) {
-                mem = new QCameraStreamMemory(mGetMemory, bCachedMem);
-            } else {
-                cam_dimension_t dim;
-                QCameraGrallocMemory *grallocMemory =
-                    new QCameraGrallocMemory(mGetMemory);
+#ifdef _ANDROID_
+            cam_dimension_t dim;
+            QCameraGrallocMemory *grallocMemory =
+                new QCameraGrallocMemory(mGetMemory);
 
-                mParameters.getStreamDimension(stream_type, dim);
-                if (grallocMemory) {
-                    grallocMemory->setWindowInfo(mPreviewWindow,
-                        dim.width,
-                        dim.height,
-                        stride,
-                        scanline,
-                        mParameters.getPreviewHalPixelFormat());
-                }
-                mem = grallocMemory;
-            }
+            mParameters.getStreamDimension(stream_type, dim);
+            if (grallocMemory)
+                grallocMemory->setWindowInfo(mPreviewWindow, dim.width,
+                    dim.height, stride, scanline,
+                    mParameters.getPreviewHalPixelFormat());
+            mem = grallocMemory;
+#else
+           mem = new QCameraStreamMemory(mGetMemory, bCachedMem);
+#endif
         }
         break;
     case CAM_STREAM_TYPE_SNAPSHOT:
@@ -2000,7 +2007,7 @@ int QCamera2HardwareInterface::startRecording()
     if (rc == NO_ERROR) {
         rc = startChannel(QCAMERA_CH_TYPE_VIDEO);
     }
-
+#ifdef _ANDROID_
 #ifdef HAS_MULTIMEDIA_HINTS
     if (rc == NO_ERROR) {
         if (m_pPowerModule) {
@@ -2009,6 +2016,7 @@ int QCamera2HardwareInterface::startRecording()
             }
         }
     }
+#endif
 #endif
     ALOGD("%s: X", __func__);
     return rc;
@@ -2029,12 +2037,14 @@ int QCamera2HardwareInterface::stopRecording()
 {
     int rc = stopChannel(QCAMERA_CH_TYPE_VIDEO);
     ALOGD("%s: E", __func__);
+#ifdef _ANDROID_
 #ifdef HAS_MULTIMEDIA_HINTS
     if (m_pPowerModule) {
         if (m_pPowerModule->powerHint) {
             m_pPowerModule->powerHint(m_pPowerModule, POWER_HINT_VIDEO_ENCODE, (void *)"state=0");
         }
     }
+#endif
 #endif
     ALOGD("%s: X", __func__);
     return rc;
@@ -2480,8 +2490,7 @@ int QCamera2HardwareInterface::takePicture()
                     tmp.append(",");
             }
 
-            if( !tmp.isEmpty() &&
-                ( MAX_EXP_BRACKETING_LENGTH > tmp.length() ) ) {
+            if( MAX_EXP_BRACKETING_LENGTH > tmp.length() ) {
                 //Trim last comma
                 memset(aeBracket.values, '\0', MAX_EXP_BRACKETING_LENGTH);
                 memcpy(aeBracket.values, tmp.string(), tmp.length() - 1);
@@ -5250,9 +5259,13 @@ bool QCamera2HardwareInterface::isCACEnabled()
 {
     char prop[PROPERTY_VALUE_MAX];
     memset(prop, 0, sizeof(prop));
+#ifdef _ANDROID_
     property_get("persist.camera.feature.cac", prop, "0");
     int enableCAC = atoi(prop);
     return enableCAC == 1;
+#else
+    return true;
+#endif
 }
 
 /*===========================================================================
