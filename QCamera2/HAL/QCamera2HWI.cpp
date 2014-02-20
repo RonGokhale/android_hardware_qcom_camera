@@ -1423,6 +1423,7 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
         mParameters.getNumOfExtraHDROutBufsIfNeeded() +
         mParameters.getNumOfExtraBuffersForImageProc();
 
+#ifdef _ANDROID_
     if (!isNoDisplayMode()) {
         if(mPreviewWindow != NULL) {
             if (mPreviewWindow->get_min_undequeued_buffer_count(mPreviewWindow,&minUndequeCount)
@@ -1435,6 +1436,7 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
             minUndequeCount = BufferQueue::MIN_UNDEQUEUED_BUFFERS;
         }
     }
+#endif
 
     // Get buffer count for the particular stream type
     switch (stream_type) {
@@ -5830,10 +5832,14 @@ void *QCamera2HardwareInterface::defferedWorkRoutine(void *obj)
                             }
                         }
                         {
+#ifdef _ANDROID_
                             Mutex::Autolock l(pme->mDeffLock);
+#endif
                             pme->mDeffOngoingJobs[dw->id] = false;
                             delete dw;
+#ifdef _ANDROID_
                             pme->mDeffCond.signal();
+#endif
                         }
 
                     }
@@ -5848,10 +5854,14 @@ void *QCamera2HardwareInterface::defferedWorkRoutine(void *obj)
                             pme->delChannel(QCAMERA_CH_TYPE_CAPTURE);
                         }
                         {
+#ifdef _ANDROID_
                             Mutex::Autolock l(pme->mDeffLock);
+#endif
                             pme->mDeffOngoingJobs[dw->id] = false;
                             delete dw;
+#ifdef _ANDROID_
                             pme->mDeffCond.signal();
+#endif
                         }
                     }
                     break;
@@ -5890,7 +5900,9 @@ void *QCamera2HardwareInterface::defferedWorkRoutine(void *obj)
 int32_t QCamera2HardwareInterface::queueDefferedWork(DefferedWorkCmd cmd,
                                                      DefferWorkArgs args)
 {
+#ifdef _ANDROID_
     Mutex::Autolock l(mDeffLock);
+#endif
     for (int i = 0; i < MAX_ONGOING_JOBS; ++i) {
         if (!mDeffOngoingJobs[i]) {
             mCmdQueue.enqueue(new DeffWork(cmd, i, args));
@@ -5918,14 +5930,19 @@ int32_t QCamera2HardwareInterface::queueDefferedWork(DefferedWorkCmd cmd,
  *==========================================================================*/
 int32_t QCamera2HardwareInterface::waitDefferedWork(int32_t &job_id)
 {
+#ifdef _ANDROID_
     Mutex::Autolock l(mDeffLock);
+#endif
 
     if ((MAX_ONGOING_JOBS <= job_id) || (0 > job_id)) {
         return NO_ERROR;
     }
 
     while ( mDeffOngoingJobs[job_id] == true ) {
+#ifdef _ANDROID_
         mDeffCond.wait(mDeffLock);
+#endif
+	usleep(100*1000);
     }
 
     job_id = MAX_ONGOING_JOBS;
