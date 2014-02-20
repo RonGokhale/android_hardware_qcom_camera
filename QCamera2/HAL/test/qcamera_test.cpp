@@ -570,9 +570,9 @@ status_t CameraContext::startPreview()
 
         gbp = mPreviewSurface->getIGraphicBufferProducer();
 #ifdef USE_VENDOR_CAMERA_EXT
-        ret |= mCamera->setPreviewTarget(gbp);
+        //ret |= mCamera->setPreviewTarget(gbp);
 #else
-        ret |= mCamera->setPreviewTexture(gbp);
+        //ret |= mCamera->setPreviewTexture(gbp);
 #endif
 
 #else
