@@ -1718,7 +1718,7 @@ QCameraHeapMemory *QCamera2HardwareInterface::allocateStreamInfoBuf(
         }
     }
 
-    if (!isZSLMode()) {
+    if (!(isZSLMode()|| mLongshotEnabled)) {
         if (gCamCapability[mCameraId]->min_required_pp_mask & CAM_QCOM_FEATURE_SHARPNESS) {
             streamInfo->pp_config.feature_mask |= CAM_QCOM_FEATURE_SHARPNESS;
             streamInfo->pp_config.sharpness = mParameters.getInt(QCameraParameters::KEY_QC_SHARPNESS);
@@ -3859,7 +3859,7 @@ QCameraReprocessChannel *QCamera2HardwareInterface::addOnlineReprocChannel(
     cam_pp_feature_config_t pp_config;
     memset(&pp_config, 0, sizeof(cam_pp_feature_config_t));
 
-    if (mParameters.isZSLMode()) {
+    if (mParameters.isZSLMode()|| mLongshotEnabled) {
         if (gCamCapability[mCameraId]->min_required_pp_mask & CAM_QCOM_FEATURE_EFFECT) {
             pp_config.feature_mask |= CAM_QCOM_FEATURE_EFFECT;
             effect = mParameters.get(CameraParameters::KEY_EFFECT);
