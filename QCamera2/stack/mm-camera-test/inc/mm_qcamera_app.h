@@ -243,6 +243,8 @@ typedef struct {
     mm_camera_queue_t pp_frames;
     mm_camera_stream_t *reproc_stream;
     cam_metadata_info_t *metadata;
+    int8_t is_chromatix_reload;
+    tune_chromatix_t tune_data;
 } mm_camera_test_obj_t;
 
 typedef struct {
@@ -311,6 +313,7 @@ typedef enum {
     MM_CAMERA_LIB_FLASH,
     MM_CAMERA_LIB_FPS_RANGE,
     MM_CAMERA_LIB_WNR_ENABLE,
+    MM_CAMERA_LIB_SET_TINTLESS,
 } mm_camera_lib_commands;
 
 typedef struct {
