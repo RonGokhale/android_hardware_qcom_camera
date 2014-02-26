@@ -1501,6 +1501,39 @@ ERROR:
     return rc;
 }
 
+int setTintless(mm_camera_test_obj_t *test_obj, int tintless)
+{
+    int rc = MM_CAMERA_OK;
+
+    rc = initBatchUpdate(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch camera parameter update failed\n", __func__);
+        goto ERROR;
+    }
+
+    int32_t value = tintless;
+
+    rc = AddSetParmEntryToBatch(test_obj,
+                                CAM_INTF_PARM_TINTLESS,
+                                sizeof(value),
+                                &value);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Contrast parameter not added to batch\n", __func__);
+        goto ERROR;
+    }
+
+    rc = commitSetBatch(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch parameters commit failed\n", __func__);
+        goto ERROR;
+    }
+
+    CDBG_ERROR("%s:  set Tintless to: %d", __func__, value);
+
+ERROR:
+    return rc;
+}
+
 int setSaturation(mm_camera_test_obj_t *test_obj, int saturation)
 {
     int rc = MM_CAMERA_OK;
@@ -1787,7 +1820,6 @@ int tuneserver_capture(mm_camera_lib_handle *lib_handle,
     int rc = 0;
 
     printf("Take jpeg snapshot\n");
-
     if ( lib_handle->stream_running ) {
 
         if ( lib_handle->test_obj.zsl_enabled) {
@@ -2170,6 +2202,17 @@ int mm_camera_lib_send_command(mm_camera_lib_handle *handle,
                 }
             }
             break;
+        case MM_CAMERA_LIB_SET_TINTLESS:
+            if ( NULL != in_data ) {
+                int tintless = *(( int * )in_data);
+                rc = setTintless(&handle->test_obj, tintless);
+                if (rc != MM_CAMERA_OK) {
+                        CDBG_ERROR("%s: enlabe/disable:%d tintless() err=%d\n",
+                                   __func__, tintless, rc);
+                        goto EXIT;
+                }
+            }
+            break;
         case MM_CAMERA_LIB_BRIGHTNESS:
             if ( NULL != in_data ) {
                 int brightness = *(( int * )in_data);
@@ -2317,6 +2360,16 @@ int mm_camera_lib_send_command(mm_camera_lib_handle *handle,
                 goto EXIT;
             }
 
+            if (handle->test_obj.is_chromatix_reload == TRUE) {
+              /**Re-load Chromatix is taken care to make sure Tuned data **
+              ** is not lost when capture Snapshot                       **/
+              rc = setReloadChromatix(&handle->test_obj,
+                (tune_chromatix_t *)&(handle->test_obj.tune_data));
+              if (rc != MM_CAMERA_OK) {
+                CDBG_ERROR("%s: setReloadChromatix failed\n", __func__);
+                goto EXIT;
+              }
+            }
             break;
 
         case MM_CAMERA_LIB_SET_FOCUS_MODE: {
@@ -2336,7 +2389,8 @@ int mm_camera_lib_send_command(mm_camera_lib_handle *handle,
                 CDBG_ERROR("%s:autofocus error\n", __func__);
                 goto EXIT;
             }
-
+            /*Waiting for Auto Focus Done Call Back*/
+            mm_camera_app_wait();
             break;
 
         case MM_CAMERA_LIB_CANCEL_AF:
@@ -2406,6 +2460,9 @@ int mm_camera_lib_send_command(mm_camera_lib_handle *handle,
              CDBG_ERROR("%s: setReloadChromatix failed\n", __func__);
              goto EXIT;
            }
+           handle->test_obj.is_chromatix_reload = TRUE;
+           memcpy((void *)&(handle->test_obj.tune_data),
+             (void *)in_data, sizeof(tune_chromatix_t));
            break;
        }
 
