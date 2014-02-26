@@ -70,7 +70,22 @@ static void mm_app_metadata_notify_cb(mm_camera_super_buf_t *bufs,
       CDBG_ERROR("%s: cannot find metadata stream", __func__);
       return;
   }
-  pme->metadata = frame->buffer;
+  if (pme->metadata == NULL) {
+    /* The app will free the meta data, we don't need to bother here */
+    pme->metadata = malloc(sizeof(cam_metadata_info_t));
+  }
+  memcpy(pme->metadata, frame->buffer, sizeof(cam_metadata_info_t));
+
+  pMetadata = (cam_metadata_info_t *)frame->buffer;
+
+  if (pMetadata->is_focus_valid) {
+    focus_data = (cam_auto_focus_data_t *)&(pMetadata->focus_data);
+
+    if (focus_data->focus_state == CAM_AF_FOCUSED) {
+      CDBG_ERROR("%s: AutoFocus Done Call Back Received\n",__func__);
+      mm_camera_app_done();
+    }
+  }
 
   pMetadata = (cam_metadata_info_t *)frame->buffer;
 
