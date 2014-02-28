@@ -385,7 +385,7 @@ typedef struct mm_jpeg_obj_t {
   void *adsprpc_lib_handle;
 #endif
 
-  int num_sessions;
+  uint32_t num_sessions;
 
 } mm_jpeg_obj;
 

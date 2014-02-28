@@ -1650,7 +1650,7 @@ void QCamera2HardwareInterface::dumpFrameToFile(QCameraStream *stream,
                         void *data = NULL;
                         int written_len = 0;
 
-                        for (int i = 0; i < offset.num_planes; i++) {
+                        for (uint32_t i = 0; i < offset.num_planes; i++) {
                             uint32_t index = offset.mp[i].offset;
                             if (i > 0) {
                                 index += offset.mp[i-1].len;
