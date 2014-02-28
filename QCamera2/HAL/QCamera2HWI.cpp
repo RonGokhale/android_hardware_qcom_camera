@@ -949,7 +949,9 @@ QCamera2HardwareInterface::QCamera2HardwareInterface(int cameraId)
       mStoreMetaDataInFrame(0),
       m_stateMachine(this),
       m_postprocessor(this),
+#ifdef _ANDROID_
       m_thermalAdapter(QCameraThermalAdapter::getInstance()),
+#endif
       m_cbNotifier(this),
       m_bShutterSoundPlayed(false),
       m_bPreviewStarted(false),

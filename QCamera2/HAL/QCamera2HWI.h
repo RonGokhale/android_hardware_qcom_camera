@@ -495,7 +495,9 @@ private:
 
     QCameraStateMachine m_stateMachine;   // state machine
     QCameraPostProcessor m_postprocessor; // post processor
+#ifdef _ANDROID_
     QCameraThermalAdapter &m_thermalAdapter;
+#endif
     QCameraCbNotifier m_cbNotifier;
     pthread_mutex_t m_lock;
     pthread_cond_t m_cond;
