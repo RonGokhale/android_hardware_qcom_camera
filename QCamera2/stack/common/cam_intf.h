@@ -315,6 +315,7 @@ typedef struct{
     cam_rational_type_t color_transform2[3][3];
     cam_rational_type_t calibration_transform1[3][3];
     cam_rational_type_t calibration_transform2[3][3];
+    uint8_t focus_dist_calibrated;
 } cam_capability_t;
 
 typedef enum {
