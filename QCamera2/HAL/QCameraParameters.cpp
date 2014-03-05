@@ -1515,8 +1515,8 @@ int32_t QCameraParameters::setPreviewFpsRange(const QCameraParameters& params)
     ALOGV("%s: Requested FpsRange Values:(%d, %d)", __func__, minFps, maxFps);
 
     //first check if we need to change fps because of HFR mode change
-    if(UpdateHFRFrameRate(params))
-        return rc;
+    //if(UpdateHFRFrameRate(params))
+    //    return rc;
 
     if(minFps == prevMinFps && maxFps == prevMaxFps) {
         if ( m_bFixedFrameRateSet ) {
