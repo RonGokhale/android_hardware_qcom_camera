@@ -14,8 +14,8 @@ libqomx_core_la_CPPFLAGS += -I qomx_core
 
 libqomx_core_la_SOURCES := qomx_core/qomx_core.c
 
-#LOCAL_SHARED_LIBRARIES := libcutils libdl
-libqomx_core_la_LDFLAGS := -shared
+# Build explicit static lib only to avoid multple omx name conflict
+libqomx_core_la_LDFLAGS := -static
 libqomx_core_la_LIBADD := -ldl -lrt
 
 if USE_DLOG

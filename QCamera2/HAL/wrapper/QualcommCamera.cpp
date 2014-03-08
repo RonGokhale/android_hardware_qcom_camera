@@ -44,6 +44,33 @@ extern "C" {
 #include <sys/time.h>
 }
 
+
+#if defined _WIN32 || defined __CYGWIN__
+  #ifdef BUILDING_DLL
+    #ifdef __GNUC__
+      #define DLL_PUBLIC __attribute__ ((dllexport))
+    #else
+      #define DLL_PUBLIC __declspec(dllexport) // Note: actually gcc seems to also supports this syntax.
+    #endif
+  #else
+    #ifdef __GNUC__
+      #define DLL_PUBLIC __attribute__ ((dllimport))
+    #else
+      #define DLL_PUBLIC __declspec(dllimport) // Note: actually gcc seems to also supports this syntax.
+    #endif
+  #endif
+  #define DLL_LOCAL
+#else
+  #if __GNUC__ >= 4
+    #define DLL_PUBLIC __attribute__ ((visibility ("default")))
+    #define DLL_LOCAL  __attribute__ ((visibility ("hidden")))
+  #else
+    #define DLL_PUBLIC
+    #define DLL_LOCAL
+  #endif
+#endif
+
+
 using namespace qcamera;
 namespace android
 {
@@ -57,7 +84,7 @@ QCamera2HardwareInterface *util_get_Hal_obj( struct camera_device *device)
     return qcam2HWI;
 }
 
-extern "C" int get_number_of_cameras()
+extern "C" DLL_PUBLIC int get_number_of_cameras()
 {
     /* try to query every time we get the call!*/
 
@@ -65,7 +92,7 @@ extern "C" int get_number_of_cameras()
     return QCamera2Factory::get_number_of_cameras();
 }
 
-extern "C" int get_camera_info(int camera_id, struct camera_info *info)
+extern "C" DLL_PUBLIC int get_camera_info(int camera_id, struct camera_info *info)
 {
     int rc = -1;
     ALOGE("Q%s: E", __func__);
@@ -79,7 +106,7 @@ extern "C" int get_camera_info(int camera_id, struct camera_info *info)
 
 
 /* HAL should return NULL if it fails to open camera qcam2HWI. */
-extern "C" int  camera_device_open(
+extern "C" DLL_PUBLIC int  camera_device_open(
     const struct hw_module_t *module, int camera_id,
     struct hw_device_t **hw_device)
 {
@@ -108,7 +135,7 @@ extern "C" int  camera_device_open(
     return 0;
 }
 
-extern "C"  int release_resources(struct camera_device *device)
+extern "C" DLL_PUBLIC int release_resources(struct camera_device *device)
 {
     QCamera2HardwareInterface *qcam2HWI = util_get_Hal_obj(device);
 
@@ -120,7 +147,7 @@ extern "C"  int release_resources(struct camera_device *device)
 }
 
 
-extern "C"  int close_camera_device(struct camera_device *device)
+extern "C" DLL_PUBLIC int close_camera_device(struct camera_device *device)
 {
     QCamera2HardwareInterface *qcam2HWI = util_get_Hal_obj(device);
 
@@ -131,7 +158,7 @@ extern "C"  int close_camera_device(struct camera_device *device)
     return 0;
 }
 
-void set_CallBacks(struct camera_device *device,
+extern "C" DLL_PUBLIC void set_CallBacks(struct camera_device *device,
                    camera_notify_callback notify_cb,
                    camera_data_callback data_cb,
                    camera_data_timestamp_callback data_cb_timestamp,
@@ -145,7 +172,7 @@ void set_CallBacks(struct camera_device *device,
     }
 }
 
-void enable_msg_type(struct camera_device *device, int32_t msg_type)
+extern "C" DLL_PUBLIC void enable_msg_type(struct camera_device *device, int32_t msg_type)
 {
     QCamera2HardwareInterface *qcam2HWI = util_get_Hal_obj(device);
     if (qcam2HWI != NULL) {
@@ -153,7 +180,7 @@ void enable_msg_type(struct camera_device *device, int32_t msg_type)
     }
 }
 
-void disable_msg_type(struct camera_device *device, int32_t msg_type)
+extern "C" DLL_PUBLIC void disable_msg_type(struct camera_device *device, int32_t msg_type)
 {
     QCamera2HardwareInterface *qcam2HWI = util_get_Hal_obj(device);
     ALOGE("Q%s: E", __func__);
@@ -162,7 +189,7 @@ void disable_msg_type(struct camera_device *device, int32_t msg_type)
     }
 }
 
-int msg_type_enabled(struct camera_device *device, int32_t msg_type)
+extern "C" DLL_PUBLIC int msg_type_enabled(struct camera_device *device, int32_t msg_type)
 {
     ALOGE("Q%s: E", __func__);
     int rc = -1;
@@ -173,7 +200,7 @@ int msg_type_enabled(struct camera_device *device, int32_t msg_type)
     return rc;
 }
 
-int start_preview(struct camera_device *device)
+extern "C" DLL_PUBLIC int start_preview(struct camera_device *device)
 {
     ALOGE("Q%s: E", __func__);
     int rc = -1;
@@ -185,7 +212,7 @@ int start_preview(struct camera_device *device)
     return rc;
 }
 
-void stop_preview(struct camera_device *device)
+extern "C" DLL_PUBLIC void stop_preview(struct camera_device *device)
 {
     QCamera2HardwareInterface *qcam2HWI = util_get_Hal_obj(device);
     if (qcam2HWI != NULL) {
@@ -197,7 +224,7 @@ void stop_preview(struct camera_device *device)
     ALOGV("Exit");
 }
 
-int preview_enabled(struct camera_device *device)
+extern "C" DLL_PUBLIC int preview_enabled(struct camera_device *device)
 {
     ALOGE("Q%s: E", __func__);
     int rc = -1;
@@ -208,7 +235,7 @@ int preview_enabled(struct camera_device *device)
     return rc;
 }
 
-int store_meta_data_in_buffers(struct camera_device *device, int enable)
+extern "C" DLL_PUBLIC int store_meta_data_in_buffers(struct camera_device *device, int enable)
 {
     ALOGE("Q%s: E", __func__);
     int rc = -1;
@@ -219,7 +246,7 @@ int store_meta_data_in_buffers(struct camera_device *device, int enable)
     return rc;
 }
 
-int start_recording(struct camera_device *device)
+extern "C" DLL_PUBLIC int start_recording(struct camera_device *device)
 {
     ALOGE("Q%s: E", __func__);
     int rc = -1;
@@ -230,7 +257,7 @@ int start_recording(struct camera_device *device)
     return rc;
 }
 
-void stop_recording(struct camera_device *device)
+extern "C" DLL_PUBLIC void stop_recording(struct camera_device *device)
 {
     ALOGE("Q%s: E", __func__);
     QCamera2HardwareInterface *qcam2HWI = util_get_Hal_obj(device);
@@ -239,7 +266,7 @@ void stop_recording(struct camera_device *device)
     }
 }
 
-int recording_enabled(struct camera_device *device)
+extern "C" DLL_PUBLIC int recording_enabled(struct camera_device *device)
 {
     ALOGE("Q%s: E", __func__);
     int rc = -1;
@@ -250,7 +277,7 @@ int recording_enabled(struct camera_device *device)
     return rc;
 }
 
-void release_recording_frame(struct camera_device *device,
+extern "C" DLL_PUBLIC void release_recording_frame(struct camera_device *device,
                              const void *opaque)
 {
     ALOGV("Q%s: E", __func__);
@@ -260,7 +287,7 @@ void release_recording_frame(struct camera_device *device,
     }
 }
 
-int auto_focus(struct camera_device *device)
+extern "C" DLL_PUBLIC int auto_focus(struct camera_device *device)
 {
     ALOGE("Q%s: E", __func__);
     int rc = -1;
@@ -271,7 +298,7 @@ int auto_focus(struct camera_device *device)
     return rc;
 }
 
-int cancel_auto_focus(struct camera_device *device)
+extern "C" DLL_PUBLIC int cancel_auto_focus(struct camera_device *device)
 {
     ALOGE("Q%s: E", __func__);
     int rc = -1;
@@ -282,7 +309,7 @@ int cancel_auto_focus(struct camera_device *device)
     return rc;
 }
 
-int take_picture(struct camera_device *device)
+extern "C" DLL_PUBLIC int take_picture(struct camera_device *device)
 {
     ALOGE("Q%s: E", __func__);
     int rc = -1;
@@ -293,7 +320,7 @@ int take_picture(struct camera_device *device)
     return rc;
 }
 
-int cancel_picture(struct camera_device *device)
+extern "C" DLL_PUBLIC int cancel_picture(struct camera_device *device)
 
 {
     ALOGE("Q%s: E", __func__);
@@ -305,7 +332,7 @@ int cancel_picture(struct camera_device *device)
     return rc;
 }
 
-int set_parameters(struct camera_device *device, const char *parms)
+extern "C" DLL_PUBLIC int set_parameters(struct camera_device *device, const char *parms)
 
 {
     ALOGE("Q%s: E", __func__);
@@ -317,7 +344,7 @@ int set_parameters(struct camera_device *device, const char *parms)
     return rc;
 }
 
-char *get_parameters(struct camera_device *device)
+extern "C" DLL_PUBLIC char *get_parameters(struct camera_device *device)
 {
     ALOGE("Q%s: E", __func__);
     QCamera2HardwareInterface *qcam2HWI = util_get_Hal_obj(device);
@@ -329,7 +356,7 @@ char *get_parameters(struct camera_device *device)
     return NULL;
 }
 
-void put_parameters(struct camera_device *device, char *parm)
+extern "C" DLL_PUBLIC void put_parameters(struct camera_device *device, char *parm)
 
 {
     ALOGE("Q%s: E", __func__);
@@ -339,7 +366,7 @@ void put_parameters(struct camera_device *device, char *parm)
     }
 }
 
-int send_command(struct camera_device *device,
+extern "C" DLL_PUBLIC int send_command(struct camera_device *device,
                  int32_t cmd, int32_t arg1, int32_t arg2)
 {
     ALOGE("Q%s: E", __func__);
