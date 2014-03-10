@@ -43,6 +43,7 @@
 #define CAMERA_MIN_STREAMING_BUFFERS     3
 #define CAMERA_MIN_JPEG_ENCODING_BUFFERS 2
 #define CAMERA_MIN_VIDEO_BUFFERS         9
+#define CAMERA_LONGSHOT_STAGES           4
 
 //This multiplier signifies extra buffers that we need to allocate
 //for the output of pproc
@@ -1369,7 +1370,14 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
     case CAM_STREAM_TYPE_SNAPSHOT:
         {
             if (mParameters.isZSLMode() || mLongshotEnabled) {
-                bufferCnt = zslQBuffers + minCircularBufNum;
+                if (minCaptureBuffers == 1 && !mLongshotEnabled) {
+                    // Single ZSL snapshot case
+                    bufferCnt = zslQBuffers + CAMERA_MIN_STREAMING_BUFFERS;
+                }
+                else {
+                    // ZSL Burst or Longshot case
+                    bufferCnt = zslQBuffers + minCircularBufNum;
+                }
             } else {
                 bufferCnt = minCaptureBuffers*CAMERA_PPROC_OUT_BUFFER_MULTIPLIER +
                             mParameters.getNumOfExtraHDRInBufsIfNeeded() -
@@ -1422,6 +1430,10 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
     case CAM_STREAM_TYPE_OFFLINE_PROC:
         {
             bufferCnt = minCaptureBuffers;
+            if ((mLongshotEnabled) ||
+                    ( bufferCnt > CAMERA_LONGSHOT_STAGES ) ) {
+                bufferCnt = CAMERA_LONGSHOT_STAGES;
+            }
         }
         break;
     case CAM_STREAM_TYPE_DEFAULT:
@@ -2797,10 +2809,15 @@ int QCamera2HardwareInterface::release()
  *              NO_ERROR  -- success
  *              none-zero failure code
  *==========================================================================*/
-int QCamera2HardwareInterface::dump(int /*fd*/)
+int QCamera2HardwareInterface::dump(int fd)
 {
-    ALOGE("%s: not supported yet", __func__);
-    return INVALID_OPERATION;
+    fdprintf(fd, "\n Camera HAL information Begin \n");
+    fdprintf(fd, "Camera ID: %d \n", mCameraId);
+    fdprintf(fd, "StoreMetaDataInFrame: %d \n", mStoreMetaDataInFrame);
+    fdprintf(fd, "\n Configuration: %s", mParameters.dump().string());
+    fdprintf(fd, "\n State Information: %s", m_stateMachine.dump().string());
+    fdprintf(fd, "\n Camera HAL information End \n");
+    return NO_ERROR;
 }
 
 /*===========================================================================
@@ -4095,10 +4112,6 @@ QCameraReprocessChannel *QCamera2HardwareInterface::addOnlineReprocChannel(
         // 1 is added because getNumOfExtraBuffersForImageProc returns extra
         // buffers assuming number of capture is already added
         minStreamBufNum += imglib_extra_bufs + 1;
-    }
-
-    if ( mLongshotEnabled ) {
-        minStreamBufNum = getBufNumRequired(CAM_STREAM_TYPE_PREVIEW);
     }
 
     rc = pChannel->addReprocStreamsFromSource(*this,
@@ -5421,6 +5434,26 @@ int32_t QCamera2HardwareInterface::setHistogram(bool histogram_en)
 int32_t QCamera2HardwareInterface::setFaceDetection(bool enabled)
 {
     return mParameters.setFaceDetection(enabled);
+}
+
+/*===========================================================================
+ * FUNCTION   : isCaptureShutterEnabled
+ *
+ * DESCRIPTION: Check whether shutter should be triggered immediately after
+ *              capture
+ *
+ * PARAMETERS :
+ *
+ * RETURN     : true - regular capture
+ *              false - other type of capture
+ *==========================================================================*/
+bool QCamera2HardwareInterface::isCaptureShutterEnabled()
+{
+    char prop[PROPERTY_VALUE_MAX];
+    memset(prop, 0, sizeof(prop));
+    property_get("persist.camera.feature.shutter", prop, "0");
+    int enableShutter = atoi(prop);
+    return enableShutter == 1;
 }
 
 /*===========================================================================
