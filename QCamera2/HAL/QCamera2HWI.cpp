@@ -43,6 +43,7 @@
 #define EXTRA_ZSL_PREVIEW_STREAM_BUF     2
 #define CAMERA_MIN_JPEG_ENCODING_BUFFERS 2
 #define CAMERA_MIN_VIDEO_BUFFERS         9
+#define CAMERA_LONGSHOT_STAGES           4
 
 #define HDR_CONFIDENCE_THRESHOLD 0.4
 
@@ -1495,8 +1496,9 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
     case CAM_STREAM_TYPE_OFFLINE_PROC:
         {
             bufferCnt = minCaptureBuffers;
-            if (bufferCnt > maxStreamBuf) {
-                bufferCnt = maxStreamBuf;
+            if ((mLongshotEnabled) ||
+                    ( bufferCnt > CAMERA_LONGSHOT_STAGES ) ) {
+                bufferCnt = CAMERA_LONGSHOT_STAGES;
             }
         }
         break;
@@ -3881,10 +3883,6 @@ QCameraReprocessChannel *QCamera2HardwareInterface::addOnlineReprocChannel(
     if(temp_feature_mask && mParameters.isHDREnabled()){
           minStreamBufNum =
               gCamCapability[mCameraId]->hdr_bracketing_setting.num_frames;
-    }
-
-    if ( mLongshotEnabled ) {
-        minStreamBufNum = getBufNumRequired(CAM_STREAM_TYPE_PREVIEW);
     }
 
     ALOGD("%s: Allocating %d reproc buffers",__func__,minStreamBufNum);
