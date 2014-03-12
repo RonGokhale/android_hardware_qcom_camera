@@ -5218,4 +5218,24 @@ void QCamera2HardwareInterface::copyList(cam_dimension_t* src_list,
    }
 }
 
+/*===========================================================================
+ * FUNCTION   : isCaptureShutterEnabled
+ *
+ * DESCRIPTION: Check whether shutter should be triggered immediately after
+ *              capture
+ *
+ * PARAMETERS :
+ *
+ * RETURN     : true - regular capture
+ *              false - other type of capture
+ *==========================================================================*/
+bool QCamera2HardwareInterface::isCaptureShutterEnabled()
+{
+    char prop[PROPERTY_VALUE_MAX];
+    memset(prop, 0, sizeof(prop));
+    property_get("persist.camera.feature.shutter", prop, "0");
+    int enableShutter = atoi(prop);
+    return enableShutter == 1;
+}
+
 }; // namespace qcamera
