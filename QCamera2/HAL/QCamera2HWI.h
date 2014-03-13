@@ -313,6 +313,7 @@ private:
     bool needDebugFps();
     bool isCACEnabled();
     bool isAFRunning();
+    bool isCaptureShutterEnabled();
     bool needReprocess();
     bool needRotationReprocess();
     bool needScaleReprocess();
