@@ -2479,6 +2479,7 @@ int QCamera2HardwareInterface::sendCommand(int32_t command,
         // is not active.
         if ( !m_stateMachine.isCaptureRunning() ) {
             mLongshotEnabled = true;
+            rc = setLongShot(mLongshotEnabled);
 
             // Due to recent buffer count optimizations
             // ZSL might run with considerably less buffers
@@ -2509,6 +2510,7 @@ int QCamera2HardwareInterface::sendCommand(int32_t command,
                 }
             }
             //
+
         } else {
             rc = NO_INIT;
         }
@@ -2519,6 +2521,7 @@ int QCamera2HardwareInterface::sendCommand(int32_t command,
             processEvt(QCAMERA_SM_EVT_SNAPSHOT_DONE, NULL);
         }
         mLongshotEnabled = false;
+        rc = setLongShot(mLongshotEnabled);
         break;
     case CAMERA_CMD_HISTOGRAM_ON:
     case CAMERA_CMD_HISTOGRAM_OFF:
@@ -5162,6 +5165,24 @@ QCameraExif *QCamera2HardwareInterface::getExifData()
 int32_t QCamera2HardwareInterface::setHistogram(bool histogram_en)
 {
     return mParameters.setHistogram(histogram_en);
+}
+
+/*===========================================================================
+ * FUNCTION   : setLongShot
+ *
+ * DESCRIPTION: set if LongShot should be enabled
+ *
+ * PARAMETERS :
+ *   @longshot_en : bool flag if LongShot should be enabled
+ *
+ * RETURN     : int32_t type of status
+ *                   NO_ERROR  -- success
+ *                   none-zero failure code
+ *==========================================================================*/
+
+int32_t QCamera2HardwareInterface::setLongShot(bool longshot_en)
+{
+    return mParameters.setLongShot(longshot_en);
 }
 
 /*===========================================================================
