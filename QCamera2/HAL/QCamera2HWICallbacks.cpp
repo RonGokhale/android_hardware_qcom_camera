@@ -283,6 +283,9 @@ void QCamera2HardwareInterface::capture_channel_cb_routine(mm_camera_super_buf_t
         }
     }
 
+    // Wait on Postproc initialization if needed
+    pme->waitDefferedWork(pme->mReprocJob);
+
     // send to postprocessor
     pme->m_postprocessor.processData(frame);
 
@@ -697,7 +700,7 @@ void QCamera2HardwareInterface::video_stream_cb_routine(mm_camera_super_buf_t *s
           frame->ts.tv_nsec);
     nsecs_t timeStamp;
     if(pme->mParameters.isAVTimerEnabled() == true) {
-        timeStamp = (((nsecs_t)frame->ts.tv_sec << 32) | frame->ts.tv_nsec) * 1000;
+        timeStamp = (nsecs_t)((frame->ts.tv_sec * 1000000LL) + frame->ts.tv_nsec) * 1000;
     } else {
         timeStamp = nsecs_t(frame->ts.tv_sec) * 1000000000LL + frame->ts.tv_nsec;
     }
