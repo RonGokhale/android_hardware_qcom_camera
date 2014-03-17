@@ -3773,7 +3773,8 @@ int32_t QCameraParameters::initDefaultParameters()
     String8 bracketingValues = createValuesStringFromMap(
             BRACKETING_MODES_MAP,
             sizeof(BRACKETING_MODES_MAP) / sizeof(QCameraMap));
-    set(KEY_QC_SUPPORTED_AE_BRACKET_MODES, bracketingValues);
+    set(KEY_QC_SUPPORTED_AE_BRACKET_MODES,
+        m_pCapability->histogram_supported ? bracketingValues : "");
     setAEBracket(AE_BRACKET_OFF);
 
     // Set Denoise
