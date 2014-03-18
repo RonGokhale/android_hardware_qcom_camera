@@ -34,7 +34,7 @@ LOCAL_CFLAGS := -Wall -Werror
 LOCAL_CFLAGS += -DHAS_MULTIMEDIA_HINTS
 
 #HAL 1.0 Flags
-LOCAL_CFLAGS += -DDEFAULT_ZSL_MODE_ON -DDEFAULT_DENOISE_MODE_ON -DHAL3
+LOCAL_CFLAGS += -DDEFAULT_DENOISE_MODE_ON -DHAL3
 
 LOCAL_C_INCLUDES := \
         $(LOCAL_PATH)/stack/common \
@@ -69,7 +69,7 @@ LOCAL_MODULE_TAGS := optional
 
 include $(BUILD_SHARED_LIBRARY)
 
-#include $(LOCAL_PATH)/test/Android.mk
+#include $(LOCAL_PATH)/HAL/test/Android.mk
 
 include $(call first-makefiles-under,$(LOCAL_PATH))
 
