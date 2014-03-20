@@ -108,6 +108,14 @@ typedef struct {
 #define QCAMERA_ION_USE_NOCACHE false
 #define MAX_ONGOING_JOBS 25
 
+/** IMG_SWAP
+ *  @a: input a
+ *  @b: input b
+ *
+ *  Swaps the input values
+ **/
+#define IMG_SWAP(a, b) ({typeof(a) c; c=a; a=b; b=c;})
+
 typedef enum {
     QCAMERA_NOTIFY_CALLBACK,
     QCAMERA_DATA_CALLBACK,
@@ -401,6 +409,8 @@ private:
     int32_t configureAFBracketing(bool enable = true);
     int32_t configureFlashBracketing();
     int32_t startBracketing(QCameraPicChannel *pZSLchannel);
+    int32_t configureZSLHDRBracketing();
+    int32_t startZslBracketing(QCameraPicChannel *pZSLchannel);
     int32_t configureOptiZoom();
     inline void setOutputImageCount(uint32_t aCount) {mOutputCount = aCount;}
     inline uint32_t getOutputImageCount() {return mOutputCount;}
@@ -474,6 +484,7 @@ private:
     QCameraParameters mParameters;
     int32_t               mMsgEnabled;
     int                   mStoreMetaDataInFrame;
+    int                   mNumSnapshots;
 
     camera_notify_callback         mNotifyCb;
     camera_data_callback           mDataCb;
