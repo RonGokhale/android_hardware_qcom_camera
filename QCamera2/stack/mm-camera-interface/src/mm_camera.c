@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -523,12 +523,11 @@ int32_t mm_camera_query_capability(mm_camera_obj_t *my_obj)
  *              domain socket. Corresponding fields of parameters to be set
  *              are already filled in by upper layer caller.
  *==========================================================================*/
-int32_t mm_camera_set_parms(mm_camera_obj_t *my_obj,
-                            parm_buffer_t *parms)
+int32_t mm_camera_set_parms(mm_camera_obj_t *my_obj, void *parms)
 {
     int32_t rc = -1;
     int32_t value = 0;
-    if (parms !=  NULL) {
+    if ((parm_buffer_new_t *)parms !=  NULL) {
         rc = mm_camera_util_s_ctrl(my_obj->ctrl_fd, CAM_PRIV_PARM, &value);
     }
     pthread_mutex_unlock(&my_obj->cam_lock);
@@ -553,12 +552,11 @@ int32_t mm_camera_set_parms(mm_camera_obj_t *my_obj,
  *              fields of requested parameters will be filled in by server with
  *              detailed information.
  *==========================================================================*/
-int32_t mm_camera_get_parms(mm_camera_obj_t *my_obj,
-                            parm_buffer_t *parms)
+int32_t mm_camera_get_parms(mm_camera_obj_t *my_obj, void *parms)
 {
     int32_t rc = -1;
     int32_t value = 0;
-    if (parms != NULL) {
+    if ((parm_buffer_new_t *)parms != NULL) {
         rc = mm_camera_util_g_ctrl(my_obj->ctrl_fd, CAM_PRIV_PARM, &value);
     }
     pthread_mutex_unlock(&my_obj->cam_lock);
@@ -1426,7 +1424,8 @@ int32_t mm_camera_evt_sub(mm_camera_obj_t * my_obj,
         }
         /* remove evt fd from the polling thraed when unreg the last event */
         rc = mm_camera_poll_thread_del_poll_fd(&my_obj->evt_poll_thread,
-                                               my_obj->my_hdl);
+                                               my_obj->my_hdl,
+                                               mm_camera_sync_call);
     } else {
         rc = ioctl(my_obj->ctrl_fd, VIDIOC_SUBSCRIBE_EVENT, &sub);
         if (rc < 0) {
@@ -1438,7 +1437,8 @@ int32_t mm_camera_evt_sub(mm_camera_obj_t * my_obj,
                                                my_obj->my_hdl,
                                                my_obj->ctrl_fd,
                                                mm_camera_event_notify,
-                                               (void*)my_obj);
+                                               (void*)my_obj,
+                                               mm_camera_sync_call);
     }
     return rc;
 }

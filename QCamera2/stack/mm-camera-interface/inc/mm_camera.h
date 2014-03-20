@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -224,6 +224,8 @@ typedef struct mm_stream {
     uint8_t is_bundled; /* flag if stream is bundled */
 
     mm_camera_stream_mem_vtbl_t mem_vtbl; /* mem ops tbl */
+
+    int8_t queued_buffer_count;
 } mm_stream_t;
 
 /* mm_channel */
@@ -393,6 +395,11 @@ typedef struct {
     struct camera_info info[MM_CAMERA_MAX_NUM_SENSORS];
 } mm_camera_ctrl_t;
 
+typedef enum {
+    mm_camera_async_call,
+    mm_camera_sync_call
+} mm_camera_call_type_t;
+
 /**********************************************************************************
 * external function declare
 ***********************************************************************************/
@@ -426,9 +433,9 @@ extern int32_t mm_camera_qbuf(mm_camera_obj_t *my_obj,
                               mm_camera_buf_def_t *buf);
 extern int32_t mm_camera_query_capability(mm_camera_obj_t *my_obj);
 extern int32_t mm_camera_set_parms(mm_camera_obj_t *my_obj,
-                                   parm_buffer_t *parms);
+                                   void *parms);
 extern int32_t mm_camera_get_parms(mm_camera_obj_t *my_obj,
-                                   parm_buffer_t *parms);
+                                   void *parms);
 extern int32_t mm_camera_map_buf(mm_camera_obj_t *my_obj,
                                  uint8_t buf_type,
                                  int fd,
@@ -559,10 +566,12 @@ extern int32_t mm_camera_poll_thread_add_poll_fd(
                                 uint32_t handler,
                                 int32_t fd,
                                 mm_camera_poll_notify_t nofity_cb,
-                                void *userdata);
+                                void *userdata,
+                                mm_camera_call_type_t);
 extern int32_t mm_camera_poll_thread_del_poll_fd(
                                 mm_camera_poll_thread_t * poll_cb,
-                                uint32_t handler);
+                                uint32_t handler,
+                                mm_camera_call_type_t);
 extern int32_t mm_camera_cmd_thread_launch(
                                 mm_camera_cmd_thread_t * cmd_thread,
                                 mm_camera_cmd_cb_t cb,

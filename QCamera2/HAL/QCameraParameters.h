@@ -499,6 +499,7 @@ public:
     bool isHDREnabled();
     bool isAutoHDREnabled();
     int32_t restoreAEBracket();
+    int32_t enableFlash(bool enableFlash, bool commitSettings);
     int32_t updateRAW(cam_dimension_t max_dim);
     bool isAVTimerEnabled();
 
@@ -524,7 +525,7 @@ public:
     bool isPreviewFlipChanged() { return m_bPreviewFlipChanged; };
     bool isVideoFlipChanged() { return m_bVideoFlipChanged; };
     bool isSnapshotFlipChanged() { return m_bSnapshotFlipChanged; };
-    void setHDRSceneEnable(bool bflag) {m_HDRSceneEnabled = bflag;};
+    void setHDRSceneEnable(bool bflag);
 
     const char *getASDStateString(cam_auto_scene_t scene);
     bool isHDRThumbnailProcessNeeded() { return m_bHDRThumbnailProcessNeeded; };
@@ -653,13 +654,13 @@ private:
     const char *lookupNameByValue(const QCameraMap arr[], int len, int value);
 
     // ops for batch set/get params with server
-    int32_t initBatchUpdate(parm_buffer_t *p_table);
-    int32_t AddSetParmEntryToBatch(parm_buffer_t *p_table,
+    int32_t initBatchUpdate(void *p_table);
+    int32_t AddSetParmEntryToBatch(void *p_table,
                                    cam_intf_parm_type_t paramType,
                                    uint32_t paramLength,
                                    void *paramValue);
     int32_t commitSetBatch();
-    int32_t AddGetParmEntryToBatch(parm_buffer_t *p_table,
+    int32_t AddGetParmEntryToBatch(void *p_table,
                                    cam_intf_parm_type_t paramType);
     int32_t commitGetBatch();
 
@@ -692,7 +693,7 @@ private:
     cam_capability_t *m_pCapability;
     mm_camera_vtbl_t *m_pCamOpsTbl;
     QCameraHeapMemory *m_pParamHeap;
-    parm_buffer_t     *m_pParamBuf;  // ptr to param buf in m_pParamHeap
+    parm_buffer_new_t *m_pParamBuf; // ptr to param buf in m_pParamHeap
 
     bool m_bZslMode;                // if ZSL is enabled
     bool m_bZslMode_new;

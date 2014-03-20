@@ -43,6 +43,7 @@
 #define EXTRA_ZSL_PREVIEW_STREAM_BUF     2
 #define CAMERA_MIN_JPEG_ENCODING_BUFFERS 2
 #define CAMERA_MIN_VIDEO_BUFFERS         9
+#define CAMERA_LONGSHOT_STAGES           4
 
 #define HDR_CONFIDENCE_THRESHOLD 0.4
 
@@ -1444,7 +1445,14 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
     case CAM_STREAM_TYPE_SNAPSHOT:
         {
             if (mParameters.isZSLMode() || mLongshotEnabled) {
-                bufferCnt = zslQBuffers + minCircularBufNum;
+                if (minCaptureBuffers == 1 && !mLongshotEnabled) {
+                    // Single ZSL snapshot case
+                    bufferCnt = zslQBuffers + CAMERA_MIN_STREAMING_BUFFERS;
+                }
+                else {
+                    // ZSL Burst or Longshot case
+                    bufferCnt = zslQBuffers + minCircularBufNum;
+                }
             } else {
                 bufferCnt = minCaptureBuffers +
                             mParameters.getNumOfExtraHDRInBufsIfNeeded() -
@@ -1495,8 +1503,9 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
     case CAM_STREAM_TYPE_OFFLINE_PROC:
         {
             bufferCnt = minCaptureBuffers;
-            if (bufferCnt > maxStreamBuf) {
-                bufferCnt = maxStreamBuf;
+            if ((mLongshotEnabled) ||
+                    ( bufferCnt > CAMERA_LONGSHOT_STAGES ) ) {
+                bufferCnt = CAMERA_LONGSHOT_STAGES;
             }
         }
         break;
@@ -3883,10 +3892,6 @@ QCameraReprocessChannel *QCamera2HardwareInterface::addOnlineReprocChannel(
               gCamCapability[mCameraId]->hdr_bracketing_setting.num_frames;
     }
 
-    if ( mLongshotEnabled ) {
-        minStreamBufNum = getBufNumRequired(CAM_STREAM_TYPE_PREVIEW);
-    }
-
     ALOGD("%s: Allocating %d reproc buffers",__func__,minStreamBufNum);
 
     rc = pChannel->addReprocStreamsFromSource(*this,
@@ -5218,6 +5223,26 @@ void QCamera2HardwareInterface::copyList(cam_dimension_t* src_list,
    for (int i = 0; i < len; i++) {
       dst_list[i] = src_list[i];
    }
+}
+
+/*===========================================================================
+ * FUNCTION   : isCaptureShutterEnabled
+ *
+ * DESCRIPTION: Check whether shutter should be triggered immediately after
+ *              capture
+ *
+ * PARAMETERS :
+ *
+ * RETURN     : true - regular capture
+ *              false - other type of capture
+ *==========================================================================*/
+bool QCamera2HardwareInterface::isCaptureShutterEnabled()
+{
+    char prop[PROPERTY_VALUE_MAX];
+    memset(prop, 0, sizeof(prop));
+    property_get("persist.camera.feature.shutter", prop, "0");
+    int enableShutter = atoi(prop);
+    return enableShutter == 1;
 }
 
 }; // namespace qcamera
