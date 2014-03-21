@@ -5870,6 +5870,34 @@ int32_t QCameraParameters::setAndCommitZoom(int zoom_level)
 }
 
 /*===========================================================================
+ * FUNCTION   : isOptiZoomEnabled
+ *
+ * DESCRIPTION: checks whether optizoom is enabled
+ *
+ * PARAMETERS :
+ *
+ * RETURN     : true - enabled, false - disabled
+ *
+ *==========================================================================*/
+bool QCameraParameters::isOptiZoomEnabled()
+{
+    if (m_bOptiZoomOn) {
+        uint8_t zoom_level = (uint8_t) getInt(CameraParameters::KEY_ZOOM);
+        cam_opti_zoom_t *opti_zoom_settings_need =
+                &(m_pCapability->opti_zoom_settings_need);
+        uint8_t zoom_threshold = opti_zoom_settings_need->zoom_threshold;
+        ALOGD("%s: current zoom level =%d & zoom_threshold =%d",
+                __func__, zoom_level, zoom_threshold);
+
+        if (zoom_level >= zoom_threshold) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/*===========================================================================
  * FUNCTION   : commitAFBracket
  *
  * DESCRIPTION: commit AF Bracket.
@@ -6794,6 +6822,9 @@ uint8_t QCameraParameters::getBurstCountForBracketing()
         //number of snapshots required for Chroma Flash.
         //TODO: remove hardcoded value, add in capability.
         burstCount = 2;
+    } else if (isHDREnabled()) {
+        //number of snapshots required for HDR.
+        burstCount = m_pCapability->hdr_bracketing_setting.num_frames;
     }
     if (burstCount <= 0) {
         burstCount = 1;
@@ -8460,7 +8491,7 @@ uint8_t QCameraParameters::getNumOfExtraBuffersForImageProc()
             numOfBufs +=
                 m_pCapability->ubifocus_af_bracketing_need.burst_count + 1;
         }
-    } else if (isOptiZoomEnabled()) {
+    } else if (m_bOptiZoomOn) {
         numOfBufs += m_pCapability->opti_zoom_settings_need.burst_count - 1;
     } else if (isChromaFlashEnabled()) {
         numOfBufs += 1; /* flash and non flash */
