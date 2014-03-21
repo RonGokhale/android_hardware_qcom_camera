@@ -92,6 +92,8 @@ public:
 
     static void releaseFrameData(void *data, void *user_data);
 
+    uint8_t getBufferCount() { return mNumBufs; }
+
     int mDumpFrame;
     int mDumpMetaFrame;
     int mDumpSkipCnt;
