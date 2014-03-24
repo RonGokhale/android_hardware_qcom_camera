@@ -651,7 +651,8 @@ QCameraParameters::QCameraParameters()
       m_bAFBracketingOn(false),
       m_bChromaFlashOn(false),
       m_bOptiZoomOn(false),
-      m_bHfrMode(false)
+      m_bHfrMode(false),
+      m_bDisplayFrame(true)
 {
     char value[PROPERTY_VALUE_MAX];
     // TODO: may move to parameter instead of sysprop
@@ -2919,6 +2920,8 @@ int32_t QCameraParameters::setSceneMode(const QCameraParameters& params)
                 m_bHDREnabled = false;
             }
 
+            enableFlash(!m_bHDREnabled, false);
+
             if ((m_bHDREnabled) ||
                 ((prev_str != NULL) && (strcmp(prev_str, SCENE_MODE_HDR) == 0))) {
                 ALOGD("%s: scene mode changed between HDR and non-HDR, need restart", __func__);
@@ -2935,8 +2938,6 @@ int32_t QCameraParameters::setSceneMode(const QCameraParameters& params)
 
                     updateParamEntry(KEY_QC_HDR_NEED_1X, need_hdr_1x);
                 }
-
-                enableFlash(!m_bHDREnabled);
 
                 AddSetParmEntryToBatch(m_pParamBuf,
                                        CAM_INTF_PARM_HDR_NEED_1X,
@@ -6015,6 +6016,26 @@ int32_t QCameraParameters::setSelectableZoneAf(const char *selZoneAFStr)
 }
 
 /*===========================================================================
+ * FUNCTION   : isAEBracketEnabled
+ *
+ * DESCRIPTION: checks if AE bracketing is enabled
+ *
+ * PARAMETERS :
+ *
+ * RETURN     : TRUE/FALSE
+ *==========================================================================*/
+bool QCameraParameters::isAEBracketEnabled()
+{
+    const char *str = get(KEY_QC_AE_BRACKET_HDR);
+    if (str != NULL) {
+        if (strcmp(str, AE_BRACKET_OFF) != 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/*===========================================================================
  * FUNCTION   : setAEBracket
  *
  * DESCRIPTION: set AE bracket value
@@ -6065,15 +6086,14 @@ int32_t QCameraParameters::setAEBracket(const char *aecBracketStr)
         break;
     }
 
+    enableFlash(CAM_EXP_BRACKETING_OFF == expBracket.mode, false);
+
     // Cache client AE bracketing configuration
     memcpy(&m_AEBracketingClient, &expBracket, sizeof(cam_exp_bracketing_t));
 
     /* save the value*/
     updateParamEntry(KEY_QC_AE_BRACKET_HDR, aecBracketStr);
-    return AddSetParmEntryToBatch(m_pParamBuf,
-                                  CAM_INTF_PARM_HDR,
-                                  sizeof(expBracket),
-                                  &expBracket);
+    return NO_ERROR;
 }
 
 /*===========================================================================
@@ -6394,6 +6414,43 @@ int32_t QCameraParameters::setOptiZoom(const char *optiZoomStr)
 }
 
 /*===========================================================================
+ * FUNCTION   : setAEBracketing
+ *
+ * DESCRIPTION: enables AE bracketing
+ *
+ * PARAMETERS :
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraParameters::setAEBracketing()
+{
+    int32_t rc = NO_ERROR;
+    if(initBatchUpdate(m_pParamBuf) < 0 ) {
+        ALOGE("%s:Failed to initialize group update table", __func__);
+        return BAD_TYPE;
+    }
+
+    rc = AddSetParmEntryToBatch(m_pParamBuf,
+            CAM_INTF_PARM_HDR,
+            sizeof(m_AEBracketingClient),
+            &m_AEBracketingClient);
+    if (rc != NO_ERROR) {
+        ALOGE("%s:Failed to update AE bracketing", __func__);
+        return rc;
+    }
+
+    rc = commitSetBatch();
+    if (rc != NO_ERROR) {
+        ALOGE("%s:Failed to configure AE bracketing", __func__);
+        return rc;
+    }
+
+    return rc;
+}
+
+/*===========================================================================
  * FUNCTION   : setHDRAEBracket
  *
  * DESCRIPTION: enables AE bracketing for HDR
@@ -6442,15 +6499,13 @@ int32_t QCameraParameters::setHDRAEBracket(cam_exp_bracketing_t hdrBracket)
  *              NO_ERROR  -- success
  *              none-zero failure code
  *==========================================================================*/
-int32_t QCameraParameters::restoreAEBracket()
+int32_t QCameraParameters::stopAEBracket()
 {
-    int32_t rc = enableFlash(true);
+  cam_exp_bracketing_t bracketing;
 
-    if (NO_ERROR == rc) {
-      rc = setHDRAEBracket(m_AEBracketingClient);
-    }
+  bracketing.mode = CAM_EXP_BRACKETING_OFF;
 
-    return rc;
+  return setHDRAEBracket(bracketing);
 }
 
 /*===========================================================================
@@ -6460,22 +6515,26 @@ int32_t QCameraParameters::restoreAEBracket()
  *
  * PARAMETERS :
  *   @enableFlash : enable flash
+ *   @commitSettings : flag indicating whether settings need to be commited
  *
  * RETURN     : int32_t type of status
  *              NO_ERROR  -- success
  *              none-zero failure code
  *==========================================================================*/
-int32_t QCameraParameters::enableFlash(bool bflag)
+int32_t QCameraParameters::enableFlash(bool enableFlash, bool commitSettings)
 {
     int32_t rc = NO_ERROR;
-    if(initBatchUpdate(m_pParamBuf) < 0 ) {
-        ALOGE("%s:Failed to initialize group update table", __func__);
-        return BAD_TYPE;
+
+    if (commitSettings) {
+      if(initBatchUpdate(m_pParamBuf) < 0 ) {
+          ALOGE("%s:Failed to initialize group update table", __func__);
+          return BAD_TYPE;
+      }
     }
 
     const char *str = get(KEY_FLASH_MODE);
 
-    if (!bflag) {
+    if (!enableFlash) {
         str = FLASH_MODE_OFF;
     }
 
@@ -6491,7 +6550,8 @@ int32_t QCameraParameters::enableFlash(bool bflag)
                                       sizeof(value),
                                       &value);
         if (rc != NO_ERROR) {
-           ALOGE("%s:Failed to set led mode", __func__);
+          rc = BAD_VALUE;
+          ALOGE("%s:Failed to set led mode", __func__);
           return rc;
         }
     } else {
@@ -6499,10 +6559,12 @@ int32_t QCameraParameters::enableFlash(bool bflag)
         return rc;
     }
 
-    rc = commitSetBatch();
-    if (rc != NO_ERROR) {
-        ALOGE("%s:Failed to configure HDR bracketing", __func__);
-        return rc;
+    if (commitSettings) {
+      rc = commitSetBatch();
+      if (rc != NO_ERROR) {
+          ALOGE("%s:Failed to configure HDR bracketing", __func__);
+          return rc;
+      }
     }
 
     return rc;
@@ -7204,7 +7266,22 @@ uint8_t QCameraParameters::getBurstCountForBracketing()
     } else if (isHDREnabled()) {
         //number of snapshots required for HDR.
         burstCount = m_pCapability->hdr_bracketing_setting.num_frames;
+    } else if (isAEBracketEnabled()) {
+      burstCount = 0;
+      const char *str_val = m_AEBracketingClient.values;
+      if ((str_val != NULL) && (strlen(str_val) > 0)) {
+          char prop[PROPERTY_VALUE_MAX];
+          memset(prop, 0, sizeof(prop));
+          strcpy(prop, str_val);
+          char *saveptr = NULL;
+          char *token = strtok_r(prop, ",", &saveptr);
+          while (token != NULL) {
+              token = strtok_r(NULL, ",", &saveptr);
+              burstCount++;
+          }
+      }
     }
+
     if (burstCount <= 0) {
         burstCount = 1;
     }
@@ -7909,7 +7986,7 @@ void QCameraParameters::setHDRSceneEnable(bool bflag)
     m_HDRSceneEnabled = bflag;
 
     if (bupdate) {
-        enableFlash(!isHDREnabled());
+        enableFlash(!isHDREnabled(), true);
     }
 }
 

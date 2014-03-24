@@ -397,7 +397,7 @@ private:
     int32_t setHistogram(bool histogram_en);
     int32_t setFaceDetection(bool enabled);
     int32_t prepareHardwareForSnapshot(int32_t afNeeded);
-    bool needProcessPreviewFrame() {return m_stateMachine.isPreviewRunning();};
+    bool needProcessPreviewFrame();
     bool isNoDisplayMode() {return mParameters.isNoDisplayMode();};
     bool isZSLMode() {return mParameters.isZSLMode();};
     bool isHFRMode() {return mParameters.isHfrMode();};
@@ -416,6 +416,7 @@ private:
     int32_t configureZSLHDRBracketing();
     int32_t startZslBracketing(QCameraPicChannel *pZSLchannel);
     int32_t configureOptiZoom();
+    int32_t configureAEBracketing();
     inline void setOutputImageCount(uint32_t aCount) {mOutputCount = aCount;}
     inline uint32_t getOutputImageCount() {return mOutputCount;}
     bool processUFDumps(qcamera_jpeg_evt_payload_t *evt);

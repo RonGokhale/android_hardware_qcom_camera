@@ -534,6 +534,8 @@ public:
     int32_t getExifGpsDateTimeStamp(char *gpsDateStamp, uint32_t bufLen, rat_t *gpsTimeStamp);
     int32_t updateFocusDistances(cam_focus_distances_info_t *focusDistances);
 
+    bool isAEBracketEnabled();
+    int32_t setAEBracketing();
     bool isFpsDebugEnabled() {return m_bDebugFps;};
     bool isHistogramEnabled() {return m_bHistogramEnabled;};
     bool isFaceDetectionEnabled() {return ((m_nFaceProcMask & CAM_FACE_PROCESS_MASK_DETECTION) != 0);};
@@ -545,8 +547,8 @@ public:
     int32_t setHDRAEBracket(cam_exp_bracketing_t hdrBracket);
     bool isHDREnabled();
     bool isAutoHDREnabled();
-    int32_t restoreAEBracket();
-    int32_t enableFlash(bool enableFlash);
+    int32_t stopAEBracket();
+    int32_t enableFlash(bool enableFlash, bool commitSettings);
     int32_t updateRAW(cam_dimension_t max_dim);
     bool isAVTimerEnabled();
     bool isMobicatEnabled();
@@ -598,6 +600,8 @@ public:
     inline bool generateThumbFromMain() {return isUbiFocusEnabled() ||
         isChromaFlashEnabled() || isOptiZoomEnabled(); }
     int32_t  updateCurrentFocusPosition(int32_t pos);
+    bool isDisplayFrameNeeded() { return m_bDisplayFrame; };
+    int32_t setDisplayFrame(bool enabled) {m_bDisplayFrame=enabled; return 0;};
 
 private:
     int32_t setPreviewSize(const QCameraParameters& );
@@ -830,6 +834,7 @@ private:
     bool m_bUbiRefocus;
     cam_fps_range_t m_hfrFpsRange;
     bool m_bHfrMode;
+    bool m_bDisplayFrame;
 };
 
 }; // namespace qcamera
