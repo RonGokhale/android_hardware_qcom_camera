@@ -40,8 +40,10 @@
 
 #define MAP_TO_DRIVER_COORDINATE(val, base, scale, offset) (val * scale / base + offset)
 #define CAMERA_MIN_STREAMING_BUFFERS     3
+#define EXTRA_ZSL_PREVIEW_STREAM_BUF     2
 #define CAMERA_MIN_JPEG_ENCODING_BUFFERS 2
 #define CAMERA_MIN_VIDEO_BUFFERS         9
+#define CAMERA_LONGSHOT_STAGES           4
 
 #define HDR_CONFIDENCE_THRESHOLD 0.4
 
@@ -1412,7 +1414,14 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
     case CAM_STREAM_TYPE_PREVIEW:
         {
             if (mParameters.isZSLMode()) {
-                bufferCnt = zslQBuffers + minCircularBufNum;
+                /* We need to add two extra streming buffers to add
+                  flexibility in forming matched super buf in ZSL queue.
+                  with number being 'zslQBuffers + minCircularBufNum'
+                  we see preview buffers sometimes get dropped at CPP
+                  and super buf is not forming in ZSL Q for long time. */
+
+                bufferCnt = zslQBuffers + minCircularBufNum +
+                        EXTRA_ZSL_PREVIEW_STREAM_BUF;
             } else {
                 bufferCnt = CAMERA_MIN_STREAMING_BUFFERS +
                             mParameters.getMaxUnmatchedFramesInQueue();
@@ -1436,7 +1445,14 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
     case CAM_STREAM_TYPE_SNAPSHOT:
         {
             if (mParameters.isZSLMode() || mLongshotEnabled) {
-                bufferCnt = zslQBuffers + minCircularBufNum;
+                if (minCaptureBuffers == 1 && !mLongshotEnabled) {
+                    // Single ZSL snapshot case
+                    bufferCnt = zslQBuffers + CAMERA_MIN_STREAMING_BUFFERS;
+                }
+                else {
+                    // ZSL Burst or Longshot case
+                    bufferCnt = zslQBuffers + minCircularBufNum;
+                }
             } else {
                 bufferCnt = minCaptureBuffers +
                             mParameters.getNumOfExtraHDRInBufsIfNeeded() -
@@ -1487,8 +1503,9 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
     case CAM_STREAM_TYPE_OFFLINE_PROC:
         {
             bufferCnt = minCaptureBuffers;
-            if (bufferCnt > maxStreamBuf) {
-                bufferCnt = maxStreamBuf;
+            if ((mLongshotEnabled) ||
+                    ( bufferCnt > CAMERA_LONGSHOT_STAGES ) ) {
+                bufferCnt = CAMERA_LONGSHOT_STAGES;
             }
         }
         break;
@@ -2450,16 +2467,48 @@ int QCamera2HardwareInterface::putParameters(char *parms)
  *              NO_ERROR  -- success
  *              none-zero failure code
  *==========================================================================*/
-int QCamera2HardwareInterface::sendCommand(int32_t command, int32_t /*arg1*/, int32_t /*arg2*/)
+int QCamera2HardwareInterface::sendCommand(int32_t command,
+        int32_t &arg1, int32_t &/*arg2*/)
 {
     int rc = NO_ERROR;
 
     switch (command) {
     case CAMERA_CMD_LONGSHOT_ON:
+        arg1 = 0;
         // Longshot can only be enabled when image capture
         // is not active.
         if ( !m_stateMachine.isCaptureRunning() ) {
             mLongshotEnabled = true;
+
+            // Due to recent buffer count optimizations
+            // ZSL might run with considerably less buffers
+            // when not in longshot mode. Preview needs to
+            // restart in this case.
+            if (isZSLMode() && m_stateMachine.isPreviewRunning()) {
+                QCameraChannel *pChannel = NULL;
+                QCameraStream *pSnapStream = NULL;
+                pChannel = m_channels[QCAMERA_CH_TYPE_ZSL];
+                if (NULL != pChannel) {
+                    QCameraStream *pStream = NULL;
+                    for(int i = 0; i < pChannel->getNumOfStreams(); i++) {
+                        pStream = pChannel->getStreamByIndex(i);
+                        if (pStream != NULL) {
+                            if (pStream->isTypeOf(CAM_STREAM_TYPE_SNAPSHOT)) {
+                                pSnapStream = pStream;
+                                break;
+                            }
+                        }
+                    }
+                    if (NULL != pSnapStream) {
+                        uint8_t required = 0;
+                        required = getBufNumRequired(CAM_STREAM_TYPE_SNAPSHOT);
+                        if (pSnapStream->getBufferCount() < required) {
+                            arg1 = QCAMERA_SM_EVT_RESTART_PERVIEW;
+                        }
+                    }
+                }
+            }
+            //
         } else {
             rc = NO_INIT;
         }
@@ -3875,10 +3924,6 @@ QCameraReprocessChannel *QCamera2HardwareInterface::addOnlineReprocChannel(
               gCamCapability[mCameraId]->hdr_bracketing_setting.num_frames;
     }
 
-    if ( mLongshotEnabled ) {
-        minStreamBufNum = getBufNumRequired(CAM_STREAM_TYPE_PREVIEW);
-    }
-
     ALOGD("%s: Allocating %d reproc buffers",__func__,minStreamBufNum);
 
     rc = pChannel->addReprocStreamsFromSource(*this,
@@ -5210,6 +5255,26 @@ void QCamera2HardwareInterface::copyList(cam_dimension_t* src_list,
    for (int i = 0; i < len; i++) {
       dst_list[i] = src_list[i];
    }
+}
+
+/*===========================================================================
+ * FUNCTION   : isCaptureShutterEnabled
+ *
+ * DESCRIPTION: Check whether shutter should be triggered immediately after
+ *              capture
+ *
+ * PARAMETERS :
+ *
+ * RETURN     : true - regular capture
+ *              false - other type of capture
+ *==========================================================================*/
+bool QCamera2HardwareInterface::isCaptureShutterEnabled()
+{
+    char prop[PROPERTY_VALUE_MAX];
+    memset(prop, 0, sizeof(prop));
+    property_get("persist.camera.feature.shutter", prop, "0");
+    int enableShutter = atoi(prop);
+    return enableShutter == 1;
 }
 
 }; // namespace qcamera
