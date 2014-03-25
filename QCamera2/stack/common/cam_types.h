@@ -967,6 +967,7 @@ typedef enum {
     CAM_INTF_PARM_HDR_NEED_1X, /* if HDR needs 1x output */ /* 40 */
     CAM_INTF_PARM_LOCK_CAF,
     CAM_INTF_PARM_VIDEO_HDR,
+    CAM_INTF_PARM_SNAPSHOT_HDR,
     CAM_INTF_PARM_ROTATION,
     CAM_INTF_PARM_SCALE,
     CAM_INTF_PARM_VT, /* indicating if it's a Video Call Apllication */
@@ -1289,6 +1290,8 @@ typedef struct {
 #define CAM_QCOM_FEATURE_CAC            (1<<9)
 #define CAM_QCOM_FEATURE_SCALE          (1<<10)
 #define CAM_QCOM_FEATURE_EFFECT         (1<<11)
+#define CAM_QCOM_FEATURE_SNAPSHOT_HDR   (1<<12)
+
 
 // Counter clock wise
 typedef enum {
