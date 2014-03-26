@@ -7151,12 +7151,12 @@ int32_t QCameraParameters::AddGetParmEntryToBatch(void *p_table,
     parm_entry_type_new_t *curr_param = (parm_entry_type_new_t *)&param_buf->entry[0];
 
     /* first search if the key is already present in the batch list
-     * this is a search penalty but as the batch list is never more 
+     * this is a search penalty but as the batch list is never more
      * than a few tens of entries at most,it should be ok.
      * if search performance becomes a bottleneck, we can
      * think of implementing a hashing mechanism.
      * but it is still better than the huge memory required for
-     * direct indexing 
+     * direct indexing
      */
     for (j = 0; j < num_entry; j++) {
       if (paramType == curr_param->entry_type) {

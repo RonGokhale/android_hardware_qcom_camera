@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -45,7 +45,7 @@ void *POINTER_OF_PARAM(cam_intf_parm_type_t PARAM_ID,
   }
   curr_param = (parm_entry_type_new_t *)&TABLE_PTR->entry[0];
   return (void *)&curr_param->data[0]; //should not be coming here
-                                       //this is just to prevent a crash 
+                                       //this is just to prevent a crash
                                        //for the caller
 }
 
