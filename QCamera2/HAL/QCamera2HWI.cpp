@@ -3334,8 +3334,6 @@ int32_t QCamera2HardwareInterface::addPreviewChannel()
 {
     int32_t rc = NO_ERROR;
     QCameraChannel *pChannel = NULL;
-    char value[PROPERTY_VALUE_MAX];
-    bool raw_yuv = false;
 
     if (m_channels[QCAMERA_CH_TYPE_PREVIEW] != NULL) {
         // Using the no preview torch WA it is possible
@@ -3380,21 +3378,6 @@ int32_t QCamera2HardwareInterface::addPreviewChannel()
         ALOGE("%s: add preview stream failed, ret = %d", __func__, rc);
         delete pChannel;
         return rc;
-    }
-
-    property_get("persist.camera.raw_yuv", value, "0");
-    raw_yuv = atoi(value) > 0 ? true : false;
-    if ( raw_yuv &&
-         ( mParameters.getRecordingHintValue() == false ) ) {
-        rc = addStreamToChannel(pChannel,
-                                CAM_STREAM_TYPE_RAW,
-                                preview_raw_stream_cb_routine,
-                                this);
-        if (rc != NO_ERROR) {
-            ALOGE("%s: add raw stream failed, ret = %d", __func__, rc);
-            delete pChannel;
-            return rc;
-        }
     }
 
     m_channels[QCAMERA_CH_TYPE_PREVIEW] = pChannel;
