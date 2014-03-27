@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -27,50 +27,23 @@
  *
  */
 
-#ifndef __MM_CAMERA_DBG_H__
-#define __MM_CAMERA_DBG_H__
+#include "cam_intf.h"
 
-#define LOG_DEBUG 1
-/* Choose debug log level. This will not affect the error logs
-   0: turns off CDBG and CDBG_HIGH logs
-   1: turns-on CDBG_HIGH logs
-   2: turns-on CDBG_HIGH and CDBG logs */
-extern volatile uint32_t gMmCameraIntfLogLevel;
+void *POINTER_OF_PARAM(cam_intf_parm_type_t PARAM_ID,
+                 void *table_ptr)
+{
+    parm_buffer_new_t *TABLE_PTR = (parm_buffer_new_t *)table_ptr;
+    int32_t j = 0, i = TABLE_PTR->num_entry;
+    parm_entry_type_new_t *curr_param =
+                (parm_entry_type_new_t *)&TABLE_PTR->entry[0];
 
-#ifndef LOG_DEBUG
-  #ifdef _ANDROID_
-    #undef LOG_NIDEBUG
-    #undef LOG_TAG
-    #define LOG_NIDEBUG 0
-    #define LOG_TAG "mm-camera-intf"
-    #include <utils/Log.h>
-  #else
-    #include <stdio.h>
-    #define ALOGE CDBG
-  #endif
-  #undef CDBG
-  #define CDBG(fmt, args...) do{}while(0)
-  #define CDBG_ERROR(fmt, args...) ALOGE(fmt, ##args)
-#else
-  #ifdef _ANDROID_
-    #undef LOG_NIDEBUG
-    #undef LOG_TAG
-    #define LOG_NIDEBUG 0
-    #define LOG_TAG "mm-camera-intf"
-    #include <utils/Log.h>
-    #define CDBG(fmt, args...) ALOGD_IF(gMmCameraIntfLogLevel >= 2, fmt, ##args)
-  #else
-    #include <stdio.h>
-    #define CDBG(fmt, args...) fprintf(stderr, fmt, ##args)
-    #define ALOGE(fmt, args...) fprintf(stderr, fmt, ##args)
-  #endif
-#endif
+    for (j = 0; j < i; j++) {
+      if (PARAM_ID == curr_param->entry_type) {
+        return (void *)&curr_param->data[0];
+      }
+      curr_param = GET_NEXT_PARAM(curr_param, parm_entry_type_new_t);
+    }
+    curr_param = (parm_entry_type_new_t *)&TABLE_PTR->entry[0];
+    return NULL;
+}
 
-#ifdef _ANDROID_
-  #define CDBG_HIGH(fmt, args...) ALOGD_IF(gMmCameraIntfLogLevel >= 1, fmt, ##args)
-  #define CDBG_ERROR(fmt, args...)  ALOGE(fmt, ##args)
-#else
-  #define CDBG_HIGH(fmt, args...) fprintf(stderr, fmt, ##args)
-  #define CDBG_ERROR(fmt, args...) fprintf(stderr, fmt, ##args)
-#endif
-#endif /* __MM_CAMERA_DBG_H__ */
