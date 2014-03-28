@@ -51,6 +51,7 @@ static mm_camera_ctrl_t g_cam_ctrl = {0, {{0}}, {0}};
 
 static pthread_mutex_t g_handler_lock = PTHREAD_MUTEX_INITIALIZER;
 static uint16_t g_handler_history_count = 0; /* history count for handler */
+volatile uint32_t gMmCameraIntfLogLevel = 0;
 
 /*===========================================================================
  * FUNCTION   : mm_camera_util_generate_handler
@@ -185,8 +186,7 @@ static int32_t mm_camera_intf_query_capability(uint32_t camera_handle)
  *              domain socket. Corresponding fields of parameters to be set
  *              are already filled in by upper layer caller.
  *==========================================================================*/
-static int32_t mm_camera_intf_set_parms(uint32_t camera_handle,
-                                        parm_buffer_t *parms)
+static int32_t mm_camera_intf_set_parms(uint32_t camera_handle, void *parms)
 {
     int32_t rc = -1;
     mm_camera_obj_t * my_obj = NULL;
@@ -222,8 +222,7 @@ static int32_t mm_camera_intf_set_parms(uint32_t camera_handle,
  *              fields of requested parameters will be filled in by server with
  *              detailed information.
  *==========================================================================*/
-static int32_t mm_camera_intf_get_parms(uint32_t camera_handle,
-                                        parm_buffer_t *parms)
+static int32_t mm_camera_intf_get_parms(uint32_t camera_handle, void *parms)
 {
     int32_t rc = -1;
     mm_camera_obj_t * my_obj = NULL;
@@ -1197,6 +1196,9 @@ uint8_t get_num_of_cameras()
     int32_t sd_fd = 0;
     struct sensor_init_cfg_data cfg;
     char prop[PROPERTY_VALUE_MAX];
+
+    property_get("persist.camera.logs", prop, "0");
+    gMmCameraIntfLogLevel = atoi(prop);
 
     CDBG("%s : E", __func__);
 
