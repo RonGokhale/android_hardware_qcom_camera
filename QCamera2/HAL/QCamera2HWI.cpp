@@ -41,6 +41,7 @@
 
 #define MAP_TO_DRIVER_COORDINATE(val, base, scale, offset) (val * scale / base + offset)
 #define CAMERA_MIN_STREAMING_BUFFERS     3
+#define EXTRA_ZSL_PREVIEW_STREAM_BUF     2
 #define CAMERA_MIN_JPEG_ENCODING_BUFFERS 2
 #define CAMERA_MIN_VIDEO_BUFFERS         9
 
@@ -1506,10 +1507,12 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
     case CAM_STREAM_TYPE_METADATA:
         {
             if (mParameters.isZSLMode()) {
+                // MetaData buffers should be >= (Preview buffers-minUndequeCount)
                 bufferCnt = zslQBuffers + minCircularBufNum +
                             mParameters.getNumOfExtraHDRInBufsIfNeeded() -
                             mParameters.getNumOfExtraHDROutBufsIfNeeded() +
-                            mParameters.getNumOfExtraBuffersForImageProc();
+                            mParameters.getNumOfExtraBuffersForImageProc() +
+                            EXTRA_ZSL_PREVIEW_STREAM_BUF;
             } else {
                 bufferCnt = minCaptureBuffers +
                             mParameters.getNumOfExtraHDRInBufsIfNeeded() -
