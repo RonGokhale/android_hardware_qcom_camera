@@ -44,6 +44,7 @@
 #define CAMERA_MIN_JPEG_ENCODING_BUFFERS 2
 #define CAMERA_MIN_VIDEO_BUFFERS         9
 #define CAMERA_LONGSHOT_STAGES           4
+#define EXTRA_ZSL_PREVIEW_STREAM_BUF     2
 
 //This multiplier signifies extra buffers that we need to allocate
 //for the output of pproc
@@ -1501,10 +1502,12 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
     case CAM_STREAM_TYPE_METADATA:
         {
             if (mParameters.isZSLMode()) {
+                // MetaData buffers should be >= (Preview buffers-minUndequeCount)
                 bufferCnt = zslQBuffers + minCircularBufNum +
                             mParameters.getNumOfExtraHDRInBufsIfNeeded() -
                             mParameters.getNumOfExtraHDROutBufsIfNeeded() +
-                            mParameters.getNumOfExtraBuffersForImageProc();
+                            mParameters.getNumOfExtraBuffersForImageProc() +
+                            EXTRA_ZSL_PREVIEW_STREAM_BUF;
             } else {
                 bufferCnt = minCaptureBuffers +
                             mParameters.getNumOfExtraHDRInBufsIfNeeded() -
