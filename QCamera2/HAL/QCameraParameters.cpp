@@ -3593,6 +3593,11 @@ int32_t QCameraParameters::initDefaultParameters()
         ALOGE("%s:Failed to initialize group update table", __func__);
         return BAD_TYPE;
     }
+    int32_t hal_version = CAM_HAL_V1;
+    AddSetParmEntryToBatch(m_pParamBuf,
+                           CAM_INTF_PARM_HAL_VERSION,
+                           sizeof(hal_version),
+                           &hal_version);
 
     /*************************Initialize Values******************************/
     // Set read only parameters from camera capability
@@ -5167,6 +5172,10 @@ int32_t QCameraParameters::setDISValue(const char *disStr)
                                    sizeof(ENABLE_DISABLE_MODES_MAP)/sizeof(QCameraMap),
                                    disStr);
         if (value != NAME_NOT_FOUND) {
+            //For some IS types (like EIS 2.0), when DIS value is changed, we need to restart
+            //preview because of topology change in backend. But, for now, restart preview
+            //for all IS types.
+            m_bNeedRestart = true;
             ALOGD("%s: Setting DIS value %s", __func__, disStr);
             updateParamEntry(KEY_QC_DIS, disStr);
             return AddSetParmEntryToBatch(m_pParamBuf,
@@ -7673,6 +7682,7 @@ const char *QCameraParameters::getFrameFmtString(cam_format_t fmt)
  *==========================================================================*/
 int32_t QCameraParameters::initBatchUpdate(void *p_table)
 {
+
     m_tempMap.clear();
     ALOGD("%s:Initializing batch parameter set",__func__);
 
@@ -7680,7 +7690,6 @@ int32_t QCameraParameters::initBatchUpdate(void *p_table)
     memset(param_buf, 0, sizeof(PARAM_TABLE_SIZE));
     param_buf->num_entry = 0;
     param_buf->curr_size = 0;
-
     return NO_ERROR;
 }
 
