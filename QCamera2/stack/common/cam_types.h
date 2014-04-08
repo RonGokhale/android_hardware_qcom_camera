@@ -44,16 +44,44 @@
 #define CEILING4(X)  (((X) + 0x0003) & 0xFFFC)
 #define CEILING2(X)  (((X) + 0x0001) & 0xFFFE)
 
+#define CAM_FN_CNT 255
+/** CAM_DUMP_TO_FILE:
+ *  @filename: file name
+ *  @name:filename
+ *  @index: index of the file
+ *  @extn: file extension
+ *  @p_addr: address of the buffer
+ *  @len: buffer length
+ *
+ *  dump the image to the file
+ **/
+#define CAM_DUMP_TO_FILE(path, name, index, extn, p_addr, len) ({ \
+  int rc = 0; \
+  char filename[CAM_FN_CNT]; \
+  if (index >= 0) \
+    snprintf(filename, CAM_FN_CNT-1, "%s/%s%d.%s", path, name, index, extn); \
+  else \
+    snprintf(filename, CAM_FN_CNT-1, "%s/%s.%s", path, name, extn); \
+  FILE *fp = fopen(filename, "w+"); \
+  if (fp) { \
+    rc = fwrite(p_addr, 1, len, fp); \
+    ALOGE("%s:%d] written size %d", __func__, __LINE__, len); \
+    fclose(fp); \
+  } else { \
+    ALOGE("%s:%d] open %s failed", __func__, __LINE__, filename); \
+  } \
+})
+
 #define MAX_ZOOMS_CNT 79
 #define MAX_SIZES_CNT 24
 #define MAX_EXP_BRACKETING_LENGTH 32
 #define MAX_ROI 5
 #define MAX_STREAM_NUM_IN_BUNDLE 4
 #define MAX_NUM_STREAMS          8
-#define CHROMATIX_SIZE 21292
-#define COMMONCHROMATIX_SIZE 42044
-#define CPPCHROMATIX_SIZE 35432
-#define AFTUNE_SIZE 2000
+#define CHROMATIX_SIZE 60000
+#define COMMONCHROMATIX_SIZE 45000
+#define CPPCHROMATIX_SIZE 36000
+#define AFTUNE_SIZE 2500
 #define MAX_SCALE_SIZES_CNT 8
 #define MAX_SAMP_DECISION_CNT     64
 
@@ -839,16 +867,6 @@ typedef struct {
     cam_stream_crop_info_t crop_info[MAX_NUM_STREAMS];
 } cam_crop_data_t;
 
-typedef struct {
-    uint32_t stream_id;
-    uint32_t hold_buffers;
-} cam_stream_buffer_info_t;
-
-typedef struct {
-    uint8_t num_of_streams;
-    cam_stream_buffer_info_t info[MAX_NUM_STREAMS];
-} cam_buffer_data_t;
-
 typedef enum {
     DO_NOT_NEED_FUTURE_FRAME,
     NEED_FUTURE_FRAME,
@@ -881,6 +899,10 @@ typedef struct {
     cam_flash_mode_t flash_mode;
     float            aperture_value;
     cam_flash_state_t        flash_state;
+    float            focal_length;
+    float            f_number;
+    int              sensing_method;
+    float            crop_factor;
 } cam_sensor_params_t;
 
 typedef struct {
@@ -889,6 +911,11 @@ typedef struct {
     uint32_t flash_needed;
     int settled;
     cam_wb_mode_type wb_mode;
+    uint32_t metering_mode;
+    uint32_t exposure_program;
+    uint32_t exposure_mode;
+    uint32_t scenetype;
+    float brightness;
 } cam_3a_params_t;
 
 
@@ -1079,6 +1106,8 @@ typedef enum {
     CAM_INTF_META_ASD_HDR_SCENE_DATA,
     CAM_INTF_META_ASD_SCENE_TYPE,
     CAM_INTF_META_AEC_INFO,
+    CAM_INTF_META_SENSOR_INFO,
+    CAM_INTF_META_ASD_SCENE_CAPTURE_TYPE,
     CAM_INTF_META_CHROMATIX_LITE_ISP,
     CAM_INTF_META_CHROMATIX_LITE_PP,
     CAM_INTF_META_CHROMATIX_LITE_AE,
@@ -1093,6 +1122,7 @@ typedef enum {
     CAM_INTF_PARM_SET_PP_COMMAND,
     CAM_INTF_PARM_TINTLESS,
     CAM_INTF_PARM_LONGSHOT_ENABLE,
+    CAM_INTF_PARM_RDI_MODE,
 
     /* stream based parameters */
     CAM_INTF_PARM_DO_REPROCESS,
@@ -1101,7 +1131,6 @@ typedef enum {
     CAM_INTF_PARM_GET_OUTPUT_CROP,
 
     CAM_INTF_PARM_EZTUNE_CMD,
-    CAM_INTF_PARM_GET_BUFFER_INFO,
 
     /* specific to HAL3 */
     /* Whether the metadata maps to a valid frame number */
@@ -1253,6 +1282,7 @@ typedef enum {
     CAM_INTF_META_STREAM_ID,
     CAM_INTF_PARM_FOCUS_BRACKETING,
     CAM_INTF_PARM_FLASH_BRACKETING,
+    CAM_INTF_PARM_GET_IMG_PROP,
 
     CAM_INTF_PARM_MAX
 } cam_intf_parm_type_t;
@@ -1477,6 +1507,7 @@ typedef struct {
     uint8_t enable;
     uint8_t burst_count;
     uint8_t focus_steps[MAX_AF_BRACKETING_VALUES];
+    uint8_t output_count;
 } cam_af_bracketing_t;
 
 typedef struct {
