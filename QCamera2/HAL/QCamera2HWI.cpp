@@ -2491,6 +2491,7 @@ int QCamera2HardwareInterface::sendCommand(int32_t command, int32_t /*arg1*/, in
         // is not active.
         if ( !m_stateMachine.isCaptureRunning() ) {
             mLongshotEnabled = true;
+            mParameters.setBurstLEDFlashLevel(CAM_LED_FLASH_LOW);
         } else {
             rc = NO_INIT;
         }
@@ -2501,6 +2502,7 @@ int QCamera2HardwareInterface::sendCommand(int32_t command, int32_t /*arg1*/, in
             processEvt(QCAMERA_SM_EVT_SNAPSHOT_DONE, NULL);
         }
         mLongshotEnabled = false;
+        mParameters.setBurstLEDFlashLevel(CAM_LED_FLASH_DEFAULT);
         break;
     case CAMERA_CMD_HISTOGRAM_ON:
     case CAMERA_CMD_HISTOGRAM_OFF:

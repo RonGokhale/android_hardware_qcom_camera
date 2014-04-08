@@ -528,7 +528,8 @@ public:
 
     const char *getASDStateString(cam_auto_scene_t scene);
     bool isHDRThumbnailProcessNeeded() { return m_bHDRThumbnailProcessNeeded; };
-	int getAutoFlickerMode();
+    int getAutoFlickerMode();
+    int32_t setBurstLEDFlashLevel(cam_led_flash_burst_level level);
 
 private:
     int32_t setPreviewSize(const QCameraParameters& );
@@ -729,6 +730,7 @@ private:
     bool m_bHDROutputCropEnabled;     // if HDR output frame need to be scaled to user resolution
     QCameraTorchInterface *m_pTorch; // Interface for enabling torch
     bool m_bReleaseTorchCamera; // Release camera resources after torch gets disabled
+    cam_led_flash_burst_level m_LEDFlashLevel; // LED flash level for burst shot
 
     DefaultKeyedVector<String8,String8> m_tempMap; // map for temororily store parameters to be set
     cam_fps_range_t m_default_fps_range;
