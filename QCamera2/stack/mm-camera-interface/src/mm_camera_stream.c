@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -94,7 +94,7 @@ int32_t mm_stream_calc_offset_metadata(cam_dimension_t *dim,
                                        cam_stream_buf_plane_info_t *buf_planes);
 int32_t mm_stream_calc_offset_postproc(cam_stream_info_t *stream_info,
                                        cam_padding_info_t *padding,
-                                       cam_stream_buf_plane_info_t *buf_planes);
+                                       cam_stream_buf_plane_info_t *plns);
 
 
 /* state machine function declare */
@@ -913,7 +913,17 @@ int32_t mm_stream_streamoff(mm_stream_t *my_obj)
          __func__, my_obj->my_hdl, my_obj->fd, my_obj->state);
 
     /* step1: remove fd from data poll thread */
-    mm_camera_poll_thread_del_poll_fd(&my_obj->ch_obj->poll_thread[0], my_obj->my_hdl, mm_camera_sync_call);
+    rc = mm_camera_poll_thread_del_poll_fd(&my_obj->ch_obj->poll_thread[0],
+            my_obj->my_hdl, mm_camera_sync_call);
+    if (rc < 0) {
+        /* The error might be due to async update. In this case
+         * wait for all updates to complete before proceeding. */
+        rc = mm_camera_poll_thread_commit_updates(&my_obj->ch_obj->poll_thread[0]);
+        if (rc < 0) {
+            CDBG_ERROR("%s: Poll sync failed %d",
+                 __func__, rc);
+        }
+    }
 
     /* step2: stream off */
     rc = ioctl(my_obj->fd, VIDIOC_STREAMOFF, &buf_type);
@@ -1132,8 +1142,9 @@ int32_t mm_stream_qbuf(mm_stream_t *my_obj, mm_camera_buf_def_t *buf)
     int32_t rc = 0;
     struct v4l2_buffer buffer;
     struct v4l2_plane planes[VIDEO_MAX_PLANES];
-    CDBG("%s: E, my_handle = 0x%x, fd = %d, state = %d",
-         __func__, my_obj->my_hdl, my_obj->fd, my_obj->state);
+    CDBG("%s: E, my_handle = 0x%x, fd = %d, state = %d, stream type = %d",
+         __func__, my_obj->my_hdl, my_obj->fd, my_obj->state,
+         my_obj->stream_info->stream_type);
 
     memcpy(planes, buf->planes, sizeof(planes));
     memset(&buffer, 0, sizeof(buffer));
@@ -1173,7 +1184,7 @@ int32_t mm_stream_qbuf(mm_stream_t *my_obj, mm_camera_buf_def_t *buf)
                 mm_camera_async_call);
         CDBG_HIGH("%s: Started poll on stream %p type :%d", __func__, my_obj,my_obj->stream_info->stream_type);
         if (rc < 0) {
-            ALOGE("%s: add poll fd error", __func__);
+            CDBG_ERROR("%s: add poll fd error", __func__);
             return rc;
         }
     }
@@ -2263,7 +2274,6 @@ int32_t mm_stream_calc_offset_raw(cam_format_t fmt,
     case CAM_FORMAT_YUV_RAW_8BIT_UYVY:
     case CAM_FORMAT_YUV_RAW_8BIT_VYUY:
     case CAM_FORMAT_JPEG_RAW_8BIT:
-    case CAM_FORMAT_META_RAW_8BIT:
         /* 1 plane */
         /* Every 16 pixels occupy 16 bytes */
         stride = PAD_TO_SIZE(dim->width, CAM_PAD_TO_16);
@@ -2280,6 +2290,21 @@ int32_t mm_stream_calc_offset_raw(cam_format_t fmt,
         buf_planes->plane_info.mp[0].width = buf_planes->plane_info.mp[0].len;
         buf_planes->plane_info.mp[0].height = 1;
         break;
+    case CAM_FORMAT_META_RAW_8BIT:
+        // Every 16 pixels occupy 16 bytes
+        stride = PAD_TO_SIZE(dim->width, CAM_PAD_TO_16);
+        buf_planes->plane_info.num_planes = 1;
+        buf_planes->plane_info.mp[0].offset = 0;
+        buf_planes->plane_info.mp[0].len =
+            PAD_TO_SIZE(stride * scanline * 2, padding->plane_padding);
+        buf_planes->plane_info.frame_len =
+            PAD_TO_SIZE(buf_planes->plane_info.mp[0].len, CAM_PAD_TO_4K);
+        buf_planes->plane_info.mp[0].offset_x =0;
+        buf_planes->plane_info.mp[0].offset_y = 0;
+        buf_planes->plane_info.mp[0].stride = stride;
+        buf_planes->plane_info.mp[0].scanline = scanline;
+        break;
+
     case CAM_FORMAT_BAYER_QCOM_RAW_8BPP_GBRG:
     case CAM_FORMAT_BAYER_QCOM_RAW_8BPP_GRBG:
     case CAM_FORMAT_BAYER_QCOM_RAW_8BPP_RGGB:
@@ -2579,7 +2604,7 @@ int32_t mm_stream_calc_offset_metadata(cam_dimension_t *dim,
  * PARAMETERS :
  *   @stream_info: ptr to stream info
  *   @padding : padding information
- *   @buf_planes : [out] buffer plane information
+ *   @plns : [out] buffer plane information
  *
  * RETURN     : int32_t type of status
  *              0  -- success
@@ -2587,53 +2612,59 @@ int32_t mm_stream_calc_offset_metadata(cam_dimension_t *dim,
  *==========================================================================*/
 int32_t mm_stream_calc_offset_postproc(cam_stream_info_t *stream_info,
                                        cam_padding_info_t *padding,
-                                       cam_stream_buf_plane_info_t *buf_planes)
+                                       cam_stream_buf_plane_info_t *plns)
 {
     int32_t rc = 0;
+    cam_stream_type_t type = CAM_STREAM_TYPE_DEFAULT;
     if (stream_info->reprocess_config.pp_type == CAM_OFFLINE_REPROCESS_TYPE) {
-        if (buf_planes->plane_info.frame_len == 0) {
-            // take offset from input source
-            *buf_planes = stream_info->reprocess_config.offline.input_buf_planes;
+        type = stream_info->reprocess_config.offline.input_type;
+        if (CAM_STREAM_TYPE_DEFAULT == type) {
+            if (plns->plane_info.frame_len == 0) {
+                // take offset from input source
+                *plns = stream_info->reprocess_config.offline.input_buf_planes;
+            }
+            return rc;
         }
-        return rc;
+    } else {
+        type = stream_info->reprocess_config.online.input_stream_type;
     }
 
-    switch (stream_info->reprocess_config.online.input_stream_type) {
+    switch (type) {
     case CAM_STREAM_TYPE_PREVIEW:
     case CAM_STREAM_TYPE_CALLBACK:
         rc = mm_stream_calc_offset_preview(stream_info->fmt,
                                            &stream_info->dim,
-                                           buf_planes);
+                                           plns);
         break;
     case CAM_STREAM_TYPE_POSTVIEW:
         rc = mm_stream_calc_offset_post_view(stream_info->fmt,
                                            &stream_info->dim,
-                                           buf_planes);
+                                           plns);
         break;
     case CAM_STREAM_TYPE_SNAPSHOT:
         rc = mm_stream_calc_offset_snapshot(stream_info->fmt,
                                             &stream_info->dim,
                                             padding,
-                                            buf_planes);
+                                            plns);
         break;
     case CAM_STREAM_TYPE_VIDEO:
         rc = mm_stream_calc_offset_video(&stream_info->dim,
-                                         buf_planes);
+                        plns);
         break;
     case CAM_STREAM_TYPE_RAW:
         rc = mm_stream_calc_offset_raw(stream_info->fmt,
                                        &stream_info->dim,
                                        padding,
-                                       buf_planes);
+                                       plns);
         break;
     case CAM_STREAM_TYPE_METADATA:
         rc = mm_stream_calc_offset_metadata(&stream_info->dim,
                                             padding,
-                                            buf_planes);
+                                            plns);
         break;
     default:
         CDBG_ERROR("%s: not supported for stream type %d",
-                   __func__, stream_info->reprocess_config.online.input_stream_type);
+                   __func__, type);
         rc = -1;
         break;
     }

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -177,6 +177,7 @@ typedef struct{
     uint32_t min_required_pp_mask;        /* min required pp feature masks for ZSL.
                                            * depends on hardware limitation, i.e. for 8974,
                                            * sharpness is required for all ZSL snapshot frames */
+    cam_format_t rdi_mode_stream_fmt;  /* stream format supported in rdi mode */
 
     /* capabilities specific to HAL 3 */
 
@@ -309,7 +310,7 @@ typedef enum {
     CAM_STREAM_PARAM_TYPE_SET_BUNDLE_INFO = CAM_INTF_PARM_SET_BUNDLE,
     CAM_STREAM_PARAM_TYPE_SET_FLIP = CAM_INTF_PARM_STREAM_FLIP,
     CAM_STREAM_PARAM_TYPE_GET_OUTPUT_CROP = CAM_INTF_PARM_GET_OUTPUT_CROP,
-    CAM_STREAM_PARAM_TYPE_GET_BUFFER_INFO = CAM_INTF_PARM_GET_BUFFER_INFO,
+    CAM_STREAM_PARAM_TYPE_GET_IMG_PROP = CAM_INTF_PARM_GET_IMG_PROP,
     CAM_STREAM_PARAM_TYPE_MAX
 } cam_stream_param_type_e;
 
@@ -330,6 +331,18 @@ typedef struct {
     uint32_t flip_mask;
 } cam_flip_mode_t;
 
+#define IMG_NAME_SIZE 32
+typedef struct {
+    cam_rect_t crop;  /* crop info for the image */
+    cam_dimension_t input; /* input dimension of the image */
+    cam_dimension_t output; /* output dimension of the image */
+    char name[IMG_NAME_SIZE]; /* optional name of the ext*/
+    int is_raw_image; /* image is raw */
+    cam_format_t format; /* image format */
+    int analysis_image; /* image is used for analysis. hence skip thumbnail */
+    uint32_t size; /* size of the image */
+} cam_stream_img_prop_t;
+
 typedef struct {
     cam_stream_param_type_e type;
     union {
@@ -337,7 +350,7 @@ typedef struct {
         cam_bundle_config_t bundleInfo; /* set bundle info*/
         cam_flip_mode_t flipInfo;       /* flip mode */
         cam_crop_data_t outputCrop;     /* output crop for current frame */
-        cam_buffer_data_t buffer;       /* buffer data for current frame */
+        cam_stream_img_prop_t imgProp;  /* image properties of current frame */
     };
 } cam_stream_parm_buffer_t;
 
@@ -469,6 +482,8 @@ typedef union {
     INCLUDE(CAM_INTF_PARM_RAW_DIMENSION,            cam_dimension_t,             1);
     INCLUDE(CAM_INTF_PARM_TINTLESS,                 int32_t,                     1);
     INCLUDE(CAM_INTF_PARM_EZTUNE_CMD,               cam_eztune_cmd_data_t,       1);
+    INCLUDE(CAM_INTF_PARAM_LONGSHOT_ENABLE,         int8_t,                      1);
+    INCLUDE(CAM_INTF_PARM_RDI_MODE,                 int32_t,                     1);
 
     /* HAL3 specific */
     INCLUDE(CAM_INTF_META_FRAME_NUMBER,             uint32_t,                    1);
@@ -532,9 +547,8 @@ typedef union {
     INCLUDE(CAM_INTF_META_CROP_DATA,                    cam_crop_data_t,                1);
     INCLUDE(CAM_INTF_META_PREP_SNAPSHOT_DONE,           int32_t,                        1);
     INCLUDE(CAM_INTF_META_GOOD_FRAME_IDX_RANGE,         cam_frame_idx_range_t,          1);
-    INCLUDE(CAM_INTF_META_HDR_DATA,                     cam_asd_hdr_scene_data_t,       1);
+    INCLUDE(CAM_INTF_META_ASD_HDR_SCENE_DATA,           cam_asd_hdr_scene_data_t,       1);
     INCLUDE(CAM_INTF_META_ASD_SCENE_TYPE,               int32_t,                        1);
-    INCLUDE(CAM_INTF_META_AEC_INFO,                     cam_ae_params_t,                1);
     INCLUDE(CAM_INTF_META_CHROMATIX_LITE_ISP,           cam_chromatix_lite_isp_t,       1);
     INCLUDE(CAM_INTF_META_CHROMATIX_LITE_PP,            cam_chromatix_lite_pp_t,        1);
     INCLUDE(CAM_INTF_META_CHROMATIX_LITE_AE,            cam_chromatix_lite_ae_stats_t,  1);
@@ -590,7 +604,10 @@ typedef union {
     INCLUDE(CAM_INTF_META_STATS_SHARPNESS_MAP_MODE,     uint8_t,                     1);
     INCLUDE(CAM_INTF_META_STATS_SHARPNESS_MAP,          cam_sharpness_map_t,         3);
     INCLUDE(CAM_INTF_META_LENS_SHADING_MAP,             cam_lens_shading_map_t,      1);
-    INCLUDE(CAM_INTF_META_PRIVATE_DATA,                 char,                        MAX_METADATA_PAYLOAD_SIZE);
+    INCLUDE(CAM_INTF_META_AEC_INFO,                     cam_3a_params_t,             1);
+    INCLUDE(CAM_INTF_META_SENSOR_INFO,                  cam_sensor_params_t,         1);
+    INCLUDE(CAM_INTF_META_ASD_SCENE_CAPTURE_TYPE,       cam_auto_scene_t,            1);
+    INCLUDE(CAM_INTF_META_PRIVATE_DATA,                 char,                        MAX_METADATA_PRIVATE_PAYLOAD_SIZE);
 } metadata_type_t;
 
 /****************************DO NOT MODIFY BELOW THIS LINE!!!!*********************/

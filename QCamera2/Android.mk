@@ -34,7 +34,7 @@ LOCAL_CFLAGS := -Wall -Werror
 LOCAL_CFLAGS += -DHAS_MULTIMEDIA_HINTS
 
 #HAL 1.0 Flags
-LOCAL_CFLAGS += -DDEFAULT_ZSL_MODE_ON -DDEFAULT_DENOISE_MODE_ON -DHAL3
+LOCAL_CFLAGS += -DDEFAULT_DENOISE_MODE_ON -DHAL3
 
 LOCAL_C_INCLUDES := \
         $(LOCAL_PATH)/stack/common \
@@ -56,13 +56,8 @@ LOCAL_C_INCLUDES += \
 LOCAL_C_INCLUDES += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include
 
 #LOCAL_STATIC_LIBRARIES := libqcamera2_util
-ifneq ($(filter msm8974 msm8x74,$(TARGET_BOARD_PLATFORM)),)
 LOCAL_C_INCLUDES += \
         hardware/qcom/display/libgralloc
-else
-LOCAL_C_INCLUDES += \
-        hardware/qcom/display/libgralloc
-endif
 
 LOCAL_SHARED_LIBRARIES := libcamera_client liblog libhardware libutils libcutils libdl
 LOCAL_SHARED_LIBRARIES += libmmcamera_interface libmmjpeg_interface libui libcamera_metadata
@@ -74,7 +69,7 @@ LOCAL_MODULE_TAGS := optional
 
 include $(BUILD_SHARED_LIBRARY)
 
-#include $(LOCAL_PATH)/test/Android.mk
+#include $(LOCAL_PATH)/HAL/test/Android.mk
 
 include $(call first-makefiles-under,$(LOCAL_PATH))
 

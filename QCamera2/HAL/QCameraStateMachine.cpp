@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundataion. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundataion. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -352,6 +352,10 @@ int32_t QCameraStateMachine::procEvtPreviewStoppedState(qcamera_sm_evt_enum_t ev
         {
             bool needRestart = false;
             rc = m_parent->updateParameters((char*)payload, needRestart);
+            if (needRestart) {
+                // Clear memory pools
+                m_parent->m_memoryPool.clear();
+            }
             if (rc == NO_ERROR) {
                 rc = m_parent->commitParameterChanges();
             }
@@ -673,6 +677,8 @@ int32_t QCameraStateMachine::procEvtPreviewReadyState(qcamera_sm_evt_enum_t evt,
                 if (needRestart) {
                     // need restart preview for parameters to take effect
                     m_parent->unpreparePreview();
+                    // Clear memory pools
+                    m_parent->m_memoryPool.clear();
                     // commit parameter changes to server
                     m_parent->commitParameterChanges();
                     // prepare preview again
@@ -959,6 +965,8 @@ int32_t QCameraStateMachine::procEvtPreviewingState(qcamera_sm_evt_enum_t evt,
                     // need restart preview for parameters to take effect
                     // stop preview
                     m_parent->stopPreview();
+                    // Clear memory pools
+                    m_parent->m_memoryPool.clear();
                     // commit parameter changes to server
                     m_parent->commitParameterChanges();
                     // start preview again
@@ -1697,10 +1705,36 @@ int32_t QCameraStateMachine::procEvtPicTakingState(qcamera_sm_evt_enum_t evt,
             rc = m_parent->processJpegNotify(jpeg_job);
         }
         break;
+    case QCAMERA_SM_EVT_STOP_CAPTURE_CHANNEL:
+        {
+            bool restartPreview = m_parent->isPreviewRestartEnabled();
+            rc = m_parent->stopCaptureChannel(restartPreview);
+
+            if (restartPreview && (NO_ERROR == rc)) {
+                rc = m_parent->preparePreview();
+                if (NO_ERROR == rc) {
+                    m_parent->m_bPreviewStarted = true;
+                    rc = m_parent->startPreview();
+                }
+            }
+
+            result.status = rc;
+            result.request_api = evt;
+            result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
+            m_parent->signalAPIResult(&result);
+        }
+        break;
     case QCAMERA_SM_EVT_SNAPSHOT_DONE:
         {
             rc = m_parent->cancelPicture();
-            m_state = QCAMERA_SM_STATE_PREVIEW_STOPPED;
+
+            bool restartPreview = m_parent->isPreviewRestartEnabled();
+            if (restartPreview) {
+                m_state = QCAMERA_SM_STATE_PREVIEWING;
+            } else {
+                m_state = QCAMERA_SM_STATE_PREVIEW_STOPPED;
+            }
+
             result.status = rc;
             result.request_api = evt;
             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
@@ -2490,6 +2524,8 @@ int32_t QCameraStateMachine::procEvtPreviewPicTakingState(qcamera_sm_evt_enum_t 
                     // need restart preview for parameters to take effect
                     // stop preview
                     m_parent->stopPreview();
+                    // Clear memory pools
+                    m_parent->m_memoryPool.clear();
                     // commit parameter changes to server
                     m_parent->commitParameterChanges();
                     // start preview again
@@ -2865,5 +2901,69 @@ bool QCameraStateMachine::isNonZSLCaptureRunning()
     }
 }
 
+/*===========================================================================
+ * FUNCTION   : dump
+ *
+ * DESCRIPTION: Composes a string based on current configuration
+ *
+ * PARAMETERS : none
+ *
+ * RETURN     : Formatted string
+ *==========================================================================*/
+String8 QCameraStateMachine::dump()
+{
+    String8 str("\n");
+    char s[128];
+
+    snprintf(s, 128, "Is Preview Running: %d\n", isPreviewRunning());
+    str += s;
+
+    snprintf(s, 128, "Is Capture Running: %d\n", isCaptureRunning());
+    str += s;
+
+    snprintf(s, 128, "Is Non ZSL Capture Running: %d\n",
+        isNonZSLCaptureRunning());
+    str += s;
+
+    snprintf(s, 128, "Current State: %d \n", m_state);
+    str += s;
+
+    switch(m_state){
+        case QCAMERA_SM_STATE_PREVIEW_STOPPED:
+        snprintf(s, 128, " QCAMERA_SM_STATE_PREVIEW_STOPPED \n");
+        break;
+
+        case QCAMERA_SM_STATE_PREVIEW_READY:
+        snprintf(s, 128, " QCAMERA_SM_STATE_PREVIEW_READY \n");
+        break;
+
+        case QCAMERA_SM_STATE_PREVIEWING:
+        snprintf(s, 128, " QCAMERA_SM_STATE_PREVIEWING \n");
+        break;
+
+        case QCAMERA_SM_STATE_PREPARE_SNAPSHOT:
+        snprintf(s, 128, " QCAMERA_SM_STATE_PREPARE_SNAPSHOT \n");
+        break;
+
+        case QCAMERA_SM_STATE_PIC_TAKING:
+        snprintf(s, 128, " QCAMERA_SM_STATE_PIC_TAKING \n");
+        break;
+
+        case QCAMERA_SM_STATE_RECORDING:
+        snprintf(s, 128, " QCAMERA_SM_STATE_RECORDING \n");
+        break;
+
+        case QCAMERA_SM_STATE_VIDEO_PIC_TAKING:
+        snprintf(s, 128, " QCAMERA_SM_STATE_VIDEO_PIC_TAKING \n");
+        break;
+
+        case QCAMERA_SM_STATE_PREVIEW_PIC_TAKING:
+        snprintf(s, 128, " QCAMERA_SM_STATE_PREVIEW_PIC_TAKING \n");
+        break;
+    }
+    str += s;
+
+    return str;
+}
 
 }; // namespace qcamera

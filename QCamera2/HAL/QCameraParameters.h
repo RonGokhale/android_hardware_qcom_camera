@@ -1,6 +1,4 @@
 /*
-**
-** Copyright 2008, The Android Open Source Project
 ** Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
 ** Not a Contribution. Apache license notifications and license are
 ** retained for attribution purposes only.
@@ -179,6 +177,8 @@ public:
     static const char KEY_QC_NO_DISPLAY_MODE[];
     static const char KEY_QC_RAW_PICUTRE_SIZE[];
     static const char KEY_QC_TINTLESS_ENABLE[];
+
+    static const char KEY_INTERNAL_PERVIEW_RESTART[];
 
     // DENOISE
     static const char KEY_QC_DENOISE[];
@@ -372,6 +372,10 @@ public:
     static const char KEY_QC_VIDEO_HDR[];
     static const char KEY_QC_VT_ENABLE[];
     static const char KEY_QC_SUPPORTED_VIDEO_HDR_MODES[];
+    static const char KEY_QC_SENSOR_HDR[];
+    static const char KEY_QC_SUPPORTED_SENSOR_HDR_MODES[];
+    static const char KEY_QC_RDI_MODE[];
+    static const char KEY_QC_SUPPORTED_RDI_MODES[];
 
     // Values for SKIN TONE ENHANCEMENT
     static const char SKIN_TONE_ENHANCEMENT_ENABLE[] ;
@@ -473,6 +477,7 @@ public:
     int getZSLBackLookCount();
     int getMaxUnmatchedFramesInQueue();
     bool isZSLMode() {return m_bZslMode;};
+    bool isRdiMode() {return m_bRdiMode;};
     bool isNoDisplayMode() {return m_bNoDisplayMode;};
     bool isWNREnabled() {return m_bWNROn;};
     bool isHfrMode() {return m_bHfrMode;};
@@ -497,6 +502,8 @@ public:
     int32_t getExifGpsDateTimeStamp(char *gpsDateStamp, uint32_t bufLen, rat_t *gpsTimeStamp);
     int32_t updateFocusDistances(cam_focus_distances_info_t *focusDistances);
 
+    bool isAEBracketEnabled();
+    int32_t setAEBracketing();
     bool isFpsDebugEnabled() {return m_bDebugFps;};
     bool isHistogramEnabled() {return m_bHistogramEnabled;};
     bool isFaceDetectionEnabled() {return ((m_nFaceProcMask & CAM_FACE_PROCESS_MASK_DETECTION) != 0);};
@@ -508,7 +515,8 @@ public:
     int32_t setHDRAEBracket(cam_exp_bracketing_t hdrBracket);
     bool isHDREnabled();
     bool isAutoHDREnabled();
-    int32_t restoreAEBracket();
+    int32_t stopAEBracket();
+    int32_t enableFlash(bool enableFlash, bool commitSettings);
     int32_t updateRAW(cam_dimension_t max_dim);
     bool isAVTimerEnabled();
 
@@ -534,23 +542,36 @@ public:
     bool isPreviewFlipChanged() { return m_bPreviewFlipChanged; };
     bool isVideoFlipChanged() { return m_bVideoFlipChanged; };
     bool isSnapshotFlipChanged() { return m_bSnapshotFlipChanged; };
-    void setHDRSceneEnable(bool bflag) {m_HDRSceneEnabled = bflag;};
+    void setHDRSceneEnable(bool bflag);
 
     const char *getASDStateString(cam_auto_scene_t scene);
     bool isHDRThumbnailProcessNeeded() { return m_bHDRThumbnailProcessNeeded; };
-	int getAutoFlickerMode();
+    int getAutoFlickerMode();
 
     bool setStreamConfigure(bool isCapture, bool previewAsPostview);
     uint8_t getNumOfExtraBuffersForImageProc();
     bool needThumbnailReprocess(uint32_t *pFeatureMask);
-    bool isUbiFocusEnabled() {return m_bAFBracketingOn;};
-    bool isChromaFlashEnabled() {return m_bChromaFlashOn;};
-    bool isOptiZoomEnabled() {return m_bOptiZoomOn;};
+    inline bool isUbiFocusEnabled() {return m_bAFBracketingOn;};
+    inline bool isChromaFlashEnabled() {return m_bChromaFlashOn;};
+    bool isOptiZoomEnabled();
     int32_t commitAFBracket(cam_af_bracketing_t afBracket);
     int32_t commitFlashBracket(cam_flash_bracketing_t flashBracket);
     int32_t set3ALock(const char *lockStr);
     int32_t setAndCommitZoom(int zoom_level);
     uint8_t getBurstCountForBracketing();
+    int32_t setLongshotEnable(bool enable);
+    String8 dump();
+    inline bool isUbiRefocus() {return isUbiFocusEnabled() &&
+        (m_pCapability->ubifocus_af_bracketing_need.output_count > 1);};
+    inline uint32_t UfOutputCount() {
+        return m_pCapability->ubifocus_af_bracketing_need.output_count;};
+    inline bool generateThumbFromMain() {return isUbiFocusEnabled() ||
+        isChromaFlashEnabled() || isOptiZoomEnabled(); }
+    bool isDisplayFrameNeeded() { return m_bDisplayFrame; };
+    int32_t setDisplayFrame(bool enabled) {m_bDisplayFrame=enabled; return 0;};
+    bool isAdvCamFeaturesEnabled() {return isUbiFocusEnabled() ||
+        isChromaFlashEnabled() || isOptiZoomEnabled() || isHDREnabled();}
+
 private:
     int32_t setPreviewSize(const QCameraParameters& );
     int32_t setVideoSize(const QCameraParameters& );
@@ -613,7 +634,7 @@ private:
     int32_t setStatsDebugMask();
     int32_t setTintlessValue(const QCameraParameters& params);
     int32_t setMobicat(const QCameraParameters& params);
-
+    int32_t setRdiMode(const QCameraParameters& );
     int32_t setAutoExposure(const char *autoExp);
     int32_t setPreviewFpsRange(int min_fps,int max_fps,
             int vid_min_fps,int vid_max_fps);
@@ -626,6 +647,7 @@ private:
     int32_t setSkinToneEnhancement(int sceFactor);
     int32_t setSceneDetect(const char *scendDetect);
     int32_t setVideoHDR(const char *videoHDR);
+    int32_t setSensorSnapshotHDR(const char *snapshotHDR);
     int32_t setVtEnable(const char *vtEnable);
     int32_t setZoom(int zoom_level);
     int32_t setISOValue(const char *isoValue);
@@ -652,7 +674,7 @@ private:
     int32_t setFaceRecognition(const char *faceRecog, int maxFaces);
     int32_t setTintlessValue(const char *tintStr);
     bool UpdateHFRFrameRate(const QCameraParameters& params);
-
+    int32_t setRdiMode(const char *str);
 
     int32_t parse_pair(const char *str, int *first, int *second,
                        char delim, char **endptr);
@@ -718,6 +740,7 @@ private:
     static const QCameraMap AF_BRACKETING_MODES_MAP[];
     static const QCameraMap CHROMA_FLASH_MODES_MAP[];
     static const QCameraMap OPTI_ZOOM_MODES_MAP[];
+    static const QCameraMap RDI_MODES_MAP[];
 
     cam_capability_t *m_pCapability;
     mm_camera_vtbl_t *m_pCamOpsTbl;
@@ -757,15 +780,17 @@ private:
     bool m_bHDRThumbnailProcessNeeded;        // if thumbnail need to be processed for HDR
     bool m_bHDR1xExtraBufferNeeded;     // if extra frame with exposure compensation 0 during HDR is needed
     bool m_bHDROutputCropEnabled;     // if HDR output frame need to be scaled to user resolution
-
     DefaultKeyedVector<String8,String8> m_tempMap; // map for temororily store parameters to be set
     cam_fps_range_t m_default_fps_range;
-
     bool m_bAFBracketingOn;
     bool m_bChromaFlashOn;
     bool m_bOptiZoomOn;
     cam_fps_range_t m_hfrFpsRange;
     bool m_bHfrMode;
+    bool m_bSensorHDREnabled;             // if HDR is enabled
+    bool m_bRdiMode;                // if RDI mode
+    bool m_bUbiRefocus;
+    bool m_bDisplayFrame;
 };
 
 }; // namespace qcamera

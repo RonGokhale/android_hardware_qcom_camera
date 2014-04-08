@@ -808,9 +808,11 @@ void QCamera3MetadataChannel::streamCbRoutine(
 QCamera3Memory* QCamera3MetadataChannel::getStreamBufs(uint32_t len)
 {
     int rc;
-    if (len != sizeof(metadata_buffer_t)) {
-        ALOGE("%s: size doesn't match %d vs %d", __func__,
-                len, sizeof(metadata_buffer_t));
+    if (len < sizeof(metadata_buffer_t)) {
+        ALOGE("%s: Metadata buffer size less than structure %d vs %d",
+                __func__,
+                len,
+                sizeof(metadata_buffer_t));
         return NULL;
     }
     mMemory = new QCamera3HeapMemory();
@@ -1050,12 +1052,12 @@ void QCamera3PicChannel::jpegEvtHandle(jpeg_job_status_t status,
 
         if(obj->mJpegSettings->max_jpeg_size <= 0 ||
                 obj->mJpegSettings->max_jpeg_size > obj->mMemory->getSize(obj->mCurrentBufIndex)){
-            ALOGE("%s:Max Jpeg size :%d is out of valid range setting to size of buffer",
+            ALOGW("%s:Max Jpeg size :%d is out of valid range setting to size of buffer",
                     __func__, obj->mJpegSettings->max_jpeg_size);
             maxJpegSize =  obj->mMemory->getSize(obj->mCurrentBufIndex);
         } else {
             maxJpegSize = obj->mJpegSettings->max_jpeg_size;
-            ALOGE("%s: Setting max jpeg size to %d",__func__, maxJpegSize);
+            ALOGI("%s: Setting max jpeg size to %d",__func__, maxJpegSize);
         }
         jpeg_eof = &jpeg_buf[maxJpegSize-sizeof(jpegHeader)];
         memcpy(jpeg_eof, &jpegHeader, sizeof(jpegHeader));
@@ -1522,20 +1524,24 @@ int parseGPSCoordinate(const char *coord_str, rat_t* coord)
  * DESCRIPTION: query exif date time
  *
  * PARAMETERS :
- *   @dateTime : string to store exif date time
- *   @count    : lenght of the dateTime string
+ *   @dateTime   : string to store exif date time
+ *   @subsecTime : string to store exif subsec time
+ *   @count      : length of the dateTime string
+ *   @subsecCount: length of the subsecTime string
  *
  * RETURN     : int32_t type of status
  *              NO_ERROR  -- success
  *              none-zero failure code
  *==========================================================================*/
-int32_t getExifDateTime(char *dateTime, uint32_t &count)
+int32_t getExifDateTime(char *dateTime, char *subsecTime,
+        uint32_t &count, uint32_t &subsecCount)
 {
     //get time and date from system
-    time_t rawtime;
-    struct tm * timeinfo;
-    time(&rawtime);
-    timeinfo = localtime (&rawtime);
+    struct timeval tv;
+    struct tm *timeinfo;
+
+    gettimeofday(&tv, NULL);
+    timeinfo = localtime(&tv.tv_sec);
     //Write datetime according to EXIF Spec
     //"YYYY:MM:DD HH:MM:SS" (20 chars including \0)
     snprintf(dateTime, 20, "%04d:%02d:%02d %02d:%02d:%02d",
@@ -1544,6 +1550,9 @@ int32_t getExifDateTime(char *dateTime, uint32_t &count)
              timeinfo->tm_min, timeinfo->tm_sec);
     count = 20;
 
+    //Write subsec according to EXIF Sepc
+    snprintf(subsecTime, 7, "%06ld", tv.tv_usec);
+    subsecCount = 7;
     return NO_ERROR;
 }
 
@@ -1783,10 +1792,18 @@ QCamera3Exif *QCamera3PicChannel::getExifData()
 
     // add exif entries
     char dateTime[20];
+    char subsecTime[7];
+    uint32_t subsecCount;
     memset(dateTime, 0, sizeof(dateTime));
+    memset(subsecTime, 0, sizeof(subsecTime));
     count = 20;
-    rc = getExifDateTime(dateTime, count);
+    subsecCount = 7;
+    rc = getExifDateTime(dateTime, subsecTime, count, subsecCount);
     if(rc == NO_ERROR) {
+        exif->addEntry(EXIFTAGID_DATE_TIME,
+                       EXIF_ASCII,
+                       count,
+                       (void *)dateTime);
         exif->addEntry(EXIFTAGID_EXIF_DATE_TIME_ORIGINAL,
                        EXIF_ASCII,
                        count,
@@ -1795,6 +1812,18 @@ QCamera3Exif *QCamera3PicChannel::getExifData()
                        EXIF_ASCII,
                        count,
                        (void *)dateTime);
+        exif->addEntry(EXIFTAGID_SUBSEC_TIME,
+                       EXIF_ASCII,
+                       subsecCount,
+                       (void *)subsecTime);
+        exif->addEntry(EXIFTAGID_SUBSEC_TIME_ORIGINAL,
+                       EXIF_ASCII,
+                       subsecCount,
+                       (void *)subsecTime);
+        exif->addEntry(EXIFTAGID_SUBSEC_TIME_DIGITIZED,
+                       EXIF_ASCII,
+                       subsecCount,
+                       (void *)subsecTime);
     } else {
         ALOGE("%s: getExifDateTime failed", __func__);
     }

@@ -44,7 +44,7 @@ using namespace android;
 
 namespace qcamera {
 
-QCamera2Factory gQCamera2Factory;
+QCamera2Factory *gQCamera2Factory = NULL;
 
 /*===========================================================================
  * FUNCTION   : QCamera2Factory
@@ -61,7 +61,9 @@ QCamera2Factory::QCamera2Factory()
     int i = 0;
     mHalDescriptors = NULL;
     mNumOfCameras = get_num_of_cameras();
-
+    char prop[PROPERTY_VALUE_MAX];
+    property_get("persist.camera.HAL3.enabled", prop, "0");
+    int isHAL3Enabled = atoi(prop);
     //Query camera at this point in order
     //to avoid any delays during subsequent
     //calls to 'getCameraInfo()'
@@ -71,21 +73,18 @@ QCamera2Factory::QCamera2Factory()
     //
 
     if ((mNumOfCameras > 0) && (mNumOfCameras <= MM_CAMERA_MAX_NUM_SENSORS)) {
-        mHalDescriptors = new hal_desc[mNumOfCameras*2];
+        mHalDescriptors = new hal_desc[mNumOfCameras];
         if ( NULL != mHalDescriptors) {
             uint32_t cameraId = 0;
 
             for (; i < mNumOfCameras ; i++, cameraId++) {
                 mHalDescriptors[i].cameraId = cameraId;
-                mHalDescriptors[i].device_version = CAMERA_DEVICE_API_VERSION_1_0;
+                if (isHAL3Enabled) {
+                    mHalDescriptors[i].device_version = CAMERA_DEVICE_API_VERSION_3_0;
+                } else {
+                    mHalDescriptors[i].device_version = CAMERA_DEVICE_API_VERSION_1_0;
+                }
             }
-
-            for (cameraId = 0; i < 2*mNumOfCameras ; i++, cameraId++) {
-                mHalDescriptors[i].cameraId = cameraId;
-                mHalDescriptors[i].device_version = CAMERA_DEVICE_API_VERSION_3_0;
-            }
-
-            mNumOfCameras *= 2;
         } else {
             ALOGE("%s: Not enough resources to allocate HAL descriptor table!",
                   __func__);
@@ -122,7 +121,14 @@ QCamera2Factory::~QCamera2Factory()
  *==========================================================================*/
 int QCamera2Factory::get_number_of_cameras()
 {
-    return gQCamera2Factory.getNumberOfCameras();
+    if (!gQCamera2Factory) {
+        gQCamera2Factory = new QCamera2Factory();
+        if (!gQCamera2Factory) {
+            ALOGE("%s: Failed to allocate Camera2Factory object", __func__);
+            return 0;
+        }
+    }
+    return gQCamera2Factory->getNumberOfCameras();
 }
 
 /*===========================================================================
@@ -140,7 +146,7 @@ int QCamera2Factory::get_number_of_cameras()
  *==========================================================================*/
 int QCamera2Factory::get_camera_info(int camera_id, struct camera_info *info)
 {
-    return gQCamera2Factory.getCameraInfo(camera_id, info);
+    return gQCamera2Factory->getCameraInfo(camera_id, info);
 }
 
 /*===========================================================================
@@ -283,7 +289,7 @@ int QCamera2Factory::camera_device_open(
         ALOGE("Invalid camera id");
         return BAD_VALUE;
     }
-    return gQCamera2Factory.cameraDeviceOpen(atoi(id), hw_device);
+    return gQCamera2Factory->cameraDeviceOpen(atoi(id), hw_device);
 }
 
 struct hw_module_methods_t QCamera2Factory::mModuleMethods = {

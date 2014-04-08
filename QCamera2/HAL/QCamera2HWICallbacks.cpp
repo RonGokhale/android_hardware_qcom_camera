@@ -60,6 +60,7 @@ void QCamera2HardwareInterface::zsl_channel_cb(mm_camera_super_buf_t *recvd_fram
     char value[PROPERTY_VALUE_MAX];
     bool dump_raw = false;
     bool dump_yuv = false;
+    bool log_matching = false;
     QCamera2HardwareInterface *pme = (QCamera2HardwareInterface *)userdata;
     if (pme == NULL ||
         pme->mCameraHandle == NULL ||
@@ -84,6 +85,11 @@ void QCamera2HardwareInterface::zsl_channel_cb(mm_camera_super_buf_t *recvd_fram
         return;
     }
     *frame = *recvd_frame;
+
+    if (recvd_frame->num_bufs > 0) {
+        ALOGD("[KPI Perf] %s: superbuf frame_idx %d", __func__,
+            recvd_frame->bufs[0]->frame_idx);
+    }
 
     // DUMP RAW if available
     property_get("persist.camera.zsl_raw", value, "0");
@@ -191,6 +197,25 @@ void QCamera2HardwareInterface::zsl_channel_cb(mm_camera_super_buf_t *recvd_fram
         }
     }
 
+    property_get("persist.camera.zsl_matching", value, "0");
+    log_matching = atoi(value) > 0 ? true : false;
+    if (log_matching) {
+        ALOGD("%s : ZSL super buffer contains:", __func__);
+        QCameraStream *pStream = NULL;
+        for (int i = 0; i < frame->num_bufs; i++) {
+            pStream = pChannel->getStreamByHandle(frame->bufs[i]->stream_id);
+            if (pStream != NULL ) {
+                ALOGD("%s: Buffer with V4L index %d frame index %d of type %d Timestamp: %ld %ld ",
+                        __func__,
+                        frame->bufs[i]->buf_idx,
+                        frame->bufs[i]->frame_idx,
+                        pStream->getMyType(),
+                        frame->bufs[i]->ts.tv_sec,
+                        frame->bufs[i]->ts.tv_nsec);
+            }
+        }
+    }
+
     // send to postprocessor
     pme->m_postprocessor.processData(frame);
 
@@ -262,6 +287,9 @@ void QCamera2HardwareInterface::capture_channel_cb_routine(mm_camera_super_buf_t
             }
         }
     }
+
+    // Wait on Postproc initialization if needed
+    pme->waitDefferedWork(pme->mReprocJob);
 
     // send to postprocessor
     pme->m_postprocessor.processData(frame);
@@ -571,6 +599,88 @@ void QCamera2HardwareInterface::nodisplay_preview_stream_cb_routine(
 }
 
 /*===========================================================================
+ * FUNCTION   : rdi_mode_stream_cb_routine
+ *
+ * DESCRIPTION: helper function to handle RDI frame from preview stream in
+ *              rdi mode case
+ *
+ * PARAMETERS :
+ *   @super_frame : received super buffer
+ *   @stream      : stream object
+ *   @userdata    : user data ptr
+ *
+ * RETURN    : None
+ *
+ * NOTE      : caller passes the ownership of super_frame, it's our
+ *             responsibility to free super_frame once it's done.
+ *==========================================================================*/
+void QCamera2HardwareInterface::rdi_mode_stream_cb_routine(
+  mm_camera_super_buf_t *super_frame,
+  QCameraStream *stream,
+  void * userdata)
+{
+    ALOGD("RDI_DEBUG %s[%d]: Enter", __func__, __LINE__);
+    QCamera2HardwareInterface *pme = (QCamera2HardwareInterface *)userdata;
+    if (pme == NULL ||
+        pme->mCameraHandle == NULL ||
+        pme->mCameraHandle->camera_handle != super_frame->camera_handle){
+        ALOGE("%s: camera obj not valid", __func__);
+        // simply free super frame
+        free(super_frame);
+        return;
+    }
+    mm_camera_buf_def_t *frame = super_frame->bufs[0];
+    if (NULL == frame) {
+        ALOGE("%s: preview frame is NLUL", __func__);
+        free(super_frame);
+        return;
+    }
+
+    if (!pme->needProcessPreviewFrame()) {
+        ALOGE("%s: preview is not running, no need to process", __func__);
+        stream->bufDone(frame->buf_idx);
+        free(super_frame);
+        return;
+    }
+
+    if (pme->needDebugFps()) {
+        pme->debugShowPreviewFPS();
+    }
+
+    QCameraMemory *previewMemObj = (QCameraMemory *)frame->mem_info;
+    camera_memory_t *preview_mem = NULL;
+    if (previewMemObj != NULL) {
+        preview_mem = previewMemObj->getMemory(frame->buf_idx, false);
+    }
+    if (NULL != previewMemObj && NULL != preview_mem) {
+        previewMemObj->cleanCache(frame->buf_idx);
+
+        pme->dumpFrameToFile(stream, frame,
+                             QCAMERA_DUMP_FRM_RAW);
+
+        if (pme->needProcessPreviewFrame() &&
+            pme->mDataCb != NULL &&
+            pme->msgTypeEnabledWithLock(CAMERA_MSG_PREVIEW_FRAME) > 0 ) {
+            qcamera_callback_argm_t cbArg;
+            memset(&cbArg, 0, sizeof(qcamera_callback_argm_t));
+            cbArg.cb_type = QCAMERA_DATA_CALLBACK;
+            cbArg.msg_type = CAMERA_MSG_PREVIEW_FRAME;
+            cbArg.data = preview_mem;
+            int user_data = frame->buf_idx;
+            cbArg.user_data = ( void * ) user_data;
+            cbArg.cookie = stream;
+            cbArg.release_cb = returnStreamBuffer;
+            pme->m_cbNotifier.notifyCallback(cbArg);
+        } else {
+            stream->bufDone(frame->buf_idx);
+        }
+    }
+    free(super_frame);
+    ALOGD("RDI_DEBUG %s[%d]: Exit", __func__, __LINE__);
+
+}
+
+/*===========================================================================
  * FUNCTION   : postview_stream_cb_routine
  *
  * DESCRIPTION: helper function to handle post frame from postview stream
@@ -677,7 +787,7 @@ void QCamera2HardwareInterface::video_stream_cb_routine(mm_camera_super_buf_t *s
           frame->ts.tv_nsec);
     nsecs_t timeStamp;
     if(pme->mParameters.isAVTimerEnabled() == true) {
-        timeStamp = (((nsecs_t)frame->ts.tv_sec << 32) | frame->ts.tv_nsec) * 1000;
+        timeStamp = (nsecs_t)((frame->ts.tv_sec * 1000000LL) + frame->ts.tv_nsec) * 1000;
     } else {
         timeStamp = nsecs_t(frame->ts.tv_sec) * 1000000000LL + frame->ts.tv_nsec;
     }
@@ -1086,9 +1196,9 @@ void QCamera2HardwareInterface::metadata_stream_cb_routine(mm_camera_super_buf_t
                 }
                 break;
             }
-            case CAM_INTF_META_HDR_DATA: {
+            case CAM_INTF_META_ASD_HDR_SCENE_DATA: {
                 cam_asd_hdr_scene_data_t *hdr_scene_data =
-                (cam_asd_hdr_scene_data_t *)POINTER_OF(CAM_INTF_META_HDR_DATA, pMetaData);
+                (cam_asd_hdr_scene_data_t *)POINTER_OF(CAM_INTF_META_ASD_HDR_SCENE_DATA, pMetaData);
                 ALOGD("%s: hdr_scene_data: %d %f\n",
                   __func__,
                   hdr_scene_data->is_hdr_scene,
@@ -1142,10 +1252,16 @@ void QCamera2HardwareInterface::metadata_stream_cb_routine(mm_camera_super_buf_t
                 break;
             }
             case CAM_INTF_META_AEC_INFO: {
-                cam_ae_params_t* ae_params =
-                    (cam_ae_params_t*)POINTER_OF(CAM_INTF_META_AEC_INFO, pMetaData);
-                pme->mExifParams.ae_params = *ae_params;
+                cam_3a_params_t* ae_params =
+                    (cam_3a_params_t*)POINTER_OF(CAM_INTF_META_AEC_INFO, pMetaData);
+                pme->mExifParams.cam_3a_params = *ae_params;
                 pme->mFlashNeeded = ae_params->flash_needed;
+                break;
+            }
+            case CAM_INTF_META_SENSOR_INFO: {
+                cam_sensor_params_t* sensor_params =
+                    (cam_sensor_params_t*)POINTER_OF(CAM_INTF_META_SENSOR_INFO, pMetaData);
+                pme->mExifParams.sensor_params = *sensor_params;
                 break;
             }
             default:
@@ -1430,8 +1546,11 @@ void QCamera2HardwareInterface::dumpFrameToFile(QCameraStream *stream,
                     case QCAMERA_DUMP_FRM_SNAPSHOT:
                         {
                             mParameters.getStreamDimension(CAM_STREAM_TYPE_SNAPSHOT, dim);
-                            snprintf(buf, sizeof(buf), "/data/%ds_%dx%d_%d.yuv",
-                                     mDumpFrmCnt, dim.width, dim.height, frame->frame_idx);
+                            snprintf(buf, sizeof(buf), "%ds_%dx%d_%d.yuv",
+                                    mDumpFrmCnt,
+                                    dim.width,
+                                    dim.height,
+                                    frame->frame_idx);
                         }
                         break;
                     case QCAMERA_DUMP_FRM_VIDEO:
@@ -1443,15 +1562,21 @@ void QCamera2HardwareInterface::dumpFrameToFile(QCameraStream *stream,
                     case QCAMERA_DUMP_FRM_RAW:
                         {
                             mParameters.getStreamDimension(CAM_STREAM_TYPE_RAW, dim);
-                            snprintf(buf, sizeof(buf), "/data/%dr_%dx%d_%d.yuv",
-                                     mDumpFrmCnt, dim.width, dim.height, frame->frame_idx);
+                            snprintf(buf, sizeof(buf), "%dr_%dx%d_%d.raw",
+                                    mDumpFrmCnt,
+                                    dim.width,
+                                    dim.height,
+                                    frame->frame_idx);
                         }
                         break;
                     case QCAMERA_DUMP_FRM_JPEG:
                         {
                             mParameters.getStreamDimension(CAM_STREAM_TYPE_SNAPSHOT, dim);
-                            snprintf(buf, sizeof(buf), "/data/%dj_%dx%d_%d.yuv",
-                                     mDumpFrmCnt, dim.width, dim.height, frame->frame_idx);
+                            snprintf(buf, sizeof(buf), "%dj_%dx%d_%d.yuv",
+                                    mDumpFrmCnt,
+                                    dim.width,
+                                    dim.height,
+                                    frame->frame_idx);
                         }
                         break;
                     default:

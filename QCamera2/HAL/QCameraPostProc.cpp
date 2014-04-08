@@ -74,14 +74,12 @@ QCameraPostProcessor::QCameraPostProcessor(QCamera2HardwareInterface *cam_ctrl)
       m_inputJpegQ(releaseJpegData, this),
       m_ongoingJpegQ(releaseJpegData, this),
       m_inputRawQ(releaseRawData, this),
-      m_delayReleaseBuffers(releaseDelayedBufferData, this),
-      mRawBurstCount(0),
       mSaveFrmCnt(0),
       mUseSaveProc(false),
       mUseJpegBurst(false),
       mJpegMemOpt(true),
-      mHoldBuffers(false),
-      m_JpegOutputMemCount(0)
+      m_JpegOutputMemCount(0),
+      mNewJpegSessionNeeded(true)
 {
     memset(&mJpegHandle, 0, sizeof(mJpegHandle));
     memset(&m_pJpegOutputMem, 0, sizeof(m_pJpegOutputMem));
@@ -207,7 +205,7 @@ int32_t QCameraPostProcessor::start(QCameraChannel *pSrcChannel)
             m_pReprocChannel = NULL;
         }
         // if reprocess is needed, start reprocess channel
-        m_pReprocChannel = m_parent->addOnlineReprocChannel(pSrcChannel);
+        m_pReprocChannel = m_parent->addReprocChannel(pSrcChannel);
         if (m_pReprocChannel == NULL) {
             ALOGE("%s: cannot add reprocess channel", __func__);
             return UNKNOWN_ERROR;
@@ -227,7 +225,69 @@ int32_t QCameraPostProcessor::start(QCameraChannel *pSrcChannel)
 
     m_dataProcTh.sendCmd(CAMERA_CMD_TYPE_START_DATA_PROC, FALSE, FALSE);
     m_parent->m_cbNotifier.startSnapshots();
-    mRawBurstCount = m_parent->numOfSnapshotsExpected();
+
+    // Create Jpeg session
+    if ( !m_parent->mParameters.getRecordingHintValue() &&
+            !m_parent->isLongshotEnabled() &&
+            !m_parent->isZSLMode()) {
+
+        QCameraChannel *pChannel = NULL;
+        pChannel = m_parent->needReprocess() ? m_pReprocChannel : pSrcChannel;
+        QCameraStream *pSnapshotStream = NULL;
+        QCameraStream *pThumbStream = NULL;
+
+        for (int i = 0; i < pChannel->getNumOfStreams(); ++i) {
+            QCameraStream *pStream = pChannel->getStreamByIndex(i);
+
+            if ( NULL == pStream ) {
+                break;
+            }
+
+            if (pStream->isTypeOf(CAM_STREAM_TYPE_SNAPSHOT) ||
+                    pStream->isOrignalTypeOf(CAM_STREAM_TYPE_SNAPSHOT)) {
+                pSnapshotStream = pStream;
+            }
+
+            if (pStream->isTypeOf(CAM_STREAM_TYPE_POSTVIEW) ||
+                    pStream->isOrignalTypeOf(CAM_STREAM_TYPE_POSTVIEW)) {
+                pThumbStream = pStream;
+            }
+        }
+
+        // If thumbnail is not part of the reprocess channel, then
+        // try to get it from the source channel
+        if ((NULL == pThumbStream) && (pChannel == m_pReprocChannel)) {
+            for (int i = 0; i < pSrcChannel->getNumOfStreams(); ++i) {
+                QCameraStream *pStream = pSrcChannel->getStreamByIndex(i);
+
+                if ( NULL == pStream ) {
+                    break;
+                }
+
+                if (pStream->isTypeOf(CAM_STREAM_TYPE_POSTVIEW) ||
+                    pStream->isOrignalTypeOf(CAM_STREAM_TYPE_POSTVIEW)) {
+                    pThumbStream = pStream;
+                }
+            }
+        }
+
+        if ( NULL != pSnapshotStream ) {
+            mm_jpeg_encode_params_t encodeParam;
+            memset(&encodeParam, 0, sizeof(mm_jpeg_encode_params_t));
+            getJpegEncodingConfig(encodeParam, pSnapshotStream, pThumbStream);
+            ALOGD("[KPI Perf] %s : call jpeg create_session", __func__);
+
+            rc = mJpegHandle.create_session(mJpegClientHandle,
+                    &encodeParam,
+                    &mJpegSessionId);
+            if (rc != NO_ERROR) {
+                ALOGE("%s: error creating a new jpeg encoding session", __func__);
+                return rc;
+            }
+            mNewJpegSessionNeeded = false;
+        }
+    }
+
     return rc;
 }
 
@@ -357,8 +417,12 @@ int32_t QCameraPostProcessor::getJpegEncodingConfig(mm_jpeg_encode_params_t& enc
     }
 
     if (m_bThumbnailNeeded == TRUE) {
+        bool need_thumb_rotate = true;
+        int jpeg_rotation = m_parent->getJpegRotation();
+
         if (thumb_stream == NULL) {
             thumb_stream = main_stream;
+            need_thumb_rotate = false;
         }
         pStreamMem = thumb_stream->getStreamBufs();
         if (pStreamMem == NULL) {
@@ -392,7 +456,14 @@ int32_t QCameraPostProcessor::getJpegEncodingConfig(mm_jpeg_encode_params_t& enc
         encode_parm.thumb_dim.src_dim = src_dim;
         m_parent->getThumbnailSize(encode_parm.thumb_dim.dst_dim);
 
-        encode_parm.thumb_rotation = m_parent->getJpegRotation();
+        if (!m_parent->needRotationReprocess() || need_thumb_rotate) {
+            encode_parm.thumb_rotation = jpeg_rotation;
+        } else if ((90 == jpeg_rotation) || (270 == jpeg_rotation)) {
+            // swap thumbnail dimensions
+            cam_dimension_t tmp_dim = encode_parm.thumb_dim.dst_dim;
+            encode_parm.thumb_dim.dst_dim.width = tmp_dim.height;
+            encode_parm.thumb_dim.dst_dim.height = tmp_dim.width;
+        }
         encode_parm.thumb_dim.crop = crop;
     }
 
@@ -546,7 +617,10 @@ int32_t QCameraPostProcessor::processData(mm_camera_super_buf_t *frame)
     }
 
     if (m_parent->needReprocess()) {
-        if ( !m_parent->isLongshotEnabled() ) {
+        if ((!m_parent->isLongshotEnabled() &&
+             !m_parent->m_stateMachine.isNonZSLCaptureRunning()) ||
+            (m_parent->isLongshotEnabled() &&
+             m_parent->isCaptureShutterEnabled())) {
             //play shutter sound
             m_parent->playShutter();
         }
@@ -577,6 +651,21 @@ int32_t QCameraPostProcessor::processData(mm_camera_super_buf_t *frame)
 
         memset(jpeg_job, 0, sizeof(qcamera_jpeg_data_t));
         jpeg_job->src_frame = frame;
+
+        // find meta data frame
+        mm_camera_buf_def_t *meta_frame = NULL;
+        for (int i = 0; i < frame->num_bufs; i++) {
+            // look through input superbuf
+            if (frame->bufs[i]->stream_type == CAM_STREAM_TYPE_METADATA) {
+                meta_frame = frame->bufs[i];
+                break;
+            }
+        }
+
+        if (meta_frame != NULL) {
+            // fill in meta data frame ptr
+            jpeg_job->metadata = (metadata_buffer_t *)meta_frame->buffer;
+        }
 
         // enqueu to jpeg input queue
         m_inputJpegQ.enqueue((void *)jpeg_job);
@@ -649,15 +738,8 @@ int32_t QCameraPostProcessor::processJpegEvt(qcamera_jpeg_evt_payload_t *evt)
         m_inputSaveQ.enqueue((void *) saveData);
         m_saveProcTh.sendCmd(CAMERA_CMD_TYPE_DO_NEXT_JOB, FALSE, FALSE);
     } else {
-
         // Release jpeg job data
-        if (mHoldBuffers) {
-            // Enqueue jib id for delayed release
-            m_delayReleaseBuffers.enqueue(new uint32_t(evt->jobId));
-        } else {
-            m_delayReleaseBuffers.flush();
-            m_ongoingJpegQ.flushNodes(matchJobId, (void*)&evt->jobId);
-        }
+        m_ongoingJpegQ.flushNodes(matchJobId, (void*)&evt->jobId);
 
         ALOGD("[KPI Perf] %s : jpeg job %d", __func__, evt->jobId);
 
@@ -680,6 +762,19 @@ int32_t QCameraPostProcessor::processJpegEvt(qcamera_jpeg_evt_payload_t *evt)
                                   evt->out_data.buf_filled_len,
                                   evt->jobId);
         ALOGD("%s: Dump jpeg_size=%d", __func__, evt->out_data.buf_filled_len);
+
+        /* check if the all the captures are done */
+        if (m_parent->mParameters.isUbiRefocus() &&
+            (m_parent->getOutputImageCount() <
+            m_parent->mParameters.UfOutputCount())) {
+            jpeg_out  = (omx_jpeg_ouput_buf_t*) evt->out_data.buf_vaddr;
+            jpeg_mem = (camera_memory_t *)jpeg_out->mem_hdl;
+            if (NULL != jpeg_mem) {
+                jpeg_mem->release(jpeg_mem);
+                jpeg_mem = NULL;
+            }
+            goto end;
+        }
 
         if (!mJpegMemOpt) {
             // alloc jpeg memory to pass to upper layer
@@ -744,6 +839,7 @@ end:
  *==========================================================================*/
 int32_t QCameraPostProcessor::processPPData(mm_camera_super_buf_t *frame)
 {
+    bool needSuperBufMatch = m_parent->mParameters.generateThumbFromMain();
     if (m_bInited == FALSE) {
         ALOGE("%s: postproc not initialized yet", __func__);
         return UNKNOWN_ERROR;
@@ -751,13 +847,13 @@ int32_t QCameraPostProcessor::processPPData(mm_camera_super_buf_t *frame)
 
     qcamera_pp_data_t *job = (qcamera_pp_data_t *)m_ongoingPPQ.dequeue();
 
-    if (job == NULL || job->src_frame == NULL) {
+    if (!needSuperBufMatch && (job == NULL || job->src_frame == NULL) ) {
         ALOGE("%s: Cannot find reprocess job", __func__);
         return BAD_VALUE;
     }
 
-    if (m_parent->mParameters.isNV16PictureFormat() ||
-        m_parent->mParameters.isNV21PictureFormat()) {
+    if (!needSuperBufMatch && (m_parent->mParameters.isNV16PictureFormat() ||
+        m_parent->mParameters.isNV21PictureFormat())) {
         releaseSuperBuf(job->src_frame);
         free(job->src_frame);
         free(job);
@@ -767,11 +863,11 @@ int32_t QCameraPostProcessor::processPPData(mm_camera_super_buf_t *frame)
         return processRawData(frame);
     }
 
-    if ( m_parent->isLongshotEnabled() ) {
+    if (m_parent->isLongshotEnabled() &&
+            !m_parent->isCaptureShutterEnabled()) {
         // play shutter sound for longshot
         // after reprocess is done
         // TODO: Move this after CAC done event
-
         m_parent->playShutter();
     }
 
@@ -784,14 +880,44 @@ int32_t QCameraPostProcessor::processPPData(mm_camera_super_buf_t *frame)
 
     memset(jpeg_job, 0, sizeof(qcamera_jpeg_data_t));
     jpeg_job->src_frame = frame;
-    jpeg_job->src_reproc_frame = job->src_frame;
+    jpeg_job->src_reproc_frame = job ? job->src_frame : NULL;
+    jpeg_job->src_reproc_bufs = job ? job->src_reproc_bufs : NULL;
+    jpeg_job->reproc_frame_release = job ? job->reproc_frame_release : false;
+
+    // find meta data frame
+    mm_camera_buf_def_t *meta_frame = NULL;
+    for (int i = 0; job && (i < job->src_frame->num_bufs); i++) {
+        // look through input superbuf
+        if (job->src_frame->bufs[i]->stream_type == CAM_STREAM_TYPE_METADATA) {
+            meta_frame = job->src_frame->bufs[i];
+            break;
+        }
+    }
+
+    if (meta_frame == NULL) {
+        // look through reprocess superbuf
+        for (int i = 0; i < frame->num_bufs; i++) {
+            if (frame->bufs[i]->stream_type == CAM_STREAM_TYPE_METADATA) {
+                meta_frame = frame->bufs[i];
+                break;
+            }
+        }
+    }
+
+    if (meta_frame != NULL) {
+        // fill in meta data frame ptr
+        jpeg_job->metadata = (metadata_buffer_t *)meta_frame->buffer;
+    }
 
     // free pp job buf
-    free(job);
+    if (job) {
+        free(job);
+    }
 
     // enqueu reprocessed frame to jpeg input queue
     m_inputJpegQ.enqueue((void *)jpeg_job);
 
+    ALOGD("%s: %d] ", __func__, __LINE__);
     // wait up data proc thread
     m_dataProcTh.sendCmd(CAMERA_CMD_TYPE_DO_NEXT_JOB, FALSE, FALSE);
 
@@ -882,30 +1008,12 @@ void QCameraPostProcessor::releaseOngoingPPData(void *data, void *user_data)
     if (NULL != pme) {
         qcamera_pp_data_t *pp_job = (qcamera_pp_data_t *)data;
         if (NULL != pp_job->src_frame) {
-            pme->releaseSuperBuf(pp_job->src_frame);
+            if (!pp_job->reproc_frame_release) {
+                pme->releaseSuperBuf(pp_job->src_frame);
+            }
             free(pp_job->src_frame);
             pp_job->src_frame = NULL;
         }
-    }
-}
-
-/*===========================================================================
- * FUNCTION   : releaseDelayedBufferData
- *
- * DESCRIPTION: callback function to release delayed buffer data
- *
- * PARAMETERS :
- *   @data      : ptr to onging postprocess job
- *   @user_data : user data ptr (QCameraReprocessor)
- *
- * RETURN     : None
- *==========================================================================*/
-void QCameraPostProcessor::releaseDelayedBufferData(void *data, void *user_data)
-{
-    QCameraPostProcessor *pme = (QCameraPostProcessor *)user_data;
-
-    if (NULL != pme) {
-        pme->m_ongoingJpegQ.flushNodes(matchJobId, data);
     }
 }
 
@@ -1014,7 +1122,9 @@ void QCameraPostProcessor::releaseJpegJobData(qcamera_jpeg_data_t *job)
     ALOGV("%s: E", __func__);
     if (NULL != job) {
         if (NULL != job->src_reproc_frame) {
-            releaseSuperBuf(job->src_reproc_frame);
+            if (!job->reproc_frame_release) {
+                releaseSuperBuf(job->src_reproc_frame);
+            }
             free(job->src_reproc_frame);
             job->src_reproc_frame = NULL;
         }
@@ -1029,6 +1139,11 @@ void QCameraPostProcessor::releaseJpegJobData(qcamera_jpeg_data_t *job)
             delete job->pJpegExifObj;
             job->pJpegExifObj = NULL;
         }
+
+        if (NULL != job->src_reproc_bufs) {
+            delete [] job->src_reproc_bufs;
+        }
+
     }
     ALOGV("%s: X", __func__);
 }
@@ -1156,6 +1271,176 @@ mm_jpeg_format_t QCameraPostProcessor::getJpegImgTypeFromImgFmt(cam_format_t img
 }
 
 /*===========================================================================
+ * FUNCTION   : queryStreams
+ *
+ * DESCRIPTION: utility method for retrieving main, thumbnail and reprocess
+ *              streams and frame from bundled super buffer
+ *
+ * PARAMETERS :
+ *   @main    : ptr to main stream if present
+ *   @thumb   : ptr to thumbnail stream if present
+ *   @reproc  : ptr to reprocess stream if present
+ *   @main_image : ptr to main image if present
+ *   @thumb_image: ptr to thumbnail image if present
+ *   @frame   : bundled super buffer
+ *   @reproc_frame : bundled source frame buffer
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraPostProcessor::queryStreams(QCameraStream **main,
+        QCameraStream **thumb,
+        QCameraStream **reproc,
+        mm_camera_buf_def_t **main_image,
+        mm_camera_buf_def_t **thumb_image,
+        mm_camera_super_buf_t *frame,
+        mm_camera_super_buf_t *reproc_frame)
+{
+    if (NULL == frame) {
+        return NO_INIT;
+    }
+
+    QCameraChannel *pChannel = m_parent->getChannelByHandle(frame->ch_id);
+    // check reprocess channel if not found
+    if (pChannel == NULL) {
+        if (m_pReprocChannel != NULL &&
+            m_pReprocChannel->getMyHandle() == frame->ch_id) {
+            pChannel = m_pReprocChannel;
+        }
+    }
+    if (pChannel == NULL) {
+        ALOGD("%s: No corresponding channel (ch_id = %d) exist, return here",
+              __func__, frame->ch_id);
+        return BAD_VALUE;
+    }
+
+    // Use snapshot stream to create thumbnail if snapshot and preview
+    // flip settings doesn't match in ZSL mode.
+    bool thumb_stream_needed = !m_parent->isZSLMode() ||
+        (m_parent->mParameters.getFlipMode(CAM_STREAM_TYPE_SNAPSHOT) ==
+         m_parent->mParameters.getFlipMode(CAM_STREAM_TYPE_PREVIEW));
+
+    *main = *thumb = *reproc = NULL;
+    *main_image = *thumb_image = NULL;
+    // find snapshot frame and thumnail frame
+    for (int i = 0; i < frame->num_bufs; i++) {
+        QCameraStream *pStream =
+                pChannel->getStreamByHandle(frame->bufs[i]->stream_id);
+        if (pStream != NULL) {
+            if (pStream->isTypeOf(CAM_STREAM_TYPE_SNAPSHOT) ||
+                pStream->isOrignalTypeOf(CAM_STREAM_TYPE_SNAPSHOT)) {
+                *main= pStream;
+                *main_image = frame->bufs[i];
+            } else if (thumb_stream_needed &&
+                       (pStream->isTypeOf(CAM_STREAM_TYPE_PREVIEW) ||
+                        pStream->isTypeOf(CAM_STREAM_TYPE_POSTVIEW) ||
+                        pStream->isOrignalTypeOf(CAM_STREAM_TYPE_PREVIEW) ||
+                        pStream->isOrignalTypeOf(CAM_STREAM_TYPE_POSTVIEW))) {
+                *thumb = pStream;
+                *thumb_image = frame->bufs[i];
+            }
+            if (pStream->isTypeOf(CAM_STREAM_TYPE_OFFLINE_PROC) ) {
+                *reproc = pStream;
+            }
+        }
+    }
+
+    if (thumb_stream_needed && *thumb_image == NULL && reproc_frame != NULL) {
+        QCameraChannel *pSrcReprocChannel = NULL;
+        pSrcReprocChannel = m_parent->getChannelByHandle(reproc_frame->ch_id);
+        if (pSrcReprocChannel != NULL) {
+            // find thumbnail frame
+            for (int i = 0; i < reproc_frame->num_bufs; i++) {
+                QCameraStream *pStream =
+                        pSrcReprocChannel->getStreamByHandle(
+                                reproc_frame->bufs[i]->stream_id);
+                if (pStream != NULL) {
+                    if (pStream->isTypeOf(CAM_STREAM_TYPE_PREVIEW) ||
+                        pStream->isTypeOf(CAM_STREAM_TYPE_POSTVIEW)) {
+                        *thumb = pStream;
+                        *thumb_image = reproc_frame->bufs[i];
+                    }
+                }
+            }
+        }
+    }
+
+    return NO_ERROR;
+}
+
+/*===========================================================================
+* FUNCTION   : syncStreamParams
+*
+* DESCRIPTION: Query the runtime parameters of all streams included
+*              in the main and reprocessed frames
+*
+* PARAMETERS :
+*   @frame : Main image super buffer
+*   @reproc_frame : Image supper buffer that got processed
+*
+* RETURN     : int32_t type of status
+*              NO_ERROR  -- success
+*              none-zero failure code
+*==========================================================================*/
+int32_t QCameraPostProcessor::syncStreamParams(mm_camera_super_buf_t *frame,
+        mm_camera_super_buf_t *reproc_frame)
+{
+    QCameraStream *reproc_stream = NULL;
+    QCameraStream *main_stream = NULL;
+    QCameraStream *thumb_stream = NULL;
+    mm_camera_buf_def_t *main_frame = NULL;
+    mm_camera_buf_def_t *thumb_frame = NULL;
+    int32_t ret = NO_ERROR;
+
+    ret = queryStreams(&main_stream,
+            &thumb_stream,
+            &reproc_stream,
+            &main_frame,
+            &thumb_frame,
+            frame,
+            reproc_frame);
+    if (NO_ERROR != ret) {
+        ALOGE("%s : Camera streams query from input frames failed %d",
+                __func__,
+                ret);
+        return ret;
+    }
+
+    if (NULL != main_stream) {
+        ret = main_stream->syncRuntimeParams();
+        if (NO_ERROR != ret) {
+            ALOGE("%s : Syncing of main stream runtime parameters failed %d",
+                    __func__,
+                    ret);
+            return ret;
+        }
+    }
+
+    if (NULL != thumb_stream) {
+        ret = thumb_stream->syncRuntimeParams();
+        if (NO_ERROR != ret) {
+            ALOGE("%s : Syncing of thumb stream runtime parameters failed %d",
+                    __func__,
+                    ret);
+            return ret;
+        }
+    }
+
+    if (NULL != reproc_stream) {
+        ret = reproc_stream->syncRuntimeParams();
+        if (NO_ERROR != ret) {
+            ALOGE("%s : Syncing of reproc stream runtime parameters failed %d",
+                    __func__,
+                    ret);
+            return ret;
+        }
+    }
+
+    return ret;
+}
+
+/*===========================================================================
  * FUNCTION   : encodeData
  *
  * DESCRIPTION: function to prepare encoding job information and send to
@@ -1185,6 +1470,7 @@ int32_t QCameraPostProcessor::encodeData(qcamera_jpeg_data_t *jpeg_job_data,
     mm_camera_super_buf_t *recvd_frame = jpeg_job_data->src_frame;
     cam_rect_t crop;
     cam_stream_parm_buffer_t param;
+    cam_stream_img_prop_t imgProp;
 
     // find channel
     QCameraChannel *pChannel = m_parent->getChannelByHandle(recvd_frame->ch_id);
@@ -1195,32 +1481,24 @@ int32_t QCameraPostProcessor::encodeData(qcamera_jpeg_data_t *jpeg_job_data,
             pChannel = m_pReprocChannel;
         }
     }
+
     if (pChannel == NULL) {
-        ALOGE("%s: No corresponding channel (ch_id = %d) exist, return here",
-              __func__, recvd_frame->ch_id);
+        ALOGE("%s:%d] No corresponding channel (ch_id = %d) exist, return here",
+              __func__, __LINE__, recvd_frame->ch_id);
         return BAD_VALUE;
     }
 
-    // find snapshot frame and thumnail frame
-    for (int i = 0; i < recvd_frame->num_bufs; i++) {
-        QCameraStream *pStream =
-            pChannel->getStreamByHandle(recvd_frame->bufs[i]->stream_id);
-        if (pStream != NULL) {
-            if (pStream->isTypeOf(CAM_STREAM_TYPE_SNAPSHOT) ||
-                pStream->isOrignalTypeOf(CAM_STREAM_TYPE_SNAPSHOT)) {
-                main_stream = pStream;
-                main_frame = recvd_frame->bufs[i];
-            } else if (pStream->isTypeOf(CAM_STREAM_TYPE_PREVIEW) ||
-                       pStream->isTypeOf(CAM_STREAM_TYPE_POSTVIEW) ||
-                       pStream->isOrignalTypeOf(CAM_STREAM_TYPE_PREVIEW) ||
-                       pStream->isOrignalTypeOf(CAM_STREAM_TYPE_POSTVIEW)) {
-                thumb_stream = pStream;
-                thumb_frame = recvd_frame->bufs[i];
-            }
-            if (pStream->isTypeOf(CAM_STREAM_TYPE_OFFLINE_PROC) ) {
-                reproc_stream = pStream;
-            }
-        }
+    const int jpeg_rotation = m_parent->getJpegRotation();
+
+    ret = queryStreams(&main_stream,
+            &thumb_stream,
+            &reproc_stream,
+            &main_frame,
+            &thumb_frame,
+            recvd_frame,
+            jpeg_job_data->src_reproc_frame);
+    if (NO_ERROR != ret) {
+        return ret;
     }
 
     if(NULL == main_frame){
@@ -1228,28 +1506,9 @@ int32_t QCameraPostProcessor::encodeData(qcamera_jpeg_data_t *jpeg_job_data,
        return BAD_VALUE;
     }
 
-    //Sometimes thumbnail might be skipped in reprocess. Reprocessed channel will not have
-    //thumbnail in such case.  Hence, look through reprocess source superbuf.
-    if (thumb_frame == NULL && jpeg_job_data->src_reproc_frame != NULL) {
-        mm_camera_super_buf_t *src_reproc_frame = jpeg_job_data->src_reproc_frame;
-        QCameraChannel *pSrcReprocChannel = m_parent->getChannelByHandle(src_reproc_frame->ch_id);
-        if (pSrcReprocChannel == NULL) {
-            ALOGE("%s: No corresponding channel (ch_id = %d) exist, return here",
-                __func__, src_reproc_frame->ch_id);
-            return BAD_VALUE;
-        }
-        // find thumnail frame
-        for (int i = 0; i < src_reproc_frame->num_bufs; i++) {
-            QCameraStream *pStream =
-                pSrcReprocChannel->getStreamByHandle(src_reproc_frame->bufs[i]->stream_id);
-            if (pStream != NULL) {
-                if (pStream->isTypeOf(CAM_STREAM_TYPE_PREVIEW) ||
-                    pStream->isTypeOf(CAM_STREAM_TYPE_POSTVIEW)) {
-                    thumb_stream = pStream;
-                    thumb_frame = src_reproc_frame->bufs[i];
-                }
-            }
-        }
+    if (m_parent->mParameters.generateThumbFromMain()) {
+        thumb_frame = NULL;
+        thumb_stream = NULL;
     }
 
     if(NULL == thumb_frame){
@@ -1324,66 +1583,62 @@ int32_t QCameraPostProcessor::encodeData(qcamera_jpeg_data_t *jpeg_job_data,
         jpg_job.encode_job.dst_index = -1;
     }
 
-    if (reproc_stream) {
-        memset(&param, 0, sizeof(cam_stream_parm_buffer_t));
-        param.type = CAM_STREAM_PARAM_TYPE_GET_BUFFER_INFO;
-
-        ret = reproc_stream->getParameter(param);
-        if (ret != NO_ERROR) {
-            ALOGE("%s: stream getParameter for buffer info failed", __func__);
-            mHoldBuffers = false;
-        } else {
-            for (int i = 0; i < param.buffer.num_of_streams; i++) {
-                if (param.buffer.info[i].stream_id
-                    == reproc_stream->getMyServerID()) {
-                        mHoldBuffers = param.buffer.info[i].hold_buffers;
-                    break;
-                }
-            }
-        }
-    }
-
     cam_dimension_t src_dim;
     memset(&src_dim, 0, sizeof(cam_dimension_t));
     main_stream->getFrameDimension(src_dim);
 
     bool hdr_output_crop = m_parent->mParameters.isHDROutputCropEnabled();
-    bool crop_upscale_needed =
+    bool img_feature_enabled =
       m_parent->mParameters.isUbiFocusEnabled() ||
       m_parent->mParameters.isChromaFlashEnabled() ||
       m_parent->mParameters.isOptiZoomEnabled();
 
-    ALOGE("%s:%d] Crop needed %d", __func__, __LINE__, crop_upscale_needed);
-    hdr_output_crop = hdr_output_crop || crop_upscale_needed;
+    ALOGD("%s:%d] Crop needed %d", __func__, __LINE__, img_feature_enabled);
     crop.left = 0;
     crop.top = 0;
     crop.height = src_dim.height;
     crop.width = src_dim.width;
 
-    memset(&param, 0, sizeof(cam_stream_parm_buffer_t));
-    param.type = CAM_STREAM_PARAM_TYPE_GET_OUTPUT_CROP;
-
-    ret = main_stream->getParameter(param);
-    if (ret != NO_ERROR) {
-        ALOGE("%s: stream getParameter for reprocess failed", __func__);
-    } else {
-       for (int i = 0; i < param.outputCrop.num_of_streams; i++) {
-           if (param.outputCrop.crop_info[i].stream_id
-               == main_stream->getMyServerID()) {
-                   crop = param.outputCrop.crop_info[i].crop;
-                   main_stream->setCropInfo(crop);
-           }
+    param = main_stream->getOutputCrop();
+    for (int i = 0; i < param.outputCrop.num_of_streams; i++) {
+       if (param.outputCrop.crop_info[i].stream_id
+           == main_stream->getMyServerID()) {
+               crop = param.outputCrop.crop_info[i].crop;
+               main_stream->setCropInfo(crop);
        }
+    }
+    if (img_feature_enabled) {
+        memset(&param, 0, sizeof(cam_stream_parm_buffer_t));
+
+        param = main_stream->getImgProp();
+        imgProp = param.imgProp;
+        main_stream->setCropInfo(imgProp.crop);
+        crop = imgProp.crop;
+        thumb_stream = NULL; /* use thumbnail from main image */
+        if (imgProp.is_raw_image) {
+           camera_memory_t *mem = memObj->getMemory(
+               main_frame->buf_idx, false);
+           ALOGE("%s:%d] Process raw image %p %d", __func__, __LINE__,
+               mem, imgProp.size);
+           /* dump image */
+           if (mem && mem->data) {
+               CAM_DUMP_TO_FILE("/data/local/ubifocus", "DepthMapImage",
+                                -1, "y",
+                                (uint8_t *)mem->data,
+                                imgProp.size);
+           }
+           return NO_ERROR;
+        }
     }
 
     cam_dimension_t dst_dim;
 
-    if (hdr_output_crop && crop.height && !crop_upscale_needed) {
+    if (hdr_output_crop && crop.height) {
         dst_dim.height = crop.height;
     } else {
         dst_dim.height = src_dim.height;
     }
-    if (hdr_output_crop && crop.width && !crop_upscale_needed) {
+    if (hdr_output_crop && crop.width) {
         dst_dim.width = crop.width;
     } else {
         dst_dim.width = src_dim.width;
@@ -1405,17 +1660,26 @@ int32_t QCameraPostProcessor::encodeData(qcamera_jpeg_data_t *jpeg_job_data,
 
     // set rotation only when no online rotation or offline pp rotation is done before
     if (!m_parent->needRotationReprocess()) {
-        jpg_job.encode_job.rotation = m_parent->getJpegRotation();
+        jpg_job.encode_job.rotation = jpeg_rotation;
     }
     ALOGD("%s: jpeg rotation is set to %d", __func__, jpg_job.encode_job.rotation);
 
     // thumbnail dim
     if (m_bThumbnailNeeded == TRUE) {
+        m_parent->getThumbnailSize(jpg_job.encode_job.thumb_dim.dst_dim);
+
         if (thumb_stream == NULL) {
             // need jpeg thumbnail, but no postview/preview stream exists
             // we use the main stream/frame to encode thumbnail
             thumb_stream = main_stream;
             thumb_frame = main_frame;
+            if (m_parent->needRotationReprocess() &&
+                ((90 == jpeg_rotation) || (270 == jpeg_rotation))) {
+                // swap thumbnail dimensions
+                cam_dimension_t tmp_dim = jpg_job.encode_job.thumb_dim.dst_dim;
+                jpg_job.encode_job.thumb_dim.dst_dim.width = tmp_dim.height;
+                jpg_job.encode_job.thumb_dim.dst_dim.height = tmp_dim.width;
+            }
         }
 
         memset(&src_dim, 0, sizeof(cam_dimension_t));
@@ -1427,23 +1691,14 @@ int32_t QCameraPostProcessor::encodeData(qcamera_jpeg_data_t *jpeg_job_data,
         crop.height = src_dim.height;
         crop.width = src_dim.width;
 
-        memset(&param, 0, sizeof(cam_stream_parm_buffer_t));
-        param.type = CAM_STREAM_PARAM_TYPE_GET_OUTPUT_CROP;
-
-        ret = thumb_stream->getParameter(param);
-        if (ret != NO_ERROR) {
-            ALOGE("%s: stream getParameter for reprocess failed", __func__);
-        } else {
-           for (int i = 0; i < param.outputCrop.num_of_streams; i++) {
-               if (param.outputCrop.crop_info[i].stream_id
-                   == thumb_stream->getMyServerID()) {
-                       crop = param.outputCrop.crop_info[i].crop;
-                       thumb_stream->setCropInfo(crop);
-               }
+        param = thumb_stream->getOutputCrop();
+        for (int i = 0; i < param.outputCrop.num_of_streams; i++) {
+           if (param.outputCrop.crop_info[i].stream_id
+               == thumb_stream->getMyServerID()) {
+                   crop = param.outputCrop.crop_info[i].crop;
+                   thumb_stream->setCropInfo(crop);
            }
         }
-
-        m_parent->getThumbnailSize(jpg_job.encode_job.thumb_dim.dst_dim);
 
         jpg_job.encode_job.thumb_dim.crop = crop;
         jpg_job.encode_job.thumb_index = thumb_frame->buf_idx;
@@ -1454,27 +1709,9 @@ int32_t QCameraPostProcessor::encodeData(qcamera_jpeg_data_t *jpeg_job_data,
             jpg_job.encode_job.thumb_dim.dst_dim.height);
     }
 
-    // find meta data frame
-    mm_camera_buf_def_t *meta_frame = NULL;
-    for (int i = 0; i < jpeg_job_data->src_frame->num_bufs; i++) {
-        // look through input superbuf
-        if (jpeg_job_data->src_frame->bufs[i]->stream_type == CAM_STREAM_TYPE_METADATA) {
-            meta_frame = jpeg_job_data->src_frame->bufs[i];
-            break;
-        }
-    }
-    if (meta_frame == NULL && jpeg_job_data->src_reproc_frame != NULL) {
-        // look through reprocess source superbuf
-        for (int i = 0; i < jpeg_job_data->src_reproc_frame->num_bufs; i++) {
-            if (jpeg_job_data->src_reproc_frame->bufs[i]->stream_type == CAM_STREAM_TYPE_METADATA) {
-                meta_frame = jpeg_job_data->src_reproc_frame->bufs[i];
-                break;
-            }
-        }
-    }
-    if (meta_frame != NULL) {
+    if (jpeg_job_data->metadata != NULL) {
         // fill in meta data frame ptr
-        jpg_job.encode_job.p_metadata = (metadata_buffer_t *)meta_frame->buffer;
+        jpg_job.encode_job.p_metadata = jpeg_job_data->metadata;
     }
 
     jpg_job.encode_job.cam_exif_params = m_parent->mExifParams;
@@ -1516,8 +1753,8 @@ int32_t QCameraPostProcessor::processRawImageImpl(mm_camera_super_buf_t *recvd_f
         }
     }
     if (pChannel == NULL) {
-        ALOGE("%s: No corresponding channel (ch_id = %d) exist, return here",
-              __func__, recvd_frame->ch_id);
+        ALOGE("%s:%d] No corresponding channel (ch_id = %d) exist, return here",
+              __func__, __LINE__, recvd_frame->ch_id);
         return BAD_VALUE;
     }
 
@@ -1543,10 +1780,24 @@ int32_t QCameraPostProcessor::processRawImageImpl(mm_camera_super_buf_t *recvd_f
     }
 
     QCameraMemory *rawMemObj = (QCameraMemory *)frame->mem_info;
+    bool zslChannelUsed = m_parent->isZSLMode() &&
+            ( pChannel != m_pReprocChannel );
     camera_memory_t *raw_mem = NULL;
 
     if (rawMemObj != NULL) {
-        raw_mem = rawMemObj->getMemory(frame->buf_idx, false);
+        if (zslChannelUsed) {
+            raw_mem = rawMemObj->getMemory(frame->buf_idx, false);
+        } else {
+            raw_mem = m_parent->mGetMemory(-1,
+                                           frame->frame_len,
+                                           1,
+                                           m_parent->mCallbackCookie);
+            if (NULL == raw_mem) {
+                ALOGE("%s : Not enough memory for RAW cb ", __func__);
+                return NO_MEMORY;
+            }
+            memcpy(raw_mem->data, frame->buffer, frame->frame_len);
+        }
     }
 
     if (NULL != rawMemObj && NULL != raw_mem) {
@@ -1581,23 +1832,22 @@ int32_t QCameraPostProcessor::processRawImageImpl(mm_camera_super_buf_t *recvd_f
             m_parent->m_cbNotifier.notifyCallback(cbArg);
         }
 
-        bool zslChannelUsed = m_parent->isZSLMode() && ( pChannel != m_pReprocChannel );
         if ((m_parent->mDataCb != NULL) &&
             m_parent->msgTypeEnabledWithLock(CAMERA_MSG_COMPRESSED_IMAGE) > 0) {
-            mRawBurstCount--;
             qcamera_release_data_t release_data;
             memset(&release_data, 0, sizeof(qcamera_release_data_t));
-            if ( ( 0 == mRawBurstCount ) && (!zslChannelUsed) ) {
-                release_data.streamBufs = rawMemObj;
-                pStream->acquireStreamBufs();
-            } else {
+            if ( zslChannelUsed ) {
                 release_data.frame = recvd_frame;
+            } else {
+                release_data.data = raw_mem;
             }
             rc = sendDataNotify(CAMERA_MSG_COMPRESSED_IMAGE,
                                 raw_mem,
                                 0,
                                 NULL,
                                 &release_data);
+        } else {
+            raw_mem->release(raw_mem);
         }
     } else {
         ALOGE("%s: Cannot get raw mem", __func__);
@@ -1754,7 +2004,6 @@ void *QCameraPostProcessor::dataProcessRoutine(void *data)
     int running = 1;
     int ret;
     uint8_t is_active = FALSE;
-    uint8_t needNewSess = TRUE;
     QCameraPostProcessor *pme = (QCameraPostProcessor *)data;
     QCameraCmdThread *cmdThread = &pme->m_dataProcTh;
 
@@ -1775,7 +2024,6 @@ void *QCameraPostProcessor::dataProcessRoutine(void *data)
         case CAMERA_CMD_TYPE_START_DATA_PROC:
             ALOGD("%s: start data proc", __func__);
             is_active = TRUE;
-            needNewSess = TRUE;
             pme->m_saveProcTh.sendCmd(CAMERA_CMD_TYPE_START_DATA_PROC,
                                       FALSE,
                                       FALSE);
@@ -1814,7 +2062,6 @@ void *QCameraPostProcessor::dataProcessRoutine(void *data)
                     delete pme->m_pJpegExifObj;
                     pme->m_pJpegExifObj = NULL;
                 }
-                needNewSess = TRUE;
 
                 // stop reproc channel if exists
                 if (pme->m_pReprocChannel != NULL) {
@@ -1835,11 +2082,10 @@ void *QCameraPostProcessor::dataProcessRoutine(void *data)
                 // flush input raw Queue
                 pme->m_inputRawQ.flush();
 
-                // flush delayed buffer release queue
-                pme->m_delayReleaseBuffers.flush();
-
                 // signal cmd is completed
                 cam_sem_post(&cmdThread->sync_sem);
+
+                pme->mNewJpegSessionNeeded = true;
             }
             break;
         case CAMERA_CMD_TYPE_DO_NEXT_JOB:
@@ -1850,16 +2096,21 @@ void *QCameraPostProcessor::dataProcessRoutine(void *data)
                         (qcamera_jpeg_data_t *)pme->m_inputJpegQ.dequeue();
 
                     if (NULL != jpeg_job) {
-                      // add into ongoing jpeg job Q
-                      pme->m_ongoingJpegQ.enqueue((void *)jpeg_job);
-                      ret = pme->encodeData(jpeg_job, needNewSess);
-                      if (NO_ERROR != ret) {
-                        // dequeue the last one
-                        pme->m_ongoingJpegQ.dequeue(false);
-                        pme->releaseJpegJobData(jpeg_job);
-                        free(jpeg_job);
-                        pme->sendEvtNotify(CAMERA_MSG_ERROR, UNKNOWN_ERROR, 0);
-                      }
+                        // To avoid any race conditions,
+                        // sync any stream specific parameters here.
+                        pme->syncStreamParams(jpeg_job->src_frame, NULL);
+
+                        // add into ongoing jpeg job Q
+                        pme->m_ongoingJpegQ.enqueue((void *)jpeg_job);
+                        ret = pme->encodeData(jpeg_job,
+                                  pme->mNewJpegSessionNeeded);
+                        if (NO_ERROR != ret) {
+                            // dequeue the last one
+                            pme->m_ongoingJpegQ.dequeue(false);
+                            pme->releaseJpegJobData(jpeg_job);
+                            free(jpeg_job);
+                            pme->sendEvtNotify(CAMERA_MSG_ERROR, UNKNOWN_ERROR, 0);
+                        }
                     }
 
 
@@ -1884,15 +2135,14 @@ void *QCameraPostProcessor::dataProcessRoutine(void *data)
                         qcamera_pp_data_t *pp_job =
                             (qcamera_pp_data_t *)malloc(sizeof(qcamera_pp_data_t));
                         if (pp_job != NULL) {
+                            pme->syncStreamParams(pp_frame, NULL);
                             memset(pp_job, 0, sizeof(qcamera_pp_data_t));
                             if (pme->m_pReprocChannel != NULL) {
                                 // add into ongoing PP job Q
                                 pp_job->src_frame = pp_frame;
-                                pme->m_ongoingPPQ.enqueue((void *)pp_job);
-                                ret = pme->m_pReprocChannel->doReprocess(pp_frame);
-                                if (NO_ERROR != ret) {
-                                    // remove from ongoing PP job Q
-                                    pme->m_ongoingPPQ.dequeue(false);
+                                ret = pme->reprocess(pp_job);
+                                if (NO_ERROR == ret) {
+                                    pme->stopCapture();
                                 }
                             } else {
                                 ALOGE("%s: Reprocess channel is NULL", __func__);
@@ -1951,6 +2201,89 @@ void *QCameraPostProcessor::dataProcessRoutine(void *data)
 }
 
 /*===========================================================================
+ * FUNCTION   : reprocess
+ *
+ * DESCRIPTION: Trigger reprocessing
+ *
+ * PARAMETERS :
+ *   @pp_job  : Postproc job
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraPostProcessor::reprocess(qcamera_pp_data_t *pp_job)
+{
+    int rc = NO_ERROR;
+
+    if (NULL == pp_job) {
+        return BAD_VALUE;
+    }
+
+    if (m_parent->isRegularCapture()) {
+       if ((NULL != pp_job->src_frame) &&
+           (0 < pp_job->src_frame->num_bufs)) {
+           mm_camera_buf_def_t *bufs = NULL;
+           uint8_t num_bufs = -1;
+           num_bufs = pp_job->src_frame->num_bufs;
+           bufs = new mm_camera_buf_def_t[num_bufs];
+           if (NULL == bufs) {
+               ALOGE("%s:Unable to allocate cached buffers",
+                     __func__);
+               return NO_MEMORY;
+           }
+
+           for (int i = 0; i < num_bufs; i++) {
+               bufs[i] = *pp_job->src_frame->bufs[i];
+               pp_job->src_frame->bufs[i] = &bufs[i];
+           }
+           pp_job->src_reproc_bufs = bufs;
+       }
+
+       // Don't release source frame after encoding
+       // at this point the source channel will not exist.
+       pp_job->reproc_frame_release = true;
+       m_ongoingPPQ.enqueue((void *)pp_job);
+       rc = m_pReprocChannel->doReprocessOffline(pp_job->src_frame);
+    } else {
+        m_ongoingPPQ.enqueue((void *)pp_job);
+        rc = m_pReprocChannel->doReprocess(pp_job->src_frame);
+    }
+
+    if (NO_ERROR != rc) {
+        // remove from ongoing PP job Q
+        m_ongoingPPQ.dequeue(false);
+    }
+
+    return rc;
+}
+
+/*===========================================================================
+ * FUNCTION   : stopCapture
+ *
+ * DESCRIPTION: Trigger image capture stop
+ *
+ * PARAMETERS :
+ * None
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraPostProcessor::stopCapture()
+{
+     int rc = NO_ERROR;
+
+     if (m_parent->isRegularCapture()) {
+        rc = m_parent->processAPI(
+                        QCAMERA_SM_EVT_STOP_CAPTURE_CHANNEL,
+                        NULL);
+     }
+
+     return rc;
+}
+
+/*===========================================================================
  * FUNCTION   : getJpegPaddingReq
  *
  * DESCRIPTION: function to add an entry to exif data
@@ -1997,8 +2330,8 @@ int32_t QCameraPostProcessor::setYUVFrameInfo(mm_camera_super_buf_t *recvd_frame
     }
 
     if (pChannel == NULL) {
-        ALOGE("%s: No corresponding channel (ch_id = %d) exist, return here",
-              __func__, recvd_frame->ch_id);
+        ALOGE("%s:%d] No corresponding channel (ch_id = %d) exist, return here",
+              __func__, __LINE__, recvd_frame->ch_id);
         return BAD_VALUE;
     }
 
