@@ -1487,7 +1487,9 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
     case CAM_STREAM_TYPE_METADATA:
         {
             if (mParameters.isZSLMode()) {
-                bufferCnt = zslQBuffers + minCircularBufNum;
+                // MetaData buffers should be >= (Preview buffers-minUndequeCount)
+                bufferCnt = zslQBuffers + minCircularBufNum +
+                            EXTRA_ZSL_PREVIEW_STREAM_BUF;
             } else {
                 bufferCnt = minCaptureBuffers +
                             mParameters.getNumOfExtraHDRInBufsIfNeeded() -
@@ -1661,7 +1663,6 @@ QCameraHeapMemory *QCamera2HardwareInterface::allocateStreamInfoBuf(
 {
     int rc = NO_ERROR;
     const char *effect;
-
     QCameraHeapMemory *streamInfoBuf = new QCameraHeapMemory(QCAMERA_ION_USE_CACHE);
     if (!streamInfoBuf) {
         ALOGE("allocateStreamInfoBuf: Unable to allocate streamInfo object");
@@ -1708,11 +1709,19 @@ QCameraHeapMemory *QCamera2HardwareInterface::allocateStreamInfoBuf(
         break;
     case CAM_STREAM_TYPE_VIDEO:
         streamInfo->useAVTimer = mParameters.isAVTimerEnabled();
+        streamInfo->dis_enable = mParameters.isDISEnabled();
     case CAM_STREAM_TYPE_PREVIEW:
         if (mParameters.getRecordingHintValue()) {
-            char value[PROPERTY_VALUE_MAX];
-            property_get("persist.camera.is_type", value, "0");
-            streamInfo->is_type = static_cast<cam_is_type_t>(atoi(value));
+            const char* dis_param = mParameters.get(QCameraParameters::KEY_QC_DIS);
+            bool disEnabled = (dis_param != NULL)
+                    && !strcmp(dis_param,QCameraParameters::VALUE_ENABLE);
+            if(disEnabled) {
+                char value[PROPERTY_VALUE_MAX];
+                property_get("persist.camera.is_type", value, "0");
+                streamInfo->is_type = static_cast<cam_is_type_t>(atoi(value));
+            } else {
+                streamInfo->is_type = IS_TYPE_NONE;
+            }
         }
         break;
     default:
