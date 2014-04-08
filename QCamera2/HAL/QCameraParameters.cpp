@@ -632,7 +632,8 @@ QCameraParameters::QCameraParameters()
       m_bAFBracketingOn(false),
       m_bChromaFlashOn(false),
       m_bOptiZoomOn(false),
-      m_bHfrMode(false)
+      m_bHfrMode(false),
+      m_bDisplayFrame(true)
 {
     char value[PROPERTY_VALUE_MAX];
     // TODO: may move to parameter instead of sysprop
