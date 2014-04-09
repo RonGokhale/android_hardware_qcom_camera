@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -343,7 +343,7 @@ typedef struct {
      *       buf before this call
      **/
     int32_t (*set_parms) (uint32_t camera_handle,
-                          void *parms);
+                          parm_buffer_t *parms);
 
     /** get_parms: fucntion definition for querying camera
      *             based parameters from server
@@ -357,7 +357,7 @@ typedef struct {
      *       the buf before this call
      **/
     int32_t (*get_parms) (uint32_t camera_handle,
-                          void *parms);
+                          parm_buffer_t *parms);
 
     /** do_auto_focus: fucntion definition for performing auto focus
      *    @camera_handle : camer handler
@@ -387,6 +387,24 @@ typedef struct {
      **/
     int32_t (*prepare_snapshot) (uint32_t camera_handle,
                                  int32_t do_af_flag);
+
+    /** start_zsl_snapshot: function definition for starting
+     *                    zsl snapshot.
+     *    @camera_handle : camer handler
+     *    @ch_id         : channel id
+     *  Return value: 0 -- success
+     *                -1 -- failure
+     **/
+    int32_t (*start_zsl_snapshot) (uint32_t camera_handle, uint32_t ch_id);
+
+    /** stop_zsl_snapshot: function definition for stopping
+     *                    zsl snapshot.
+     *    @camera_handle : camer handler
+     *    @ch_id         : channel id
+     *  Return value: 0 -- success
+     *                -1 -- failure
+     **/
+    int32_t (*stop_zsl_snapshot) (uint32_t camera_handle, uint32_t ch_id);
 
     /** add_channel: fucntion definition for adding a channel
      *    @camera_handle : camer handler
@@ -683,4 +701,5 @@ int32_t mm_stream_calc_offset_postproc(cam_stream_info_t *stream_info,
         cam_padding_info_t *padding,
         cam_stream_buf_plane_info_t *buf_planes);
 
+struct camera_info *get_cam_info(int camera_id);
 #endif /*__MM_CAMERA_INTERFACE_H__*/
