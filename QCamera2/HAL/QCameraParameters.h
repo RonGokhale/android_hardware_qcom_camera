@@ -288,6 +288,9 @@ public:
     static const char SCENE_MODE_BACKLIGHT[];
     static const char SCENE_MODE_FLOWERS[];
     static const char SCENE_MODE_AR[];
+    static const char SCENE_MODE_FOOD[];
+    static const char SCENE_MODE_TEXT[];
+    static const char SCENE_MODE_CHILD[];
     static const char SCENE_MODE_HDR[];
     static const char PIXEL_FORMAT_YUV420SP_ADRENO[]; // ADRENO
     static const char PIXEL_FORMAT_YV12[]; // NV12
