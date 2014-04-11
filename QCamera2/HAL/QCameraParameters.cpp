@@ -146,7 +146,11 @@ const char QCameraParameters::SCENE_MODE_ASD[] = "asd";   // corresponds to CAME
 const char QCameraParameters::SCENE_MODE_BACKLIGHT[] = "backlight";
 const char QCameraParameters::SCENE_MODE_FLOWERS[] = "flowers";
 const char QCameraParameters::SCENE_MODE_AR[] = "AR";
+const char QCameraParameters::SCENE_MODE_FOOD[] = "Food";
+const char QCameraParameters::SCENE_MODE_PPT[] = "PPT";
 const char QCameraParameters::SCENE_MODE_HDR[] = "hdr";
+const char QCameraParameters::SCENE_MODE_TEXT[] = "text";
+const char QCameraParameters::SCENE_MODE_CHILD[] = "child";
 
 // Formats for setPreviewFormat and setPictureFormat.
 const char QCameraParameters::PIXEL_FORMAT_YUV420SP_ADRENO[] = "yuv420sp-adreno";
@@ -466,7 +470,12 @@ const QCameraParameters::QCameraMap QCameraParameters::SCENE_MODES_MAP[] = {
     { SCENE_MODE_BACKLIGHT,      CAM_SCENE_MODE_BACKLIGHT },
     { SCENE_MODE_FLOWERS,        CAM_SCENE_MODE_FLOWERS },
     { SCENE_MODE_AR,             CAM_SCENE_MODE_AR },
+    { SCENE_MODE_FOOD,           CAM_SCENE_MODE_FOOD },
+    { SCENE_MODE_PPT,            CAM_SCENE_MODE_PPT },
     { SCENE_MODE_HDR,            CAM_SCENE_MODE_HDR },
+    { SCENE_MODE_TEXT,           CAM_SCENE_MODE_TEXT },
+    { SCENE_MODE_CHILD,          CAM_SCENE_MODE_CHILD },
+
 };
 
 const QCameraParameters::QCameraMap QCameraParameters::FLASH_MODES_MAP[] = {
