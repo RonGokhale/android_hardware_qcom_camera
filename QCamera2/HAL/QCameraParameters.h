@@ -491,6 +491,7 @@ public:
     bool isHistogramEnabled() {return m_bHistogramEnabled;};
     bool isFaceDetectionEnabled() {return ((m_nFaceProcMask & CAM_FACE_PROCESS_MASK_DETECTION) != 0);};
     int32_t setHistogram(bool enabled);
+    int32_t setLongShot(bool enabled);
     int32_t setFaceDetection(bool enabled);
     int32_t setFrameSkip(enum msm_vfe_frame_skip_pattern pattern);
     qcamera_thermal_mode getThermalMode() {return m_ThermalMode;};
@@ -722,6 +723,7 @@ private:
     cam_dimension_t m_LiveSnapshotSize; // live snapshot size
     cam_dimension_t m_rawSize; // live snapshot size
     bool m_bHDREnabled;             // if HDR is enabled
+    bool m_bLongShotEnabled;
     bool m_bAVTimerEnabled;    //if AVTimer is enabled
     bool m_bDISEnabled;
     QCameraAdjustFPS *m_AdjustFPS;
