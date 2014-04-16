@@ -1344,7 +1344,7 @@ void QCamera2HardwareInterface::dumpFrameToFile(QCameraStream *stream,
                     // reset frame count if cycling
                     mDumpFrmCnt = 0;
                 }
-                if (mDumpFrmCnt >= 0 && mDumpFrmCnt <= frm_num) {
+                if (mDumpFrmCnt >= 0 && mDumpFrmCnt < frm_num) {
                     char buf[32];
                     char timeBuf[128];
                     time_t current_time;
