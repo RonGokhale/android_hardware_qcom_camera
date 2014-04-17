@@ -2090,6 +2090,85 @@ int QCamera2HardwareInterface::cancelAutoFocus()
 }
 
 /*===========================================================================
+* FUNCTION   : configureBracketing
+*
+* DESCRIPTION: configure Bracketing.
+*
+* PARAMETERS : none
+*
+* RETURN         : int32_t type of status
+*              NO_ERROR  -- success
+*                         none-zero failure code
+*==========================================================================*/
+int32_t QCamera2HardwareInterface::configureBracketing()
+{
+    ALOGD("%s: E",__func__);
+    int32_t rc = NO_ERROR;
+    if (mParameters.isAEBracketEnabled()) {
+        rc = configureAEBracketing();
+    } else {
+        ALOGE("%s: No Bracketing feature enabled!! ",__func__);
+        rc = BAD_VALUE;
+    }
+    ALOGD("%s: X",__func__);
+    return rc;
+}
+
+/*===========================================================================
+ * FUNCTION   : configureAEBracketing
+ *
+ * DESCRIPTION: configure AE Bracketing.
+ *
+ * PARAMETERS : none
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCamera2HardwareInterface::configureAEBracketing()
+{
+    ALOGD("%s: E",__func__);
+    int32_t rc = NO_ERROR;
+
+    rc = mParameters.setAEBracketing();
+    if ( NO_ERROR != rc ) {
+        ALOGE("%s: cannot configure AE bracketing", __func__);
+        return rc;
+    }
+    ALOGD("%s: X",__func__);
+    return rc;
+}
+
+/*===========================================================================
+* FUNCTION   : startBracketing
+*
+* DESCRIPTION: starts bracketing based on bracket type(AE)
+*
+* PARAMETERS :
+*   @pChannel : channel.
+*   @type    : 3A bracketing type.
+*
+* RETURN     : int32_t type of status
+*              NO_ERROR  -- success
+*              none-zero failure code
+*==========================================================================*/
+int32_t QCamera2HardwareInterface::startBracketing(
+    QCameraPicChannel *pChannel)
+{
+    ALOGD("%s: Start bracketig",__func__);
+    int32_t rc = NO_ERROR;
+
+    if (mParameters.isAEBracketEnabled()) {
+        rc = pChannel->startBracketing(MM_CAMERA_AE_BRACKETING);
+    } else {
+        ALOGE("%s: No Bracketing feature enabled!",__func__);
+        rc = BAD_VALUE;
+    }
+
+    return rc;
+}
+
+/*===========================================================================
  * FUNCTION   : takePicture
  *
  * DESCRIPTION: take picture impl
@@ -2104,6 +2183,15 @@ int QCamera2HardwareInterface::takePicture()
 {
     int rc = NO_ERROR;
     uint8_t numSnapshots = mParameters.getNumOfSnapshots();
+
+    if (mParameters.isAEBracketEnabled()) {
+        rc = configureBracketing();
+        if (rc == NO_ERROR) {
+            numSnapshots = mParameters.getBurstCountForBracketing();
+        }
+    }
+    ALOGE("%s: numSnapshot = %d",__func__, numSnapshots);
+
     getOrientation();
     ALOGD("%s: E", __func__);
     if (mParameters.isZSLMode()) {
@@ -2115,6 +2203,13 @@ int QCamera2HardwareInterface::takePicture()
             if (rc != NO_ERROR) {
                 ALOGE("%s: cannot start postprocessor", __func__);
                 return rc;
+            }
+            if (mParameters.isAEBracketEnabled()) {
+                rc = startBracketing(pZSLChannel);
+                if (rc != NO_ERROR) {
+                    ALOGE("%s: cannot start zsl bracketing", __func__);
+                    return rc;
+                }
             }
 
             rc = pZSLChannel->takePicture(numSnapshots);
@@ -2291,6 +2386,10 @@ int QCamera2HardwareInterface::cancelPicture()
     //stop post processor
     m_postprocessor.stop();
 
+    if (mParameters.isAEBracketEnabled()) {
+       mParameters.stopAEBracket();
+    }
+
     if (mParameters.isZSLMode()) {
         QCameraPicChannel *pZSLChannel =
             (QCameraPicChannel *)m_channels[QCAMERA_CH_TYPE_ZSL];
@@ -2299,9 +2398,6 @@ int QCamera2HardwareInterface::cancelPicture()
         }
     } else {
 
-        if ( mParameters.isHDREnabled() ) {
-            mParameters.restoreAEBracket();
-        }
 
         // normal capture case
         if (mParameters.isJpegPictureFormat() ||
@@ -4852,6 +4948,11 @@ bool QCamera2HardwareInterface::needReprocess()
         mParameters.m_reprocScaleParam.isUnderScaling()) {
         // Reproc Scale is enaled and also need Scaling to current Snapshot
         ALOGD("%s: need do reprocess for scale", __func__);
+        pthread_mutex_unlock(&m_parm_lock);
+        return true;
+    }
+
+    if (mParameters.isHDREnabled()) {
         pthread_mutex_unlock(&m_parm_lock);
         return true;
     }

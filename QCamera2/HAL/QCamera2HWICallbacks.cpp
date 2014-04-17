@@ -182,6 +182,11 @@ void QCamera2HardwareInterface::zsl_channel_cb(mm_camera_super_buf_t *recvd_fram
     }
 
     // send to postprocessor
+    ALOGD("%s, zsl_cb bufnums=%d.", __func__, recvd_frame->num_bufs);
+    for (int i=0; i<recvd_frame->num_bufs; i++) {
+        ALOGD("%s, zsl_cb frame idx=%d.", __func__, recvd_frame->bufs[i]->frame_idx);
+    }
+
     pme->m_postprocessor.processData(frame);
 
     ALOGD("[KPI Perf] %s: X", __func__);

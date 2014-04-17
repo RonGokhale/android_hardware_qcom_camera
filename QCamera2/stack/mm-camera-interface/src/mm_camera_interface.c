@@ -49,6 +49,69 @@ static pthread_mutex_t g_handler_lock = PTHREAD_MUTEX_INITIALIZER;
 static uint16_t g_handler_history_count = 0; /* history count for handler */
 
 /*===========================================================================
+ * FUNCTION   : mm_camera_util_get_camera_by_handler
+ *
+ * DESCRIPTION: utility function to get camera object from camera handle
+ *
+ * PARAMETERS :
+ *   @cam_handle: camera handle
+ *
+ * RETURN     : ptr to the camera object stored in global variable
+ * NOTE       : caller should not free the camera object ptr
+ *==========================================================================*/
+mm_camera_obj_t* mm_camera_util_get_camera_by_handler(uint32_t cam_handle)
+{
+    mm_camera_obj_t *cam_obj = NULL;
+    uint8_t cam_idx = mm_camera_util_get_index_by_handler(cam_handle);
+
+    if (cam_idx < MM_CAMERA_MAX_NUM_SENSORS &&
+        (NULL != g_cam_ctrl.cam_obj[cam_idx]) &&
+        (cam_handle == g_cam_ctrl.cam_obj[cam_idx]->my_hdl)) {
+        cam_obj = g_cam_ctrl.cam_obj[cam_idx];
+    }
+    return cam_obj;
+}
+
+/*===========================================================================
+* FUNCTION   : mm_camera_intf_process_bracketing
+ *
+ * DESCRIPTION: Configures channel 3a bracketing mode
+ *
+ * PARAMETERS :
+ *   @camera_handle: camera handle
+ *   @bracketing_type : bracketing type
+ *   @ch_id        : channel handle
+ *   @notify_mode  : notification mode
+ *
+ * RETURN     : int32_t type of status
+ *              0  -- success
+ *              -1 -- failure
+ *==========================================================================*/
+static int32_t mm_camera_intf_process_bracketing(uint32_t camera_handle,
+    mm_camera_bracketing_t bracketing_type,
+    uint32_t ch_id,
+    int8_t start_flag)
+{
+    int32_t rc = -1;
+    mm_camera_obj_t * my_obj = NULL;
+
+    CDBG("%s: E camera_handler = %d,ch_id = %d",
+         __func__, camera_handle, ch_id);
+    pthread_mutex_lock(&g_intf_lock);
+    my_obj = mm_camera_util_get_camera_by_handler(camera_handle);
+
+    if(my_obj) {
+        pthread_mutex_lock(&my_obj->cam_lock);
+        pthread_mutex_unlock(&g_intf_lock);
+        rc = mm_camera_channel_bracketing(my_obj, bracketing_type, ch_id, start_flag);
+    } else {
+        pthread_mutex_unlock(&g_intf_lock);
+    }
+    CDBG("%s: X ", __func__);
+    return rc;
+}
+
+/*===========================================================================
  * FUNCTION   : mm_camera_util_generate_handler
  *
  * DESCRIPTION: utility function to generate handler for camera/channel/stream
@@ -106,30 +169,6 @@ const char *mm_camera_util_get_dev_name(uint32_t cam_handle)
         dev_name = g_cam_ctrl.video_dev_name[cam_idx];
     }
     return dev_name;
-}
-
-/*===========================================================================
- * FUNCTION   : mm_camera_util_get_camera_by_handler
- *
- * DESCRIPTION: utility function to get camera object from camera handle
- *
- * PARAMETERS :
- *   @cam_handle: camera handle
- *
- * RETURN     : ptr to the camera object stored in global variable
- * NOTE       : caller should not free the camera object ptr
- *==========================================================================*/
-mm_camera_obj_t* mm_camera_util_get_camera_by_handler(uint32_t cam_handle)
-{
-    mm_camera_obj_t *cam_obj = NULL;
-    uint8_t cam_idx = mm_camera_util_get_index_by_handler(cam_handle);
-
-    if (cam_idx < MM_CAMERA_MAX_NUM_SENSORS &&
-        (NULL != g_cam_ctrl.cam_obj[cam_idx]) &&
-        (cam_handle == g_cam_ctrl.cam_obj[cam_idx]->my_hdl)) {
-        cam_obj = g_cam_ctrl.cam_obj[cam_idx];
-    }
-    return cam_obj;
 }
 
 /*===========================================================================
@@ -1344,6 +1383,7 @@ struct camera_info *get_cam_info(int camera_id)
 {
     return &g_cam_ctrl.info[camera_id];
 }
+
 /* camera ops v-table */
 static mm_camera_ops_t mm_camera_ops = {
     .query_capability = mm_camera_intf_query_capability,
@@ -1372,7 +1412,8 @@ static mm_camera_ops_t mm_camera_ops = {
     .request_super_buf = mm_camera_intf_request_super_buf,
     .cancel_super_buf_request = mm_camera_intf_cancel_super_buf_request,
     .flush_super_buf_queue = mm_camera_intf_flush_super_buf_queue,
-    .configure_notify_mode = mm_camera_intf_configure_notify_mode
+    .configure_notify_mode = mm_camera_intf_configure_notify_mode,
+    .process_bracketing = mm_camera_intf_process_bracketing
 };
 
 /*===========================================================================

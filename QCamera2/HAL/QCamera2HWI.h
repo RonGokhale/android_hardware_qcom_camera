@@ -391,6 +391,11 @@ private:
     bool removeSizeFromList(cam_dimension_t* size_list,
                             uint8_t length,
                             cam_dimension_t size);
+
+    int32_t startBracketing(QCameraPicChannel *pChannel);
+    int32_t configureBracketing();
+    int32_t configureAEBracketing();
+
     static void copyList(cam_dimension_t* src_list,
                    cam_dimension_t* dst_list, uint8_t len);
     static void camEvtHandle(uint32_t camera_handle,
