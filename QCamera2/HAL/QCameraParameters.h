@@ -379,6 +379,8 @@ public:
     static const char KEY_QC_SUPPORTED_SENSOR_HDR_MODES[];
     static const char KEY_QC_RDI_MODE[];
     static const char KEY_QC_SUPPORTED_RDI_MODES[];
+    static const char KEY_QC_SECURE_MODE[];
+    static const char KEY_QC_SUPPORTED_SECURE_MODES[];
 
     // Values for SKIN TONE ENHANCEMENT
     static const char SKIN_TONE_ENHANCEMENT_ENABLE[] ;
@@ -481,6 +483,7 @@ public:
     int getMaxUnmatchedFramesInQueue();
     bool isZSLMode() {return m_bZslMode;};
     bool isRdiMode() {return m_bRdiMode;};
+    bool isSecureMode() {return m_bSecureMode;};
     bool isNoDisplayMode() {return m_bNoDisplayMode;};
     bool isWNREnabled() {return m_bWNROn;};
     bool isHfrMode() {return m_bHfrMode;};
@@ -516,7 +519,7 @@ public:
     bool getFaceDetectionOption() { return  m_bFaceDetectionOn;}
     int32_t setFaceDetectionOption(bool enabled);
     int32_t setHistogram(bool enabled);
-    int32_t setFaceDetection(bool enabled);
+    int32_t setFaceDetection(bool enabled, bool initCommit);
     int32_t setFrameSkip(enum msm_vfe_frame_skip_pattern pattern);
     qcamera_thermal_mode getThermalMode() {return m_ThermalMode;};
     int32_t updateRecordingHintValue(int32_t value);
@@ -567,7 +570,7 @@ public:
     int32_t commitFlashBracket(cam_flash_bracketing_t flashBracket);
     int32_t set3ALock(const char *lockStr);
     int32_t setAndCommitZoom(int zoom_level);
-    uint8_t getBurstCountForBracketing();
+    uint8_t getBurstCountForAdvancedCapture();
     int32_t setLongshotEnable(bool enable);
     String8 dump();
     inline bool isUbiRefocus() {return isUbiFocusEnabled() &&
@@ -647,6 +650,7 @@ private:
     int32_t setTintlessValue(const QCameraParameters& params);
     int32_t setMobicat(const QCameraParameters& params);
     int32_t setRdiMode(const QCameraParameters& );
+    int32_t setSecureMode(const QCameraParameters& );
     int32_t setAutoExposure(const char *autoExp);
     int32_t setPreviewFpsRange(int min_fps,int max_fps,
             int vid_min_fps,int vid_max_fps);
@@ -686,6 +690,7 @@ private:
     int32_t setTintlessValue(const char *tintStr);
     bool UpdateHFRFrameRate(const QCameraParameters& params);
     int32_t setRdiMode(const char *str);
+    int32_t setSecureMode(const char *str);
 
     int32_t parse_pair(const char *str, int *first, int *second,
                        char delim, char **endptr);
@@ -807,6 +812,7 @@ private:
     bool m_bRdiMode;                // if RDI mode
     bool m_bUbiRefocus;
     bool m_bDisplayFrame;
+    bool m_bSecureMode;
 };
 
 }; // namespace qcamera

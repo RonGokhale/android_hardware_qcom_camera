@@ -123,6 +123,8 @@ const char QCameraParameters::KEY_QC_SUPPORTED_OPTI_ZOOM_MODES[] = "opti-zoom-va
 const char QCameraParameters::KEY_INTERNAL_PERVIEW_RESTART[] = "internal-restart";
 const char QCameraParameters::KEY_QC_RDI_MODE[] = "rdi-mode";
 const char QCameraParameters::KEY_QC_SUPPORTED_RDI_MODES[] = "rdi-mode-values";
+const char QCameraParameters::KEY_QC_SECURE_MODE[] = "secure-mode";
+const char QCameraParameters::KEY_QC_SUPPORTED_SECURE_MODES[] = "secure-mode-values";
 
 // Values for effect settings.
 const char QCameraParameters::EFFECT_EMBOSS[] = "emboss";
@@ -632,7 +634,8 @@ QCameraParameters::QCameraParameters()
       m_bHfrMode(false),
       m_bSensorHDREnabled(false),
       m_bRdiMode(false),
-      m_bDisplayFrame(true)
+      m_bDisplayFrame(true),
+      m_bSecureMode(false)
 {
     char value[PROPERTY_VALUE_MAX];
     // TODO: may move to parameter instead of sysprop
@@ -708,7 +711,8 @@ QCameraParameters::QCameraParameters(const String8 &params)
     m_bOptiZoomOn(false),
     m_bHfrMode(false),
     m_bSensorHDREnabled(false),
-    m_bRdiMode(false)
+    m_bRdiMode(false),
+    m_bSecureMode(false)
 {
     memset(&m_LiveSnapshotSize, 0, sizeof(m_LiveSnapshotSize));
     memset(&m_default_fps_range, 0, sizeof(m_default_fps_range));
@@ -3173,11 +3177,6 @@ int32_t QCameraParameters::setNumOfSnapshot()
         }
     }
 
-    if (isUbiRefocus()) {
-        nBurstNum = m_pCapability->ubifocus_af_bracketing_need.output_count;
-        nExpnum = 1;
-    }
-
     ALOGD("%s: nBurstNum = %d, nExpnum = %d", __func__, nBurstNum, nExpnum);
     set(KEY_QC_NUM_SNAPSHOT_PER_SHUTTER, nBurstNum * nExpnum);
     return NO_ERROR;
@@ -3208,7 +3207,7 @@ int32_t QCameraParameters::setRecordingHint(const QCameraParameters& params)
                 updateParamEntry(KEY_RECORDING_HINT, str);
                 setRecordingHintValue(value);
                 if (getFaceDetectionOption() == true) {
-                    setFaceDetection(value > 0 ? false : true);
+                    setFaceDetection(value > 0 ? false : true, false);
                 }
                 return NO_ERROR;
             } else {
@@ -3362,17 +3361,54 @@ int32_t QCameraParameters::setCameraMode(const QCameraParameters& params)
  *              NO_ERROR  -- success
  *              none-zero failure code
  *===========================================================*/
-int32_t QCameraParameters::setRdiMode(
+int32_t QCameraParameters::setRdiMode(const QCameraParameters& params)
+{
+    const char *str = params.get(KEY_QC_RDI_MODE);
+    const char *prev_str = get(KEY_QC_RDI_MODE);
+    char prop[PROPERTY_VALUE_MAX];
+    memset(prop, 0, sizeof(prop));
+
+    property_get("persist.camera.rdi.mode", prop, VALUE_DISABLE);
+    if ((str != NULL) && (prev_str == NULL || strcmp(str, prev_str) != 0)) {
+        ALOGD("%s:%d : RDI mode set to %s", __func__, __LINE__, str);
+        setRdiMode(str);
+    } else if (prev_str == NULL || strcmp(prev_str, prop) != 0 ) {
+        ALOGD("%s:%d : RDI mode set to prop: %s", __func__, __LINE__, prop);
+        setRdiMode(prop);
+    }
+    return NO_ERROR;
+}
+
+/*==========================================================
+ * FUNCTION   : setSecureMode
+ *
+ * DESCRIPTION: set secure mode from user setting
+ *
+ * PARAMETERS :
+ *   @params  : user setting parameters
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *===========================================================*/
+
+int32_t QCameraParameters::setSecureMode(
   const QCameraParameters& params)
 {
-  const char *str = params.get(KEY_QC_RDI_MODE);
-  const char *prev_str = get(KEY_QC_RDI_MODE);
-  if (str != NULL) {
-    if ((prev_str == NULL) ||strcmp(str, prev_str) != 0) {
-      return setRdiMode(str);
+    const char *str = params.get(KEY_QC_SECURE_MODE);
+    const char *prev_str = get(KEY_QC_SECURE_MODE);
+    char prop[PROPERTY_VALUE_MAX];
+    memset(prop, 0, sizeof(prop));
+
+    property_get("persist.camera.secure.mode", prop, VALUE_DISABLE);
+    if ((str != NULL) && (prev_str == NULL || strcmp(str, prev_str) != 0)) {
+        ALOGD("%s : Secure mode set to KEY: %s", __func__, str);
+        setSecureMode(str);
+    } else if (prev_str == NULL || strcmp(prev_str, prop) != 0 ) {
+        ALOGD("%s : Secure mode set to prop: %s", __func__, prop);
+        setSecureMode(prop);
     }
-  }
-  return NO_ERROR;
+    return NO_ERROR;
 }
 
 /*===========================================================================
@@ -3642,6 +3678,7 @@ int32_t QCameraParameters::updateParameters(QCameraParameters& params,
     if ((rc = setCameraMode(params)))                   final_rc = rc;
     if ((rc = setRecordingHint(params)))                final_rc = rc;
     if ((rc = setRdiMode(params)))                      final_rc = rc;
+    if ((rc = setSecureMode(params)))                   final_rc = rc;
     if ((rc = setPreviewFrameRate(params)))             final_rc = rc;
     if ((rc = setPreviewFpsRange(params)))              final_rc = rc;
     if ((rc = setAutoExposure(params)))                 final_rc = rc;
@@ -4234,6 +4271,10 @@ int32_t QCameraParameters::initDefaultParameters()
     set(KEY_QC_SUPPORTED_RDI_MODES, enableDisableValues);
     setRdiMode(VALUE_DISABLE);
 
+    // Secure mode
+    set(KEY_QC_SUPPORTED_SECURE_MODES, enableDisableValues);
+    setSecureMode(VALUE_DISABLE);
+
     //Set video HDR
     if ((m_pCapability->qcom_supported_feature_mask & CAM_QCOM_FEATURE_VIDEO_HDR) > 0) {
         set(KEY_QC_SUPPORTED_VIDEO_HDR_MODES, onOffValues);
@@ -4313,7 +4354,7 @@ int32_t QCameraParameters::init(cam_capability_t *capabilities,
 
     //Allocate Set Param Buffer
     m_pParamHeap = new QCameraHeapMemory(QCAMERA_ION_USE_CACHE);
-    rc = m_pParamHeap->allocate(1, sizeof(parm_buffer_t));
+    rc = m_pParamHeap->allocate(1, sizeof(parm_buffer_t), NON_SECURE);
     if(rc != OK) {
         rc = NO_MEMORY;
         ALOGE("Failed to allocate SETPARM Heap memory");
@@ -6454,12 +6495,44 @@ int32_t QCameraParameters::setRdiMode(const char *str)
       updateParamEntry(KEY_QC_RDI_MODE, str);
       m_bRdiMode = (value == 0)? false : true;
       return AddSetParmEntryToBatch(m_pParamBuf,
-                                                     CAM_INTF_PARM_RDI_MODE,
-                                                     sizeof(value),
-                                                     &value);
+                                    CAM_INTF_PARM_RDI_MODE,
+                                    sizeof(value),
+                                    &value);
     }
   }
   ALOGE("%s: Invalid rdi mode value: %s",
+    __func__, (str == NULL) ? "NULL" : str);
+  return BAD_VALUE;
+}
+
+
+/*===========================================================================
+ * FUNCTION   : setSecureMode
+ *
+ * DESCRIPTION: set secure mode value
+ *
+ * PARAMETERS :
+ *   @str     : secure mode value string
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraParameters::setSecureMode(const char *str)
+{
+  ALOGD("%s: Secure mode value: %s", __func__, str);
+
+  if (str != NULL) {
+    int32_t value = lookupAttr(ENABLE_DISABLE_MODES_MAP,
+            sizeof(ENABLE_DISABLE_MODES_MAP)/sizeof(QCameraMap),
+            str);
+    if (value != NAME_NOT_FOUND) {
+      updateParamEntry(KEY_QC_SECURE_MODE, str);
+      m_bSecureMode = (value == 0)? false : true;
+      return NO_ERROR;
+    }
+  }
+  ALOGE("%s: Invalid Secure mode value: %s",
     __func__, (str == NULL) ? "NULL" : str);
   return BAD_VALUE;
 }
@@ -7006,15 +7079,15 @@ uint8_t QCameraParameters::getNumOfSnapshots()
 }
 
 /*===========================================================================
- * FUNCTION   : getBurstCountForBracketing
+ * FUNCTION   : getBurstCountForAdvancedCapture
  *
- * DESCRIPTION: get burst count for AF/AE/Flash bracketing.
+ * DESCRIPTION: get burst count for advanced capture.
  *
  * PARAMETERS : none
  *
- * RETURN     : number of snapshot required for bracketing.
+ * RETURN     : number of snapshot required for advanced capture.
  *==========================================================================*/
-uint8_t QCameraParameters::getBurstCountForBracketing()
+uint8_t QCameraParameters::getBurstCountForAdvancedCapture()
 {
     int burstCount = 0;
     if (isUbiFocusEnabled()) {
@@ -7634,12 +7707,13 @@ int32_t QCameraParameters::setHistogram(bool enabled)
  *
  * PARAMETERS :
  *   @enabled : if face detection is enabled
+ *   @initCommit : if configuration list need to be initialized and commited
  *
  * RETURN     : int32_t type of status
  *              NO_ERROR  -- success
  *              none-zero failure code
  *==========================================================================*/
-int32_t QCameraParameters::setFaceDetection(bool enabled)
+int32_t QCameraParameters::setFaceDetection(bool enabled, bool initCommit)
 {
     int faceProcMask = m_nFaceProcMask;
     // set face detection mask
@@ -7665,10 +7739,14 @@ int32_t QCameraParameters::setFaceDetection(bool enabled)
 
     ALOGE("[KPI Perf] %s: PROFILE_FACE_DETECTION_VALUE = %d num_fd = %d",
           __func__, faceProcMask,requested_faces);
-    if(initBatchUpdate(m_pParamBuf) < 0 ) {
-        ALOGE("%s:Failed to initialize group update table", __func__);
-        return BAD_TYPE;
+
+    if (initCommit) {
+        if(initBatchUpdate(m_pParamBuf) < 0 ) {
+            ALOGE("%s:Failed to initialize group update table", __func__);
+            return BAD_TYPE;
+        }
     }
+
     int32_t rc = NO_ERROR;
 
     rc = AddSetParmEntryToBatch(m_pParamBuf,
@@ -7680,10 +7758,12 @@ int32_t QCameraParameters::setFaceDetection(bool enabled)
         return rc;
     }
 
-    rc = commitSetBatch();
-    if (rc != NO_ERROR) {
-        ALOGE("%s:Failed to set face detection parm", __func__);
-        return rc;
+    if (initCommit) {
+        rc = commitSetBatch();
+        if (rc != NO_ERROR) {
+            ALOGE("%s:Failed to set face detection parm", __func__);
+            return rc;
+        }
     }
 
     ALOGD("%s: FaceProcMask -> %d", __func__, m_nFaceProcMask);
@@ -9056,8 +9136,8 @@ String8 QCameraParameters::dump()
     snprintf(s, 128, "isOptiZoomEnabled: %d\n", isOptiZoomEnabled());
     str += s;
 
-    snprintf(s, 128, "getBurstCountForBracketing: %d\n",
-        getBurstCountForBracketing());
+    snprintf(s, 128, "getBurstCountForAdvancedCapture: %d\n",
+        getBurstCountForAdvancedCapture());
     str += s;
 
     return str;

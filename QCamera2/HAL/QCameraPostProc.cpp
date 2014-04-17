@@ -271,6 +271,10 @@ int32_t QCameraPostProcessor::start(QCameraChannel *pSrcChannel)
             }
         }
 
+        if (m_parent->mParameters.generateThumbFromMain()) {
+            pThumbStream = NULL;
+        }
+
         if ( NULL != pSnapshotStream ) {
             mm_jpeg_encode_params_t encodeParam;
             memset(&encodeParam, 0, sizeof(mm_jpeg_encode_params_t));
@@ -419,6 +423,7 @@ int32_t QCameraPostProcessor::getJpegEncodingConfig(mm_jpeg_encode_params_t& enc
     if (m_bThumbnailNeeded == TRUE) {
         bool need_thumb_rotate = true;
         int jpeg_rotation = m_parent->getJpegRotation();
+        m_parent->getThumbnailSize(encode_parm.thumb_dim.dst_dim);
 
         if (thumb_stream == NULL) {
             thumb_stream = main_stream;
@@ -449,12 +454,15 @@ int32_t QCameraPostProcessor::getJpegEncodingConfig(mm_jpeg_encode_params_t& enc
         thumb_stream->getFormat(img_fmt_thumb);
         encode_parm.thumb_color_format = getColorfmtFromImgFmt(img_fmt_thumb);
 
-        memset(&crop, 0, sizeof(cam_rect_t));
-        thumb_stream->getCropInfo(crop);
+        // crop is the same if frame is the same
+        if (thumb_stream != main_stream) {
+            memset(&crop, 0, sizeof(cam_rect_t));
+            thumb_stream->getCropInfo(crop);
+        }
+
         memset(&src_dim, 0, sizeof(cam_dimension_t));
         thumb_stream->getFrameDimension(src_dim);
         encode_parm.thumb_dim.src_dim = src_dim;
-        m_parent->getThumbnailSize(encode_parm.thumb_dim.dst_dim);
 
         if (!m_parent->needRotationReprocess() || need_thumb_rotate) {
             encode_parm.thumb_rotation = jpeg_rotation;
@@ -1366,6 +1374,11 @@ int32_t QCameraPostProcessor::queryStreams(QCameraStream **main,
         }
     }
 
+    if (m_parent->mParameters.generateThumbFromMain()) {
+        *thumb = NULL;
+        *thumb_image = NULL;
+    }
+
     return NO_ERROR;
 }
 
@@ -1427,7 +1440,7 @@ int32_t QCameraPostProcessor::syncStreamParams(mm_camera_super_buf_t *frame,
         }
     }
 
-    if (NULL != reproc_stream) {
+    if ((NULL != reproc_stream) && (reproc_stream != main_stream)) {
         ret = reproc_stream->syncRuntimeParams();
         if (NO_ERROR != ret) {
             ALOGE("%s : Syncing of reproc stream runtime parameters failed %d",
@@ -1504,11 +1517,6 @@ int32_t QCameraPostProcessor::encodeData(qcamera_jpeg_data_t *jpeg_job_data,
     if(NULL == main_frame){
        ALOGE("%s : Main frame is NULL", __func__);
        return BAD_VALUE;
-    }
-
-    if (m_parent->mParameters.generateThumbFromMain()) {
-        thumb_frame = NULL;
-        thumb_stream = NULL;
     }
 
     if(NULL == thumb_frame){
@@ -1686,17 +1694,20 @@ int32_t QCameraPostProcessor::encodeData(qcamera_jpeg_data_t *jpeg_job_data,
         thumb_stream->getFrameDimension(src_dim);
         jpg_job.encode_job.thumb_dim.src_dim = src_dim;
 
-        crop.left = 0;
-        crop.top = 0;
-        crop.height = src_dim.height;
-        crop.width = src_dim.width;
+        // crop is the same if frame is the same
+        if (thumb_frame != main_frame) {
+            crop.left = 0;
+            crop.top = 0;
+            crop.height = src_dim.height;
+            crop.width = src_dim.width;
 
-        param = thumb_stream->getOutputCrop();
-        for (int i = 0; i < param.outputCrop.num_of_streams; i++) {
-           if (param.outputCrop.crop_info[i].stream_id
-               == thumb_stream->getMyServerID()) {
-                   crop = param.outputCrop.crop_info[i].crop;
-                   thumb_stream->setCropInfo(crop);
+            param = thumb_stream->getOutputCrop();
+            for (int i = 0; i < param.outputCrop.num_of_streams; i++) {
+               if (param.outputCrop.crop_info[i].stream_id
+                   == thumb_stream->getMyServerID()) {
+                       crop = param.outputCrop.crop_info[i].crop;
+                       thumb_stream->setCropInfo(crop);
+               }
            }
         }
 
