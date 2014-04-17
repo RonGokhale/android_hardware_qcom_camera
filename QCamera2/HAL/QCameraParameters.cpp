@@ -130,6 +130,7 @@ const char QCameraParameters::KEY_QC_WB_MANUAL_CCT[] = "wb-manual-cct";
 const char QCameraParameters::KEY_QC_WB_CURRENT_CCT[] = "wb-current-cct";
 const char QCameraParameters::KEY_QC_MIN_WB_CCT[] = "min-wb-cct";
 const char QCameraParameters::KEY_QC_MAX_WB_CCT[] = "max-wb-cct";
+const char QCameraParameters::KEY_QC_OIS[] = "ois";
 
 // Values for effect settings.
 const char QCameraParameters::EFFECT_EMBOSS[] = "emboss";
@@ -3563,6 +3564,7 @@ int32_t QCameraParameters::updateParameters(QCameraParameters& params,
     if ((rc = setBurstNum(params)))                     final_rc = rc;
     if ((rc = setSnapshotFDReq(params)))                final_rc = rc;
     if ((rc = setTintlessValue(params)))                final_rc = rc;
+    if ((rc = setOISValue(params)))                     final_rc = rc;
 
     // update live snapshot size after all other parameters are set
     if ((rc = setLiveSnapshotSize(params)))             final_rc = rc;
@@ -5594,6 +5596,72 @@ int32_t QCameraParameters::setFocusAreas(const char *focusAreasStr)
                                   CAM_INTF_PARM_AF_ROI,
                                   sizeof(af_roi_value),
                                   &af_roi_value);
+}
+
+/*===========================================================================
+ * FUNCTION   : setOISValue
+ *
+ * DESCRIPTION: configure OIS from user setting
+ *
+ * PARAMETERS :
+ *   @params  : user setting parameters
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraParameters::setOISValue(const QCameraParameters& params)
+{
+    int rc = NO_ERROR;
+    int currentOIS = getInt(KEY_QC_OIS);
+    int oisValue = params.getInt(KEY_QC_OIS);
+    const char *str = params.get(KEY_QC_OIS);
+
+    if(str == NULL) {
+       ALOGD("%s: OIS not set by App ",__func__);
+       return NO_ERROR;
+    }
+
+    if (currentOIS != oisValue) {
+        //TODO: The allowed ranges should ideally be passed via camera capabilities
+        if (oisValue >= 0 &&
+            oisValue <= 100) {
+            ALOGV(" new OIS value : %d ", oisValue);
+            rc = setOISValue(oisValue);
+            if (NO_ERROR == rc) {
+                updateParamEntry(KEY_QC_OIS, str);
+            }
+        } else {
+            ALOGE("%s: invalid OIS value %d out of (0, 100)",
+                  __func__, oisValue);
+            return BAD_VALUE;
+        }
+    } else {
+        ALOGV("%s: OIS value not changed.", __func__);
+    }
+
+    return rc;
+}
+
+/*===========================================================================
+ * FUNCTION   : setOISValue
+ *
+ * DESCRIPTION: set OIS value
+ *
+ * PARAMETERS :
+ *   @oisValue : OIS value
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraParameters::setOISValue(int32_t oisValue)
+{
+    ALOGD("%s: Setting OIS value to %d", __func__, oisValue);
+    return AddSetParmEntryToBatch(m_pParamBuf,
+                                  CAM_INTF_PARM_OIS,
+                                  sizeof(oisValue),
+                                  &oisValue);
 }
 
 /*===========================================================================

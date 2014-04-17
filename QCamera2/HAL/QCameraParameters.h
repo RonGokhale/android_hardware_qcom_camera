@@ -224,6 +224,8 @@ public:
     static const char KEY_QC_FACE_RECOGNITION[];
     static const char KEY_QC_SUPPORTED_FACE_RECOGNITION[];
 
+    static const char KEY_QC_OIS[];
+
     // supported camera features to be queried by Snapdragon SDK
     //Read only
     static const char KEY_QC_SUPPORTED_CAMERA_FEATURES[];
@@ -598,6 +600,7 @@ private:
     int32_t setAntibanding(const QCameraParameters& );
     int32_t setFocusAreas(const QCameraParameters& );
     int32_t setMeteringAreas(const QCameraParameters& );
+    int32_t setOISValue(const QCameraParameters& params);
     int32_t setSceneMode(const QCameraParameters& );
     int32_t setScenePreferences(const QCameraParameters& );
     int32_t setSceneFocusMode(const QCameraParameters& );
@@ -651,6 +654,7 @@ private:
     int32_t setAntibanding(const char *antiBandingStr);
     int32_t setFocusAreas(const char *focusAreasStr);
     int32_t setMeteringAreas(const char *meteringAreasStr);
+    int32_t setOISValue(int32_t oisValue);
     int32_t setSceneMode(const char *sceneModeStr);
     int32_t setSelectableZoneAf(const char *selZoneAFStr);
     int32_t setAEBracket(const char *aecBracketStr);

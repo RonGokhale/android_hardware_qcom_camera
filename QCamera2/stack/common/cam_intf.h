@@ -450,6 +450,7 @@ typedef union {
     INCLUDE(CAM_INTF_PARM_LOCK_CAF,                 int32_t,                     1);
     INCLUDE(CAM_INTF_PARM_VIDEO_HDR,                int32_t,                     1);
     INCLUDE(CAM_INTF_PARM_VT,                       int32_t,                     1);
+    INCLUDE(CAM_INTF_PARM_OIS,                      int32_t,                     1);
     INCLUDE(CAM_INTF_PARM_GET_CHROMATIX,            tune_chromatix_t,            1);
     INCLUDE(CAM_INTF_PARM_SET_RELOAD_CHROMATIX,     tune_chromatix_t,            1);
     INCLUDE(CAM_INTF_PARM_GET_AFTUNE,               tune_autofocus_t,            1);
