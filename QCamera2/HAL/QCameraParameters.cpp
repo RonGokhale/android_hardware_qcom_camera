@@ -113,6 +113,7 @@ const char QCameraParameters::KEY_QC_AUTO_HDR_ENABLE [] = "auto-hdr-enable";
 const char QCameraParameters::KEY_QC_SNAPSHOT_BURST_NUM[] = "snapshot-burst-num";
 const char QCameraParameters::KEY_QC_SNAPSHOT_FD_DATA[] = "snapshot-fd-data-enable";
 const char QCameraParameters::KEY_QC_TINTLESS_ENABLE[] = "tintless";
+const char QCameraParameters::KEY_QC_CDS_MODE[] = "cds-mode";
 const char QCameraParameters::KEY_QC_VIDEO_ROTATION[] = "video-rotation";
 const char QCameraParameters::KEY_QC_AF_BRACKET[] = "af-bracket";
 const char QCameraParameters::KEY_QC_SUPPORTED_AF_BRACKET_MODES[] = "af-bracket-values";
@@ -311,6 +312,10 @@ const char QCameraParameters::FLIP_MODE_OFF[] = "off";
 const char QCameraParameters::FLIP_MODE_V[] = "flip-v";
 const char QCameraParameters::FLIP_MODE_H[] = "flip-h";
 const char QCameraParameters::FLIP_MODE_VH[] = "flip-vh";
+
+const char QCameraParameters::CDS_MODE_OFF[] = "off";
+const char QCameraParameters::CDS_MODE_ON[] = "on";
+const char QCameraParameters::CDS_MODE_AUTO[] = "auto";
 
 const char QCameraParameters::KEY_SELECTED_AUTO_SCENE[] = "selected-auto-scene";
 
@@ -571,6 +576,12 @@ const QCameraParameters::QCameraMap QCameraParameters::CHROMA_FLASH_MODES_MAP[] 
 const QCameraParameters::QCameraMap QCameraParameters::OPTI_ZOOM_MODES_MAP[] = {
     { OPTI_ZOOM_OFF, 0 },
     { OPTI_ZOOM_ON,  1 }
+};
+
+const QCameraParameters::QCameraMap QCameraParameters::CDS_MODES_MAP[] = {
+    { CDS_MODE_OFF, CAM_CDS_MODE_OFF },
+    { CDS_MODE_ON, CAM_CDS_MODE_ON },
+    { CDS_MODE_AUTO, CAM_CDS_MODE_AUTO}
 };
 
 #define DEFAULT_CAMERA_AREA "(0, 0, 0, 0, 0)"
@@ -3172,11 +3183,6 @@ int32_t QCameraParameters::setNumOfSnapshot()
         }
     }
 
-    if (isUbiRefocus()) {
-        nBurstNum = m_pCapability->ubifocus_af_bracketing_need.output_count;
-        nExpnum = 1;
-    }
-
     ALOGD("%s: nBurstNum = %d, nExpnum = %d", __func__, nBurstNum, nExpnum);
     set(KEY_QC_NUM_SNAPSHOT_PER_SHUTTER, nBurstNum * nExpnum);
     return NO_ERROR;
@@ -3682,6 +3688,7 @@ int32_t QCameraParameters::updateParameters(QCameraParameters& params,
     if ((rc = setRetroActiveBurstNum(params)))          final_rc = rc;
     if ((rc = setSnapshotFDReq(params)))                final_rc = rc;
     if ((rc = setTintlessValue(params)))                final_rc = rc;
+    if ((rc = setCDSMode(params)))                      final_rc = rc;
 
     // update live snapshot size after all other parameters are set
     if ((rc = setLiveSnapshotSize(params)))             final_rc = rc;
@@ -5309,6 +5316,54 @@ int32_t QCameraParameters::setTintlessValue(const char *tintStr)
     }
     ALOGE("Invalid Tintless value: %s", (tintStr == NULL) ? "NULL" : tintStr);
     return BAD_VALUE;
+}
+
+/*===========================================================================
+ * FUNCTION   : setCDSMode
+ *
+ * DESCRIPTION: Set CDS mode
+ *
+ * PARAMETERS :
+ *   @params  : user setting parameters
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraParameters::setCDSMode(const QCameraParameters& params)
+{
+    const char *str = params.get(KEY_QC_CDS_MODE);
+    const char *prev_str = get(KEY_QC_CDS_MODE);
+    char *cds_mode_str = NULL;
+    int32_t rc = NO_ERROR;
+
+    if (str) {
+        if (!prev_str || !strcmp(str, prev_str)) {
+            cds_mode_str = (char *)str;
+        }
+    } else {
+        char prop[PROPERTY_VALUE_MAX];
+        memset(prop, 0, sizeof(prop));
+        property_get("persist.camera.CDS", prop, VALUE_OFF);
+        cds_mode_str = prop;
+    }
+
+    if (cds_mode_str) {
+        ALOGV("%s: Set CDS mode = %s", __func__, cds_mode_str);
+
+        int cds_mode = lookupAttr(CDS_MODES_MAP,
+                                  sizeof(CDS_MODES_MAP) / sizeof(QCameraMap),
+                                  cds_mode_str);
+
+        rc = AddSetParmEntryToBatch(m_pParamBuf,
+                                    CAM_INTF_PARM_CDS_MODE,
+                                    sizeof(cds_mode),
+                                    &cds_mode);
+        if (rc != NO_ERROR) {
+            ALOGE("%s:Failed CDS MODE to update table", __func__);
+        }
+    }
+    return rc;
 }
 
 /*===========================================================================
