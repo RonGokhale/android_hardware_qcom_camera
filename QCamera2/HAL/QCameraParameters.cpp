@@ -6272,6 +6272,7 @@ int32_t QCameraParameters::setAFBracket(const char *afBracketStr)
         if (value != NAME_NOT_FOUND) {
             m_bAFBracketingOn = (value != 0);
             updateParamEntry(KEY_QC_AF_BRACKET, afBracketStr);
+            enableFlash(!m_bAFBracketingOn, false);
             return NO_ERROR;
         }
     }
@@ -6343,6 +6344,7 @@ int32_t QCameraParameters::setOptiZoom(const char *optiZoomStr)
         if(value != NAME_NOT_FOUND) {
             m_bOptiZoomOn = (value != 0);
             updateParamEntry(KEY_QC_OPTI_ZOOM, optiZoomStr);
+            enableFlash(!m_bOptiZoomOn, false);
             return NO_ERROR;
         }
     }
@@ -7180,15 +7182,15 @@ uint8_t QCameraParameters::getNumOfSnapshots()
 }
 
 /*===========================================================================
- * FUNCTION   : getBurstCountForBracketing
+ * FUNCTION   : getBurstCountForAdvancedCapture
  *
- * DESCRIPTION: get burst count for AF/AE/Flash bracketing.
+ * DESCRIPTION: get burst count for advanced capture.
  *
  * PARAMETERS : none
  *
- * RETURN     : number of snapshot required for bracketing.
+ * RETURN     : number of snapshot required for advanced capture.
  *==========================================================================*/
-uint8_t QCameraParameters::getBurstCountForBracketing()
+uint8_t QCameraParameters::getBurstCountForAdvancedCapture()
 {
     int burstCount = 0;
     if (isUbiFocusEnabled()) {
