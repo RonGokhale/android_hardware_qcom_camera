@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundataion. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundataion. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -159,7 +159,7 @@ private:
     uint32_t                   mJpegClientHandle;
     uint32_t                   mJpegSessionId;
 
-    void *                     m_pJpegOutputMem[MAX_JPEG_BURST];
+    void *                     m_pJpegOutputMem[MM_JPEG_MAX_BUF];
     QCameraExif *              m_pJpegExifObj;
     int8_t                     m_bThumbnailNeeded;
     QCameraReprocessChannel *  m_pReprocChannel;
@@ -180,6 +180,7 @@ private:
     bool mUseSaveProc;                  // use store thread
     bool mUseJpegBurst;                 // use jpeg burst encoding mode
     bool mJpegMemOpt;
+    uint32_t   m_JpegOutputMemCount;
 };
 
 }; // namespace qcamera
