@@ -43,6 +43,7 @@
 #include "QCamera3Mem.h"
 #include "QCamera3Channel.h"
 #include "QCamera3PostProc.h"
+#include "QCamera3VendorTags.h"
 
 using namespace android;
 
@@ -1818,14 +1819,14 @@ int QCamera3HardwareInterface::processCaptureRequest(
  * RETURN     :
  *==========================================================================*/
 void QCamera3HardwareInterface::getMetadataVendorTagOps(
-                    vendor_tag_query_ops_t* /*ops*/)
+                    vendor_tag_query_ops_t* ops)
 {
-    /* Enable locks when we eventually add Vendor Tags */
-    /*
     pthread_mutex_lock(&mMutex);
 
+    QCamera3VendorTags::get_vendor_tag_ops(ops);
+
     pthread_mutex_unlock(&mMutex);
-    */
+
     return;
 }
 
