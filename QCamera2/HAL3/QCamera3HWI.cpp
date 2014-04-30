@@ -1597,13 +1597,6 @@ int QCamera3HardwareInterface::processCaptureRequest(
         streamID.num_streams++;
     }
 
-    rc = setFrameParameters(request, streamID);
-    if (rc < 0) {
-        ALOGE("%s: fail to set frame parameters", __func__);
-        pthread_mutex_unlock(&mMutex);
-        return rc;
-    }
-
     /* Update pending request list and pending buffers map */
     PendingRequestInfo pendingRequest;
     pendingRequest.frame_number = frameNumber;
@@ -1705,6 +1698,13 @@ int QCamera3HardwareInterface::processCaptureRequest(
         }
         if (rc < 0)
             ALOGE("%s: request failed", __func__);
+    }
+
+    rc = setFrameParameters(request, streamID);
+    if (rc < 0) {
+        ALOGE("%s: fail to set frame parameters", __func__);
+        pthread_mutex_unlock(&mMutex);
+        return rc;
     }
 
     mFirstRequest = false;
