@@ -2444,6 +2444,11 @@ QCamera3HardwareInterface::translateCbMetadataToResultMetadata
                 &mode, 1);
     }
 
+    if (IS_META_AVAILABLE(CAM_INTF_META_LENS_SHADING_MAP_MODE, metadata)) {
+        uint8_t  shadingMapMode =
+                 *((uint32_t *)POINTER_OF_META(CAM_INTF_META_LENS_SHADING_MAP_MODE, metadata));
+        camMetadata.update(ANDROID_STATISTICS_LENS_SHADING_MAP_MODE, &shadingMapMode, 1);
+    }
     resultMetadata = camMetadata.release();
     return resultMetadata;
 }
