@@ -3212,11 +3212,6 @@ int32_t QCameraParameters::setNumOfSnapshot()
         }
     }
 
-    if (isUbiRefocus()) {
-        nBurstNum = m_pCapability->ubifocus_af_bracketing_need.output_count;
-        nExpnum = 1;
-    }
-
     ALOGD("%s: nBurstNum = %d, nExpnum = %d", __func__, nBurstNum, nExpnum);
     set(KEY_QC_NUM_SNAPSHOT_PER_SHUTTER, nBurstNum * nExpnum);
     return NO_ERROR;
@@ -5503,7 +5498,11 @@ int32_t QCameraParameters::setDISValue(const char *disStr)
                                    sizeof(ENABLE_DISABLE_MODES_MAP)/sizeof(QCameraMap),
                                    disStr);
         if (value != NAME_NOT_FOUND) {
-            ALOGV("%s: Setting DIS value %s", __func__, disStr);
+            //For some IS types (like EIS 2.0), when DIS value is changed, we need to restart
+            //preview because of topology change in backend. But, for now, restart preview
+            //for all IS types.
+            m_bNeedRestart = true;
+            ALOGD("%s: Setting DIS value %s", __func__, disStr);
             updateParamEntry(KEY_QC_DIS, disStr);
             return AddSetParmEntryToBatch(m_pParamBuf,
                                           CAM_INTF_PARM_DIS_ENABLE,
