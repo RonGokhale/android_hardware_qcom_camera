@@ -2326,14 +2326,14 @@ int32_t QCamera2HardwareInterface::configureAFBracketing(bool enable)
  *              NO_ERROR  -- success
  *              none-zero failure code
  *==========================================================================*/
-int32_t QCamera2HardwareInterface::configureFlashBracketing()
+int32_t QCamera2HardwareInterface::configureFlashBracketing(bool enable)
 {
     ALOGD("%s: E",__func__);
     int32_t rc = NO_ERROR;
 
     cam_flash_bracketing_t flashBracket;
     memset(&flashBracket, 0, sizeof(cam_flash_bracketing_t));
-    flashBracket.enable = 1;
+    flashBracket.enable = enable;
     //TODO: Hardcoded value.
     flashBracket.burst_count = 2;
     //Send cmd to backend to set Flash Bracketing for chroma flash.
@@ -2844,6 +2844,9 @@ int QCamera2HardwareInterface::cancelPicture()
     }
     if (mParameters.isUbiFocusEnabled()) {
         configureAFBracketing(false);
+    }
+    if (mParameters.isChromaFlashEnabled()) {
+      configureFlashBracketing(false);
     }
     if(mParameters.isOptiZoomEnabled()) {
         ALOGD("%s: Restoring previous zoom value!!",__func__);
@@ -3524,7 +3527,9 @@ int32_t QCamera2HardwareInterface::processHDRData(cam_asd_hdr_scene_data_t hdr_s
     } else {
         m_HDRSceneEnabled = false;
     }
+    pthread_mutex_lock(&m_parm_lock);
     mParameters.setHDRSceneEnable(m_HDRSceneEnabled);
+    pthread_mutex_unlock(&m_parm_lock);
 
     if ( msgTypeEnabled(CAMERA_MSG_META_DATA) ) {
 
@@ -5307,10 +5312,14 @@ int QCamera2HardwareInterface::calcThermalLevel(
         break;
     case QCAMERA_THERMAL_SLIGHT_ADJUSTMENT:
         {
-            adjustedRange.min_fps = (minFPS / 2) / 1000.0f;
-            adjustedRange.max_fps = (maxFPS / 2) / 1000.0f;
-            adjustedRange.video_min_fps = (minVideoFps / 2) / 1000.0f;
-            adjustedRange.video_max_fps = (maxVideoFps / 2 ) / 1000.0f;
+            adjustedRange.min_fps = minFPS / 1000.0f;
+            adjustedRange.max_fps = maxFPS / 1000.0f;
+            adjustedRange.min_fps -= 0.1f * adjustedRange.min_fps;
+            adjustedRange.max_fps -= 0.1f * adjustedRange.max_fps;
+            adjustedRange.video_min_fps = minVideoFps / 1000.0f;
+            adjustedRange.video_max_fps = maxVideoFps / 1000.0f;
+            adjustedRange.video_min_fps -= 0.1f * adjustedRange.video_min_fps;
+            adjustedRange.video_max_fps -= 0.1f * adjustedRange.video_max_fps;
             if ( adjustedRange.min_fps < 1 ) {
                 adjustedRange.min_fps = 1;
             }
@@ -5328,10 +5337,14 @@ int QCamera2HardwareInterface::calcThermalLevel(
         break;
     case QCAMERA_THERMAL_BIG_ADJUSTMENT:
         {
-            adjustedRange.min_fps = (minFPS / 4) / 1000.0f;
-            adjustedRange.max_fps = (maxFPS / 4) / 1000.0f;
-            adjustedRange.video_min_fps = (minVideoFps / 4) / 1000.0f;
-            adjustedRange.video_max_fps = (maxVideoFps / 4 ) / 1000.0f;
+            adjustedRange.min_fps = minFPS / 1000.0f;
+            adjustedRange.max_fps = maxFPS / 1000.0f;
+            adjustedRange.min_fps -= 0.2f * adjustedRange.min_fps;
+            adjustedRange.max_fps -= 0.2f * adjustedRange.max_fps;
+            adjustedRange.video_min_fps = minVideoFps / 1000.0f;
+            adjustedRange.video_max_fps = maxVideoFps / 1000.0f;
+            adjustedRange.video_min_fps -= 0.2f * adjustedRange.video_min_fps;
+            adjustedRange.video_max_fps -= 0.2f * adjustedRange.video_max_fps;
             if ( adjustedRange.min_fps < 1 ) {
                 adjustedRange.min_fps = 1;
             }
