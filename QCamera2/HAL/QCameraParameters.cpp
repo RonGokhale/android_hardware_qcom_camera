@@ -5876,7 +5876,7 @@ int32_t QCameraParameters::getStreamFormat(cam_stream_type_t streamType,
         if (mPictureFormat >= CAM_FORMAT_YUV_RAW_8BIT_YUYV) {
             format = (cam_format_t)mPictureFormat;
         } else {
-            format = CAM_FORMAT_BAYER_QCOM_RAW_10BPP_GBRG;
+            format = CAM_FORMAT_BAYER_MIPI_RAW_10BPP_GBRG;
             ALOGE("%s: Raw stream format %d bundled with snapshot",
                    __func__,
                    format);
@@ -7397,14 +7397,14 @@ int32_t QCameraParameters::commitSetBatch()
  *==========================================================================*/
 int32_t QCameraParameters::commitGetBatch()
 {
+    int32_t rc = NO_ERROR;
     if (m_pParamBuf->num_entry > 0) {
-        return m_pCamOpsTbl->ops->get_parms(m_pCamOpsTbl->camera_handle,
+        rc = m_pCamOpsTbl->ops->get_parms(m_pCamOpsTbl->camera_handle,
                                                           (void *)m_pParamBuf);
         ALOGD("%s:waiting for commitGetBatch to complete",__func__);
         sem_wait(&m_pParamBuf->cam_sync_sem);
-    } else {
-        return NO_ERROR;
     }
+    return rc;
 }
 
 /*===========================================================================
