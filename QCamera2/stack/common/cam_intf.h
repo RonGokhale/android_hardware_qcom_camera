@@ -519,7 +519,7 @@ typedef struct {
     /* Shared between HAL1 and HAL3 */
     INCLUDE(CAM_INTF_PARM_ANTIBANDING,                  int32_t,                     1);
     INCLUDE(CAM_INTF_PARM_EXPOSURE_COMPENSATION,        int32_t,                     1);
-    INCLUDE(CAM_INTF_PARM_AEC_LOCK,                     int32_t,                     1);
+    INCLUDE(CAM_INTF_PARM_AEC_LOCK,                     uint32_t,                    1);
     INCLUDE(CAM_INTF_PARM_FPS_RANGE,                    cam_fps_range_t,             1);
     INCLUDE(CAM_INTF_PARM_AWB_LOCK,                     int32_t,                     1);
     INCLUDE(CAM_INTF_PARM_BESTSHOT_MODE,                int32_t,                     1);
