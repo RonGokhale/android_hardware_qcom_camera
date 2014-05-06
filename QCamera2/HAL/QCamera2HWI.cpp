@@ -3744,6 +3744,11 @@ int32_t QCamera2HardwareInterface::addZSLChannel()
     }
 
     m_channels[QCAMERA_CH_TYPE_ZSL] = pChannel;
+
+    /* restore the AEBracket and Flash status */
+    mParameters.stopAEBracket();
+    mParameters.enableFlash(true, true);
+
     return rc;
 }
 
