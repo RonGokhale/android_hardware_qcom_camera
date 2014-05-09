@@ -93,6 +93,7 @@ public:
     int32_t takePicture(uint8_t num_of_snapshot);
     int32_t cancelPicture();
     int32_t startBracketing(mm_camera_bracketing_t type);
+    int32_t flushSuperbuffer(uint32_t frame_idx);
 };
 
 // video channel class

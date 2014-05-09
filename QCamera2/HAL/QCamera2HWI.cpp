@@ -2942,6 +2942,16 @@ int32_t QCamera2HardwareInterface::processAutoFocusEvent(cam_auto_focus_data_t &
             // update focus distance
             mParameters.updateFocusDistances(&focus_data.focus_dist);
 
+            if (mParameters.isZSLMode()) {
+                QCameraPicChannel *pZSLChannel =
+                    (QCameraPicChannel *)m_channels[QCAMERA_CH_TYPE_ZSL];
+                if (NULL != pZSLChannel) {
+                    //flush the zsl-buffer
+                    ALOGD("%s, flush the zsl-buffer after af done.", __func__);
+                    pZSLChannel->flushSuperbuffer(0);
+                }
+            }
+
             ret = sendEvtNotify(CAMERA_MSG_FOCUS,
                   (focus_data.focus_state == CAM_AF_FOCUSED)? true : false,
                   0);
