@@ -2947,8 +2947,9 @@ int32_t QCamera2HardwareInterface::processAutoFocusEvent(cam_auto_focus_data_t &
                     (QCameraPicChannel *)m_channels[QCAMERA_CH_TYPE_ZSL];
                 if (NULL != pZSLChannel) {
                     //flush the zsl-buffer
-                    ALOGD("%s, flush the zsl-buffer after af done.", __func__);
-                    pZSLChannel->flushSuperbuffer(0);
+                    uint32_t flush_frame_idx = focus_data.focused_frame_idx + 3;
+                    ALOGD("%s, flush the zsl-buffer before frame = %d.", __func__, flush_frame_idx);
+                    pZSLChannel->flushSuperbuffer(flush_frame_idx);
                 }
             }
 
