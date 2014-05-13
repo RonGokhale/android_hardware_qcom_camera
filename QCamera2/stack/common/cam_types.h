@@ -1134,6 +1134,8 @@ typedef enum {
     CAM_INTF_META_PRIVATE_DATA,
     CAM_INTF_PARM_STATS_DEBUG_MASK,
 
+    /* Dual led calibration command */
+    CAM_INTF_PARM_DUAL_CORRECT,
     CAM_INTF_PARM_MAX
 } cam_intf_parm_type_t;
 
