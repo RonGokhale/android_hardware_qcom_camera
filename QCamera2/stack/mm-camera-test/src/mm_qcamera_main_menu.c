@@ -2030,6 +2030,7 @@ static int submain()
           break;
 
         case ACTION_EXIT:
+            eztune_server_stop(&lib_handle);
             printf("Exiting....\n");
             break;
         case ACTION_NO_ACTION:
