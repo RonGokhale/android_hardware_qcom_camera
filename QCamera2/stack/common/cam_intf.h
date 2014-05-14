@@ -520,7 +520,7 @@ typedef struct {
     /* Following are Params only and not metadata currently */
     INCLUDE(CAM_INTF_PARM_HAL_VERSION,                  int32_t,                     1);
     /* Shared between HAL1 and HAL3 */
-    INCLUDE(CAM_INTF_PARM_ANTIBANDING,                  int32_t,                     1);
+    INCLUDE(CAM_INTF_PARM_ANTIBANDING,                  uint32_t,                    1);
     INCLUDE(CAM_INTF_PARM_EXPOSURE_COMPENSATION,        int32_t,                     1);
     INCLUDE(CAM_INTF_PARM_AEC_LOCK,                     uint32_t,                    1);
     INCLUDE(CAM_INTF_PARM_FPS_RANGE,                    cam_fps_range_t,             1);
