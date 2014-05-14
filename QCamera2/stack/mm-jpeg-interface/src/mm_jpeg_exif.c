@@ -348,7 +348,7 @@ int process_sensor_data(cam_sensor_params_t *p_sensor_params,
   /* F Number */
   val_rat.num = (uint32_t)(p_sensor_params->f_number * 100);
   val_rat.denom = 100;
-  rc = addExifEntry(exif_info, EXIFTAGTYPE_F_NUMBER, EXIF_RATIONAL, 1, &val_rat);
+  rc = addExifEntry(exif_info, EXIFTAGID_F_NUMBER, EXIF_RATIONAL, 1, &val_rat);
   if (rc) {
     ALOGE("%s:%d]: Error adding Exif Entry", __func__, __LINE__);
   }
