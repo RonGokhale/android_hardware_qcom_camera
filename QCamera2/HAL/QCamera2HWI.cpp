@@ -3189,12 +3189,13 @@ int QCamera2HardwareInterface::sendCommand(int32_t command,
                         uint8_t required = 0;
                         required = getBufNumRequired(CAM_STREAM_TYPE_SNAPSHOT);
                         if (pSnapStream->getBufferCount() < required) {
+                            // We restart here, to reset the FPS and no
+                            // of buffers as per the requirement of longshot usecase.
                             arg1 = QCAMERA_SM_EVT_RESTART_PERVIEW;
                         }
                     }
                 }
             }
-            //
         } else {
             rc = NO_INIT;
         }
@@ -3211,7 +3212,7 @@ int QCamera2HardwareInterface::sendCommand(int32_t command,
             }
         }
         mLongshotEnabled = false;
-        mParameters.setLongshotEnable(mLongshotEnabled);
+        rc = mParameters.setLongshotEnable(mLongshotEnabled);
         break;
     case CAMERA_CMD_HISTOGRAM_ON:
     case CAMERA_CMD_HISTOGRAM_OFF:

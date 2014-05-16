@@ -190,6 +190,7 @@ public:
     static const char KEY_QC_TINTLESS_ENABLE[];
     static const char KEY_QC_SCENE_SELECTION[];
     static const char KEY_QC_CDS_MODE[];
+    static const char KEY_QC_LONG_SHOT[];
 
     static const char KEY_INTERNAL_PERVIEW_RESTART[];
 
@@ -693,6 +694,7 @@ private:
     int32_t setMobicat(const QCameraParameters& params);
     int32_t setRdiMode(const QCameraParameters& );
     int32_t setSecureMode(const QCameraParameters& );
+    int32_t setLongshotParam(const QCameraParameters& params);
     int32_t setAutoExposure(const char *autoExp);
     int32_t setPreviewFpsRange(int min_fps,int max_fps,
             int vid_min_fps,int vid_max_fps);
@@ -812,6 +814,7 @@ private:
     bool m_bRecordingHint;          // local copy of recording hint
     bool m_bRecordingHint_new;
     bool m_bHistogramEnabled;       // if histogram is enabled
+    bool m_bLongshotEnabled;       // if longshot is enabled
     int  m_nFaceProcMask;           // face process mask
     bool m_bFaceDetectionOn;        //  if face Detection turned on by user
     bool m_bDebugFps;               // if FPS need to be logged
