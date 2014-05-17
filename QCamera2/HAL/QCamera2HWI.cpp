@@ -1054,7 +1054,8 @@ QCamera2HardwareInterface::QCamera2HardwareInterface(int cameraId)
       mSnapshotJob(-1),
       mPostviewJob(-1),
       mMetadataJob(-1),
-      mReprocJob(-1)
+      mReprocJob(-1),
+      mRawdataJob(-1)
 {
     getLogLevel();
     mCameraDevice.common.tag = HARDWARE_DEVICE_TAG;
@@ -1398,7 +1399,8 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
     int maxStreamBuf = minCaptureBuffers + mParameters.getMaxUnmatchedFramesInQueue() +
                        mParameters.getNumOfExtraHDRInBufsIfNeeded() -
                        mParameters.getNumOfExtraHDROutBufsIfNeeded() +
-                       mParameters.getNumOfExtraBuffersForImageProc();
+                       mParameters.getNumOfExtraBuffersForImageProc() +
+                       EXTRA_ZSL_PREVIEW_STREAM_BUF;
 
     int minUndequeCount = 0;
     if (!isNoDisplayMode()) {
@@ -1808,7 +1810,8 @@ QCameraHeapMemory *QCamera2HardwareInterface::allocateStreamInfoBuf(
     }
 
     if (!isZSLMode()) {
-        if (gCamCaps[mCameraId]->min_required_pp_mask & CAM_QCOM_FEATURE_SHARPNESS) {
+        if ((gCamCaps[mCameraId]->min_required_pp_mask & CAM_QCOM_FEATURE_SHARPNESS) &&
+                !mParameters.isOptiZoomEnabled()) {
             streamInfo->pp_config.feature_mask |= CAM_QCOM_FEATURE_SHARPNESS;
             streamInfo->pp_config.sharpness = mParameters.getInt(QCameraParameters::KEY_QC_SHARPNESS);
         }
@@ -2597,6 +2600,7 @@ int QCamera2HardwareInterface::takePicture()
 
                 waitDefferedWork(mSnapshotJob);
                 waitDefferedWork(mMetadataJob);
+                waitDefferedWork(mRawdataJob);
 
                 {
                     DefferWorkArgs args;
@@ -3898,11 +3902,12 @@ int32_t QCamera2HardwareInterface::addStreamToChannel(QCameraChannel *pChannel,
     }
 
     if ( ( streamType == CAM_STREAM_TYPE_SNAPSHOT ||
-            streamType == CAM_STREAM_TYPE_POSTVIEW ||
-            streamType == CAM_STREAM_TYPE_METADATA) &&
-            !isZSLMode() &&
-            !isLongshotEnabled() &&
-            !mParameters.getRecordingHintValue()) {
+        streamType == CAM_STREAM_TYPE_POSTVIEW ||
+        streamType == CAM_STREAM_TYPE_METADATA ||
+        streamType == CAM_STREAM_TYPE_RAW) &&
+        !isZSLMode() &&
+        !isLongshotEnabled() &&
+        !mParameters.getRecordingHintValue()) {
         rc = pChannel->addStream(*this,
                 pStreamInfo,
                 minStreamBufNum,
@@ -3934,6 +3939,13 @@ int32_t QCamera2HardwareInterface::addStreamToChannel(QCameraChannel *pChannel,
                         args);
 
                 if ( mMetadataJob == -1) {
+                    rc = UNKNOWN_ERROR;
+                }
+            } else if (streamType == CAM_STREAM_TYPE_RAW) {
+                mRawdataJob = queueDefferedWork(CMD_DEFF_ALLOCATE_BUFF,
+                        args);
+
+                if ( mRawdataJob == -1) {
                     rc = UNKNOWN_ERROR;
                 }
             }
@@ -3974,8 +3986,6 @@ int32_t QCamera2HardwareInterface::addPreviewChannel()
 {
     int32_t rc = NO_ERROR;
     QCameraChannel *pChannel = NULL;
-    char value[PROPERTY_VALUE_MAX];
-    bool raw_yuv = false;
 
     if (m_channels[QCAMERA_CH_TYPE_PREVIEW] != NULL) {
         // if we had preview channel before, delete it first
@@ -4024,21 +4034,6 @@ int32_t QCamera2HardwareInterface::addPreviewChannel()
         ALOGE("%s: add preview stream failed, ret = %d", __func__, rc);
         delete pChannel;
         return rc;
-    }
-
-    property_get("persist.camera.raw_yuv", value, "0");
-    raw_yuv = atoi(value) > 0 ? true : false;
-    if ( raw_yuv &&
-         ( mParameters.getRecordingHintValue() == false ) ) {
-        rc = addStreamToChannel(pChannel,
-                                CAM_STREAM_TYPE_RAW,
-                                preview_raw_stream_cb_routine,
-                                this);
-        if (rc != NO_ERROR) {
-            ALOGE("%s: add raw stream failed, ret = %d", __func__, rc);
-            delete pChannel;
-            return rc;
-        }
     }
 
     m_channels[QCAMERA_CH_TYPE_PREVIEW] = pChannel;
@@ -4197,7 +4192,7 @@ int32_t QCamera2HardwareInterface::addRawChannel()
         delete pChannel;
         return rc;
     }
-
+    waitDefferedWork(mRawdataJob);
     m_channels[QCAMERA_CH_TYPE_RAW] = pChannel;
     return rc;
 }
@@ -4513,7 +4508,8 @@ QCameraReprocessChannel *QCamera2HardwareInterface::addReprocChannel(
             effect = mParameters.get(CameraParameters::KEY_EFFECT);
             pp_config.effect = getEffectValue(effect);
         }
-        if (gCamCaps[mCameraId]->min_required_pp_mask & CAM_QCOM_FEATURE_SHARPNESS) {
+        if ((gCamCaps[mCameraId]->min_required_pp_mask & CAM_QCOM_FEATURE_SHARPNESS) &&
+                !mParameters.isOptiZoomEnabled()) {
             pp_config.feature_mask |= CAM_QCOM_FEATURE_SHARPNESS;
             pp_config.sharpness = mParameters.getInt(QCameraParameters::KEY_QC_SHARPNESS);
         }
@@ -5155,35 +5151,6 @@ void QCamera2HardwareInterface::releaseCameraMemory(void *data,
     camera_memory_t *mem = ( camera_memory_t * ) data;
     if ( NULL != mem ) {
         mem->release(mem);
-    }
-}
-
-/*==========================================================================
- * FUNCTION   : returnRdiStreamBuffer
- *
- * DESCRIPTION: Returns RDI stream buffer
- *
- * PARAMETERS :
- *   @data    : buffer to be released
- *   @cookie  : context data
- *   @cbStatus: callback status
- *
- * RETURN     : None
- *==========================================================================*/
-void QCamera2HardwareInterface::returnRdiStreamBuffer(void *data, void *cookie,
-    int32_t /*cbStatus*/) {
-
-    QCameraStream *stream = ( QCameraStream * ) cookie;
-    qcamera_rdi_userdata_t *cb_userdata = (qcamera_rdi_userdata_t*) data;
-
-    if (NULL != stream) {
-        ALOGD("%s RDI Buf Done for idx = %d ", __func__, cb_userdata->rdi_buf_idx);
-            stream->bufDone(cb_userdata->rdi_buf_idx);
-    }
-    if (NULL != cb_userdata->rdi_user_data) {
-       ALOGD("%s Releasing RDI Secure Data", __func__);
-       cb_userdata->rdi_user_data->release(cb_userdata->rdi_user_data);
-       cb_userdata->rdi_user_data = NULL;
     }
 }
 
