@@ -3761,6 +3761,11 @@ int32_t QCameraParameters::initDefaultParameters()
         ALOGE("%s:Failed to initialize group update table", __func__);
         return BAD_TYPE;
     }
+    int32_t hal_version = CAM_HAL_V1;
+    AddSetParmEntryToBatch(m_pParamBuf,
+                           CAM_INTF_PARM_HAL_VERSION,
+                           sizeof(hal_version),
+                           &hal_version);
 
     /*************************Initialize Values******************************/
     // Set read only parameters from camera capability
@@ -8199,6 +8204,7 @@ const char *QCameraParameters::getFrameFmtString(cam_format_t fmt)
  *==========================================================================*/
 int32_t QCameraParameters::initBatchUpdate(void *p_table)
 {
+
     m_tempMap.clear();
     ALOGD("%s:Initializing batch parameter set",__func__);
 
