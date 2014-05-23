@@ -85,8 +85,6 @@
 #define MAX_SCALE_SIZES_CNT 8
 #define MAX_SAMP_DECISION_CNT     64
 
-#define MAX_ISP_DATA_SIZE 9000
-#define MAX_PP_DATA_SIZE 2000
 #define MAX_AE_STATS_DATA_SIZE  1000
 #define MAX_AWB_STATS_DATA_SIZE 1000
 #define MAX_AF_STATS_DATA_SIZE  1000
@@ -943,7 +941,8 @@ typedef struct {
     uint32_t tuning_vfe_data_size;
     uint32_t tuning_cpp_data_size;
     uint32_t tuning_cac_data_size;
-    uint8_t  data[TUNING_DATA_MAX];
+    uint32_t tuning_mod3_data_size;
+    uint8_t data[TUNING_DATA_MAX];
 }tuning_params_t;
 
 typedef struct {
