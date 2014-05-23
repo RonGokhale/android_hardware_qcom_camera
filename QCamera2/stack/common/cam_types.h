@@ -1065,6 +1065,7 @@ typedef enum {
     CAM_INTF_PARM_ZSL_MODE,  /* indicating if it's running in ZSL mode */
     CAM_INTF_PARM_HDR_NEED_1X, /* if HDR needs 1x output */ /* 40 */
     CAM_INTF_PARM_VIDEO_HDR,
+    CAM_INTF_PARM_SENSOR_HDR,
     CAM_INTF_PARM_ROTATION,
     CAM_INTF_PARM_SCALE,
     CAM_INTF_PARM_VT, /* indicating if it's a Video Call Apllication */
@@ -1408,6 +1409,7 @@ typedef struct {
 #define CAM_QCOM_FEATURE_TRUEPORTRAIT   (1U<<17)
 #define CAM_QCOM_FEATURE_FSSR           (1U<<18)
 #define CAM_QCOM_FEATURE_MULTI_TOUCH_FOCUS (1U<<19)
+#define CAM_QCOM_FEATURE_SENSOR_HDR     (1U<<20)
 
 // Debug mask
 #define HAL_DEBUG_MASK_HAL                 (1U<<0)
