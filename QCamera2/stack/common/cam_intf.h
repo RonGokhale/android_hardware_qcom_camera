@@ -276,6 +276,9 @@ typedef struct{
     /* picture sizes need scale*/
     uint8_t scale_picture_sizes_cnt;
     cam_dimension_t scale_picture_sizes[MAX_SCALE_SIZES_CNT];
+
+    /* Sensor type information */
+    cam_sensor_type_t sensor_type;
 } cam_capability_t;
 
 typedef enum {
