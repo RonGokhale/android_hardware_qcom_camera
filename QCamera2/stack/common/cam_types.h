@@ -781,8 +781,14 @@ typedef struct {
    uint32_t meta_frame_id;
 } cam_meta_valid_t;
 
+typedef enum {
+    CAM_SENSOR_RAW,
+    CAM_SENSOR_YUV
+} cam_sensor_t;
+
 typedef struct {
     cam_flash_mode_t flash_mode;
+    cam_sensor_t sens_type;
     float aperture_value;
 } cam_sensor_params_t;
 
@@ -1298,6 +1304,11 @@ typedef struct {
     int32_t output_width;
     int32_t output_height;
 } cam_scale_param_t;
+
+typedef struct {
+    cam_sensor_t sens_type;
+    cam_format_t native_format;
+} cam_sensor_type_t;
 
 typedef struct {
     /* reprocess feature mask */
