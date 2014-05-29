@@ -61,6 +61,12 @@ pthread_mutex_t QCamera3HardwareInterface::mCameraSessionLock =
     PTHREAD_MUTEX_INITIALIZER;
 unsigned int QCamera3HardwareInterface::mCameraSessionActive = 0;
 
+const QCamera3HardwareInterface::QCameraPropMap QCamera3HardwareInterface::CDS_MAP [] = {
+    {"On",  CAM_CDS_MODE_ON},
+    {"Off", CAM_CDS_MODE_OFF},
+    {"Auto",CAM_CDS_MODE_AUTO}
+};
+
 const QCamera3HardwareInterface::QCameraMap QCamera3HardwareInterface::EFFECT_MODES_MAP[] = {
     { ANDROID_CONTROL_EFFECT_MODE_OFF,       CAM_EFFECT_MODE_OFF },
     { ANDROID_CONTROL_EFFECT_MODE_MONO,       CAM_EFFECT_MODE_MONO },
@@ -2428,6 +2434,16 @@ QCamera3HardwareInterface::translateCbMetadataToResultMetadata
                                             *effectMode);
         camMetadata.update(ANDROID_CONTROL_EFFECT_MODE, &fwk_effectMode, 1);
     }
+
+    // CDS
+    if (IS_META_AVAILABLE(CAM_INTF_PARM_CDS_MODE, metadata)) {
+        cam_cds_mode_type_t *cds = (cam_cds_mode_type_t *)
+                POINTER_OF_META(CAM_INTF_PARM_CDS_MODE, metadata);
+        int32_t mode = *cds;
+        camMetadata.update(QCAMERA_CDS_MODE,
+                &mode, 1);
+    }
+
     resultMetadata = camMetadata.release();
     return resultMetadata;
 }
@@ -3630,6 +3646,32 @@ int8_t QCamera3HardwareInterface::lookupHalName(const QCameraMap arr[],
 }
 
 /*===========================================================================
+ * FUNCTION   : lookupProp
+ *
+ * DESCRIPTION: lookup a value by its name
+ *
+ * PARAMETERS :
+ *   @attr    : map contains <name, value>
+ *   @len     : size of the map
+ *   @name    : name to be looked up
+ *
+ * RETURN     : Value if found
+ *              CAM_CDS_MODE_MAX if not found
+ *==========================================================================*/
+cam_cds_mode_type_t QCamera3HardwareInterface::lookupProp(const QCameraPropMap arr[],
+        int len, const char *name)
+{
+    if (name) {
+        for (int i = 0; i < len; i++) {
+            if (!strcmp(arr[i].desc, name)) {
+                return arr[i].val;
+            }
+        }
+    }
+    return CAM_CDS_MODE_MAX;
+}
+
+/*===========================================================================
  * FUNCTION   : getCapabilities
  *
  * DESCRIPTION: query camera capabilities
@@ -3908,6 +3950,18 @@ camera_metadata_t* QCamera3HardwareInterface::translateCapabilityToMetadata(int 
     /* lens shading map mode */
     uint8_t shadingmap_mode = ANDROID_STATISTICS_LENS_SHADING_MAP_MODE_OFF;
     settings.update(ANDROID_STATISTICS_LENS_SHADING_MAP_MODE, &shadingmap_mode, 1);
+
+    /* CDS default */
+    char prop[PROPERTY_VALUE_MAX];
+    memset(prop, 0, sizeof(prop));
+    property_get("persist.camera.CDS", prop, "Auto");
+    cam_cds_mode_type_t cds_mode = CAM_CDS_MODE_AUTO;
+    cds_mode = lookupProp(CDS_MAP, sizeof(CDS_MAP)/sizeof(QCameraPropMap), prop);
+    if (CAM_CDS_MODE_MAX == cds_mode) {
+        cds_mode = CAM_CDS_MODE_AUTO;
+    }
+    int32_t mode = cds_mode;
+    settings.update(QCAMERA_CDS_MODE, &mode, 1);
 
     mDefaultMetadata[type] = settings.release();
 
@@ -4541,6 +4595,20 @@ int QCamera3HardwareInterface::translateMetadataToParameters
                     sizeof(roi), &roi);
         }
     }
+
+    // CDS
+    if (frame_settings.exists(QCAMERA_CDS_MODE)) {
+        int32_t* cds =
+            frame_settings.find(QCAMERA_CDS_MODE).data.i32;
+        if ((CAM_CDS_MODE_MAX <= (*cds)) || (0 > (*cds))) {
+            ALOGE("%s: Invalid CDS mode %d!", __func__, *cds);
+        } else {
+            cam_cds_mode_type_t mode = (cam_cds_mode_type_t) *cds;
+            rc = AddSetParmEntryToBatch(mParameters, CAM_INTF_PARM_CDS_MODE,
+                sizeof(mode), &mode);
+        }
+    }
+
     return rc;
 }
 
