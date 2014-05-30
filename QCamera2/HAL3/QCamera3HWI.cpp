@@ -2167,6 +2167,11 @@ QCamera3HardwareInterface::translateCbMetadataToResultMetadata
         camMetadata.update(ANDROID_STATISTICS_FACE_LANDMARKS,
             faceLandmarks, numFaces*6);
     }
+    if (IS_META_AVAILABLE(CAM_INTF_META_TONEMAP_MODE, metadata)){
+         uint8_t  *toneMapMode =
+            (uint8_t *)POINTER_OF_META(CAM_INTF_META_TONEMAP_MODE, metadata);
+         camMetadata.update(ANDROID_TONEMAP_MODE, toneMapMode, 1);
+    }
     if (IS_META_AVAILABLE(CAM_INTF_META_COLOR_CORRECT_MODE, metadata)){
         uint8_t  *color_correct_mode =
             (uint8_t *)POINTER_OF_META(CAM_INTF_META_COLOR_CORRECT_MODE, metadata);
