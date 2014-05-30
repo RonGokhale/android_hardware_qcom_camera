@@ -570,11 +570,12 @@ int next_menu(menu_id_change_t current_menu_id, char keypress, camera_action_t *
 
     case MENU_ID_ZOOMCHANGE:
       * action_id_ptr = ACTION_SET_ZOOM;
-      if (output_to_event > 0 &&
+      if (output_to_event > 1 &&
         output_to_event <= sizeof(zoom_tbl)/sizeof(zoom_tbl[0])) {
           next_menu_id = MENU_ID_MAIN;
           * action_param = output_to_event;
       } else {
+        *action_param = output_to_event;
         next_menu_id = current_menu_id;
       }
       break;
