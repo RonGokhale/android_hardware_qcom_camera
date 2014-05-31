@@ -588,6 +588,89 @@ private:
     int32_t mOutputCount;
 };
 
+#if MSM8610_PLATFORM
+static inline int GetRAMSizeInMB(void)
+{
+  FILE *fmi = fopen("/proc/meminfo", "r");
+  if (fmi == NULL) {
+    return -1;
+  }
+  char str[80];
+  while (fgets(str, sizeof(str), fmi)) {
+    int nRAMSize;
+    if (sscanf(str, "MemTotal: %d kB", &nRAMSize) == 1) {
+      fclose(fmi);
+      return nRAMSize/1024;
+    }
+  }
+  fclose(fmi);
+  return -1;
+}
+
+static inline bool Is256MBConfig(void)
+{
+  int ram = GetRAMSizeInMB();
+  ALOGD("%s: RAM size: %dMB", __func__, ram);
+  if (ram < 0) {
+    ALOGE("%s: Unable to determine RAM size: %d", __func__, ram);
+  }
+  else if (ram <= 256) {
+    ALOGD("%s: RAM <= 256MB configuration", __func__);
+    return true;
+  }
+  ALOGD("%s: RAM > 256MB configuration", __func__);
+  return false;
+}
+
+static inline bool removeSizeGreaterThanLimit(cam_dimension_t* size_list,
+                                              uint8_t length,
+                                              cam_dimension_t limit,
+                                              cam_dimension_t &temp_size)
+{
+  bool found = false;
+  int index = 0;
+  for (int i = 0; i < length; i++) {
+    // either width or height is > limit
+    if ((size_list[i].width > limit.width
+          || size_list[i].height > limit.height)) {
+      found = true;
+      index = i;
+      temp_size.width = size_list[i].width;
+      temp_size.height = size_list[i].height;
+      break;
+    }
+  }
+  if (found) {
+    for (int i = index; i < length; i++) {
+      size_list[i] = size_list[i+1];
+    }
+  }
+  return found;
+}
+
+static inline bool removeFromString(String8 &str, const char *name)
+{
+  String8 temp;
+  int len = strlen(name);
+  int i = str.find(name, 0);
+  if (i<0) {
+    return false;
+  }
+  if (i>0) {
+    //if not at the beginning then need to remove ',' before the string
+    i--;
+  }
+
+  //get the first portion of the original string
+  temp.setTo(str.string(), i);
+  //append the remaining part
+  temp.append(str.string()+i+len+1);
+  //replace the original string with constructed
+  str.setTo(temp);
+  return true;
+}
+#endif // MSM8610_PLATFORM
+
 }; // namespace qcamera
 
 #endif /* __QCAMERA2HARDWAREINTERFACE_H__ */
