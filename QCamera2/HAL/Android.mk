@@ -27,6 +27,9 @@ endif
 ifneq ($(call is-platform-sdk-version-at-least,18),true)
 LOCAL_CFLAGS += -DUSE_JB_MR1
 endif
+ifeq ($(call is-board-platform-in-list, msm8610),true)
+LOCAL_CFLAGS += -DMSM8610_PLATFORM
+endif
 
 LOCAL_C_INCLUDES := \
         $(LOCAL_PATH)/../stack/common \

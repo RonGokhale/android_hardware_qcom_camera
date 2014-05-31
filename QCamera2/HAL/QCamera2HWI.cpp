@@ -1149,6 +1149,24 @@ int QCamera2HardwareInterface::openCamera()
        }
     }
 
+#if MSM8610_PLATFORM
+    // Determine if 256MB config
+    if (Is256MBConfig()) {
+      cam_dimension_t temp_size;
+      cam_dimension_t limit;
+
+      // for 256MB config, restrict to 480p encoding
+      limit.width = 720;
+      limit.height = 480;
+      while (removeSizeGreaterThanLimit(gCamCapability[mCameraId]->video_sizes_tbl,
+                                        gCamCapability[mCameraId]->video_sizes_tbl_cnt,
+                                        limit, temp_size)) {
+        ALOGD("%s: removing %dx%d", __func__, temp_size.width, temp_size.height);
+        gCamCapability[mCameraId]->video_sizes_tbl_cnt--;
+      }
+   }
+#endif // MSM8610_PLATFORM
+
     int32_t rc = m_postprocessor.init(jpegEvtHandle, this);
     if (rc != 0) {
         ALOGE("Init Postprocessor failed");
