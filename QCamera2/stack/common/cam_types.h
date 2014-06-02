@@ -474,6 +474,7 @@ typedef enum {
 
 /* Auto focus mode */
 typedef enum {
+    CAM_FOCUS_MODE_OFF,
     CAM_FOCUS_MODE_AUTO,
     CAM_FOCUS_MODE_INFINITY,
     CAM_FOCUS_MODE_MACRO,
@@ -625,6 +626,13 @@ typedef enum {
     CAM_TONEMAP_MODE_FAST,
     CAM_TONEMAP_MODE_HIGH_QUALITY,
 } cam_tonemap_mode_t;
+
+typedef enum {
+  CAM_CDS_MODE_OFF,
+  CAM_CDS_MODE_ON,
+  CAM_CDS_MODE_AUTO,
+  CAM_CDS_MODE_MAX
+} cam_cds_mode_type_t;
 
 typedef struct  {
     int32_t left;
@@ -1125,6 +1133,7 @@ typedef enum {
     CAM_INTF_META_GOOD_FRAME_IDX_RANGE,
     CAM_INTF_META_ASD_HDR_SCENE_DATA,
     CAM_INTF_META_ASD_SCENE_TYPE,
+    CAM_INTF_META_CURRENT_SCENE,
     CAM_INTF_META_AEC_INFO,
     CAM_INTF_META_SENSOR_INFO,
     CAM_INTF_META_ASD_SCENE_CAPTURE_TYPE,
@@ -1143,6 +1152,7 @@ typedef enum {
     CAM_INTF_PARM_TINTLESS,
     CAM_INTF_PARM_LONGSHOT_ENABLE,
     CAM_INTF_PARM_RDI_MODE,
+    CAM_INTF_PARM_CDS_MODE,
 
     /* stream based parameters */
     CAM_INTF_PARM_DO_REPROCESS,
@@ -1664,5 +1674,19 @@ typedef enum {
     CAM_AWB_STATE_CONVERGED,
     CAM_AWB_STATE_LOCKED
 } cam_awb_state_t;
+
+typedef enum {
+    CAM_AWB_D50,
+    CAM_AWB_D65,
+    CAM_AWB_D75,
+    CAM_AWB_A,
+    CAM_AWB_CUSTOM_A,
+    CAM_AWB_WARM_FLO,
+    CAM_AWB_COLD_FLO,
+    CAM_AWB_CUSTOM_FLO,
+    CAM_AWB_NOON,
+    CAM_AWB_CUSTOM_DAYLIGHT,
+    CAM_AWB_INVALID_ALL_LIGHT,
+} cam_illuminat_t;
 
 #endif /* __QCAMERA_TYPES_H__ */

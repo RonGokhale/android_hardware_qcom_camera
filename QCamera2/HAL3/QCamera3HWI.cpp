@@ -104,6 +104,7 @@ const QCamera3HardwareInterface::QCameraMap QCamera3HardwareInterface::SCENE_MOD
 };
 
 const QCamera3HardwareInterface::QCameraMap QCamera3HardwareInterface::FOCUS_MODES_MAP[] = {
+    { ANDROID_CONTROL_AF_MODE_OFF,                CAM_FOCUS_MODE_OFF },
     { ANDROID_CONTROL_AF_MODE_OFF,                CAM_FOCUS_MODE_FIXED },
     { ANDROID_CONTROL_AF_MODE_AUTO,               CAM_FOCUS_MODE_AUTO },
     { ANDROID_CONTROL_AF_MODE_MACRO,              CAM_FOCUS_MODE_MACRO },
@@ -140,6 +141,31 @@ const QCamera3HardwareInterface::QCameraMap QCamera3HardwareInterface::FACEDETEC
 
 const int32_t available_thumbnail_sizes[] = {512, 288, 480, 288, 256, 154, 432, 288,
                                              320, 240, 176, 144, 0, 0};
+
+
+/* Since there is no mapping for all the options some Android enum are not listed.
+ * Also, the order in this list is important because while mapping from HAL to Android it will
+ * traverse from lower to higher index which means that for HAL values that are map to different
+ * Android values, the traverse logic will select the first one found.
+ */
+const QCamera3HardwareInterface::QCameraMap QCamera3HardwareInterface::REFERENCE_ILLUMINANT_MAP[] = {
+    { ANDROID_SENSOR_REFERENCE_ILLUMINANT1_FLUORESCENT, CAM_AWB_WARM_FLO},
+    { ANDROID_SENSOR_REFERENCE_ILLUMINANT1_DAYLIGHT_FLUORESCENT, CAM_AWB_CUSTOM_DAYLIGHT },
+    { ANDROID_SENSOR_REFERENCE_ILLUMINANT1_COOL_WHITE_FLUORESCENT, CAM_AWB_COLD_FLO },
+    { ANDROID_SENSOR_REFERENCE_ILLUMINANT1_STANDARD_A, CAM_AWB_A },
+    { ANDROID_SENSOR_REFERENCE_ILLUMINANT1_D55, CAM_AWB_NOON },
+    { ANDROID_SENSOR_REFERENCE_ILLUMINANT1_D65, CAM_AWB_D65 },
+    { ANDROID_SENSOR_REFERENCE_ILLUMINANT1_D75, CAM_AWB_D75 },
+    { ANDROID_SENSOR_REFERENCE_ILLUMINANT1_D50, CAM_AWB_D50 },
+    { ANDROID_SENSOR_REFERENCE_ILLUMINANT1_ISO_STUDIO_TUNGSTEN, CAM_AWB_CUSTOM_A},
+    { ANDROID_SENSOR_REFERENCE_ILLUMINANT1_DAYLIGHT, CAM_AWB_D50 },
+    { ANDROID_SENSOR_REFERENCE_ILLUMINANT1_TUNGSTEN, CAM_AWB_A },
+    { ANDROID_SENSOR_REFERENCE_ILLUMINANT1_FINE_WEATHER, CAM_AWB_D50 },
+    { ANDROID_SENSOR_REFERENCE_ILLUMINANT1_CLOUDY_WEATHER, CAM_AWB_D65 },
+    { ANDROID_SENSOR_REFERENCE_ILLUMINANT1_SHADE, CAM_AWB_D75 },
+    { ANDROID_SENSOR_REFERENCE_ILLUMINANT1_DAY_WHITE_FLUORESCENT, CAM_AWB_CUSTOM_DAYLIGHT },
+    { ANDROID_SENSOR_REFERENCE_ILLUMINANT1_WHITE_FLUORESCENT, CAM_AWB_COLD_FLO},
+};
 
 camera3_device_ops_t QCamera3HardwareInterface::mCameraOps = {
     initialize:                         QCamera3HardwareInterface::initialize,
@@ -2167,6 +2193,11 @@ QCamera3HardwareInterface::translateCbMetadataToResultMetadata
         camMetadata.update(ANDROID_STATISTICS_FACE_LANDMARKS,
             faceLandmarks, numFaces*6);
     }
+    if (IS_META_AVAILABLE(CAM_INTF_META_TONEMAP_MODE, metadata)){
+         uint8_t  *toneMapMode =
+            (uint8_t *)POINTER_OF_META(CAM_INTF_META_TONEMAP_MODE, metadata);
+         camMetadata.update(ANDROID_TONEMAP_MODE, toneMapMode, 1);
+    }
     if (IS_META_AVAILABLE(CAM_INTF_META_COLOR_CORRECT_MODE, metadata)){
         uint8_t  *color_correct_mode =
             (uint8_t *)POINTER_OF_META(CAM_INTF_META_COLOR_CORRECT_MODE, metadata);
@@ -2206,12 +2237,19 @@ QCamera3HardwareInterface::translateCbMetadataToResultMetadata
     if (IS_META_AVAILABLE(CAM_INTF_META_FLASH_STATE, metadata)) {
         uint8_t  *flashState =
             (uint8_t *)POINTER_OF_META(CAM_INTF_META_FLASH_STATE, metadata);
+        if (!gCamCapability[mCameraId]->flash_available &&
+                (NULL != flashState)) {
+            *flashState = (uint8_t) ANDROID_FLASH_STATE_UNAVAILABLE;
+        }
         camMetadata.update(ANDROID_FLASH_STATE, flashState, 1);
     }
     if (IS_META_AVAILABLE(CAM_INTF_META_FLASH_MODE, metadata)){
         uint8_t *flashMode = (uint8_t*)
             POINTER_OF_META(CAM_INTF_META_FLASH_MODE, metadata);
-        camMetadata.update(ANDROID_FLASH_MODE, flashMode, 1);
+        uint8_t fwk_flashMode = lookupFwkName(FLASH_MODES_MAP,
+                                     sizeof(FLASH_MODES_MAP),
+                                     *flashMode);
+        camMetadata.update(ANDROID_FLASH_MODE, &fwk_flashMode, 1);
     }
     if (IS_META_AVAILABLE(CAM_INTF_META_HOTPIXEL_MODE, metadata)) {
         uint8_t  *hotPixelMode =
@@ -3035,7 +3073,8 @@ int QCamera3HardwareInterface::initStaticMetadata(int cameraId)
     staticInfo.update(ANDROID_SENSOR_INFO_PIXEL_ARRAY_SIZE,
                       pixel_array_size, 2);
 
-    int32_t active_array_size[] = {0, 0,
+    int32_t active_array_size[] = {gCamCapability[cameraId]->active_array_size.left,
+                                                gCamCapability[cameraId]->active_array_size.top,
                                                 gCamCapability[cameraId]->active_array_size.width,
                                                 gCamCapability[cameraId]->active_array_size.height};
     staticInfo.update(ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE,
@@ -3302,6 +3341,18 @@ int QCamera3HardwareInterface::initStaticMetadata(int cameraId)
     uint8_t avail_leds = 0;
     staticInfo.update(ANDROID_LED_AVAILABLE_LEDS,
                       &avail_leds, 0);
+
+    uint8_t fwkReferenceIlluminant = lookupFwkName(REFERENCE_ILLUMINANT_MAP,
+        sizeof(REFERENCE_ILLUMINANT_MAP) / sizeof(REFERENCE_ILLUMINANT_MAP[0]),
+        gCamCapability[cameraId]->reference_illuminant1);
+    staticInfo.update(ANDROID_SENSOR_REFERENCE_ILLUMINANT1,
+                      &fwkReferenceIlluminant, 1);
+
+    fwkReferenceIlluminant = lookupFwkName(REFERENCE_ILLUMINANT_MAP,
+        sizeof(REFERENCE_ILLUMINANT_MAP) / sizeof(REFERENCE_ILLUMINANT_MAP[0]),
+        gCamCapability[cameraId]->reference_illuminant2);
+    staticInfo.update(ANDROID_SENSOR_REFERENCE_ILLUMINANT2,
+                      &fwkReferenceIlluminant, 1);
 
     gStaticMetadata[cameraId] = staticInfo.release();
     return rc;
@@ -3997,34 +4048,33 @@ int QCamera3HardwareInterface::translateMetadataToParameters
                 sizeof(whiteLevel), &whiteLevel);
     }
 
-    float focalDistance = -1.0;
-    if (frame_settings.exists(ANDROID_LENS_FOCUS_DISTANCE)) {
-        focalDistance = frame_settings.find(ANDROID_LENS_FOCUS_DISTANCE).data.f[0];
-        rc = AddSetParmEntryToBatch(mParameters,
-                CAM_INTF_META_LENS_FOCUS_DISTANCE,
-                sizeof(focalDistance), &focalDistance);
-    }
 
     if (frame_settings.exists(ANDROID_CONTROL_AF_MODE)) {
         uint8_t fwk_focusMode =
             frame_settings.find(ANDROID_CONTROL_AF_MODE).data.u8[0];
         uint8_t focusMode;
-        if (focalDistance == 0.0 && fwk_focusMode == ANDROID_CONTROL_AF_MODE_OFF) {
-            focusMode = CAM_FOCUS_MODE_INFINITY;
-        } else{
-         focusMode = lookupHalName(FOCUS_MODES_MAP,
+        focusMode = lookupHalName(FOCUS_MODES_MAP,
                                    sizeof(FOCUS_MODES_MAP),
                                    fwk_focusMode);
-        }
         rc = AddSetParmEntryToBatch(mParameters, CAM_INTF_PARM_FOCUS_MODE,
                 sizeof(focusMode), &focusMode);
     }
 
+    if (frame_settings.exists(ANDROID_LENS_FOCUS_DISTANCE)) {
+        float focalDistance = frame_settings.find(ANDROID_LENS_FOCUS_DISTANCE).data.f[0];
+        rc = AddSetParmEntryToBatch(mParameters,
+                CAM_INTF_META_LENS_FOCUS_DISTANCE,
+                sizeof(focalDistance), &focalDistance);
+    }
+
     if (frame_settings.exists(ANDROID_CONTROL_AE_ANTIBANDING_MODE)) {
-        int32_t antibandingMode =
-            frame_settings.find(ANDROID_CONTROL_AE_ANTIBANDING_MODE).data.i32[0];
+        uint8_t fwk_antibandingMode =
+            frame_settings.find(ANDROID_CONTROL_AE_ANTIBANDING_MODE).data.u8[0];
+        int32_t hal_antibandingMode = lookupHalName(ANTIBANDING_MODES_MAP,
+                     sizeof(ANTIBANDING_MODES_MAP)/sizeof(ANTIBANDING_MODES_MAP[0]),
+                     fwk_antibandingMode);
         rc = AddSetParmEntryToBatch(mParameters, CAM_INTF_PARM_ANTIBANDING,
-                sizeof(antibandingMode), &antibandingMode);
+                sizeof(hal_antibandingMode), &hal_antibandingMode);
     }
 
     if (frame_settings.exists(ANDROID_CONTROL_AE_EXPOSURE_COMPENSATION)) {

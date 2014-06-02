@@ -49,6 +49,7 @@ class QCamera3Channel;
     typedef struct {
         int32_t jpeg_orientation;
         uint8_t jpeg_quality;
+        uint8_t jpeg_thumb_quality;
         cam_dimension_t thumbnail_size;
         int32_t sensor_sensitivity;
         int64_t sensor_exposure_time;

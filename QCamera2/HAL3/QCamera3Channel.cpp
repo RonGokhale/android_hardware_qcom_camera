@@ -1418,6 +1418,7 @@ void QCamera3PicChannel::getThumbnailSize(cam_dimension_t &dim)
     dim = mJpegSettings->thumbnail_size;
 }
 
+
 /*===========================================================================
  * FUNCTION   : getJpegQuality
  *
@@ -1430,6 +1431,24 @@ void QCamera3PicChannel::getThumbnailSize(cam_dimension_t &dim)
 int QCamera3PicChannel::getJpegQuality()
 {
     int quality = mJpegSettings->jpeg_quality;
+    if (quality < 0) {
+        quality = 85;  //set to default quality value
+    }
+    return quality;
+}
+
+/*===========================================================================
+ * FUNCTION   : getJpegThumbnailQuality
+ *
+ * DESCRIPTION: get user set jpeg thumbnail quality
+ *
+ * PARAMETERS : none
+ *
+ * RETURN     : jpeg quality setting
+ *==========================================================================*/
+int QCamera3PicChannel::getJpegThumbnailQuality()
+{
+    int quality = mJpegSettings->jpeg_thumb_quality;
     if (quality < 0) {
         quality = 85;  //set to default quality value
     }
@@ -2085,6 +2104,7 @@ void QCamera3ReprocessChannel::streamCbRoutine(mm_camera_super_buf_t *super_fram
     }
     *frame = *super_frame;
     obj->m_postprocessor.processPPData(frame);
+    free(super_frame);
     return;
 }
 

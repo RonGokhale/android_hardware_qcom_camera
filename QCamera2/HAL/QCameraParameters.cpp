@@ -113,6 +113,8 @@ const char QCameraParameters::KEY_QC_AUTO_HDR_ENABLE [] = "auto-hdr-enable";
 const char QCameraParameters::KEY_QC_SNAPSHOT_BURST_NUM[] = "snapshot-burst-num";
 const char QCameraParameters::KEY_QC_SNAPSHOT_FD_DATA[] = "snapshot-fd-data-enable";
 const char QCameraParameters::KEY_QC_TINTLESS_ENABLE[] = "tintless";
+const char QCameraParameters::KEY_QC_SCENE_SELECTION[] = "scene-selection";
+const char QCameraParameters::KEY_QC_CDS_MODE[] = "cds-mode";
 const char QCameraParameters::KEY_QC_VIDEO_ROTATION[] = "video-rotation";
 const char QCameraParameters::KEY_QC_AF_BRACKET[] = "af-bracket";
 const char QCameraParameters::KEY_QC_SUPPORTED_AF_BRACKET_MODES[] = "af-bracket-values";
@@ -313,6 +315,10 @@ const char QCameraParameters::FLIP_MODE_OFF[] = "off";
 const char QCameraParameters::FLIP_MODE_V[] = "flip-v";
 const char QCameraParameters::FLIP_MODE_H[] = "flip-h";
 const char QCameraParameters::FLIP_MODE_VH[] = "flip-vh";
+
+const char QCameraParameters::CDS_MODE_OFF[] = "off";
+const char QCameraParameters::CDS_MODE_ON[] = "on";
+const char QCameraParameters::CDS_MODE_AUTO[] = "auto";
 
 const char QCameraParameters::KEY_SELECTED_AUTO_SCENE[] = "selected-auto-scene";
 
@@ -575,6 +581,12 @@ const QCameraParameters::QCameraMap QCameraParameters::OPTI_ZOOM_MODES_MAP[] = {
     { OPTI_ZOOM_ON,  1 }
 };
 
+const QCameraParameters::QCameraMap QCameraParameters::CDS_MODES_MAP[] = {
+    { CDS_MODE_OFF, CAM_CDS_MODE_OFF },
+    { CDS_MODE_ON, CAM_CDS_MODE_ON },
+    { CDS_MODE_AUTO, CAM_CDS_MODE_AUTO}
+};
+
 #define DEFAULT_CAMERA_AREA "(0, 0, 0, 0, 0)"
 #define DATA_PTR(MEM_OBJ,INDEX) MEM_OBJ->getPtr( INDEX )
 
@@ -631,6 +643,8 @@ QCameraParameters::QCameraParameters()
       m_bAFBracketingOn(false),
       m_bChromaFlashOn(false),
       m_bOptiZoomOn(false),
+      m_bSceneSelection(false),
+      m_SelectedScene(CAM_SCENE_MODE_MAX),
       m_bHfrMode(false),
       m_bSensorHDREnabled(false),
       m_bRdiMode(false),
@@ -714,6 +728,8 @@ QCameraParameters::QCameraParameters(const String8 &params)
     m_bAFBracketingOn(false),
     m_bChromaFlashOn(false),
     m_bOptiZoomOn(false),
+    m_bSceneSelection(false),
+    m_SelectedScene(CAM_SCENE_MODE_MAX),
     m_bHfrMode(false),
     m_bSensorHDREnabled(false),
     m_bRdiMode(false),
@@ -3357,6 +3373,88 @@ int32_t QCameraParameters::setCameraMode(const QCameraParameters& params)
     return NO_ERROR;
 }
 
+/*===========================================================================
+ * FUNCTION   : setSceneSelectionMode
+ *
+ * DESCRIPTION: set scene selection mode from user setting
+ *
+ * PARAMETERS :
+ *   @params  : user setting parameters
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraParameters::setSceneSelectionMode(const QCameraParameters& params)
+{
+    const char *str = params.get(KEY_QC_SCENE_SELECTION);
+    const char *prev_str = get(KEY_QC_SCENE_SELECTION);
+    if (NULL != str) {
+        if ((NULL == prev_str) || (strcmp(str, prev_str) != 0)) {
+            int32_t value = lookupAttr(ENABLE_DISABLE_MODES_MAP,
+                    sizeof(ENABLE_DISABLE_MODES_MAP)/sizeof(QCameraMap),
+                    str);
+            if (value != NAME_NOT_FOUND) {
+                ALOGD("%s: Setting selection value %s", __func__, str);
+                if (value && m_bZslMode_new) {
+                    updateParamEntry(KEY_QC_SCENE_SELECTION, str);
+                    m_bNeedRestart = true;
+                    m_bSceneSelection = true;
+                } else if (!value) {
+                    updateParamEntry(KEY_QC_SCENE_SELECTION, str);
+                    m_bNeedRestart = true;
+                    m_bSceneSelection = false;
+                } else {
+                    ALOGE("%s: Trying to enable scene selection in non ZSL mode!!!",
+                            __func__);
+                    return BAD_VALUE;
+                }
+            } else {
+                ALOGE("%s: Trying to configure invalid scene selection value: %s",
+                        __func__,
+                        str);
+                return BAD_VALUE;
+            }
+        }
+    }
+
+    return NO_ERROR;
+}
+
+/*===========================================================================
+ * FUNCTION   : setSelectedScene
+ *
+ * DESCRIPTION: select specific scene
+ *
+ * PARAMETERS :
+ *   @scene   : scene mode
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraParameters::setSelectedScene(cam_scene_mode_type scene)
+{
+    Mutex::Autolock l(m_SceneSelectLock);
+    m_SelectedScene = scene;
+    return NO_ERROR;
+}
+
+/*===========================================================================
+ * FUNCTION   : getSelectedScene
+ *
+ * DESCRIPTION: get selected scene
+ *
+ * PARAMETERS :
+ *
+ * RETURN     : currently selected scene
+ *==========================================================================*/
+cam_scene_mode_type QCameraParameters::getSelectedScene()
+{
+    Mutex::Autolock l(m_SceneSelectLock);
+    return m_SelectedScene;
+}
+
 /*==========================================================
  * FUNCTION   : setRdiMode
  *
@@ -3684,6 +3782,7 @@ int32_t QCameraParameters::updateParameters(QCameraParameters& params,
     if ((rc = setZslMode(params)))                      final_rc = rc;
     if ((rc = setZslAttributes(params)))                final_rc = rc;
     if ((rc = setCameraMode(params)))                   final_rc = rc;
+    if ((rc = setSceneSelectionMode(params)))           final_rc = rc;
     if ((rc = setRecordingHint(params)))                final_rc = rc;
     if ((rc = setRdiMode(params)))                      final_rc = rc;
     if ((rc = setSecureMode(params)))                   final_rc = rc;
@@ -3728,6 +3827,7 @@ int32_t QCameraParameters::updateParameters(QCameraParameters& params,
     if ((rc = setRetroActiveBurstNum(params)))          final_rc = rc;
     if ((rc = setSnapshotFDReq(params)))                final_rc = rc;
     if ((rc = setTintlessValue(params)))                final_rc = rc;
+    if ((rc = setCDSMode(params)))                      final_rc = rc;
 
     // update live snapshot size after all other parameters are set
     if ((rc = setLiveSnapshotSize(params)))             final_rc = rc;
@@ -4276,6 +4376,8 @@ int32_t QCameraParameters::initDefaultParameters()
     m_bZslMode = false;
 #endif
     m_bZslMode_new = m_bZslMode;
+
+    set(KEY_QC_SCENE_SELECTION, VALUE_DISABLE);
 
     // Rdi mode
     set(KEY_QC_SUPPORTED_RDI_MODES, enableDisableValues);
@@ -5368,6 +5470,54 @@ int32_t QCameraParameters::setTintlessValue(const char *tintStr)
 }
 
 /*===========================================================================
+ * FUNCTION   : setCDSMode
+ *
+ * DESCRIPTION: Set CDS mode
+ *
+ * PARAMETERS :
+ *   @params  : user setting parameters
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraParameters::setCDSMode(const QCameraParameters& params)
+{
+    const char *str = params.get(KEY_QC_CDS_MODE);
+    const char *prev_str = get(KEY_QC_CDS_MODE);
+    char *cds_mode_str = NULL;
+    int32_t rc = NO_ERROR;
+
+    if (str) {
+        if (!prev_str || !strcmp(str, prev_str)) {
+            cds_mode_str = (char *)str;
+        }
+    } else {
+        char prop[PROPERTY_VALUE_MAX];
+        memset(prop, 0, sizeof(prop));
+        property_get("persist.camera.CDS", prop, CDS_MODE_AUTO);
+        cds_mode_str = prop;
+    }
+
+    if (cds_mode_str) {
+        ALOGV("%s: Set CDS mode = %s", __func__, cds_mode_str);
+
+        int cds_mode = lookupAttr(CDS_MODES_MAP,
+                                  sizeof(CDS_MODES_MAP) / sizeof(QCameraMap),
+                                  cds_mode_str);
+
+        rc = AddSetParmEntryToBatch(m_pParamBuf,
+                                    CAM_INTF_PARM_CDS_MODE,
+                                    sizeof(cds_mode),
+                                    &cds_mode);
+        if (rc != NO_ERROR) {
+            ALOGE("%s:Failed CDS MODE to update table", __func__);
+        }
+    }
+    return rc;
+}
+
+/*===========================================================================
  * FUNCTION   : setDISValue
  *
  * DESCRIPTION: set DIS value
@@ -5767,6 +5917,9 @@ int32_t QCameraParameters::setSceneMode(const char *sceneModeStr)
               // Incase of HW HDR mode, we do not update the same as Best shot mode.
               CDBG_HIGH("%s: H/W HDR mode enabled. Do not set Best Shot Mode", __func__);
               return NO_ERROR;
+            }
+            if (m_bSceneSelection) {
+                setSelectedScene((cam_scene_mode_type) value);
             }
             int32_t rc = AddSetParmEntryToBatch(m_pParamBuf,
                                                 CAM_INTF_PARM_BESTSHOT_MODE,

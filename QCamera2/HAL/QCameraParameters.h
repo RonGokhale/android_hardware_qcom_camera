@@ -188,6 +188,8 @@ public:
     static const char KEY_QC_NO_DISPLAY_MODE[];
     static const char KEY_QC_RAW_PICUTRE_SIZE[];
     static const char KEY_QC_TINTLESS_ENABLE[];
+    static const char KEY_QC_SCENE_SELECTION[];
+    static const char KEY_QC_CDS_MODE[];
 
     static const char KEY_INTERNAL_PERVIEW_RESTART[];
 
@@ -445,6 +447,11 @@ public:
     static const char FLIP_MODE_H[];
     static const char FLIP_MODE_VH[];
 
+    //Values for CDS Mode
+    static const char CDS_MODE_OFF[];
+    static const char CDS_MODE_ON[];
+    static const char CDS_MODE_AUTO[];
+
     static const char KEY_SELECTED_AUTO_SCENE[];
 
     enum {
@@ -526,6 +533,9 @@ public:
     int32_t setAEBracketing();
     bool isFpsDebugEnabled() {return m_bDebugFps;};
     bool isHistogramEnabled() {return m_bHistogramEnabled;};
+    bool isSceneSelectionEnabled() {return m_bSceneSelection;};
+    int32_t setSelectedScene(cam_scene_mode_type scene);
+    cam_scene_mode_type getSelectedScene();
     bool isFaceDetectionEnabled() {return ((m_nFaceProcMask & CAM_FACE_PROCESS_MASK_DETECTION) != 0);};
     bool getFaceDetectionOption() { return  m_bFaceDetectionOn;}
     int32_t setFaceDetectionOption(bool enabled);
@@ -651,6 +661,7 @@ private:
     int32_t setZslAttributes(const QCameraParameters& );
     int32_t setAutoHDR(const QCameraParameters& params);
     int32_t setCameraMode(const QCameraParameters& );
+    int32_t setSceneSelectionMode(const QCameraParameters& params);
     int32_t setFaceRecognition(const QCameraParameters& );
     int32_t setFlip(const QCameraParameters& );
     int32_t setBurstNum(const QCameraParameters& params);
@@ -659,6 +670,7 @@ private:
     int32_t setSnapshotFDReq(const QCameraParameters& );
     int32_t setStatsDebugMask();
     int32_t setTintlessValue(const QCameraParameters& params);
+    int32_t setCDSMode(const QCameraParameters& params);
     int32_t setMobicat(const QCameraParameters& params);
     int32_t setRdiMode(const QCameraParameters& );
     int32_t setSecureMode(const QCameraParameters& );
@@ -768,6 +780,7 @@ private:
     static const QCameraMap CHROMA_FLASH_MODES_MAP[];
     static const QCameraMap OPTI_ZOOM_MODES_MAP[];
     static const QCameraMap RDI_MODES_MAP[];
+    static const QCameraMap CDS_MODES_MAP[];
 
     cam_capability_t *m_pCapability;
     mm_camera_vtbl_t *m_pCamOpsTbl;
@@ -820,6 +833,9 @@ private:
     bool m_bAFBracketingOn;
     bool m_bChromaFlashOn;
     bool m_bOptiZoomOn;
+    bool m_bSceneSelection;
+    Mutex m_SceneSelectLock;
+    cam_scene_mode_type m_SelectedScene;
     cam_fps_range_t m_hfrFpsRange;
     bool m_bHfrMode;
     bool m_bSensorHDREnabled;             // if HDR is enabled

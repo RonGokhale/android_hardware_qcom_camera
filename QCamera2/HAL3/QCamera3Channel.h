@@ -250,6 +250,7 @@ public:
     bool needOnlineRotation();
     void getThumbnailSize(cam_dimension_t &dim);
     int getJpegQuality();
+    int getJpegThumbnailQuality();
     int getJpegRotation();
     bool isRawSnapshot();
     QCamera3Exif *getExifData();
