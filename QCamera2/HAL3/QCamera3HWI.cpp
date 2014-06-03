@@ -3354,6 +3354,30 @@ int QCamera3HardwareInterface::initStaticMetadata(int cameraId)
     staticInfo.update(ANDROID_SENSOR_REFERENCE_ILLUMINANT2,
                       &fwkReferenceIlluminant, 1);
 
+    staticInfo.update(ANDROID_SENSOR_FORWARD_MATRIX1,
+                      (camera_metadata_rational_t*)gCamCapability[cameraId]->forward_matrix1,
+                      3*3);
+
+    staticInfo.update(ANDROID_SENSOR_FORWARD_MATRIX2,
+                      (camera_metadata_rational_t*)gCamCapability[cameraId]->forward_matrix2,
+                      3*3);
+
+    staticInfo.update(ANDROID_SENSOR_COLOR_TRANSFORM1,
+                   (camera_metadata_rational_t*) gCamCapability[cameraId]->color_transform1,
+                      3*3);
+
+    staticInfo.update(ANDROID_SENSOR_COLOR_TRANSFORM2,
+                   (camera_metadata_rational_t*) gCamCapability[cameraId]->color_transform2,
+                      3*3);
+
+    staticInfo.update(ANDROID_SENSOR_CALIBRATION_TRANSFORM1,
+                   (camera_metadata_rational_t*) gCamCapability[cameraId]->calibration_transform1,
+                      3*3);
+
+    staticInfo.update(ANDROID_SENSOR_CALIBRATION_TRANSFORM2,
+                   (camera_metadata_rational_t*) gCamCapability[cameraId]->calibration_transform2,
+                      3*3);
+
     gStaticMetadata[cameraId] = staticInfo.release();
     return rc;
 }
