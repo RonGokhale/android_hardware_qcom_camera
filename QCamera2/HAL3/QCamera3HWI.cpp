@@ -2995,18 +2995,8 @@ int QCamera3HardwareInterface::initStaticMetadata(int cameraId)
 
     int facingBack = gCamCapability[cameraId]->position == CAM_POSITION_BACK;
     /*HAL 3 only*/
-    /*staticInfo.update(ANDROID_LENS_INFO_MINIMUM_FOCUS_DISTANCE,
-                    &gCamCapability[cameraId]->min_focus_distance, 1); */
-
-    /*hard coded for now but this should come from sensor*/
-    float min_focus_distance;
-    if(facingBack){
-        min_focus_distance = 10;
-    } else {
-        min_focus_distance = 0;
-    }
     staticInfo.update(ANDROID_LENS_INFO_MINIMUM_FOCUS_DISTANCE,
-                    &min_focus_distance, 1);
+                    &gCamCapability[cameraId]->min_focus_distance, 1);
 
     staticInfo.update(ANDROID_LENS_INFO_HYPERFOCAL_DISTANCE,
                     &gCamCapability[cameraId]->hyper_focal_distance, 1);
