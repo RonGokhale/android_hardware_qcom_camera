@@ -33,6 +33,7 @@
 #define IP_ADDR                  "127.0.0.1"
 #define TUNING_CHROMATIX_PORT     55555
 #define TUNING_PREVIEW_PORT       55556
+#define TUNESERVER_STOP_CODE      1234
 
 #define CURRENT_COMMAND_ACK_SUCCESS 1
 #define CURRENT_COMMAND_ACK_FAILURE 2
@@ -190,6 +191,9 @@ static int32_t tuneserver_process_command(tuningserver_t *tsctrl,
     }
     break;
   }
+
+  case TUNESERVER_STOP:
+      return TUNESERVER_STOP_CODE;
 
   default:
     if(tuneserver_send_command_ack(CURRENT_COMMAND_ACK_SUCCESS, tsctrl)) {
@@ -621,7 +625,7 @@ void *eztune_proc(void *data)
   int num_fds = 0;
   int recv_bytes;
   char buf[TUNESERVER_MAX_RECV];
-
+  int server_socket_read = 0;
   mm_camera_lib_handle *lib_handle = (mm_camera_lib_handle *)data;
 
   ALOGE(">>> Starting tune server <<< \n");
@@ -691,6 +695,7 @@ void *eztune_proc(void *data)
         close(server_socket);
         return NULL;
       }
+      server_socket_read = 1;
       lib_handle->tsctrl.clientsocket_id = client_socket;
       if (tuneserver_ack_onaccept_initprotocol(&lib_handle->tsctrl) < 0) {
         ALOGE("%s: Error while acking\n", __func__);
@@ -744,6 +749,9 @@ void *eztune_proc(void *data)
           //tuneserver_check_status(&tsctrl);
           continue;
         }
+        else if (result == TUNESERVER_STOP_CODE) {
+            break;
+        }
       }
     }
 
@@ -752,7 +760,9 @@ void *eztune_proc(void *data)
      */
     if (FD_ISSET(prev_server_socket, &tsfds)) {
       CDBG("Receiving New Preview client connection\n");
-
+      if (server_socket_read != 1) {
+          continue;
+      }
       prev_client_socket = accept(prev_server_socket,
         (struct sockaddr *)&addr_client_inet, &addr_client_len);
       if (prev_client_socket == -1) {
@@ -841,6 +851,16 @@ void *eztune_proc(void *data)
     }
   } while (1);
 
+  tuneserver_deinitialize_tuningp(&lib_handle->tsctrl, client_socket,
+      lib_handle->tsctrl.proto->send_buf,
+      lib_handle->tsctrl.proto->send_len);
+  tuneserver_deinitialize_prevtuningp(&lib_handle->tsctrl,
+      (char **)&lib_handle->tsctrl.proto->send_buf,
+      &lib_handle->tsctrl.proto->send_len);
+
+  free(lib_handle->tsctrl.proto);
+  lib_handle->tsctrl.proto = NULL;
+
   if (server_socket > 0) {
     close(server_socket);
   }
@@ -853,8 +873,32 @@ void *eztune_proc(void *data)
   if (prev_client_socket > 0) {
     close(prev_client_socket);
   }
-
+  lib_handle = 0;
   return EXIT_SUCCESS;
+}
+
+/*===========================================================================
+ * FUNCTION   : eztune_server_stop
+ *
+ * DESCRIPTION: To stop the eztune server and close all the sockets
+ *
+ * PARAMETERS :
+ *   @data  : ptr to camera lib handle
+ *
+ * RETURN     : None
+ *==========================================================================*/
+void eztune_server_stop(void *data)
+{
+    int rc =0;
+    mm_camera_lib_handle *lib_handle = (mm_camera_lib_handle *)data;
+    if (lib_handle->tsctrl.clientsocket_id > 0) {
+        lib_handle->tsctrl.proto->current_cmd = TUNESERVER_STOP;
+        lib_handle->tsctrl.proto->next_recv_code = TUNESERVER_RECV_RESPONSE;
+        rc = send(lib_handle->tsctrl.clientsocket_id,
+                 lib_handle->tsctrl.proto->send_buf,
+                 lib_handle->tsctrl.proto->send_len, 0);
+        rc = pthread_join(eztune_thread_id,NULL);
+    }
 }
 
 int eztune_server_start (void *lib_handle)
