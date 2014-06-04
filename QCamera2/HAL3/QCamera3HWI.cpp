@@ -43,6 +43,7 @@
 #include "QCamera3Mem.h"
 #include "QCamera3Channel.h"
 #include "QCamera3PostProc.h"
+#include "QCamera3VendorTags.h"
 
 using namespace android;
 
@@ -1818,14 +1819,14 @@ int QCamera3HardwareInterface::processCaptureRequest(
  * RETURN     :
  *==========================================================================*/
 void QCamera3HardwareInterface::getMetadataVendorTagOps(
-                    vendor_tag_query_ops_t* /*ops*/)
+                    vendor_tag_query_ops_t* ops)
 {
-    /* Enable locks when we eventually add Vendor Tags */
-    /*
     pthread_mutex_lock(&mMutex);
 
+    QCamera3VendorTags::get_vendor_tag_ops(ops);
+
     pthread_mutex_unlock(&mMutex);
-    */
+
     return;
 }
 
@@ -2995,18 +2996,8 @@ int QCamera3HardwareInterface::initStaticMetadata(int cameraId)
 
     int facingBack = gCamCapability[cameraId]->position == CAM_POSITION_BACK;
     /*HAL 3 only*/
-    /*staticInfo.update(ANDROID_LENS_INFO_MINIMUM_FOCUS_DISTANCE,
-                    &gCamCapability[cameraId]->min_focus_distance, 1); */
-
-    /*hard coded for now but this should come from sensor*/
-    float min_focus_distance;
-    if(facingBack){
-        min_focus_distance = 10;
-    } else {
-        min_focus_distance = 0;
-    }
     staticInfo.update(ANDROID_LENS_INFO_MINIMUM_FOCUS_DISTANCE,
-                    &min_focus_distance, 1);
+                    &gCamCapability[cameraId]->min_focus_distance, 1);
 
     staticInfo.update(ANDROID_LENS_INFO_HYPERFOCAL_DISTANCE,
                     &gCamCapability[cameraId]->hyper_focal_distance, 1);
@@ -3353,6 +3344,30 @@ int QCamera3HardwareInterface::initStaticMetadata(int cameraId)
         gCamCapability[cameraId]->reference_illuminant2);
     staticInfo.update(ANDROID_SENSOR_REFERENCE_ILLUMINANT2,
                       &fwkReferenceIlluminant, 1);
+
+    staticInfo.update(ANDROID_SENSOR_FORWARD_MATRIX1,
+                      (camera_metadata_rational_t*)gCamCapability[cameraId]->forward_matrix1,
+                      3*3);
+
+    staticInfo.update(ANDROID_SENSOR_FORWARD_MATRIX2,
+                      (camera_metadata_rational_t*)gCamCapability[cameraId]->forward_matrix2,
+                      3*3);
+
+    staticInfo.update(ANDROID_SENSOR_COLOR_TRANSFORM1,
+                   (camera_metadata_rational_t*) gCamCapability[cameraId]->color_transform1,
+                      3*3);
+
+    staticInfo.update(ANDROID_SENSOR_COLOR_TRANSFORM2,
+                   (camera_metadata_rational_t*) gCamCapability[cameraId]->color_transform2,
+                      3*3);
+
+    staticInfo.update(ANDROID_SENSOR_CALIBRATION_TRANSFORM1,
+                   (camera_metadata_rational_t*) gCamCapability[cameraId]->calibration_transform1,
+                      3*3);
+
+    staticInfo.update(ANDROID_SENSOR_CALIBRATION_TRANSFORM2,
+                   (camera_metadata_rational_t*) gCamCapability[cameraId]->calibration_transform2,
+                      3*3);
 
     gStaticMetadata[cameraId] = staticInfo.release();
     return rc;
