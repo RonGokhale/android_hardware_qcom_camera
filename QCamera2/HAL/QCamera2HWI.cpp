@@ -1009,11 +1009,12 @@ QCamera2HardwareInterface::QCamera2HardwareInterface(int cameraId)
       m_bShutterSoundPlayed(false),
       m_bPreviewStarted(false),
       m_bRecordStarted(false),
-      m_currentFocusState(CAM_AF_NOT_FOCUSED),
+      m_currentFocusState(CAM_AF_SCANNING),
       m_pPowerModule(NULL),
       mDumpFrmCnt(0),
       mDumpSkipCnt(0),
       mThermalLevel(QCAMERA_THERMAL_NO_ADJUSTMENT),
+      mCancelAutoFocus(false),
       m_HDRSceneEnabled(false),
       mLongshotEnabled(false),
       m_max_pic_width(0),
@@ -1808,7 +1809,8 @@ QCameraHeapMemory *QCamera2HardwareInterface::allocateStreamInfoBuf(
     }
 
     if (!isZSLMode()) {
-        if (gCamCaps[mCameraId]->min_required_pp_mask & CAM_QCOM_FEATURE_SHARPNESS) {
+        if ((gCamCaps[mCameraId]->min_required_pp_mask & CAM_QCOM_FEATURE_SHARPNESS) &&
+                !mParameters.isOptiZoomEnabled()) {
             streamInfo->pp_config.feature_mask |= CAM_QCOM_FEATURE_SHARPNESS;
             streamInfo->pp_config.sharpness = mParameters.getInt(QCameraParameters::KEY_QC_SHARPNESS);
         }
@@ -1994,9 +1996,6 @@ int QCamera2HardwareInterface::stopPreview()
 
     // delete all channels from preparePreview
     unpreparePreview();
-
-    //reset focus state
-    m_currentFocusState = CAM_AF_NOT_FOCUSED;
     ALOGD("%s: X", __func__);
     return NO_ERROR;
 }
@@ -2127,6 +2126,7 @@ int QCamera2HardwareInterface::releaseRecordingFrame(const void * opaque)
 int QCamera2HardwareInterface::autoFocus()
 {
     int rc = NO_ERROR;
+    setCancelAutoFocus(false);
     cam_focus_mode_type focusMode = mParameters.getFocusMode();
 
     switch (focusMode) {
@@ -2161,6 +2161,7 @@ int QCamera2HardwareInterface::autoFocus()
 int QCamera2HardwareInterface::cancelAutoFocus()
 {
     int rc = NO_ERROR;
+    setCancelAutoFocus(true);
     cam_focus_mode_type focusMode = mParameters.getFocusMode();
 
     switch (focusMode) {
@@ -2169,7 +2170,6 @@ int QCamera2HardwareInterface::cancelAutoFocus()
     case CAM_FOCUS_MODE_CONTINOUS_VIDEO:
     case CAM_FOCUS_MODE_CONTINOUS_PICTURE:
         rc = mCameraHandle->ops->cancel_auto_focus(mCameraHandle->camera_handle);
-        m_currentFocusState = CAM_AF_CANCELLED;
         break;
     case CAM_FOCUS_MODE_INFINITY:
     case CAM_FOCUS_MODE_FIXED:
@@ -3434,13 +3434,17 @@ int32_t QCamera2HardwareInterface::processAutoFocusEvent(cam_auto_focus_data_t &
     int32_t ret = NO_ERROR;
     ALOGD("%s: E",__func__);
 
-    cam_autofocus_state_t prevFocusState = m_currentFocusState;
     m_currentFocusState = focus_data.focus_state;
 
     cam_focus_mode_type focusMode = mParameters.getFocusMode();
     switch (focusMode) {
     case CAM_FOCUS_MODE_AUTO:
     case CAM_FOCUS_MODE_MACRO:
+        if (getCancelAutoFocus()) {
+            // auto focus has canceled, just ignore it
+            break;
+        }
+
         if (focus_data.focus_state == CAM_AF_SCANNING) {
             // in the middle of focusing, just ignore it
             break;
@@ -3451,15 +3455,6 @@ int32_t QCamera2HardwareInterface::processAutoFocusEvent(cam_auto_focus_data_t &
         ret = sendEvtNotify(CAMERA_MSG_FOCUS,
                             (focus_data.focus_state == CAM_AF_FOCUSED)? true : false,
                             0);
-        if (CAM_AF_CANCELLED == prevFocusState) {
-            //Notify CancelAF API
-            qcamera_api_result_t result;
-            memset(&result, 0, sizeof(qcamera_api_result_t));
-            result.status = NO_ERROR;
-            result.request_api = QCAMERA_SM_EVT_STOP_AUTO_FOCUS;
-            result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-            signalAPIResult(&result);
-        }
         break;
     case CAM_FOCUS_MODE_CONTINOUS_VIDEO:
     case CAM_FOCUS_MODE_CONTINOUS_PICTURE:
@@ -4489,7 +4484,8 @@ QCameraReprocessChannel *QCamera2HardwareInterface::addReprocChannel(
             effect = mParameters.get(CameraParameters::KEY_EFFECT);
             pp_config.effect = getEffectValue(effect);
         }
-        if (gCamCaps[mCameraId]->min_required_pp_mask & CAM_QCOM_FEATURE_SHARPNESS) {
+        if ((gCamCaps[mCameraId]->min_required_pp_mask & CAM_QCOM_FEATURE_SHARPNESS) &&
+                !mParameters.isOptiZoomEnabled()) {
             pp_config.feature_mask |= CAM_QCOM_FEATURE_SHARPNESS;
             pp_config.sharpness = mParameters.getInt(QCameraParameters::KEY_QC_SHARPNESS);
         }
