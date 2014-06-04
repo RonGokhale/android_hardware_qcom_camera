@@ -85,8 +85,6 @@
 #define MAX_SCALE_SIZES_CNT 8
 #define MAX_SAMP_DECISION_CNT     64
 
-#define MAX_ISP_DATA_SIZE 9000
-#define MAX_PP_DATA_SIZE 2000
 #define MAX_AE_STATS_DATA_SIZE  1000
 #define MAX_AWB_STATS_DATA_SIZE 1000
 #define MAX_AF_STATS_DATA_SIZE  1000
@@ -107,7 +105,7 @@
 #define TUNING_CPP_DATA_OFFSET     (TUNING_SENSOR_DATA_MAX + TUNING_VFE_DATA_MAX)
 #define TUNING_CAC_DATA_OFFSET     (TUNING_SENSOR_DATA_MAX + \
                                    TUNING_VFE_DATA_MAX + TUNING_CPP_DATA_MAX)
-#define MAX_ISP_DATA_SIZE 9000
+#define MAX_ISP_DATA_SIZE 14000
 #define MAX_PP_DATA_SIZE 2000
 #define MAX_STATS_DATA_SIZE 4000
 
@@ -855,8 +853,7 @@ typedef enum {
 typedef enum {
     CAM_AF_SCANNING,
     CAM_AF_FOCUSED,
-    CAM_AF_NOT_FOCUSED,
-    CAM_AF_CANCELLED
+    CAM_AF_NOT_FOCUSED
 } cam_autofocus_state_t;
 
 typedef struct {
@@ -944,7 +941,8 @@ typedef struct {
     uint32_t tuning_vfe_data_size;
     uint32_t tuning_cpp_data_size;
     uint32_t tuning_cac_data_size;
-    uint8_t  data[TUNING_DATA_MAX];
+    uint32_t tuning_mod3_data_size;
+    uint8_t data[TUNING_DATA_MAX];
 }tuning_params_t;
 
 typedef struct {
