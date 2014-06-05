@@ -81,7 +81,7 @@
 #define CHROMATIX_SIZE 60000
 #define COMMONCHROMATIX_SIZE 45000
 #define CPPCHROMATIX_SIZE 36000
-#define AFTUNE_SIZE 2500
+#define AFTUNE_SIZE  4096
 #define MAX_SCALE_SIZES_CNT 8
 #define MAX_SAMP_DECISION_CNT     64
 
@@ -862,8 +862,7 @@ typedef enum {
 typedef enum {
     CAM_AF_SCANNING,
     CAM_AF_FOCUSED,
-    CAM_AF_NOT_FOCUSED,
-    CAM_AF_CANCELLED
+    CAM_AF_NOT_FOCUSED
 } cam_autofocus_state_t;
 
 typedef struct {
