@@ -161,6 +161,11 @@ public:
         uint8_t hal_name;
     } QCameraMap;
 
+    typedef struct {
+        const char *const desc;
+        cam_cds_mode_type_t val;
+    } QCameraPropMap;
+
 private:
 
     int openCamera();
@@ -173,6 +178,8 @@ private:
                       int len, int fwk_name);
     static int8_t lookupFwkName(const QCameraMap arr[],
                       int len, int hal_name);
+    static cam_cds_mode_type_t lookupProp(const QCameraPropMap arr[],
+            int len, const char *name);
     static int calcMaxJpegSize(uint8_t camera_id);
 
     int validateCaptureRequest(camera3_capture_request_t *request);
@@ -300,6 +307,7 @@ private:
     static const QCameraMap FLASH_MODES_MAP[];
     static const QCameraMap FACEDETECT_MODES_MAP[];
     static const QCameraMap REFERENCE_ILLUMINANT_MAP[];
+    static const QCameraPropMap CDS_MAP[];
 
     static pthread_mutex_t mCameraSessionLock;
     static unsigned int mCameraSessionActive;
