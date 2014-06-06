@@ -540,6 +540,12 @@ int QCamera3HardwareInterface::configureStreams(
             //new stream
             stream_info_t* stream_info;
             stream_info = (stream_info_t* )malloc(sizeof(stream_info_t));
+            if (!stream_info) {
+               ALOGE("%s: Could not allocate stream info", __func__);
+               rc = -ENOMEM;
+               pthread_mutex_unlock(&mMutex);
+               return rc;
+            }
             stream_info->stream = newStream;
             stream_info->status = VALID;
             stream_info->registered = 0;
@@ -1529,7 +1535,7 @@ int QCamera3HardwareInterface::processCaptureRequest(
             channel->start();
         }
 
-        if (mRawDump) {
+        if (mRawDump && mRawChannel) {
             ALOGD("%s: Start RAW Channel last", __func__);
             mRawChannel->start(); // Start RAW channel only when RAW set Prop is set
         }
@@ -1546,6 +1552,7 @@ int QCamera3HardwareInterface::processCaptureRequest(
     } else if (mFirstRequest || mCurrentRequestId == -1){
         ALOGE("%s: Unable to find request id field, \
                 & no previous id available", __func__);
+        pthread_mutex_unlock(&mMutex);
         return NAME_NOT_FOUND;
     } else {
         ALOGV("%s: Re-using old request id", __func__);
@@ -1654,6 +1661,11 @@ int QCamera3HardwareInterface::processCaptureRequest(
                     pInputBuffer =
                         inputChannel->getInternalFormatBuffer(
                                 request->input_buffer->buffer);
+                    if (!pInputBuffer) {
+                       ALOGE("%s: failed to get input buffer", __func__);
+                       pthread_mutex_unlock(&mMutex);
+                       return BAD_VALUE;
+                    }
                     ALOGD("%s: Input buffer dump",__func__);
                     ALOGD("Stream id: %d", pInputBuffer->stream_id);
                     ALOGD("streamtype:%d", pInputBuffer->stream_type);
@@ -2427,7 +2439,6 @@ QCamera3HardwareInterface::translateCbMetadataToResultMetadata
              camMetadata.update(ANDROID_STATISTICS_PREDICTED_COLOR_TRANSFORM,
                                   (camera_metadata_rational_t*)predColorCorrectionMatrix->transform_matrix, 3*3);
              break;
-
           }
           case CAM_INTF_META_BLACK_LEVEL_LOCK:{
              uint8_t *blackLevelLock = (uint8_t*)
@@ -2447,8 +2458,8 @@ QCamera3HardwareInterface::translateCbMetadataToResultMetadata
              uint8_t *effectMode = (uint8_t*)
                   POINTER_OF(CAM_INTF_PARM_EFFECT, metadata);
              uint8_t fwk_effectMode = lookupFwkName(EFFECT_MODES_MAP,
-                                                    sizeof(EFFECT_MODES_MAP),
-                                                    *effectMode);
+                (sizeof(EFFECT_MODES_MAP)/sizeof(EFFECT_MODES_MAP[0])),
+                 *effectMode);
              camMetadata.update(ANDROID_CONTROL_EFFECT_MODE, &fwk_effectMode, 1);
              break;
           }
@@ -2539,7 +2550,9 @@ void QCamera3HardwareInterface::dumpMetadataToFile(tuning_params_t &meta,
             struct tm * timeinfo;
             time (&current_time);
             timeinfo = localtime (&current_time);
-            strftime (timeBuf, sizeof(timeBuf),"/data/%Y%m%d%H%M%S", timeinfo);
+            if (timeinfo != NULL) {
+               strftime (timeBuf, sizeof(timeBuf),"/data/%Y%m%d%H%M%S", timeinfo);
+            }
             String8 filePath(timeBuf);
             snprintf(buf,
                      sizeof(buf),
@@ -3439,6 +3452,11 @@ int32_t QCamera3HardwareInterface::AddSetParmEntryToBatch(parm_buffer_t *p_table
     int position = paramType;
     int current, next;
 
+    if (position >= CAM_INTF_PARM_MAX) {
+       ALOGE("%s: Bad parameter type", __func__);
+       return BAD_VALUE;
+    }
+
     /*************************************************************************
     *                 Code to take care of linking next flags                *
     *************************************************************************/
@@ -3963,7 +3981,7 @@ int QCamera3HardwareInterface::translateMetadataToParameters
         uint8_t fwk_effectMode =
             frame_settings.find(ANDROID_CONTROL_EFFECT_MODE).data.u8[0];
         uint8_t effectMode = lookupHalName(EFFECT_MODES_MAP,
-                sizeof(EFFECT_MODES_MAP),
+                (sizeof(EFFECT_MODES_MAP)/sizeof(EFFECT_MODES_MAP[0])),
                 fwk_effectMode);
         rc = AddSetParmEntryToBatch(mParameters, CAM_INTF_PARM_EFFECT,
                 sizeof(effectMode), &effectMode);
@@ -4409,6 +4427,10 @@ int QCamera3HardwareInterface::getJpegSettings
         mJpegSettings = NULL;
     }
     mJpegSettings = (jpeg_settings_t*) malloc(sizeof(jpeg_settings_t));
+    if (!mJpegSettings) {
+       ALOGE("%s: Could not allocate memory for jpeg settings", __func__);
+       return -ENOMEM;
+    }
     CameraMetadata jpeg_settings;
     jpeg_settings = settings;
 
@@ -4447,6 +4469,10 @@ int QCamera3HardwareInterface::getJpegSettings
 
     if (jpeg_settings.exists(ANDROID_JPEG_GPS_TIMESTAMP)) {
         mJpegSettings->gps_timestamp = (int64_t*)malloc(sizeof(int64_t*));
+        if (!mJpegSettings->gps_timestamp) {
+           ALOGE("%s: Could not allocate memory for jpeg settings", __func__);
+           return -ENOMEM;
+        }
         *(mJpegSettings->gps_timestamp) =
             jpeg_settings.find(ANDROID_JPEG_GPS_TIMESTAMP).data.i64[0];
     } else {
