@@ -176,7 +176,10 @@ int32_t QCamera3PostProcessor::start(QCamera3Memory* mMemory, int index,
 
     if (hal_obj->needReprocess()) {
         while (!m_inputMetaQ.isEmpty()) {
-           m_pReprocChannel->metadataBufDone((mm_camera_super_buf_t *)m_inputMetaQ.dequeue());
+           mm_camera_super_buf_t *meta_buf = (mm_camera_super_buf_t *)m_inputMetaQ.dequeue();
+           if (meta_buf != NULL) {
+              m_pReprocChannel->metadataBufDone(meta_buf);
+           }
         }
         if (m_pReprocChannel != NULL) {
             m_pReprocChannel->stop();
@@ -787,7 +790,13 @@ int32_t QCamera3PostProcessor::encodeData(qcamera_hal3_jpeg_data_t *jpeg_job_dat
     mm_camera_buf_def_t *main_frame = NULL;
     QCamera3Channel *srcChannel = NULL;
     mm_camera_super_buf_t *recvd_frame = NULL;
-    QCamera3HardwareInterface* hal_obj = (QCamera3HardwareInterface*)m_parent->mUserData;
+    QCamera3HardwareInterface* hal_obj = NULL;
+    if (m_parent != NULL) {
+       hal_obj = (QCamera3HardwareInterface*)m_parent->mUserData;
+    } else {
+       ALOGE("%s: m_parent is NULL, Error",__func__);
+       return BAD_VALUE;
+    }
 
     if( jpeg_job_data-> aux_frame )
         recvd_frame = jpeg_job_data->aux_frame;
@@ -797,8 +806,7 @@ int32_t QCamera3PostProcessor::encodeData(qcamera_hal3_jpeg_data_t *jpeg_job_dat
 
     QCamera3Channel *pChannel = NULL;
     // first check picture channel
-    if (m_parent != NULL &&
-        m_parent->getMyHandle() == recvd_frame->ch_id) {
+    if (m_parent->getMyHandle() == recvd_frame->ch_id) {
         pChannel = m_parent;
     }
     // check reprocess channel if not found
@@ -868,7 +876,9 @@ int32_t QCamera3PostProcessor::encodeData(qcamera_hal3_jpeg_data_t *jpeg_job_dat
     memset(&thumb_dst_dim, 0, sizeof(cam_dimension_t));
 
     main_stream->getFrameDimension(src_dim);
-    srcChannel->getStreamByIndex(0)->getFrameDimension(dst_dim);
+    if (srcChannel->getStreamByIndex(0)) {
+       srcChannel->getStreamByIndex(0)->getFrameDimension(dst_dim);
+    }
     m_parent->getThumbnailSize(thumb_dst_dim);
 
     CDBG_HIGH("%s: Need new session?:%d",__func__, needNewSess);
