@@ -5138,7 +5138,7 @@ bool QCamera3HardwareInterface::needReprocess()
     }
 
     if ((mJpegSettings->min_required_pp_mask > 0) ||
-         isWNREnabled()) {
+         isWNREnabled() || isCACEnabled()) {
         // TODO: add for ZSL HDR later
         // pp module has min requirement for zsl reprocess, or WNR in ZSL mode
         CDBG_HIGH("%s: need do reprocess for ZSL WNR or min PP reprocess", __func__);
@@ -5200,6 +5200,10 @@ QCamera3ReprocessChannel *QCamera3HardwareInterface::addOnlineReprocChannel(
         pp_config.denoise2d.denoise_enable = 1;
         pp_config.denoise2d.process_plates = getWaveletDenoiseProcessPlate();
     }
+
+    if (isCACEnabled()) {
+        pp_config.feature_mask |= CAM_QCOM_FEATURE_CAC;
+    }
     if (needRotationReprocess()) {
         pp_config.feature_mask |= CAM_QCOM_FEATURE_ROTATION;
         int rotation = mJpegSettings->jpeg_orientation;
@@ -5232,6 +5236,15 @@ int QCamera3HardwareInterface::getMaxUnmatchedFramesInQueue()
 
 bool QCamera3HardwareInterface::isWNREnabled() {
     return gCamCapability[mCameraId]->isWnrSupported;
+}
+
+bool  QCamera3HardwareInterface::isCACEnabled() {
+ //   return gCamCapability[mCameraId]->isCacSupported;
+    char prop[PROPERTY_VALUE_MAX];
+    memset(prop, 0, sizeof(prop));
+    property_get("persist.camera.feature.cac", prop, "0");
+    int enableCAC = atoi(prop);
+    return enableCAC;
 }
 /*===========================================================================
 * FUNCTION   : getLogLevel

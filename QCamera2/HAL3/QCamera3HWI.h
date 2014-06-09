@@ -155,6 +155,7 @@ public:
     bool needRotationReprocess();
     bool needReprocess();
     bool isWNREnabled();
+    bool isCACEnabled();
     cam_denoise_process_type_t getWaveletDenoiseProcessPlate();
 
     void captureResultCb(mm_camera_super_buf_t *metadata,
