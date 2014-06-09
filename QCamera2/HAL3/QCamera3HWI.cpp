@@ -146,6 +146,11 @@ const QCamera3HardwareInterface::QCameraMap QCamera3HardwareInterface::FACEDETEC
     { ANDROID_STATISTICS_FACE_DETECT_MODE_FULL,   CAM_FACE_DETECT_MODE_FULL    }
 };
 
+const QCamera3HardwareInterface::QCameraMap QCamera3HardwareInterface::LENS_STATE_MAP[] = {
+    { ANDROID_LENS_STATE_STATIONARY,    CAM_AF_LENS_STATE_STATIONARY},
+    { ANDROID_LENS_STATE_MOVING,        CAM_AF_LENS_STATE_MOVING}
+};
+
 const int32_t available_thumbnail_sizes[] = {512, 288, 480, 288, 256, 154, 432, 288,
                                              320, 240, 176, 144, 0, 0};
 
@@ -2254,8 +2259,8 @@ QCamera3HardwareInterface::translateCbMetadataToResultMetadata
         uint8_t *flashMode = (uint8_t*)
             POINTER_OF_META(CAM_INTF_META_FLASH_MODE, metadata);
         uint8_t fwk_flashMode = lookupFwkName(FLASH_MODES_MAP,
-                                     sizeof(FLASH_MODES_MAP),
-                                     *flashMode);
+                sizeof(FLASH_MODES_MAP)/sizeof(FLASH_MODES_MAP[0]),
+                *flashMode);
         camMetadata.update(ANDROID_FLASH_MODE, &fwk_flashMode, 1);
     }
     if (IS_META_AVAILABLE(CAM_INTF_META_HOTPIXEL_MODE, metadata)) {
@@ -2289,8 +2294,12 @@ QCamera3HardwareInterface::translateCbMetadataToResultMetadata
         camMetadata.update(ANDROID_LENS_FOCUS_RANGE , focusRange, 2);
     }
     if (IS_META_AVAILABLE(CAM_INTF_META_LENS_STATE, metadata)) {
-        uint8_t *lensState = (uint8_t *)POINTER_OF_META(CAM_INTF_META_LENS_STATE, metadata);
-        camMetadata.update(ANDROID_LENS_STATE , lensState, 1);
+        cam_af_lens_state_t *lensState = (cam_af_lens_state_t *)
+                POINTER_OF_META(CAM_INTF_META_LENS_STATE, metadata);
+        uint8_t val = lookupFwkName(LENS_STATE_MAP,
+                sizeof(LENS_STATE_MAP)/sizeof(LENS_STATE_MAP[0]),
+                *lensState);
+        camMetadata.update(ANDROID_LENS_STATE , &val, 1);
     }
     if (IS_META_AVAILABLE(CAM_INTF_META_LENS_OPT_STAB_MODE, metadata)) {
         uint8_t  *opticalStab =
@@ -2430,8 +2439,8 @@ QCamera3HardwareInterface::translateCbMetadataToResultMetadata
         uint8_t *effectMode = (uint8_t*)
             POINTER_OF_META(CAM_INTF_PARM_EFFECT, metadata);
         uint8_t fwk_effectMode = lookupFwkName(EFFECT_MODES_MAP,
-                                            sizeof(EFFECT_MODES_MAP),
-                                            *effectMode);
+                sizeof(EFFECT_MODES_MAP)/sizeof(EFFECT_MODES_MAP[0]),
+                *effectMode);
         camMetadata.update(ANDROID_CONTROL_EFFECT_MODE, &fwk_effectMode, 1);
     }
 
