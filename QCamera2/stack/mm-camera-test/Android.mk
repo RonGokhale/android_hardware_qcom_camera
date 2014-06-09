@@ -1,4 +1,3 @@
-ifneq (,$(filter $(QCOM_BOARD_PLATFORMS),$(TARGET_BOARD_PLATFORM)))
 OLD_LOCAL_PATH := $(LOCAL_PATH)
 LOCAL_PATH:=$(call my-dir)
 
@@ -101,9 +100,7 @@ LOCAL_MODULE_TAGS := optional
 
 LOCAL_MODULE:= mm-qcamera-app
 include $(BUILD_EXECUTABLE)
-endif
 
-ifneq (,$(filter $(QCOM_BOARD_PLATFORMS),$(TARGET_BOARD_PLATFORM)))
 # Build tuning library
 include $(CLEAR_VARS)
 
@@ -202,4 +199,3 @@ LOCAL_MODULE_TAGS := optional
 
 LOCAL_MODULE:= libmm-qcamera
 include $(BUILD_SHARED_LIBRARY)
-endif
