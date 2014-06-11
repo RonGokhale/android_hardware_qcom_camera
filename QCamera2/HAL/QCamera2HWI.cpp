@@ -1946,6 +1946,15 @@ int QCamera2HardwareInterface::startPreview()
         rc = startChannel(QCAMERA_CH_TYPE_ZSL);
     } else {
         rc = startChannel(QCAMERA_CH_TYPE_PREVIEW);
+        /*
+          CAF needs cancel auto focus to resume after snapshot.
+          Focus should be locked till take picture is done.
+          In Non-zsl case if focus mode is CAF then calling cancel auto focus
+          to resume CAF.
+        */
+        cam_focus_mode_type focusMode = mParameters.getFocusMode();
+        if (focusMode == CAM_FOCUS_MODE_CONTINOUS_PICTURE)
+            mCameraHandle->ops->cancel_auto_focus(mCameraHandle->camera_handle);
     }
     ALOGD("%s: X", __func__);
     return rc;
@@ -3327,7 +3336,8 @@ int32_t QCamera2HardwareInterface::processAutoFocusEvent(cam_auto_focus_data_t &
             break;
         }
 
-        if (focus_data.focus_state == CAM_AF_SCANNING) {
+        if (focus_data.focus_state == CAM_AF_SCANNING ||
+            focus_data.focus_state == CAM_AF_INACTIVE) {
             // in the middle of focusing, just ignore it
             break;
         }
