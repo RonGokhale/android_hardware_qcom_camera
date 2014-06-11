@@ -471,7 +471,8 @@ int process_meta_data(cam_metadata_info_t *p_meta, QOMX_EXIF_INFO *exif_info,
   cam_ae_params_t *p_ae_params = p_meta->is_ae_params_valid ?
     &p_meta->ae_params : &p_cam_exif_params->ae_params;
 
-  if (NULL != p_ae_params) {
+  if(p_cam_exif_params->sensor_params.sens_type != CAM_SENSOR_YUV &&
+    NULL != p_ae_params) {
     rc = process_3a_data(p_ae_params, exif_info);
     if (rc) {
       ALOGE("%s %d: Failed to extract 3a params", __func__, __LINE__);
