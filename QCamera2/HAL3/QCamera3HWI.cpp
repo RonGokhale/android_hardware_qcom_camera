@@ -582,6 +582,12 @@ int QCamera3HardwareInterface::configureStreams(
             //new stream
             stream_info_t* stream_info;
             stream_info = (stream_info_t* )malloc(sizeof(stream_info_t));
+            if (!stream_info) {
+               ALOGE("%s: Could not allocate stream info", __func__);
+               rc = -ENOMEM;
+               pthread_mutex_unlock(&mMutex);
+               return rc;
+            }
             stream_info->stream = newStream;
             stream_info->status = VALID;
             stream_info->registered = 0;
@@ -1610,7 +1616,7 @@ int QCamera3HardwareInterface::processCaptureRequest(
             channel->start();
         }
 
-        if (mRawDump) {
+        if (mRawDump && mRawChannel) {
             CDBG_HIGH("%s: Start RAW Channel last", __func__);
             mRawChannel->start(); // Start RAW channel only when RAW set Prop is set
         }
@@ -1627,6 +1633,7 @@ int QCamera3HardwareInterface::processCaptureRequest(
     } else if (mFirstRequest || mCurrentRequestId == -1){
         ALOGE("%s: Unable to find request id field, \
                 & no previous id available", __func__);
+        pthread_mutex_unlock(&mMutex);
         return NAME_NOT_FOUND;
     } else {
         CDBG("%s: Re-using old request id", __func__);
@@ -1729,6 +1736,11 @@ int QCamera3HardwareInterface::processCaptureRequest(
                     pInputBuffer =
                         inputChannel->getInternalFormatBuffer(
                                 request->input_buffer->buffer);
+                    if (!pInputBuffer) {
+                       ALOGE("%s: Could not get internal buffer", __func__);
+                        pthread_mutex_unlock(&mMutex);
+                        return BAD_VALUE;
+                    }
                     CDBG_HIGH("%s: Input buffer dump",__func__);
                     CDBG_HIGH("Stream id: %d", pInputBuffer->stream_id);
                     CDBG_HIGH("streamtype:%d", pInputBuffer->stream_type);
@@ -2062,15 +2074,16 @@ int QCamera3HardwareInterface::flush()
     CDBG("%s: Cleared all the pending buffers ", __func__);
 
     /*flush the metadata list*/
-    if (!mStoredMetadataList.empty()) {
+    if (mMetadataChannel && !mStoredMetadataList.empty()) {
         for (List<MetadataBufferInfo>::iterator m = mStoredMetadataList.begin();
               m != mStoredMetadataList.end(); ) {
             mMetadataChannel->bufDone(m->meta_buf);
             free(m->meta_buf);
             m = mStoredMetadataList.erase(m);
         }
+        CDBG("%s: Flushing the metadata list done!! ", __func__);
     }
-    CDBG("%s: Flushing the metadata list done!! ", __func__);
+
 
     mFirstRequest = true;
     pthread_mutex_unlock(&mMutex);
@@ -2532,7 +2545,9 @@ void QCamera3HardwareInterface::dumpMetadataToFile(tuning_params_t &meta,
             struct tm * timeinfo;
             time (&current_time);
             timeinfo = localtime (&current_time);
-            strftime (timeBuf, sizeof(timeBuf),"/data/%Y%m%d%H%M%S", timeinfo);
+            if (timeinfo != NULL) {
+               strftime (timeBuf, sizeof(timeBuf),"/data/%Y%m%d%H%M%S", timeinfo);
+            }
             String8 filePath(timeBuf);
             snprintf(buf,
                      sizeof(buf),
@@ -3133,15 +3148,16 @@ int QCamera3HardwareInterface::initStaticMetadata(int cameraId)
                        1);
 
     int32_t scalar_formats[] = {HAL_PIXEL_FORMAT_YCbCr_420_888,
-                                                HAL_PIXEL_FORMAT_BLOB};
+                                HAL_PIXEL_FORMAT_BLOB};
     int scalar_formats_count = sizeof(scalar_formats)/sizeof(int32_t);
     staticInfo.update(ANDROID_SCALER_AVAILABLE_FORMATS,
                       scalar_formats,
                       scalar_formats_count);
 
-    int32_t available_processed_sizes[CAM_FORMAT_MAX * 2];
+    int32_t available_processed_sizes[MAX_SIZES_CNT * 2];
     makeTable(gCamCapability[cameraId]->picture_sizes_tbl,
               gCamCapability[cameraId]->picture_sizes_tbl_cnt,
+              MAX_SIZES_CNT,
               available_processed_sizes);
     staticInfo.update(ANDROID_SCALER_AVAILABLE_PROCESSED_SIZES,
                 available_processed_sizes,
@@ -3154,6 +3170,7 @@ int QCamera3HardwareInterface::initStaticMetadata(int cameraId)
     int32_t available_fps_ranges[MAX_SIZES_CNT * 2];
     makeFPSTable(gCamCapability[cameraId]->fps_ranges_tbl,
                  gCamCapability[cameraId]->fps_ranges_tbl_cnt,
+                 MAX_SIZES_CNT,
                  available_fps_ranges);
     staticInfo.update(ANDROID_CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES,
             available_fps_ranges, (gCamCapability[cameraId]->fps_ranges_tbl_cnt*2) );
@@ -3248,6 +3265,7 @@ int QCamera3HardwareInterface::initStaticMetadata(int cameraId)
     uint8_t scene_mode_overrides[CAM_SCENE_MODE_MAX * 3];
     makeOverridesList(gCamCapability[cameraId]->scene_mode_overrides,
                       supported_scene_modes_cnt,
+                      CAM_SCENE_MODE_MAX,
                       scene_mode_overrides,
                       supported_indexes,
                       cameraId);
@@ -3408,9 +3426,12 @@ int QCamera3HardwareInterface::initStaticMetadata(int cameraId)
  *
  *==========================================================================*/
 void QCamera3HardwareInterface::makeTable(cam_dimension_t* dimTable, uint8_t size,
-                                          int32_t* sizeTable)
+                                          uint8_t max_size, int32_t* sizeTable)
 {
     int j = 0;
+    if (size > max_size) {
+       size = max_size;
+    }
     for (int i = 0; i < size; i++) {
         sizeTable[j] = dimTable[i].width;
         sizeTable[j+1] = dimTable[i].height;
@@ -3427,9 +3448,12 @@ void QCamera3HardwareInterface::makeTable(cam_dimension_t* dimTable, uint8_t siz
  *
  *==========================================================================*/
 void QCamera3HardwareInterface::makeFPSTable(cam_fps_range_t* fpsTable, uint8_t size,
-                                          int32_t* fpsRangesTable)
+                                          uint8_t max_size, int32_t* fpsRangesTable)
 {
     int j = 0;
+    if (size > max_size) {
+       size = max_size;
+    }
     for (int i = 0; i < size; i++) {
         fpsRangesTable[j] = (int32_t)fpsTable[i].min_fps;
         fpsRangesTable[j+1] = (int32_t)fpsTable[i].max_fps;
@@ -3447,7 +3471,8 @@ void QCamera3HardwareInterface::makeFPSTable(cam_fps_range_t* fpsTable, uint8_t 
  *
  *==========================================================================*/
 void QCamera3HardwareInterface::makeOverridesList(cam_scene_mode_overrides_t* overridesTable,
-                                                  uint8_t size, uint8_t* overridesList,
+                                                  uint8_t size, uint8_t max_size,
+                                                  uint8_t* overridesList,
                                                   uint8_t* supported_indexes,
                                                   int camera_id)
 {
@@ -3456,6 +3481,9 @@ void QCamera3HardwareInterface::makeOverridesList(cam_scene_mode_overrides_t* ov
       supported by the framework*/
     int j = 0, index = 0, supt = 0;
     uint8_t focus_override;
+    if (size > max_size) {
+       size = max_size;
+    }
     for (int i = 0; i < size; i++) {
         supt = 0;
         index = supported_indexes[i];
@@ -4652,6 +4680,10 @@ int QCamera3HardwareInterface::getJpegSettings
         mJpegSettings = NULL;
     }
     mJpegSettings = (jpeg_settings_t*) malloc(sizeof(jpeg_settings_t));
+    if (!mJpegSettings) {
+       ALOGE("%s: Could not allocate memory for jpeg settings", __func__);
+       return -ENOMEM;
+    }
     CameraMetadata jpeg_settings;
     jpeg_settings = settings;
 
@@ -4690,6 +4722,10 @@ int QCamera3HardwareInterface::getJpegSettings
 
     if (jpeg_settings.exists(ANDROID_JPEG_GPS_TIMESTAMP)) {
         mJpegSettings->gps_timestamp = (int64_t*)malloc(sizeof(int64_t*));
+        if (!mJpegSettings->gps_timestamp) {
+           ALOGE("%s: Could not allocate memory for jpeg settings", __func__);
+           return -ENOMEM;
+        }
         *(mJpegSettings->gps_timestamp) =
             jpeg_settings.find(ANDROID_JPEG_GPS_TIMESTAMP).data.i64[0];
     } else {
