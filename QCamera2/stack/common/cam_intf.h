@@ -139,6 +139,8 @@ typedef struct{
     uint8_t supported_picture_fmt_cnt;
     cam_format_t supported_picture_fmts[CAM_FORMAT_MAX];
 
+    uint8_t max_downscale_factor;
+
     /* dimension and supported output format of raw dump from camif */
     cam_dimension_t raw_dim;
     uint8_t supported_raw_fmt_cnt;
@@ -519,7 +521,7 @@ typedef struct {
     /* Shared between HAL1 and HAL3 */
     INCLUDE(CAM_INTF_PARM_ANTIBANDING,                  int32_t,                     1);
     INCLUDE(CAM_INTF_PARM_EXPOSURE_COMPENSATION,        int32_t,                     1);
-    INCLUDE(CAM_INTF_PARM_AEC_LOCK,                     int32_t,                     1);
+    INCLUDE(CAM_INTF_PARM_AEC_LOCK,                     uint32_t,                    1);
     INCLUDE(CAM_INTF_PARM_FPS_RANGE,                    cam_fps_range_t,             1);
     INCLUDE(CAM_INTF_PARM_AWB_LOCK,                     int32_t,                     1);
     INCLUDE(CAM_INTF_PARM_BESTSHOT_MODE,                int32_t,                     1);
