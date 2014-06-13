@@ -181,7 +181,10 @@ int32_t QCamera3PostProcessor::start(QCamera3Memory* mMemory, int index,
 
     if (hal_obj->needReprocess()) {
         while (!m_inputMetaQ.isEmpty()) {
-           m_pReprocChannel->metadataBufDone((mm_camera_super_buf_t *)m_inputMetaQ.dequeue());
+           mm_camera_super_buf_t *meta_buf = (mm_camera_super_buf_t *)m_inputMetaQ.dequeue();
+           if (meta_buf != NULL) {
+              m_pReprocChannel->metadataBufDone(meta_buf);
+           }
         }
         if (m_pReprocChannel != NULL) {
             m_pReprocChannel->stop();
@@ -797,7 +800,12 @@ int32_t QCamera3PostProcessor::encodeData(qcamera_hal3_jpeg_data_t *jpeg_job_dat
     mm_camera_buf_def_t *thumb_frame = NULL;
     QCamera3Channel *srcChannel = NULL;
     mm_camera_super_buf_t *recvd_frame = NULL;
-    QCamera3HardwareInterface* hal_obj = (QCamera3HardwareInterface*)m_parent->mUserData;
+    QCamera3HardwareInterface* hal_obj = NULL;
+    if(!m_parent){
+       ALOGE("%s: m_parent is NULL, Error", __func__);
+       return BAD_VALUE;
+    }
+    hal_obj = (QCamera3HardwareInterface*)m_parent->mUserData;
 
     if( jpeg_job_data-> aux_frame )
         recvd_frame = jpeg_job_data->aux_frame;
@@ -807,8 +815,7 @@ int32_t QCamera3PostProcessor::encodeData(qcamera_hal3_jpeg_data_t *jpeg_job_dat
 
     QCamera3Channel *pChannel = NULL;
     // first check picture channel
-    if (m_parent != NULL &&
-        m_parent->getMyHandle() == recvd_frame->ch_id) {
+    if (m_parent->getMyHandle() == recvd_frame->ch_id) {
         pChannel = m_parent;
     }
     // check reprocess channel if not found
@@ -855,8 +862,8 @@ int32_t QCamera3PostProcessor::encodeData(qcamera_hal3_jpeg_data_t *jpeg_job_dat
         }
     }
 
-    if(NULL == main_frame){
-       ALOGE("%s : Main frame is NULL", __func__);
+    if(NULL == main_stream || NULL == main_frame){
+       ALOGE("%s : Main stream/frame is NULL", __func__);
        return BAD_VALUE;
     }
 
@@ -927,7 +934,9 @@ int32_t QCamera3PostProcessor::encodeData(qcamera_hal3_jpeg_data_t *jpeg_job_dat
 
     cam_dimension_t dst_dim;
     memset(&dst_dim, 0, sizeof(cam_dimension_t));
-    srcChannel->getStreamByIndex(0)->getFrameDimension(dst_dim);
+    if (srcChannel->getStreamByIndex(0)) {
+       srcChannel->getStreamByIndex(0)->getFrameDimension(dst_dim);
+    }
 
     // main dim
     jpg_job.encode_job.main_dim.src_dim = src_dim;
@@ -942,6 +951,10 @@ int32_t QCamera3PostProcessor::encodeData(qcamera_hal3_jpeg_data_t *jpeg_job_dat
             // we use the main stream/frame to encode thumbnail
             thumb_stream = main_stream;
             thumb_frame = main_frame;
+        }
+        if (!thumb_stream || !thumb_frame) {
+           ALOGE("%s: thumbnail stream/frame is NULL", __func__);
+           return BAD_VALUE;
         }
         memset(&crop, 0, sizeof(cam_rect_t));
         //TBD_later - Zoom event removed in stream
