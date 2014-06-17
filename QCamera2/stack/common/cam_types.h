@@ -414,7 +414,7 @@ typedef enum {
     CAM_WB_MODE_CLOUDY_DAYLIGHT,
     CAM_WB_MODE_TWILIGHT,
     CAM_WB_MODE_SHADE,
-    CAM_WB_MODE_CCT,
+    CAM_WB_MODE_MANUAL,
     CAM_WB_MODE_OFF,
     CAM_WB_MODE_MAX
 } cam_wb_mode_type;
@@ -483,13 +483,40 @@ typedef enum {
 typedef enum {
     CAM_MANUAL_FOCUS_MODE_INDEX,
     CAM_MANUAL_FOCUS_MODE_DAC_CODE,
+    CAM_MANUAL_FOCUS_MODE_RATIO,
+    CAM_MANUAL_FOCUS_MODE_DIOPTER,
     CAM_MANUAL_FOCUS_MODE_MAX
 } cam_manual_focus_mode_type;
 
 typedef struct {
     cam_manual_focus_mode_type flag;
-    int32_t af_manual_lens_position;
+    union{
+        int32_t af_manual_lens_position_index;
+        int32_t af_manual_lens_position_dac;
+        int32_t af_manual_lens_position_ratio;
+        float af_manual_diopter;
+    };
 } cam_manual_focus_parm_t;
+
+typedef enum {
+    CAM_MANUAL_WB_MODE_CCT,
+    CAM_MANUAL_WB_MODE_GAIN,
+    CAM_MANUAL_WB_MODE_MAX
+} cam_manual_wb_mode_type;
+
+typedef struct {
+    float r_gain;
+    float g_gain;
+    float b_gain;
+} cam_awb_gain_t;
+
+typedef struct {
+    cam_manual_wb_mode_type type;
+    union{
+        int32_t cct;
+        cam_awb_gain_t gains;
+    };
+} cam_manual_wb_parm_t;
 
 typedef enum {
     CAM_SCENE_MODE_OFF,
@@ -771,6 +798,11 @@ typedef struct {
   float focus_distance[CAM_FOCUS_DISTANCE_MAX_INDEX];
 } cam_focus_distances_info_t;
 
+typedef struct {
+  uint32_t scale;
+  float diopter;
+}cam_focus_pos_info_t ;
+
 /* Different autofocus cycle when calling do_autoFocus
  * CAM_AF_COMPLETE_EXISTING_SWEEP: Complete existing sweep
  * if one is ongoing, and lock.
@@ -859,6 +891,7 @@ typedef struct {
 
 typedef struct {
     int32_t cct_value;
+    cam_awb_gain_t rgb_gains;
     int32_t decision;
 } cam_awb_params_t;
 
@@ -1034,6 +1067,9 @@ typedef  struct {
 
     uint8_t is_mobicat_stats_params_valid;
     cam_stats_buffer_exif_debug_t mobicat_stats_buffer_data;
+
+    uint8_t is_focus_pos_info_valid;
+    cam_focus_pos_info_t cur_pos_info;
 } cam_metadata_info_t;
 
 typedef enum {
@@ -1103,7 +1139,7 @@ typedef enum {
     CAM_INTF_PARM_SET_PP_COMMAND,
     CAM_INTF_PARM_TINTLESS,
     CAM_INTF_PARM_CDS_MODE,
-    CAM_INTF_PARM_WB_CCT,
+    CAM_INTF_PARM_WB_MANUAL,
     CAM_INTF_PARM_LONGSHOT_ENABLE,
 
     /* stream based parameters */
