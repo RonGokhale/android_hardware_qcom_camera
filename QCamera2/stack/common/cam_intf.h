@@ -69,9 +69,16 @@ typedef struct{
     size_t supported_iso_modes_cnt;
     cam_iso_mode_type supported_iso_modes[CAM_ISO_MODE_MAX];
 
+    /* supported iso range*/
+    int32_t min_iso;
+    int32_t max_iso;
+
     /* supported exposure time */
-    int32_t min_exposure_time;
-    int32_t max_exposure_time;
+    uint64_t min_exposure_time;
+    uint64_t max_exposure_time;
+
+    /*near end distance needed for diopter mode */
+    int32_t near_end_distance;
 
     /* supported flash modes */
     size_t supported_flash_modes_cnt;
@@ -107,13 +114,17 @@ typedef struct{
     int32_t min_wb_cct;
     int32_t max_wb_cct;
 
+    /* supported manual wb rgb gains */
+    float min_wb_gain;
+    float max_wb_gain;
+
     /* supported focus modes */
     size_t supported_focus_modes_cnt;
     cam_focus_mode_type supported_focus_modes[CAM_FOCUS_MODE_MAX];
 
     /* supported manual focus position */
-    int32_t min_focus_pos[CAM_MANUAL_FOCUS_MODE_MAX];
-    int32_t max_focus_pos[CAM_MANUAL_FOCUS_MODE_MAX];
+    float min_focus_pos[CAM_MANUAL_FOCUS_MODE_MAX];
+    float max_focus_pos[CAM_MANUAL_FOCUS_MODE_MAX];
 
     int32_t exposure_compensation_min;       /* min value of exposure compensation index */
     int32_t exposure_compensation_max;       /* max value of exposure compensation index */
@@ -466,7 +477,7 @@ typedef union {
     INCLUDE(CAM_INTF_PARM_SATURATION,               int32_t,                     1);
     INCLUDE(CAM_INTF_PARM_BRIGHTNESS,               int32_t,                     1);
     INCLUDE(CAM_INTF_PARM_ISO,                      int32_t,                     1);
-    INCLUDE(CAM_INTF_PARM_EXPOSURE_TIME,            int32_t,                     1);
+    INCLUDE(CAM_INTF_PARM_EXPOSURE_TIME,            uint64_t,                     1);
     INCLUDE(CAM_INTF_PARM_ZOOM,                     int32_t,                     1);
     INCLUDE(CAM_INTF_PARM_ROLLOFF,                  int32_t,                     1);
     INCLUDE(CAM_INTF_PARM_MODE,                     int32_t,                     1);
@@ -501,7 +512,7 @@ typedef union {
     INCLUDE(CAM_INTF_PARM_RAW_DIMENSION,            cam_dimension_t,             1);
     INCLUDE(CAM_INTF_PARM_TINTLESS,                 int32_t,                     1);
     INCLUDE(CAM_INTF_PARM_CDS_MODE,                 int32_t,                     1);
-    INCLUDE(CAM_INTF_PARM_WB_CCT,                   int32_t,                     1);
+    INCLUDE(CAM_INTF_PARM_WB_MANUAL,                cam_manual_wb_parm_t,        1);
     INCLUDE(CAM_INTF_PARM_EZTUNE_CMD,               cam_eztune_cmd_data_t,       1);
     INCLUDE(CAM_INTF_PARM_LONGSHOT_ENABLE,          int8_t,                      1);
 
