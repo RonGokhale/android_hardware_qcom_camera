@@ -152,6 +152,9 @@ public:
     static const char KEY_QC_SELECTABLE_ZONE_AF[];
 
     static const char KEY_QC_ISO_MODE[];
+    static const char KEY_QC_CONTINUOUS_ISO[];
+    static const char KEY_QC_MIN_ISO[];
+    static const char KEY_QC_MAX_ISO[];
     static const char KEY_QC_SUPPORTED_ISO_MODES[];
     static const char KEY_QC_EXPOSURE_TIME[];
     static const char KEY_QC_MIN_EXPOSURE_TIME[];
@@ -196,7 +199,12 @@ public:
     static const char KEY_QC_WB_MANUAL_CCT[];
     static const char KEY_QC_MIN_WB_CCT[];
     static const char KEY_QC_MAX_WB_CCT[];
+    static const char KEY_QC_MANUAL_WB_GAINS[];
+    static const char KEY_QC_MIN_WB_GAIN[];
+    static const char KEY_QC_MAX_WB_GAIN[];
     static const char KEY_QC_LONG_SHOT[];
+    static const char WHITE_BALANCE_MANUAL[];
+    static const char FOCUS_MODE_MANUAL_POSITION[];
 
     static const char KEY_QC_MANUAL_FOCUS_POSITION[];
     static const char KEY_QC_MANUAL_FOCUS_POS_TYPE[];
@@ -204,6 +212,27 @@ public:
     static const char KEY_QC_MAX_FOCUS_POS_INDEX[];
     static const char KEY_QC_MIN_FOCUS_POS_DAC[];
     static const char KEY_QC_MAX_FOCUS_POS_DAC[];
+    static const char KEY_QC_MIN_FOCUS_POS_RATIO[];
+    static const char KEY_QC_MAX_FOCUS_POS_RATIO[];
+    static const char KEY_QC_MIN_FOCUS_POS_DIOPTER[];
+    static const char KEY_QC_MAX_FOCUS_POS_DIOPTER[];
+    static const char KEY_QC_FOCUS_POSITION_SCALE[];
+    static const char KEY_QC_FOCUS_POSITION_DIOPTER[];
+
+    static const char KEY_QC_SUPPORTED_MANUAL_FOCUS_MODES[];
+    static const char KEY_QC_SUPPORTED_MANUAL_EXPOSURE_MODES[];
+    static const char KEY_QC_SUPPORTED_MANUAL_WB_MODES[];
+    static const char KEY_QC_FOCUS_SCALE_MODE[];
+    static const char KEY_QC_FOCUS_DIOPTER_MODE[];
+    static const char KEY_QC_ISO_PRIORITY[];
+    static const char KEY_QC_EXP_TIME_PRIORITY[];
+    static const char KEY_QC_USER_SETTING[];
+    static const char KEY_QC_WB_CCT_MODE[];
+    static const char KEY_QC_WB_GAIN_MODE[];
+    static const char KEY_QC_MANUAL_WB_TYPE[];
+    static const char KEY_QC_MANUAL_WB_VALUE[];
+    static const char KEY_QC_CURRENT_EXPOSURE_TIME[];
+    static const char KEY_QC_CURRENT_ISO[];
 
     static const char KEY_INTERNAL_PERVIEW_RESTART[];
 
@@ -373,6 +402,7 @@ public:
     static const char ISO_800[];
     static const char ISO_1600[];
     static const char ISO_3200[];
+    static const char ISO_MANUAL[];
 
     // Values for auto exposure settings.
     static const char AUTO_EXPOSURE_FRAME_AVG[];
@@ -588,7 +618,7 @@ public:
     bool isVideoFlipChanged() { return m_bVideoFlipChanged; };
     bool isSnapshotFlipChanged() { return m_bSnapshotFlipChanged; };
     void setHDRSceneEnable(bool bflag);
-    int32_t updateCCTValue(int32_t cct);
+    int32_t updateAWBParams(cam_awb_params_t &awb_params);
 
     const char *getASDStateString(cam_auto_scene_t scene);
     bool isHDRThumbnailProcessNeeded() { return m_bHDRThumbnailProcessNeeded; };
@@ -613,7 +643,8 @@ public:
         return m_pCapability->ubifocus_af_bracketing_need.output_count;};
     inline bool generateThumbFromMain() {return isUbiFocusEnabled() ||
         isChromaFlashEnabled() || isOptiZoomEnabled() || isDifferentFlipZSL(); }
-    int32_t  updateCurrentFocusPosition(int32_t pos);
+    void  updateCurrentFocusPosition(cam_focus_pos_info_t &cur_pos_info);
+    void  updateAEInfo(cam_ae_params_t &ae_params);
     bool isDisplayFrameNeeded() { return m_bDisplayFrame; };
     int32_t setDisplayFrame(bool enabled) {m_bDisplayFrame=enabled; return 0;};
     bool isAdvCamFeaturesEnabled() {return isUbiFocusEnabled() ||
@@ -646,6 +677,7 @@ private:
     int32_t setVtEnable(const QCameraParameters& );
     int32_t setZoom(const QCameraParameters& );
     int32_t setISOValue(const QCameraParameters& );
+    int32_t setContinuousISO(const QCameraParameters& );
     int32_t setExposureTime(const QCameraParameters& );
     int32_t setRotation(const QCameraParameters& );
     int32_t setVideoRotation(const QCameraParameters& );
@@ -657,7 +689,7 @@ private:
     int32_t setLensShadeValue(const QCameraParameters& );
     int32_t setExposureCompensation(const QCameraParameters& );
     int32_t setWhiteBalance(const QCameraParameters& );
-    int32_t setWBManualCCT(const QCameraParameters& );
+    int32_t setManualWhiteBalance(const QCameraParameters& );
     int32_t setAntibanding(const QCameraParameters& );
     int32_t setFocusAreas(const QCameraParameters& );
     int32_t setMeteringAreas(const QCameraParameters& );
@@ -707,6 +739,7 @@ private:
     int32_t setVtEnable(const char *vtEnable);
     int32_t setZoom(int zoom_level);
     int32_t setISOValue(const char *isoValue);
+    int32_t setContinuousISO(const char *isoValue);
     int32_t setExposureTime(const char *expTimeStr);
     int32_t setFlash(const char *flashStr);
     int32_t setAecLock(const char *aecStr);
@@ -718,6 +751,7 @@ private:
     int32_t setExposureCompensation(int expComp);
     int32_t setWhiteBalance(const char *wbStr);
     int32_t setWBManualCCT(const char *cctStr);
+    int32_t setManualWBGains(const char *gainStr);
     int32_t setAntibanding(const char *antiBandingStr);
     int32_t setFocusAreas(const char *focusAreasStr);
     int32_t setMeteringAreas(const char *meteringAreasStr);
@@ -733,6 +767,8 @@ private:
     int32_t setTintlessValue(const char *tintStr);
 
 
+    int32_t parseGains(const char *gainStr, double &r_gain,
+                       double &g_gain, double &b_gain);
     int32_t parse_pair(const char *str, int *first, int *second,
                        char delim, char **endptr);
     void parseSizesList(const char *sizesStr, Vector<Size> &sizes);
@@ -841,8 +877,6 @@ private:
     bool m_bHDROutputCropEnabled;     // if HDR output frame need to be scaled to user resolution
     QCameraTorchInterface *m_pTorch; // Interface for enabling torch
     bool m_bReleaseTorchCamera; // Release camera resources after torch gets disabled
-    int32_t m_curCCT;
-    int32_t m_curFocusPos;
 
     DefaultKeyedVector<String8,String8> m_tempMap; // map for temororily store parameters to be set
     cam_fps_range_t m_default_fps_range;
