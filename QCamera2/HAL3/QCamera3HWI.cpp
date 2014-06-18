@@ -2718,6 +2718,23 @@ QCamera3HardwareInterface::translateCbUrgentMetadataToResultMetadata
                 &ae_lock, 1);
         CDBG("%s: urgent Metadata : ANDROID_CONTROL_AE_LOCK", __func__);
     }
+    if (IS_META_AVAILABLE(CAM_INTF_PARM_AWB_LOCK, metadata)) {
+        uint8_t awb_lock =
+          *((uint32_t *)POINTER_OF_META(CAM_INTF_PARM_AWB_LOCK, metadata));
+        camMetadata.update(ANDROID_CONTROL_AWB_LOCK, &awb_lock, 1);
+        CDBG("%s: urgent Metadata : ANDROID_CONTROL_AWB_LOCK", __func__);
+    }
+    if (IS_META_AVAILABLE(CAM_INTF_PARM_BESTSHOT_MODE, metadata)) {
+        uint8_t sceneMode =
+            *((uint32_t *)POINTER_OF_META(CAM_INTF_PARM_BESTSHOT_MODE, metadata));
+        uint8_t fwkSceneMode =
+            (uint8_t)lookupFwkName(SCENE_MODES_MAP,
+            sizeof(SCENE_MODES_MAP)/
+            sizeof(SCENE_MODES_MAP[0]), sceneMode);
+        camMetadata.update(ANDROID_CONTROL_SCENE_MODE,
+             &fwkSceneMode, 1);
+        CDBG("%s: urgent Metadata : ANDROID_CONTROL_SCENE_MODE", __func__);
+    }
     resultMetadata = camMetadata.release();
     return resultMetadata;
 }
