@@ -44,6 +44,7 @@
 #define CAMERA_MIN_JPEG_ENCODING_BUFFERS 2
 #define CAMERA_MIN_VIDEO_BUFFERS         9
 #define CAMERA_LONGSHOT_STAGES           4
+#define EXTRA_ZSL_PREVIEW_STREAM_BUF     2
 
 //This multiplier signifies extra buffers that we need to allocate
 //for the output of pproc
@@ -1506,10 +1507,12 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
     case CAM_STREAM_TYPE_METADATA:
         {
             if (mParameters.isZSLMode()) {
+                // MetaData buffers should be >= (Preview buffers-minUndequeCount)
                 bufferCnt = zslQBuffers + minCircularBufNum +
                             mParameters.getNumOfExtraHDRInBufsIfNeeded() -
                             mParameters.getNumOfExtraHDROutBufsIfNeeded() +
-                            mParameters.getNumOfExtraBuffersForImageProc();
+                            mParameters.getNumOfExtraBuffersForImageProc() +
+                            EXTRA_ZSL_PREVIEW_STREAM_BUF;
             } else {
                 bufferCnt = minCaptureBuffers +
                             mParameters.getNumOfExtraHDRInBufsIfNeeded() -
@@ -1819,7 +1822,8 @@ QCameraHeapMemory *QCamera2HardwareInterface::allocateStreamInfoBuf(
         if (gCamCaps[mCameraId]->min_required_pp_mask & CAM_QCOM_FEATURE_EFFECT) {
             streamInfo->pp_config.feature_mask |= CAM_QCOM_FEATURE_EFFECT;
             effect = mParameters.get(CameraParameters::KEY_EFFECT);
-            streamInfo->pp_config.effect = getEffectValue(effect);
+            if(effect != NULL)
+                streamInfo->pp_config.effect = getEffectValue(effect);
         }
         if (mParameters.isWNREnabled() && (mParameters.getRecordingHintValue() == false)) {
             streamInfo->pp_config.feature_mask |= CAM_QCOM_FEATURE_DENOISE2D;
@@ -4492,7 +4496,8 @@ QCameraReprocessChannel *QCamera2HardwareInterface::addReprocChannel(
         if (gCamCaps[mCameraId]->min_required_pp_mask & CAM_QCOM_FEATURE_EFFECT) {
             pp_config.feature_mask |= CAM_QCOM_FEATURE_EFFECT;
             effect = mParameters.get(CameraParameters::KEY_EFFECT);
-            pp_config.effect = getEffectValue(effect);
+            if(effect!= NULL)
+                pp_config.effect = getEffectValue(effect);
         }
         if ((gCamCaps[mCameraId]->min_required_pp_mask & CAM_QCOM_FEATURE_SHARPNESS) &&
                 !mParameters.isOptiZoomEnabled()) {

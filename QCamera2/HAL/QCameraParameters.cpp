@@ -7734,13 +7734,13 @@ int32_t QCameraParameters::getExifGpsDateTimeStamp(char *gpsDateStamp,
     if(str != NULL) {
         time_t unixTime = (time_t)atol(str);
         struct tm *UTCTimestamp = gmtime(&unixTime);
+        if(UTCTimestamp != NULL) {
+            strftime(gpsDateStamp, bufLen, "%Y:%m:%d", UTCTimestamp);
 
-        strftime(gpsDateStamp, bufLen, "%Y:%m:%d", UTCTimestamp);
-
-        getRational(&gpsTimeStamp[0], UTCTimestamp->tm_hour, 1);
-        getRational(&gpsTimeStamp[1], UTCTimestamp->tm_min, 1);
-        getRational(&gpsTimeStamp[2], UTCTimestamp->tm_sec, 1);
-
+            getRational(&gpsTimeStamp[0], UTCTimestamp->tm_hour, 1);
+            getRational(&gpsTimeStamp[1], UTCTimestamp->tm_min, 1);
+            getRational(&gpsTimeStamp[2], UTCTimestamp->tm_sec, 1);
+        }
         return NO_ERROR;
     } else {
         return BAD_VALUE;
