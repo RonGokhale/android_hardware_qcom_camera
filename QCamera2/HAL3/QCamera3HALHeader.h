@@ -43,7 +43,6 @@ class QCamera3Channel;
     typedef enum {
         INVALID,
         VALID,
-        RECONFIGURE,
     } stream_status_t;
 
     typedef struct {
@@ -67,9 +66,7 @@ class QCamera3Channel;
 
     typedef struct {
         camera3_stream_t *stream;
-        camera3_stream_buffer_set_t buffer_set;
         stream_status_t status;
-        int registered;
         QCamera3Channel *channel;
     } stream_info_t;
 
@@ -79,5 +76,6 @@ class QCamera3Channel;
     } metadata_response_t;
 
 };//namespace qcamera
+
 
 #endif
