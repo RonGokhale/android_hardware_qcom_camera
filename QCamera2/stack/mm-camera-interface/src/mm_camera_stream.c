@@ -401,6 +401,10 @@ int32_t mm_stream_fsm_inited(mm_stream_t *my_obj,
     int32_t rc = 0;
     char dev_name[MM_CAMERA_DEV_NAME_LEN];
     const char *dev_name_value = NULL;
+    if (NULL == my_obj) {
+      CDBG_ERROR("%s: NULL camera object\n", __func__);
+      return -1;
+    }
 
     CDBG("%s: E, my_handle = 0x%x, fd = %d, state = %d",
          __func__, my_obj->my_hdl, my_obj->fd, my_obj->state);
@@ -408,12 +412,6 @@ int32_t mm_stream_fsm_inited(mm_stream_t *my_obj,
     case MM_STREAM_EVT_ACQUIRE:
         if ((NULL == my_obj->ch_obj) || (NULL == my_obj->ch_obj->cam_obj)) {
             CDBG_ERROR("%s: NULL channel or camera obj\n", __func__);
-            rc = -1;
-            break;
-        }
-
-        if (NULL == my_obj) {
-            CDBG_ERROR("%s: NULL camera object\n", __func__);
             rc = -1;
             break;
         }
