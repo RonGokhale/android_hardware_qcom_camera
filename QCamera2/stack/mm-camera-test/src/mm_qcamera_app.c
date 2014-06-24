@@ -363,6 +363,9 @@ int mm_app_stream_initbuf(cam_frame_len_offset_t *frame_offset_info,
          frame_offset_info->num_planes,
          frame_offset_info->mp[1].offset);
 
+    if (stream->num_of_bufs > CAM_MAX_NUM_BUFS_PER_STREAM)
+            stream->num_of_bufs = CAM_MAX_NUM_BUFS_PER_STREAM;
+
     pBufs = (mm_camera_buf_def_t *)malloc(sizeof(mm_camera_buf_def_t) * stream->num_of_bufs);
     reg_flags = (uint8_t *)malloc(sizeof(uint8_t) * stream->num_of_bufs);
     if (pBufs == NULL || reg_flags == NULL) {
@@ -603,8 +606,10 @@ int add_parm_entry_tobatch(parm_buffer_t *p_table,
     if (position == current){
         //DO NOTHING
     } else if (position < current){
-        SET_NEXT_PARAM_ID(position, p_table, current);
-        SET_FIRST_PARAM_ID(p_table, position);
+        if(position < CAM_INTF_PARM_MAX) {
+            SET_NEXT_PARAM_ID(position, p_table, current);
+            SET_FIRST_PARAM_ID(p_table, position);
+        }
     } else {
         /* Search for the position in the linked list where we need to slot in*/
         while (position > GET_NEXT_PARAM_ID(current, p_table))
@@ -612,9 +617,11 @@ int add_parm_entry_tobatch(parm_buffer_t *p_table,
 
         /*If node already exists no need to alter linking*/
         if (position != GET_NEXT_PARAM_ID(current, p_table)) {
-            next = GET_NEXT_PARAM_ID(current, p_table);
-            SET_NEXT_PARAM_ID(current, p_table, position);
-            SET_NEXT_PARAM_ID(position, p_table, next);
+            if(position < CAM_INTF_PARM_MAX) {
+                next = GET_NEXT_PARAM_ID(current, p_table);
+                SET_NEXT_PARAM_ID(current, p_table, position);
+                SET_NEXT_PARAM_ID(position, p_table, next);
+            }
         }
     }
     if (paramLength > sizeof(parm_type_t)) {
@@ -884,8 +891,10 @@ int AddSetParmEntryToBatch(mm_camera_test_obj_t *test_obj,
     if (position == current){
         //DO NOTHING
     } else if (position < current){
-        SET_NEXT_PARAM_ID(position, p_table, current);
-        SET_FIRST_PARAM_ID(p_table, position);
+        if(position < CAM_INTF_PARM_MAX) {
+            SET_NEXT_PARAM_ID(position, p_table, current);
+            SET_FIRST_PARAM_ID(p_table, position);
+        }
     } else {
         /* Search for the position in the linked list where we need to slot in*/
         while (position > GET_NEXT_PARAM_ID(current, p_table))
@@ -893,9 +902,11 @@ int AddSetParmEntryToBatch(mm_camera_test_obj_t *test_obj,
 
         /*If node already exists no need to alter linking*/
         if (position != GET_NEXT_PARAM_ID(current, p_table)) {
-            next = GET_NEXT_PARAM_ID(current, p_table);
-            SET_NEXT_PARAM_ID(current, p_table, position);
-            SET_NEXT_PARAM_ID(position, p_table, next);
+            if(position < CAM_INTF_PARM_MAX) {
+                next = GET_NEXT_PARAM_ID(current, p_table);
+                SET_NEXT_PARAM_ID(current, p_table, position);
+                SET_NEXT_PARAM_ID(position, p_table, next);
+            }
         }
     }
 
