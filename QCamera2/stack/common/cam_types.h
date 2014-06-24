@@ -1465,6 +1465,7 @@ typedef struct {
 #define CAM_QCOM_FEATURE_CHROMA_FLASH   (1U<<13)
 #define CAM_QCOM_FEATURE_OPTIZOOM       (1U<<14)
 #define CAM_QCOM_FEATURE_SENSOR_HDR     (1U<<15)
+#define CAM_QCOM_FEATURE_REFOCUS        (1U<<16)
 #define CAM_QCOM_FEATURE_CPP_TNR        (1U<<17)
 
 // Counter clock wise
