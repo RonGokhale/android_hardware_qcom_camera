@@ -93,7 +93,7 @@
 
 
 
-#define TUNING_DATA_VERSION        1
+#define TUNING_DATA_VERSION        3
 #define TUNING_SENSOR_DATA_MAX     0x10000 /*(need value from sensor team)*/
 #define TUNING_VFE_DATA_MAX        0x10000 /*(need value from vfe team)*/
 #define TUNING_CPP_DATA_MAX        0x10000 /*(need value from pproc team)*/
@@ -1046,21 +1046,6 @@ typedef  struct {
     cam_chromatix_lite_af_stats_t chromatix_lite_af_stats_data;
 } cam_metadata_info_t;
 
-#define TUNING_DATA_VERSION        1
-#define TUNING_SENSOR_DATA_MAX     0x10000 /*(need value from sensor team)*/
-#define TUNING_VFE_DATA_MAX        0x10000 /*(need value from vfe team)*/
-#define TUNING_CPP_DATA_MAX        0x10000 /*(need value from pproc team)*/
-#define TUNING_CAC_DATA_MAX        0x10000 /*(need value from imglib team)*/
-#define TUNING_DATA_MAX            (TUNING_SENSOR_DATA_MAX + \
-                                    TUNING_VFE_DATA_MAX + TUNING_CPP_DATA_MAX + \
-                                    TUNING_CAC_DATA_MAX)
-
-#define TUNING_SENSOR_DATA_OFFSET  0
-#define TUNING_VFE_DATA_OFFSET     TUNING_SENSOR_DATA_MAX
-#define TUNING_CPP_DATA_OFFSET     (TUNING_SENSOR_DATA_MAX + TUNING_VFE_DATA_MAX)
-#define TUNING_CAC_DATA_OFFSET     (TUNING_SENSOR_DATA_MAX + \
-                                    TUNING_VFE_DATA_MAX + TUNING_CPP_DATA_MAX)
-
 typedef enum {
     CAM_INTF_PARM_HAL_VERSION,
 
@@ -1312,7 +1297,6 @@ typedef enum {
     CAM_INTF_META_LENS_SHADING_MAP,
     CAM_INTF_META_PRIVATE_DATA,
     CAM_INTF_PARM_STATS_DEBUG_MASK,
-    CAM_INTF_PARM_STATS_AF_PAAF,
     /* Indicates streams ID of all the requested buffers */
     CAM_INTF_META_STREAM_ID,
     CAM_INTF_PARM_FOCUS_BRACKETING,
