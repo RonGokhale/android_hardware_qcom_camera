@@ -174,7 +174,6 @@ public:
     static const char KEY_QC_ORIENTATION[];
 
     static const char KEY_QC_VIDEO_HIGH_FRAME_RATE[];
-    static const char KEY_QC_VIDEO_HIGH_SPEED_RECORDING[];
     static const char KEY_QC_SUPPORTED_VIDEO_HIGH_FRAME_RATE_MODES[];
     static const char KEY_QC_HIGH_DYNAMIC_RANGE_IMAGING[];
     static const char KEY_QC_SUPPORTED_HDR_IMAGING_MODES[];
@@ -428,6 +427,8 @@ public:
     static const char VIDEO_HFR_3X[];
     static const char VIDEO_HFR_4X[];
     static const char VIDEO_HFR_5X[];
+    static const char VIDEO_HFR_PREFIX_HFR[];
+    static const char VIDEO_HFR_PREFIX_HSR[];
 
     // Values for feature on/off settings.
     static const char VALUE_OFF[];
