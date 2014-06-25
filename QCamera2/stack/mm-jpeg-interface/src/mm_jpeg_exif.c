@@ -514,7 +514,17 @@ int process_meta_data(metadata_buffer_t *p_meta, QOMX_EXIF_INFO *exif_info,
 
   if (hal_version == CAM_HAL_V1) {
     if (p_cam_exif_params) {
-      p_sensor_params = p_cam_exif_params->sensor_params;
+      cam_sensor_params_t* sensor_params =
+        (cam_sensor_params_t *)POINTER_OF(CAM_INTF_META_SENSOR_INFO, p_meta);
+      // Check for sensor params from metadata frame
+      if (sensor_params != NULL) {
+        p_sensor_params = *sensor_params;
+          ALOGI("%s: Sensor Params:  flash state: %d, flash mode: %d",
+            __func__, sensor_params->flash_state, sensor_params->flash_mode);
+      }
+      else {
+        p_sensor_params = p_cam_exif_params->sensor_params;
+      }
       p_3a_params = p_cam_exif_params->cam_3a_params;
     } else {
       p_sensor_params.focal_length = 0;
