@@ -174,7 +174,6 @@ public:
     static const char KEY_QC_ORIENTATION[];
 
     static const char KEY_QC_VIDEO_HIGH_FRAME_RATE[];
-    static const char KEY_QC_VIDEO_HIGH_SPEED_RECORDING[];
     static const char KEY_QC_SUPPORTED_VIDEO_HIGH_FRAME_RATE_MODES[];
     static const char KEY_QC_HIGH_DYNAMIC_RANGE_IMAGING[];
     static const char KEY_QC_SUPPORTED_HDR_IMAGING_MODES[];
@@ -428,6 +427,8 @@ public:
     static const char VIDEO_HFR_3X[];
     static const char VIDEO_HFR_4X[];
     static const char VIDEO_HFR_5X[];
+    static const char VIDEO_HFR_PREFIX_HFR[];
+    static const char VIDEO_HFR_PREFIX_HSR[];
 
     // Values for feature on/off settings.
     static const char VALUE_OFF[];
@@ -602,7 +603,7 @@ public:
     bool isDisplayFrameNeeded() { return m_bDisplayFrame; };
     int32_t setDisplayFrame(bool enabled) {m_bDisplayFrame=enabled; return 0;};
     bool isAdvCamFeaturesEnabled() {return isUbiFocusEnabled() ||
-        isChromaFlashEnabled() || isOptiZoomEnabled() || isHDREnabled();}
+        isChromaFlashEnabled() || m_bOptiZoomOn || isHDREnabled();}
     int32_t setAecLock(const char *aecStr);
 
 private:
@@ -637,8 +638,6 @@ private:
     int32_t setAwbLock(const QCameraParameters& );
     int32_t setMCEValue(const QCameraParameters& );
     int32_t setDISValue(const QCameraParameters& params);
-    int32_t setHighFrameRate(const QCameraParameters& );
-    int32_t setHighSpeedRecording(const QCameraParameters& );
     int32_t setLensShadeValue(const QCameraParameters& );
     int32_t setExposureCompensation(const QCameraParameters& );
     int32_t setWhiteBalance(const QCameraParameters& );
@@ -694,7 +693,7 @@ private:
     int32_t setAwbLock(const char *awbStr);
     int32_t setMCEValue(const char *mceStr);
     int32_t setDISValue(const char *disStr);
-    int32_t setHighFrameRate(const char *hfrStr);
+    int32_t setHighFrameRate(const int32_t hfrMode);
     int32_t setLensShadeValue(const char *lensShadeStr);
     int32_t setExposureCompensation(int expComp);
     int32_t setWhiteBalance(const char *wbStr);
@@ -839,6 +838,7 @@ private:
     bool m_bSensorHDREnabled;             // if HDR is enabled
     bool m_bRdiMode;                // if RDI mode
     bool m_bUbiRefocus;
+    int32_t mHfrMode;
     bool m_bDisplayFrame;
     bool m_bSecureMode;
     bool m_bAeBracketingEnabled;
