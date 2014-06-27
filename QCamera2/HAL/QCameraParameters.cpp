@@ -5995,13 +5995,7 @@ int32_t QCameraParameters::setSelectableZoneAf(const char *selZoneAFStr)
  *==========================================================================*/
 bool QCameraParameters::isAEBracketEnabled()
 {
-    const char *str = get(KEY_QC_AE_BRACKET_HDR);
-    if (str != NULL) {
-        if (strcmp(str, AE_BRACKET_OFF) != 0) {
-            return true;
-        }
-    }
-    return false;
+    return m_bAeBracketingEnabled;
 }
 
 /*===========================================================================
