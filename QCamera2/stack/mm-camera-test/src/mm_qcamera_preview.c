@@ -52,17 +52,16 @@ static void mm_app_metadata_notify_cb(mm_camera_super_buf_t *bufs,
           break;
       }
   }
+
+  if (NULL == channel) {
+      CDBG_ERROR("%s: cannot find metadata channel", __func__);
+      return;
+  }
+
   /* find preview stream */
   for (i = 0; i < channel->num_streams; i++) {
       if (channel->streams[i].s_config.stream_info->stream_type == CAM_STREAM_TYPE_METADATA) {
           p_stream = &channel->streams[i];
-          break;
-      }
-  }
-  /* find preview frame */
-  for (i = 0; i < bufs->num_bufs; i++) {
-      if (bufs->bufs[i]->stream_id == p_stream->s_id) {
-          frame = bufs->bufs[i];
           break;
       }
   }
@@ -71,10 +70,25 @@ static void mm_app_metadata_notify_cb(mm_camera_super_buf_t *bufs,
       CDBG_ERROR("%s: cannot find metadata stream", __func__);
       return;
   }
+
+  /* find preview frame */
+  for (i = 0; i < bufs->num_bufs; i++) {
+      if (bufs->bufs[i]->stream_id == p_stream->s_id) {
+          frame = bufs->bufs[i];
+          break;
+      }
+  }
+
   if (pme->metadata == NULL) {
     /* The app will free the meta data, we don't need to bother here */
     pme->metadata = malloc(sizeof(metadata_buffer_t));
   }
+
+  if (NULL == pme->metadata) {
+      CDBG_ERROR("%s: malloc failed", __func__);
+      return;
+  }
+
   memcpy(pme->metadata, frame->buffer, sizeof(metadata_buffer_t));
 
   pMetadata = (metadata_buffer_t *)frame->buffer;
@@ -121,6 +135,12 @@ static void mm_app_preview_notify_cb(mm_camera_super_buf_t *bufs,
             break;
         }
     }
+
+    if (NULL == channel) {
+        CDBG_ERROR("%s: cannot find preview channel", __func__);
+        return;
+    }
+
     /* find preview stream */
     for (i = 0; i < channel->num_streams; i++) {
         if (channel->streams[i].s_config.stream_info->stream_type == CAM_STREAM_TYPE_PREVIEW) {
@@ -128,17 +148,17 @@ static void mm_app_preview_notify_cb(mm_camera_super_buf_t *bufs,
             break;
         }
     }
+
+    if (NULL == p_stream) {
+        CDBG_ERROR("%s: cannot find preview stream", __func__);
+        return;
+    }
     /* find preview frame */
     for (i = 0; i < bufs->num_bufs; i++) {
         if (bufs->bufs[i]->stream_id == p_stream->s_id) {
             frame = bufs->bufs[i];
             break;
         }
-    }
-
-    if (NULL == p_stream) {
-        CDBG_ERROR("%s: cannot find preview stream", __func__);
-        return;
     }
 
     if ( 0 < pme->fb_fd ) {
@@ -244,6 +264,10 @@ static void mm_app_zsl_notify_cb(mm_camera_super_buf_t *bufs,
               md_frame = bufs->bufs[i];
               break;
           }
+      }
+      if(NULL == md_frame) {
+          ALOGE("%s: md_frame is null", __func__);
+          return;
       }
       if (!pme->metadata) {
           /* App will free the metadata */
