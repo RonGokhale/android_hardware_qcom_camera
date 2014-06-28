@@ -117,6 +117,8 @@ const char QCameraParameters::KEY_QC_SCENE_SELECTION[] = "scene-selection";
 const char QCameraParameters::KEY_QC_VIDEO_ROTATION[] = "video-rotation";
 const char QCameraParameters::KEY_QC_AF_BRACKET[] = "af-bracket";
 const char QCameraParameters::KEY_QC_SUPPORTED_AF_BRACKET_MODES[] = "af-bracket-values";
+const char QCameraParameters::KEY_QC_RE_FOCUS[] = "re-focus";
+const char QCameraParameters::KEY_QC_SUPPORTED_RE_FOCUS_MODES[] = "re-focus-values";
 const char QCameraParameters::KEY_QC_CHROMA_FLASH[] = "chroma-flash";
 const char QCameraParameters::KEY_QC_SUPPORTED_CHROMA_FLASH_MODES[] = "chroma-flash-values";
 const char QCameraParameters::KEY_QC_OPTI_ZOOM[] = "opti-zoom";
@@ -302,6 +304,10 @@ const char QCameraParameters::AE_BRACKET[] = "AE-Bracket";
 // Values for AF Bracketing setting.
 const char QCameraParameters::AF_BRACKET_OFF[] = "af-bracket-off";
 const char QCameraParameters::AF_BRACKET_ON[] = "af-bracket-on";
+
+// Values for Refocus setting.
+const char QCameraParameters::RE_FOCUS_OFF[] = "re-focus-off";
+const char QCameraParameters::RE_FOCUS_ON[] = "re-focus-on";
 
 // Values for Chroma Flash setting.
 const char QCameraParameters::CHROMA_FLASH_OFF[] = "chroma-flash-off";
@@ -570,6 +576,11 @@ const QCameraParameters::QCameraMap QCameraParameters::FLIP_MODES_MAP[] = {
 const QCameraParameters::QCameraMap QCameraParameters::AF_BRACKETING_MODES_MAP[] = {
     { AF_BRACKET_OFF, 0 },
     { AF_BRACKET_ON,  1 }
+};
+
+const QCameraParameters::QCameraMap QCameraParameters::RE_FOCUS_MODES_MAP[] = {
+    { RE_FOCUS_OFF, 0 },
+    { RE_FOCUS_ON,  1 }
 };
 
 const QCameraParameters::QCameraMap QCameraParameters::CHROMA_FLASH_MODES_MAP[] = {
@@ -3123,7 +3134,7 @@ int32_t QCameraParameters::setNumOfSnapshot()
                 if ((str_val != NULL) && (strlen(str_val) > 0)) {
                     char prop[PROPERTY_VALUE_MAX];
                     memset(prop, 0, sizeof(prop));
-                    strcpy(prop, str_val);
+                    strncpy(prop, str_val, PROPERTY_VALUE_MAX);
                     char *saveptr = NULL;
                     char *token = strtok_r(prop, ",", &saveptr);
                     while (token != NULL) {
@@ -4204,6 +4215,16 @@ int32_t QCameraParameters::initDefaultParameters()
             setAFBracket(AF_BRACKET_OFF);
             break;
          }
+    }
+
+    //Set Refocus.
+    //Re-use ubifocus flag for now.
+    if ((m_pCapability->qcom_supported_feature_mask &
+        CAM_QCOM_FEATURE_UBIFOCUS) > 0){
+            String8 reFocusValues = createValuesStringFromMap(
+                RE_FOCUS_MODES_MAP,
+                sizeof(RE_FOCUS_MODES_MAP) / sizeof(QCameraMap));
+            set(KEY_QC_SUPPORTED_RE_FOCUS_MODES, reFocusValues);
     }
 
     //Set Chroma Flash.
@@ -7183,7 +7204,7 @@ uint8_t QCameraParameters::getBurstCountForAdvancedCapture()
       if ((str_val != NULL) && (strlen(str_val) > 0)) {
           char prop[PROPERTY_VALUE_MAX];
           memset(prop, 0, sizeof(prop));
-          strcpy(prop, str_val);
+          strncpy(prop, str_val, PROPERTY_VALUE_MAX);
           char *saveptr = NULL;
           char *token = strtok_r(prop, ",", &saveptr);
           while (token != NULL) {
@@ -8307,8 +8328,10 @@ int32_t QCameraParameters::AddGetParmEntryToBatch(parm_buffer_t *p_table,
     if (position == current){
         //DO NOTHING
     } else if (position < current){
-        SET_NEXT_PARAM_ID(position, p_table, current);
-        SET_FIRST_PARAM_ID(p_table, position);
+        if(position < CAM_INTF_PARM_MAX) {
+            SET_NEXT_PARAM_ID(position, p_table, current);
+            SET_FIRST_PARAM_ID(p_table, position);
+        }
     } else {
         /* Search for the position in the linked list where we need to slot in*/
         while (position > GET_NEXT_PARAM_ID(current, p_table))
@@ -8316,9 +8339,11 @@ int32_t QCameraParameters::AddGetParmEntryToBatch(parm_buffer_t *p_table,
 
         /*If node already exists no need to alter linking*/
         if (position != GET_NEXT_PARAM_ID(current, p_table)) {
-            next=GET_NEXT_PARAM_ID(current, p_table);
-            SET_NEXT_PARAM_ID(current, p_table, position);
-            SET_NEXT_PARAM_ID(position, p_table, next);
+            if(position < CAM_INTF_PARM_MAX) {
+                next=GET_NEXT_PARAM_ID(current, p_table);
+                SET_NEXT_PARAM_ID(current, p_table, position);
+                SET_NEXT_PARAM_ID(position, p_table, next);
+            }
         }
     }
 
@@ -8507,6 +8532,9 @@ int32_t QCameraReprocScaleParam::setScaleSizeTbl(uint8_t scale_cnt, cam_dimensio
     if(mNeedScaleCnt + org_cnt > MAX_SIZES_CNT){
         ALOGE("%s: picture size list exceed the max count.", __func__);
         return BAD_VALUE;
+    }
+    if(mNeedScaleCnt > MAX_SCALE_SIZES_CNT) {
+        mNeedScaleCnt = MAX_SCALE_SIZES_CNT;
     }
 
     //get the total picture size table
