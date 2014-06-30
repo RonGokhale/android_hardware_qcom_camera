@@ -1187,7 +1187,6 @@ typedef enum {
     /* Whether the HAL must trigger precapture metering.*/
     CAM_INTF_META_AEC_PRECAPTURE_TRIGGER,
     /* The ID sent with the latest CAMERA2_TRIGGER_PRECAPTURE_METERING call */
-    CAM_INTF_META_AEC_PRECAPTURE_ID,
     /* Current state of AE algorithm */
     CAM_INTF_META_AEC_STATE,
     /* List of areas to use for focus estimation */
@@ -1196,8 +1195,6 @@ typedef enum {
     CAM_INTF_META_AF_TRIGGER,
     /* Current state of AF algorithm */
     CAM_INTF_META_AF_STATE,
-    /* The ID sent with the latest CAMERA2_TRIGGER_AUTOFOCUS call */
-    CAM_INTF_META_AF_TRIGGER_ID,
     /* List of areas to use for illuminant estimation */
     CAM_INTF_META_AWB_REGIONS,
     /* Current state of AWB algorithm */
