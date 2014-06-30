@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -995,6 +995,22 @@ int32_t mm_channel_start(mm_channel_t *my_obj)
                              MM_STREAM_EVT_PUT_BUF,
                              NULL,
                              NULL);
+        }
+
+        /* destroy super buf cmd thread */
+        if (TRUE == my_obj->bundle.is_active) {
+            /* first stop bundle thread */
+            mm_camera_cmd_thread_release(&my_obj->cmd_thread);
+            mm_camera_cmd_thread_release(&my_obj->cb_thread);
+
+            /* deinit superbuf queue */
+            mm_channel_superbuf_queue_deinit(&my_obj->bundle.superbuf_queue);
+
+            /* memset bundle info */
+            memset(&my_obj->bundle, 0, sizeof(mm_channel_bundle_t));
+
+            /* set flag to FALSE */
+            my_obj->bundle.is_active = FALSE;
         }
     }
 
