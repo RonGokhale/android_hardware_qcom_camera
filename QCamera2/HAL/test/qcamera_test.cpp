@@ -1816,7 +1816,6 @@ status_t CameraContext::startPreview()
         }
 
         //mParams.set("rdi-mode", "enable");
-        mParams.set("recording-hint", "true");
         mParams.setPreviewSize(previewWidth, previewHeight);
         mParams.setPictureSize(currentPictureSize.width,
             currentPictureSize.height);
