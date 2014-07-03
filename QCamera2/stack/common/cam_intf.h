@@ -503,7 +503,7 @@ typedef struct {
     INCLUDE(CAM_INTF_META_SENSOR_EXPOSURE_TIME,         int64_t,                     1);
     INCLUDE(CAM_INTF_META_SENSOR_FRAME_DURATION,        int64_t,                     1);
     INCLUDE(CAM_INTF_META_SENSOR_SENSITIVITY,           int32_t,                     1);
-    INCLUDE(CAM_INTF_META_SENSOR_TIMESTAMP,             struct timeval,              1);
+    INCLUDE(CAM_INTF_META_SENSOR_TIMESTAMP,             int64_t,                     1);
     INCLUDE(CAM_INTF_META_SHADING_MODE,                 uint32_t,                    1);
     INCLUDE(CAM_INTF_META_STATS_FACEDETECT_MODE,        uint32_t,                    1);
     INCLUDE(CAM_INTF_META_STATS_HISTOGRAM_MODE,         uint32_t,                    1);
@@ -521,7 +521,7 @@ typedef struct {
     /* Following are Params only and not metadata currently */
     INCLUDE(CAM_INTF_PARM_HAL_VERSION,                  int32_t,                     1);
     /* Shared between HAL1 and HAL3 */
-    INCLUDE(CAM_INTF_PARM_ANTIBANDING,                  int32_t,                     1);
+    INCLUDE(CAM_INTF_PARM_ANTIBANDING,                  uint32_t,                    1);
     INCLUDE(CAM_INTF_PARM_EXPOSURE_COMPENSATION,        int32_t,                     1);
     INCLUDE(CAM_INTF_PARM_AEC_LOCK,                     uint32_t,                    1);
     INCLUDE(CAM_INTF_PARM_FPS_RANGE,                    cam_fps_range_t,             1);

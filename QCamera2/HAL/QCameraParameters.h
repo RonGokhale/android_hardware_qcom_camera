@@ -247,6 +247,10 @@ public:
     static const char KEY_QC_AF_BRACKET[];
     static const char KEY_QC_SUPPORTED_AF_BRACKET_MODES[];
 
+    //Refocus
+    static const char KEY_QC_RE_FOCUS[];
+    static const char KEY_QC_SUPPORTED_RE_FOCUS_MODES[];
+
     //Chroma Flash
     static const char KEY_QC_CHROMA_FLASH[];
     static const char KEY_QC_SUPPORTED_CHROMA_FLASH_MODES[];
@@ -422,6 +426,10 @@ public:
     // Values for AF Bracketing settings.
     static const char AF_BRACKET_OFF[];
     static const char AF_BRACKET_ON[];
+
+    // Values for Refocus settings.
+    static const char RE_FOCUS_OFF[];
+    static const char RE_FOCUS_ON[];
 
     // Values for Chroma Flash settings.
     static const char CHROMA_FLASH_OFF[];
@@ -612,7 +620,7 @@ public:
     bool isDisplayFrameNeeded() { return m_bDisplayFrame; };
     int32_t setDisplayFrame(bool enabled) {m_bDisplayFrame=enabled; return 0;};
     bool isAdvCamFeaturesEnabled() {return isUbiFocusEnabled() ||
-        isChromaFlashEnabled() || isOptiZoomEnabled() || isHDREnabled();}
+        isChromaFlashEnabled() || m_bOptiZoomOn || isHDREnabled();}
     int32_t setAecLock(const char *aecStr);
     bool is4k2kVideoResolution();
 
@@ -787,6 +795,7 @@ private:
     static const QCameraMap TOUCH_AF_AEC_MODES_MAP[];
     static const QCameraMap FLIP_MODES_MAP[];
     static const QCameraMap AF_BRACKETING_MODES_MAP[];
+    static const QCameraMap RE_FOCUS_MODES_MAP[];
     static const QCameraMap CHROMA_FLASH_MODES_MAP[];
     static const QCameraMap OPTI_ZOOM_MODES_MAP[];
     static const QCameraMap RDI_MODES_MAP[];

@@ -1051,10 +1051,8 @@ void QCamera3HardwareInterface::handleMetadataWithLock(
         CAM_INTF_META_PENDING_REQUESTS, metadata);
     uint32_t frame_number = *(uint32_t *)
         POINTER_OF_META(CAM_INTF_META_FRAME_NUMBER, metadata);
-    const struct timeval *tv = (const struct timeval *)
+    nsecs_t capture_time = *(int64_t *)
         POINTER_OF_META(CAM_INTF_META_SENSOR_TIMESTAMP, metadata);
-    nsecs_t capture_time = (nsecs_t)tv->tv_sec * NSEC_PER_SEC +
-        tv->tv_usec * NSEC_PER_USEC;
     cam_frame_dropped_t cam_frame_drop = *(cam_frame_dropped_t *)
         POINTER_OF_META(CAM_INTF_META_FRAME_DROPPED, metadata);
 
@@ -2387,6 +2385,27 @@ QCamera3HardwareInterface::translateCbMetadataToResultMetadata
                  *((uint32_t *)POINTER_OF_META(CAM_INTF_META_LENS_SHADING_MAP_MODE, metadata));
         camMetadata.update(ANDROID_STATISTICS_LENS_SHADING_MAP_MODE, &shadingMapMode, 1);
     }
+
+    if (IS_META_AVAILABLE(CAM_INTF_META_CAPTURE_INTENT, metadata)) {
+         uint8_t captureIntent =
+                 *((uint32_t*) POINTER_OF_META(CAM_INTF_META_CAPTURE_INTENT, metadata));
+         camMetadata.update(ANDROID_CONTROL_CAPTURE_INTENT, &captureIntent, 1);
+    }
+
+    if (IS_META_AVAILABLE(CAM_INTF_PARM_ANTIBANDING, metadata)) {
+        uint8_t hal_ab_mode =
+          *((uint32_t *)POINTER_OF_META(CAM_INTF_PARM_ANTIBANDING, metadata));
+        uint8_t fwk_ab_mode = (uint8_t)lookupFwkName(ANTIBANDING_MODES_MAP,
+                 sizeof(ANTIBANDING_MODES_MAP)/sizeof(ANTIBANDING_MODES_MAP[0]),
+                 hal_ab_mode);
+        camMetadata.update(ANDROID_CONTROL_AE_ANTIBANDING_MODE,
+            &fwk_ab_mode, 1);
+    }
+
+    /* Constant metadata values to be update*/
+    uint8_t vs_mode = ANDROID_CONTROL_VIDEO_STABILIZATION_MODE_OFF;
+    camMetadata.update(ANDROID_CONTROL_VIDEO_STABILIZATION_MODE, &vs_mode, 1);
+
     resultMetadata = camMetadata.release();
     return resultMetadata;
 }
@@ -2650,6 +2669,17 @@ QCamera3HardwareInterface::translateCbUrgentMetadataToResultMetadata
         camMetadata.update(ANDROID_CONTROL_SCENE_MODE,
              &fwkSceneMode, 1);
         CDBG("%s: urgent Metadata : ANDROID_CONTROL_SCENE_MODE", __func__);
+    }
+    if (IS_META_AVAILABLE(CAM_INTF_PARM_FPS_RANGE, metadata)) {
+        int32_t fps_range[2];
+        cam_fps_range_t * float_range =
+          (cam_fps_range_t *)POINTER_OF_PARAM(CAM_INTF_PARM_FPS_RANGE, metadata);
+        fps_range[0] = (int32_t)float_range->min_fps;
+        fps_range[1] = (int32_t)float_range->max_fps;
+        camMetadata.update(ANDROID_CONTROL_AE_TARGET_FPS_RANGE,
+                                      fps_range, 2);
+        CDBG("%s: urgent Metadata : ANDROID_CONTROL_AE_TARGET_FPS_RANGE [%d, %d]",
+            __func__, fps_range[0], fps_range[1]);
     }
     resultMetadata = camMetadata.release();
     return resultMetadata;
