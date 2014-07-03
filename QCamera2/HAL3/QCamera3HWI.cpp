@@ -1591,7 +1591,7 @@ int QCamera3HardwareInterface::processCaptureRequest(
         streamID.streamID[i]=channel->getStreamID(channel->getStreamTypeMask());
     }
     streamID.num_streams=request->num_output_buffers;
-    if (mRawDump && blob_request) {
+    if (mRawChannel && mRawDump && blob_request) {
         streamID.streamID[streamID.num_streams]=
             mRawChannel->getStreamID(mRawChannel->getStreamTypeMask());
         streamID.num_streams++;
@@ -1992,7 +1992,7 @@ int QCamera3HardwareInterface::flush()
     ALOGV("%s: Cleared all the pending buffers ", __func__);
 
     /*flush the metadata list*/
-    if (!mStoredMetadataList.empty()) {
+    if (mMetadataChannel && !mStoredMetadataList.empty()) {
         for (List<MetadataBufferInfo>::iterator m = mStoredMetadataList.begin();
               m != mStoredMetadataList.end(); ) {
             mMetadataChannel->bufDone(m->meta_buf);
@@ -3058,9 +3058,10 @@ int QCamera3HardwareInterface::initStaticMetadata(int cameraId)
                       scalar_formats,
                       scalar_formats_count);
 
-    int32_t available_processed_sizes[CAM_FORMAT_MAX * 2];
+    int32_t available_processed_sizes[MAX_SIZES_CNT * 2];
     makeTable(gCamCapability[cameraId]->picture_sizes_tbl,
               gCamCapability[cameraId]->picture_sizes_tbl_cnt,
+              MAX_SIZES_CNT,
               available_processed_sizes);
     staticInfo.update(ANDROID_SCALER_AVAILABLE_PROCESSED_SIZES,
                 available_processed_sizes,
@@ -3073,6 +3074,7 @@ int QCamera3HardwareInterface::initStaticMetadata(int cameraId)
     int32_t available_fps_ranges[MAX_SIZES_CNT * 2];
     makeFPSTable(gCamCapability[cameraId]->fps_ranges_tbl,
                  gCamCapability[cameraId]->fps_ranges_tbl_cnt,
+                 MAX_SIZES_CNT,
                  available_fps_ranges);
     staticInfo.update(ANDROID_CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES,
             available_fps_ranges, (gCamCapability[cameraId]->fps_ranges_tbl_cnt*2) );
@@ -3162,6 +3164,7 @@ int QCamera3HardwareInterface::initStaticMetadata(int cameraId)
     uint8_t scene_mode_overrides[CAM_SCENE_MODE_MAX * 3];
     makeOverridesList(gCamCapability[cameraId]->scene_mode_overrides,
                       supported_scene_modes_cnt,
+                      CAM_SCENE_MODE_MAX,
                       scene_mode_overrides,
                       supported_indexes,
                       cameraId);
@@ -3282,9 +3285,12 @@ int QCamera3HardwareInterface::initStaticMetadata(int cameraId)
  *
  *==========================================================================*/
 void QCamera3HardwareInterface::makeTable(cam_dimension_t* dimTable, uint8_t size,
-                                          int32_t* sizeTable)
+                                          uint8_t max_size, int32_t* sizeTable)
 {
     int j = 0;
+    if (size > max_size) {
+       size = max_size;
+    }
     for (int i = 0; i < size; i++) {
         sizeTable[j] = dimTable[i].width;
         sizeTable[j+1] = dimTable[i].height;
@@ -3301,9 +3307,12 @@ void QCamera3HardwareInterface::makeTable(cam_dimension_t* dimTable, uint8_t siz
  *
  *==========================================================================*/
 void QCamera3HardwareInterface::makeFPSTable(cam_fps_range_t* fpsTable, uint8_t size,
-                                          int32_t* fpsRangesTable)
+                                          uint8_t max_size, int32_t* fpsRangesTable)
 {
     int j = 0;
+    if (size > max_size) {
+       size = max_size;
+    }
     for (int i = 0; i < size; i++) {
         fpsRangesTable[j] = (int32_t)fpsTable[i].min_fps;
         fpsRangesTable[j+1] = (int32_t)fpsTable[i].max_fps;
@@ -3321,7 +3330,8 @@ void QCamera3HardwareInterface::makeFPSTable(cam_fps_range_t* fpsTable, uint8_t 
  *
  *==========================================================================*/
 void QCamera3HardwareInterface::makeOverridesList(cam_scene_mode_overrides_t* overridesTable,
-                                                  uint8_t size, uint8_t* overridesList,
+                                                  uint8_t size, uint8_t max_size,
+                                                  uint8_t* overridesList,
                                                   uint8_t* supported_indexes,
                                                   int camera_id)
 {
@@ -3330,6 +3340,9 @@ void QCamera3HardwareInterface::makeOverridesList(cam_scene_mode_overrides_t* ov
       supported by the framework*/
     int j = 0, index = 0, supt = 0;
     uint8_t focus_override;
+    if (size > max_size) {
+       size = max_size;
+    }
     for (int i = 0; i < size; i++) {
         supt = 0;
         index = supported_indexes[i];
