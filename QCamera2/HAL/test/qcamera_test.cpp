@@ -226,7 +226,7 @@ SkBitmap * CameraContext::PiPCopyToOneFile(
     unsigned int dstOffset;
     unsigned int srcOffset;
 
-    if (bitmap0 == NULL && bitmap1 == NULL) {
+    if (bitmap0 == NULL || bitmap1 == NULL) {
         return NULL;
     }
 
@@ -361,6 +361,10 @@ status_t CameraContext::encodeJPEG(SkWStream * stream,
 
     skJpegEnc = SkImageEncoder::Create(SkImageEncoder::kJPEG_Type);
 
+    if (NULL == skJpegEnc) {
+        printf("%s: Jpeg Encoder creationg failed", __func__);
+        return BAD_VALUE;
+    }
     if (skJpegEnc->encodeStream(stream, *bitmap, qFactor) == false) {
         return BAD_VALUE;
     }
@@ -476,6 +480,10 @@ status_t CameraContext::ReadSectionsFromBuffer (unsigned char *buffer,
     mSectionsAllocated = 10;
 
     mSections = (Sections_t *)malloc(sizeof(Sections_t) * mSectionsAllocated);
+    if(NULL == mSections) {
+        printf("%s: memory allocation failed", __func__);
+        return BAD_VALUE;
+    }
 
     if (!buffer) {
         printf("Input buffer is null\n");
@@ -501,6 +509,10 @@ status_t CameraContext::ReadSectionsFromBuffer (unsigned char *buffer,
         unsigned char * Data;
 
         CheckSectionsAllocated();
+        if(NULL == mSections) {
+            printf("%s: memory allocation failed", __func__);
+            return BAD_VALUE;
+        }
 
         for (a = 0; a <= 16; a++){
             marker = buffer[pos++];
@@ -539,8 +551,8 @@ status_t CameraContext::ReadSectionsFromBuffer (unsigned char *buffer,
         Data[1] = (unsigned char)ll;
 
         if (pos+itemlen-2 > buffer_size) {
-           ALOGE("Premature end of file?");
-          return BAD_VALUE;
+            ALOGE("Premature end of file?");
+            return BAD_VALUE;
         }
 
         memcpy(Data+2, buffer+pos, itemlen-2); // Read the whole section.
@@ -565,13 +577,17 @@ status_t CameraContext::ReadSectionsFromBuffer (unsigned char *buffer,
                     Data = (unsigned char *)malloc(size);
                     if (Data == NULL) {
                         ALOGE("%d: could not allocate data for entire "
-                            "image size: %d", __LINE__, size);
+                                "image size: %d", __LINE__, size);
                         return BAD_VALUE;
                     }
 
                     memcpy(Data, buffer+pos, size);
 
                     CheckSectionsAllocated();
+                    if(NULL == mSections) {
+                        printf("%s: memory allocation failed", __func__);
+                        return BAD_VALUE;
+                    }
                     mSections[mSectionsRead].Data = Data;
                     mSections[mSectionsRead].Size = size;
                     mSections[mSectionsRead].Type = PSEUDO_IMAGE_MARKER;
@@ -877,9 +893,23 @@ void CameraContext::postData(int32_t msgType,
                     }
 
                     mJEXIFTmp = FindSection(M_EXIF);
+                    if(NULL == mJEXIFTmp) {
+                        printf("%s: mJEXIFTmp is NULL");
+                        DiscardData();
+                        DiscardSections();
+                        mInterpr->PiPUnlock();
+                        return;
+                    }
                     mJEXIFSection = *mJEXIFTmp;
                     mJEXIFSection.Data =
                         (unsigned char*)malloc(mJEXIFTmp->Size);
+                    if(NULL == mJEXIFSection.Data) {
+                        printf("%s: mJEXIFTmp is NULL");
+                        DiscardData();
+                        DiscardSections();
+                        mInterpr->PiPUnlock();
+                        return;
+                    }
                     memcpy(mJEXIFSection.Data,
                         mJEXIFTmp->Data, mJEXIFTmp->Size);
                     DiscardData();
@@ -888,6 +918,11 @@ void CameraContext::postData(int32_t msgType,
                     wStream = new SkFILEWStream(jpegPath.string());
                     skBMDec = PiPCopyToOneFile(&mInterpr->camera[0]->skBMtmp,
                         &mInterpr->camera[1]->skBMtmp);
+                    if(NULL == skBMDec) {
+                        printf("%s: skBMDec is NULL", __func__);
+                        delete wStream;
+                        mInterpr->PiPUnlock();
+                    }
                     if (encodeJPEG(wStream, skBMDec, jpegPath) != false) {
                         printf("%s():%d:: Failed during jpeg encode\n",
                             __FUNCTION__,__LINE__);
@@ -1650,6 +1685,10 @@ status_t  CameraContext::openCamera()
         mCameraIndex);
 
     ZSLStr = mParams.get(CameraContext::KEY_ZSL);
+    if(NULL == ZSLStr) {
+      ALOGE("%s: ZSLStr is null", __func__);
+      return BAD_VALUE;
+    }
     ZSLStrSize = strlen(ZSLStr);
     if (NULL != ZSLStr) {
         if (!strncmp(ZSLStr, "on", ZSLStrSize)){
@@ -3451,6 +3490,10 @@ status_t TestContext::FunctionalTest()
             currentCamera = mAvailableCameras.itemAt(
                     mCurrentCameraIndex);
             ZSLStr = currentCamera->getZSL();
+            if(NULL == ZSLStr) {
+                ALOGE("%s: ZSLStr is null", __func__);
+                break;
+            }
             ZSLStrSize = strlen(ZSLStr);
 
             if (NULL != ZSLStr) {
