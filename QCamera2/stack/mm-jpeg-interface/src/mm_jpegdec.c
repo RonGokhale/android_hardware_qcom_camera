@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -121,7 +121,7 @@ static void mm_jpegdec_job_done(mm_jpeg_job_session_t *p_session)
  **/
 OMX_ERRORTYPE mm_jpegdec_session_send_buffers(void *data)
 {
-  uint32_t i = 0;
+  int32_t i = 0;
   mm_jpeg_job_session_t* p_session = (mm_jpeg_job_session_t *)data;
   OMX_ERRORTYPE ret = OMX_ErrorNone;
   QOMX_BUFFER_INFO lbuffer_info;
@@ -160,7 +160,7 @@ OMX_ERRORTYPE mm_jpegdec_session_send_buffers(void *data)
 OMX_ERRORTYPE mm_jpegdec_session_free_buffers(void *data)
 {
   OMX_ERRORTYPE ret = OMX_ErrorNone;
-  uint32_t i = 0;
+  int32_t i = 0;
   mm_jpeg_job_session_t* p_session = (mm_jpeg_job_session_t *)data;
   mm_jpeg_decode_params_t *p_params = &p_session->dec_params;
   mm_jpeg_decode_job_t *p_jobparams = &p_session->decode_job;
@@ -525,7 +525,7 @@ static OMX_ERRORTYPE mm_jpegdec_session_decode(mm_jpeg_job_session_t *p_session)
   int dest_idx = 0;
   mm_jpeg_obj *my_obj = (mm_jpeg_obj *)p_session->jpeg_obj;
   OMX_EVENTTYPE lEvent;
-  OMX_U32 i;
+  int32_t i;
   QOMX_BUFFER_INFO lbuffer_info;
 
   pthread_mutex_lock(&p_session->lock);

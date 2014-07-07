@@ -40,7 +40,6 @@
 #include "QCameraParameters.h"
 
 #define ASPECT_TOLERANCE 0.001
-#define FLIP_V_H (FLIP_H | FLIP_V)
 
 namespace qcamera {
 // Parameter keys to communicate between camera application and driver.
@@ -878,7 +877,8 @@ String8 QCameraParameters::createValuesStringFromMap(const QCameraMap* map,
  *
  * RETURN     : string obj
  *==========================================================================*/
-String8 QCameraParameters::createZoomRatioValuesString(int *zoomRatios, int length)
+String8 QCameraParameters::createZoomRatioValuesString(uint32_t *zoomRatios,
+    size_t length)
 {
     String8 str;
     char buffer[32] = {0};
@@ -888,7 +888,7 @@ String8 QCameraParameters::createZoomRatioValuesString(int *zoomRatios, int leng
         str.append(buffer);
     }
 
-    for (int i =1;i<length;i++){
+    for (size_t i = 1; i < length; i++) {
         memset(buffer, 0, sizeof(buffer));
         snprintf(buffer, sizeof(buffer), ",%d", zoomRatios[i]);
         str.append(buffer);
@@ -1270,7 +1270,7 @@ int32_t QCameraParameters::setLiveSnapshotSize(const QCameraParameters& params)
     const char *hsrStr = params.get(KEY_QC_VIDEO_HIGH_SPEED_RECORDING);
 
     if (hsrStr != NULL && !strcmp(hsrStr, "on")) {
-        for (int i = 0; i < m_pCapability->hfr_tbl_cnt; i++) {
+        for (size_t i = 0; i < m_pCapability->hfr_tbl_cnt; i++) {
             if (m_pCapability->hfr_tbl[i].mode == CAM_HFR_MODE_120FPS) {
                 livesnapshot_sizes_tbl_cnt =
                     m_pCapability->hfr_tbl[i].livesnapshot_sizes_tbl_cnt;
@@ -1288,7 +1288,7 @@ int32_t QCameraParameters::setLiveSnapshotSize(const QCameraParameters& params)
         if (value != NAME_NOT_FOUND) {
             // if HFR is enabled, change live snapshot size
             if (value > CAM_HFR_MODE_OFF) {
-                for (int i = 0; i < m_pCapability->hfr_tbl_cnt; i++) {
+                for (size_t i = 0; i < m_pCapability->hfr_tbl_cnt; i++) {
                     if (m_pCapability->hfr_tbl[i].mode == value) {
                         livesnapshot_sizes_tbl_cnt =
                             m_pCapability->hfr_tbl[i].livesnapshot_sizes_tbl_cnt;
@@ -1717,7 +1717,7 @@ int32_t QCameraParameters::setPreviewFpsRange(const QCameraParameters& params)
             goto end;
         }
     }
-    for(int i = 0; i < m_pCapability->fps_ranges_tbl_cnt; i++) {
+    for(size_t i = 0; i < m_pCapability->fps_ranges_tbl_cnt; i++) {
         // if the value is in the supported list
         if(minFps >= m_pCapability->fps_ranges_tbl[i].min_fps * 1000 &&
            maxFps <= m_pCapability->fps_ranges_tbl[i].max_fps * 1000) {
@@ -2378,7 +2378,7 @@ int32_t QCameraParameters::setZoom(const QCameraParameters& params)
 
     int zoomLevel = params.getInt(KEY_ZOOM);
     if((zoomLevel < 0) ||
-       (zoomLevel >= m_pCapability->zoom_ratio_tbl_cnt)) {
+       (zoomLevel >= (int)m_pCapability->zoom_ratio_tbl_cnt)) {
         ALOGE("%s: invalid value %d out of (%d, %d)",
               __func__, zoomLevel,
               0, m_pCapability->zoom_ratio_tbl_cnt-1);
@@ -4271,7 +4271,7 @@ int32_t QCameraParameters::initDefaultParameters()
     setAEBracket(AE_BRACKET_OFF);
 
     //Set AF Bracketing.
-    for(int i = 0; i < m_pCapability->supported_focus_modes_cnt; i++) {
+    for(size_t i = 0; i < m_pCapability->supported_focus_modes_cnt; i++) {
         if ((CAM_FOCUS_MODE_AUTO == m_pCapability->supported_focus_modes[i]) &&
                 ((m_pCapability->qcom_supported_feature_mask &
                         CAM_QCOM_FEATURE_UBIFOCUS) > 0)) {

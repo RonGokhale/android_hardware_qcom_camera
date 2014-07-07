@@ -410,7 +410,7 @@ int32_t QCameraPostProcessor::getJpegEncodingConfig(mm_jpeg_encode_params_t& enc
         goto on_error;
     }
     encode_parm.num_src_bufs = pStreamMem->getCnt();
-    for (uint32_t i = 0; i < encode_parm.num_src_bufs; i++) {
+    for (uint32_t i = 0; i < (uint32_t)encode_parm.num_src_bufs; i++) {
         camera_memory_t *stream_mem = pStreamMem->getMemory(i, false);
         if (stream_mem != NULL) {
             encode_parm.src_main_buf[i].index = i;
