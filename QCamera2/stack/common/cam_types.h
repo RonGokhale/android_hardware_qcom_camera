@@ -951,7 +951,8 @@ typedef struct {
 typedef struct {
     cam_dimension_t stream_sizes[MAX_NUM_STREAMS];
     uint32_t num_streams;
-    uint32_t type[MAX_NUM_STREAMS];
+    cam_stream_type_t type[MAX_NUM_STREAMS];
+    uint32_t postprocess_mask[MAX_NUM_STREAMS];
 } cam_stream_size_info_t;
 
 typedef struct {
@@ -1450,6 +1451,7 @@ typedef struct {
     int32_t step;
 } cam_control_range_t;
 
+#define CAM_QCOM_FEATURE_NONE            0
 #define CAM_QCOM_FEATURE_FACE_DETECTION (1U<<0)
 #define CAM_QCOM_FEATURE_DENOISE2D      (1U<<1)
 #define CAM_QCOM_FEATURE_CROP           (1U<<2)
@@ -1468,6 +1470,11 @@ typedef struct {
 #define CAM_QCOM_FEATURE_SENSOR_HDR     (1U<<15)
 #define CAM_QCOM_FEATURE_REFOCUS        (1U<<16)
 #define CAM_QCOM_FEATURE_CPP_TNR        (1U<<17)
+#define CAM_QCOM_FEATURE_PP_SUPERSET    (CAM_QCOM_FEATURE_DENOISE2D|\
+                                         CAM_QCOM_FEATURE_CROP|\
+                                         CAM_QCOM_FEATURE_ROTATION|\
+                                         CAM_QCOM_FEATURE_SHARPNESS|\
+                                         CAM_QCOM_FEATURE_SCALE)
 
 // Counter clock wise
 typedef enum {

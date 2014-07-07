@@ -559,7 +559,6 @@ int QCamera3HardwareInterface::configureStreams(
     camera3_stream_t *inputStream = NULL;
     camera3_stream_t *jpegStream = NULL;
     cam_stream_size_info_t stream_config_info;
-
     for (size_t i = 0; i < streamList->num_streams; i++) {
         camera3_stream_t *newStream = streamList->streams[i];
         CDBG_HIGH("%s: newStream type = %d, stream format = %d stream size : %d x %d",
@@ -629,7 +628,7 @@ int QCamera3HardwareInterface::configureStreams(
     //Create metadata channel and initialize it
     mMetadataChannel = new QCamera3MetadataChannel(mCameraHandle->camera_handle,
                     mCameraHandle->ops, captureResultCb,
-                    &gCamCapability[mCameraId]->padding_info, this);
+                    &gCamCapability[mCameraId]->padding_info, CAM_QCOM_FEATURE_NONE, this);
     if (mMetadataChannel == NULL) {
         ALOGE("%s: failed to allocate metadata channel", __func__);
         rc = -ENOMEM;
@@ -654,7 +653,7 @@ int QCamera3HardwareInterface::configureStreams(
         mRawChannel = new QCameraRawChannel(mCameraHandle->camera_handle,
                         mCameraHandle->ops, captureResultCb,
                         &gCamCapability[mCameraId]->padding_info, this,
-                        &gCamCapability[mCameraId]->raw_dim);
+                        &gCamCapability[mCameraId]->raw_dim, CAM_QCOM_FEATURE_NONE);
         if (mRawChannel == NULL) {
             ALOGE("%s: failed to allocate RAW channel", __func__);
             rc = -ENOMEM;
@@ -677,6 +676,22 @@ int QCamera3HardwareInterface::configureStreams(
     }
 #endif
 
+    bool isZsl = false;
+    bool isVideo = false;
+
+    /* Check whether we have zsl stream */
+    for (size_t i = 0; i < streamList->num_streams; i++) {
+        camera3_stream_t *newStream = streamList->streams[i];
+        if (newStream->stream_type == CAMERA3_STREAM_BIDIRECTIONAL &&
+                newStream->format == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED && jpegStream){
+            isZsl = true;
+        }
+        if (newStream->format == HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED &&
+            newStream->usage & private_handle_t::PRIV_FLAGS_VIDEO_ENCODER) {
+            isVideo = true;
+        }
+    }
+
     /* Allocate channel objects for the requested streams */
     for (size_t i = 0; i < streamList->num_streams; i++) {
         camera3_stream_t *newStream = streamList->streams[i];
@@ -689,6 +704,7 @@ int QCamera3HardwareInterface::configureStreams(
             stream_config_info.stream_sizes[i].width = (int32_t)jpegStream->width;
             stream_config_info.stream_sizes[i].height = (int32_t)jpegStream->height;
             stream_config_info.type[i] = CAM_STREAM_TYPE_SNAPSHOT;
+            stream_config_info.postprocess_mask[i] = CAM_QCOM_FEATURE_NONE;
         } else {
            //for non zsl streams find out the format
            switch (newStream->format) {
@@ -699,10 +715,12 @@ int QCamera3HardwareInterface::configureStreams(
                  } else {
                     stream_config_info.type[i] = CAM_STREAM_TYPE_PREVIEW;
                  }
+                 stream_config_info.postprocess_mask[i] = CAM_QCOM_FEATURE_PP_SUPERSET;
               }
               break;
            case HAL_PIXEL_FORMAT_YCbCr_420_888:
               stream_config_info.type[i] = CAM_STREAM_TYPE_CALLBACK;
+              stream_config_info.postprocess_mask[i] = CAM_QCOM_FEATURE_PP_SUPERSET;
 #ifdef HAS_MULTIMEDIA_HINTS
               if (m_pPowerModule) {
                   if (m_pPowerModule->powerHint) {
@@ -715,9 +733,15 @@ int QCamera3HardwareInterface::configureStreams(
               break;
            case HAL_PIXEL_FORMAT_BLOB:
               stream_config_info.type[i] = CAM_STREAM_TYPE_SNAPSHOT;
+              if (isVideo && !isZsl) {
+                  stream_config_info.postprocess_mask[i] = CAM_QCOM_FEATURE_PP_SUPERSET;
+              } else {
+                  stream_config_info.postprocess_mask[i] = CAM_QCOM_FEATURE_NONE;
+              }
               break;
            default:
               stream_config_info.type[i] = CAM_STREAM_TYPE_DEFAULT;
+              stream_config_info.postprocess_mask[i] = CAM_QCOM_FEATURE_NONE;
               break;
            }
         }
@@ -761,14 +785,16 @@ int QCamera3HardwareInterface::configureStreams(
                             mCameraHandle->ops, captureResultCb,
                             &gCamCapability[mCameraId]->padding_info, this, newStream,
                             jpegStream->width, jpegStream->height,
-                            (cam_stream_type_t) stream_config_info.type[i]);
+                            (cam_stream_type_t) stream_config_info.type[i],
+                            stream_config_info.postprocess_mask[i]);
                     } else
                         channel = new QCamera3RegularChannel(mCameraHandle->camera_handle,
                             mCameraHandle->ops, captureResultCb,
                             &gCamCapability[mCameraId]->padding_info,
                             this,
                             newStream,
-                            (cam_stream_type_t) stream_config_info.type[i]);
+                            (cam_stream_type_t) stream_config_info.type[i],
+                            stream_config_info.postprocess_mask[i]);
                     if (channel == NULL) {
                         ALOGE("%s: allocation of channel failed", __func__);
                         pthread_mutex_unlock(&mMutex);
@@ -781,7 +807,8 @@ int QCamera3HardwareInterface::configureStreams(
                     newStream->max_buffers = QCamera3PicChannel::kMaxBuffers;
                     mPictureChannel = new QCamera3PicChannel(mCameraHandle->camera_handle,
                             mCameraHandle->ops, captureResultCb,
-                            &gCamCapability[mCameraId]->padding_info, this, newStream);
+                            &gCamCapability[mCameraId]->padding_info, this, newStream,
+                            stream_config_info.postprocess_mask[i]);
                     if (mPictureChannel == NULL) {
                         ALOGE("%s: allocation of channel failed", __func__);
                         pthread_mutex_unlock(&mMutex);
@@ -5204,7 +5231,7 @@ bool QCamera3HardwareInterface::needRotationReprocess()
  * RETURN     : true: needed
  *              false: no need
  *==========================================================================*/
-bool QCamera3HardwareInterface::needReprocess()
+bool QCamera3HardwareInterface::needReprocess(uint32_t postprocess_mask)
 {
     if (!mJpegSettings->is_jpeg_format) {
         // RAW image, no need to reprocess
@@ -5215,8 +5242,12 @@ bool QCamera3HardwareInterface::needReprocess()
          isWNREnabled() || isCACEnabled()) {
         // TODO: add for ZSL HDR later
         // pp module has min requirement for zsl reprocess, or WNR in ZSL mode
-        CDBG_HIGH("%s: need do reprocess for ZSL WNR or min PP reprocess", __func__);
-        return true;
+        if(postprocess_mask == CAM_QCOM_FEATURE_NONE){
+            CDBG_HIGH("%s: need do reprocess for ZSL WNR or min PP reprocess", __func__);
+            return true;
+        } else {
+            CDBG_HIGH("%s: already post processed frame", __func__);
+        }
     }
     return needRotationReprocess();
 }
@@ -5243,7 +5274,7 @@ QCamera3ReprocessChannel *QCamera3HardwareInterface::addOnlineReprocChannel(
     }
 
     pChannel = new QCamera3ReprocessChannel(mCameraHandle->camera_handle,
-            mCameraHandle->ops, NULL, pInputChannel->mPaddingInfo, this, picChHandle);
+            mCameraHandle->ops, NULL, pInputChannel->mPaddingInfo, CAM_QCOM_FEATURE_NONE, this, picChHandle);
     if (NULL == pChannel) {
         ALOGE("%s: no mem for reprocess channel", __func__);
         return NULL;

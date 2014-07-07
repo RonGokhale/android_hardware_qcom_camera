@@ -59,8 +59,8 @@ public:
     virtual int32_t init(cam_stream_type_t streamType,
             cam_format_t streamFormat, cam_dimension_t streamDim,
             cam_stream_reproc_config_t* reprocess_config,
-            uint8_t minStreamBufNum, hal3_stream_cb_routine stream_cb,
-            void *userdata);
+            uint8_t minStreamBufNum, uint32_t postprocess_mask,
+            hal3_stream_cb_routine stream_cb, void *userdata);
     virtual int32_t bufDone(uint32_t index);
     virtual int32_t processDataNotify(mm_camera_super_buf_t *bufs);
     virtual int32_t start();
