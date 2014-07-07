@@ -4668,6 +4668,19 @@ int QCamera3HardwareInterface::translateMetadataToParameters
         }
     }
 
+    // read stats debug mask from shell and pass it to backend
+    {
+      uint32_t mask = 0;
+      char value[PROPERTY_VALUE_MAX];
+
+      property_get("persist.camera.stats.debug.mask", value, "0");
+      mask = (uint32_t)atoi(value);
+
+      rc = AddSetParmEntryToBatch(mParameters,
+                                  CAM_INTF_PARM_STATS_DEBUG_MASK,
+                                  sizeof(mask),
+                                  &mask);
+    }
     return rc;
 }
 
