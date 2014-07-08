@@ -2383,6 +2383,31 @@ QCamera3HardwareInterface::translateCbMetadataToResultMetadata
         camMetadata.update(ANDROID_STATISTICS_LENS_SHADING_MAP_MODE, &shadingMapMode, 1);
     }
 
+    if (IS_META_AVAILABLE(CAM_INTF_META_AEC_ROI, metadata)) {
+        cam_area_t  *hAeRegions =
+            (cam_area_t *)POINTER_OF_META(CAM_INTF_META_AEC_ROI, metadata);
+        int32_t aeRegions[5];
+        convertToRegions(hAeRegions->rect, aeRegions, hAeRegions->weight);
+        camMetadata.update(ANDROID_CONTROL_AE_REGIONS, aeRegions, 5);
+        CDBG("%s: Metadata : ANDROID_CONTROL_AE_REGIONS: FWK: [%d,%d,%d,%d] HAL: [%d,%d,%d,%d]",
+                __func__, aeRegions[0], aeRegions[1], aeRegions[2], aeRegions[3],
+                hAeRegions->rect.left, hAeRegions->rect.top, hAeRegions->rect.width,
+                hAeRegions->rect.height);
+    }
+
+    if (IS_META_AVAILABLE(CAM_INTF_META_AF_ROI, metadata)) {
+        /*af regions*/
+        cam_area_t  *hAfRegions =
+            (cam_area_t *)POINTER_OF_META(CAM_INTF_META_AF_ROI, metadata);
+        int32_t afRegions[5];
+        convertToRegions(hAfRegions->rect, afRegions, hAfRegions->weight);
+        camMetadata.update(ANDROID_CONTROL_AF_REGIONS, afRegions, 5);
+        CDBG("%s: Metadata : ANDROID_CONTROL_AF_REGIONS: FWK: [%d,%d,%d,%d] HAL: [%d,%d,%d,%d]",
+                __func__, afRegions[0], afRegions[1], afRegions[2], afRegions[3],
+                hAfRegions->rect.left, hAfRegions->rect.top, hAfRegions->rect.width,
+                hAfRegions->rect.height);
+    }
+
     if (IS_META_AVAILABLE(CAM_INTF_META_CAPTURE_INTENT, metadata)) {
          uint8_t captureIntent =
                  *((uint32_t*) POINTER_OF_META(CAM_INTF_META_CAPTURE_INTENT, metadata));
@@ -2560,14 +2585,6 @@ QCamera3HardwareInterface::translateCbUrgentMetadataToResultMetadata
                 &aecTrigger->trigger_id, 1);
         CDBG("%s: urgent Metadata : ANDROID_CONTROL_AE_PRECAPTURE_ID", __func__);
     }
-    if (IS_META_AVAILABLE(CAM_INTF_META_AEC_ROI, metadata)) {
-        cam_area_t  *hAeRegions = (cam_area_t *)
-            POINTER_OF_META(CAM_INTF_META_AEC_ROI, metadata);
-        int32_t aeRegions[5];
-        convertToRegions(hAeRegions->rect, aeRegions, hAeRegions->weight);
-        camMetadata.update(ANDROID_CONTROL_AE_REGIONS, aeRegions, 5);
-        CDBG("%s: urgent Metadata : ANDROID_CONTROL_AE_REGIONS", __func__);
-    }
     if (IS_META_AVAILABLE(CAM_INTF_META_AEC_STATE, metadata)) {
         uint8_t *ae_state = (uint8_t *)
             POINTER_OF_META(CAM_INTF_META_AEC_STATE, metadata);
@@ -2581,15 +2598,6 @@ QCamera3HardwareInterface::translateCbUrgentMetadataToResultMetadata
             sizeof(FOCUS_MODES_MAP)/sizeof(FOCUS_MODES_MAP[0]), *focusMode);
         camMetadata.update(ANDROID_CONTROL_AF_MODE, &fwkAfMode, 1);
         CDBG("%s: urgent Metadata : ANDROID_CONTROL_AF_MODE", __func__);
-    }
-    if (IS_META_AVAILABLE(CAM_INTF_META_AF_ROI, metadata)) {
-        /*af regions*/
-        cam_area_t  *hAfRegions = (cam_area_t *)
-            POINTER_OF_META(CAM_INTF_META_AF_ROI, metadata);
-        int32_t afRegions[5];
-        convertToRegions(hAfRegions->rect, afRegions, hAfRegions->weight);
-        camMetadata.update(ANDROID_CONTROL_AF_REGIONS, afRegions, 5);
-        CDBG("%s: urgent Metadata : ANDROID_CONTROL_AF_REGIONS", __func__);
     }
     if (IS_META_AVAILABLE(CAM_INTF_META_AF_STATE, metadata)) {
         uint8_t  *afState = (uint8_t *)
@@ -3176,9 +3184,11 @@ int QCamera3HardwareInterface::initStaticMetadata(int cameraId)
     staticInfo.update(ANDROID_SCALER_AVAILABLE_MAX_DIGITAL_ZOOM,
             &maxZoom, 1);
 
-    int32_t max3aRegions = 1;
+    int32_t max3aRegions[3] = {/*AE*/1,/*AWB*/ 0,/*AF*/ 1};
+    if (gCamCapability[cameraId]->supported_focus_modes_cnt == 1)
+        max3aRegions[2] = 0; /* AF not supported */
     staticInfo.update(ANDROID_CONTROL_MAX_REGIONS,
-            &max3aRegions, 1);
+            max3aRegions, 3);
 
     uint8_t availableFaceDetectModes[] = {
             ANDROID_STATISTICS_FACE_DETECT_MODE_OFF,
