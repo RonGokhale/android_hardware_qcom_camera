@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, 2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -51,16 +51,16 @@ typedef struct {
   uint32_t sequence;          /* for jpeg bit streams, assembling is based on sequence. sequence starts from 0 */
   uint8_t *buf_vaddr;        /* ptr to buf */
   int fd;                    /* fd of buf */
-  uint32_t buf_size;         /* total size of buf (header + image) */
+  size_t buf_size;         /* total size of buf (header + image) */
   mm_jpeg_format_t format;   /* buffer format*/
   cam_frame_len_offset_t offset; /* offset of all the planes */
-  int index; /* index used to identify the buffers */
+  uint32_t index; /* index used to identify the buffers */
 } mm_jpeg_buf_t;
 
 typedef struct {
   uint8_t *buf_vaddr;        /* ptr to buf */
   int fd;                    /* fd of buf */
-  uint32_t buf_filled_len;   /* used for output image. filled by the client */
+  size_t buf_filled_len;   /* used for output image. filled by the client */
 } mm_jpeg_output_t;
 
 typedef enum {
@@ -104,13 +104,13 @@ typedef struct {
 
 typedef struct {
   /* num of buf in src img */
-  uint32_t num_src_bufs;
+  int32_t num_src_bufs;
 
   /* num of src tmb bufs */
-  uint32_t num_tmb_bufs;
+  int32_t num_tmb_bufs;
 
   /* num of buf in src img */
-  uint32_t num_dst_bufs;
+  int32_t num_dst_bufs;
 
   int8_t encode_thumbnail;
 
@@ -149,10 +149,10 @@ typedef struct {
   mm_jpeg_dim_t thumb_dim;
 
   /* rotation informaiton */
-  int rotation;
+  uint32_t rotation;
 
   /* thumb rotation informaiton */
-  int thumb_rotation;
+  uint32_t thumb_rotation;
 
   /* main image dimension */
   mm_jpeg_dim_t main_dim;
@@ -166,10 +166,10 @@ typedef struct {
 
 typedef struct {
   /* num of buf in src img */
-  uint32_t num_src_bufs;
+  int32_t num_src_bufs;
 
   /* num of buf in src img */
-  uint32_t num_dst_bufs;
+  int32_t num_dst_bufs;
 
   /* src img bufs */
   mm_jpeg_buf_t src_main_buf[MM_JPEG_MAX_BUF];
@@ -193,7 +193,7 @@ typedef struct {
   mm_jpeg_dim_t thumb_dim;
 
   /* rotation informaiton */
-  int rotation;
+  uint32_t rotation;
 
   /* main image dimension */
   mm_jpeg_dim_t main_dim;
@@ -221,12 +221,12 @@ typedef struct {
 
 typedef struct {
   /* active indices of the buffers for encoding */
-  uint32_t src_index;
-  uint32_t dst_index;
+  int32_t src_index;
+  int32_t dst_index;
   uint32_t tmb_dst_index;
 
   /* rotation informaiton */
-  int rotation;
+  uint32_t rotation;
 
   /* main image  */
   mm_jpeg_dim_t main_dim;

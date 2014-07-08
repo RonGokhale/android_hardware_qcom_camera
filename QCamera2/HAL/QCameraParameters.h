@@ -687,6 +687,7 @@ private:
     int32_t setBurstLEDOnPeriod(const QCameraParameters& params);
     int32_t setSnapshotFDReq(const QCameraParameters& );
     int32_t setStatsDebugMask();
+    int32_t setPAAF();
     int32_t setTintlessValue(const QCameraParameters& params);
     int32_t setCDSMode(const QCameraParameters& params);
     int32_t setMobicat(const QCameraParameters& params);
@@ -754,7 +755,7 @@ private:
                                  int len,
                                  int &default_fps_index);
     String8 createFpsString(cam_fps_range_t &fps);
-    String8 createZoomRatioValuesString(int *zoomRatios, int length);
+    String8 createZoomRatioValuesString(uint32_t *zoomRatios, size_t length);
     int lookupAttr(const QCameraMap arr[], int len, const char *name);
     const char *lookupNameByValue(const QCameraMap arr[], int len, int value);
 

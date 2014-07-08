@@ -1195,7 +1195,7 @@ int QCamera2HardwareInterface::openCamera()
     int32_t l_curr_height = 0;
     m_max_pic_width = 0;
     m_max_pic_height = 0;
-    int i;
+    size_t i;
 
     if (mCameraHandle) {
         ALOGE("Failure: Camera already opened");
@@ -5471,7 +5471,7 @@ int QCamera2HardwareInterface::calcThermalLevel(
             // Set lowest min FPS for now
             adjustedRange.min_fps = minFPS/1000.0f;
             adjustedRange.max_fps = minFPS/1000.0f;
-            for ( int i = 0 ; i < gCamCaps[mCameraId]->fps_ranges_tbl_cnt ; i++ ) {
+            for (size_t i = 0 ; i < gCamCaps[mCameraId]->fps_ranges_tbl_cnt ; i++) {
                 if ( gCamCaps[mCameraId]->fps_ranges_tbl[i].min_fps < adjustedRange.min_fps ) {
                     adjustedRange.min_fps = gCamCaps[mCameraId]->fps_ranges_tbl[i].min_fps;
                     adjustedRange.max_fps = adjustedRange.min_fps;

@@ -288,8 +288,8 @@ int32_t QCamera3PostProcessor::getJpegEncodingConfig(mm_jpeg_encode_params_t& en
         ret = BAD_VALUE;
         goto on_error;
     }
-    encode_parm.num_src_bufs = pStreamMem->getCnt();
-    for (uint32_t i = 0; i < encode_parm.num_src_bufs; i++) {
+    encode_parm.num_src_bufs = (int32_t)pStreamMem->getCnt();
+    for (uint32_t i = 0; i < (uint32_t)encode_parm.num_src_bufs; i++) {
         if (pStreamMem != NULL) {
             encode_parm.src_main_buf[i].index = i;
             encode_parm.src_main_buf[i].buf_size = pStreamMem->getSize(i);
