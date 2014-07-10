@@ -516,6 +516,10 @@ status_t CameraContext::ReadSectionsFromBuffer (unsigned char *buffer,
             }
         }
 
+        if (!mSections) {
+            printf("%s: reallocation failed\n", __func__);
+            return BAD_VALUE;
+        }
         mSections[mSectionsRead].Type = marker;
 
         // Read the length of the section.
@@ -543,8 +547,8 @@ status_t CameraContext::ReadSectionsFromBuffer (unsigned char *buffer,
         Data[1] = (unsigned char)ll;
 
         if (pos+itemlen-2 > buffer_size) {
-           ALOGE("Premature end of file?");
-          return BAD_VALUE;
+            ALOGE("Premature end of file?");
+            return BAD_VALUE;
         }
 
         memcpy(Data+2, buffer+pos, itemlen-2); // Read the whole section.
@@ -569,13 +573,17 @@ status_t CameraContext::ReadSectionsFromBuffer (unsigned char *buffer,
                     Data = (unsigned char *)malloc(size);
                     if (Data == NULL) {
                         ALOGE("%d: could not allocate data for entire "
-                            "image size: %d", __LINE__, size);
+                                "image size: %d", __LINE__, size);
                         return BAD_VALUE;
                     }
 
                     memcpy(Data, buffer+pos, size);
 
                     CheckSectionsAllocated();
+                    if (!mSections) {
+                        printf("%s: reallocation failed\n", __func__);
+                        return BAD_VALUE;
+                    }
                     mSections[mSectionsRead].Data = Data;
                     mSections[mSectionsRead].Size = size;
                     mSections[mSectionsRead].Type = PSEUDO_IMAGE_MARKER;

@@ -3883,7 +3883,6 @@ int32_t QCameraParameters::updateParameters(QCameraParameters& params,
     if ((rc = setMobicat(params)))                      final_rc = rc;
     if ((rc = setLongshotParam(params)))                final_rc = rc;
     if ((rc = updateFlash(false)))                      final_rc = rc;
-
 UPDATE_PARAM_DONE:
     needRestart = m_bNeedRestart;
     return final_rc;
