@@ -4015,6 +4015,11 @@ int32_t QCameraParameters::initDefaultParameters()
             m_pCapability->supported_scene_modes_cnt,
             SCENE_MODES_MAP,
             sizeof(SCENE_MODES_MAP) / sizeof(QCameraMap));
+#if MSM8610_PLATFORM
+    if (Is256MBConfig()) {
+      removeFromString(sceneModeValues, SCENE_MODE_HDR);
+    }
+#endif // MSM8610_PLATFORM
     set(KEY_SUPPORTED_SCENE_MODES, sceneModeValues);
     setSceneMode(SCENE_MODE_AUTO);
 
