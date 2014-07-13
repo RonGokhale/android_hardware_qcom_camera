@@ -1276,6 +1276,9 @@ typedef enum {
     CAM_INTF_PARM_FOCUS_BRACKETING,
     CAM_INTF_PARM_FLASH_BRACKETING,
     CAM_INTF_PARM_GET_IMG_PROP,
+    /* DNG file support */
+    CAM_INTF_META_PROFILE_TONE_CURVE,
+    CAM_INTF_META_NEUTRAL_COL_POINT,
 
     CAM_INTF_PARM_MAX
 } cam_intf_parm_type_t;
@@ -1375,7 +1378,7 @@ typedef struct {
 #define CAM_MAX_MAP_WIDTH         6
 #define CAM_MAX_SHADING_MAP_WIDTH 17
 #define CAM_MAX_SHADING_MAP_HEIGHT 13
-#define CAM_MAX_TONEMAP_CURVE_SIZE    128
+#define CAM_MAX_TONEMAP_CURVE_SIZE    256
 
 typedef struct {
     /* A 1D array of pairs of floats.
@@ -1392,6 +1395,11 @@ typedef struct {
    size_t tonemap_points_cnt;
    cam_tonemap_curve_t curves[3];
 } cam_rgb_tonemap_curves;
+
+typedef struct {
+   int tonemap_points_cnt;
+   cam_tonemap_curve_t curve;
+} cam_profile_tone_curve;
 
 typedef enum {
     OFF,
