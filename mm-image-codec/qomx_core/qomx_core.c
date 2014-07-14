@@ -1,4 +1,4 @@
-/*Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/*Copyright (c) 2012,2014 The Linux Foundation. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are
@@ -25,14 +25,30 @@ WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
 OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
 
+#if defined(USE_DLOG)
+  #include <dlog/dlog.h>
+#elif defined(_ANDROID_)
+  #include <utils/Log.h>
+#else
+    #include <stdio.h>
+#endif
+#undef CDBG
+#undef LOGE
+#undef LOGD
+#define LOG_DEBUG
 #define LOG_NDEBUG 0
 #define LOG_NIDEBUG 0
 #define LOG_TAG "qomx_image_core"
-#include <utils/Log.h>
+//#include <utils/Log.h>
+//#include <inttypes.h>
 
 #include "qomx_core.h"
 
 #define BUFF_SIZE 255
+#if !defined(USE_DLOG) &&  !defined(_ANDROID_)
+  #define ALOGE(fmt, args...) fprintf(stderr, ""fmt"\n", ##args)
+  #define ALOGD(fmt, args...) fprintf(stderr, ""fmt"\n", ##args)
+#endif
 
 static omx_core_t *g_omxcore;
 static pthread_mutex_t g_omxcore_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -210,9 +226,9 @@ OMX_API OMX_ERRORTYPE OMX_APIENTRY OMX_GetHandle(
 
   if (FALSE == p_core_comp->open) {
     /* load the library */
-    p_core_comp->lib_handle = dlopen(p_core_comp->lib_name, RTLD_NOW);
+    p_core_comp->lib_handle = dlopen(p_core_comp->lib_name, RTLD_LAZY);
     if (NULL == p_core_comp->lib_handle) {
-      ALOGE("%s:%d] Cannot load the library", __func__, __LINE__);
+      ALOGE("%s:%d] Cannot load the library: %s error %s", __func__, __LINE__,p_core_comp->lib_name, dlerror());
       rc = OMX_ErrorInvalidComponent;
       goto error;
     }
