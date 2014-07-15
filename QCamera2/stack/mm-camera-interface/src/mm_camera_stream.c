@@ -1006,7 +1006,6 @@ int32_t mm_stream_read_msm_frame(mm_stream_t * my_obj,
         CDBG("%s: VIDIOC_DQBUF buf_index %d, frame_idx %d, stream type %d, rc %d",
             __func__, vb.index, buf_info->buf->frame_idx,
             my_obj->stream_info->stream_type, rc);
-
         buf_info->buf->is_uv_subsampled =
             (vb.reserved == V4L2_PIX_FMT_NV14 || vb.reserved == V4L2_PIX_FMT_NV41);
 
