@@ -187,7 +187,6 @@ static void mm_app_snapshot_metadata_notify_cb(mm_camera_super_buf_t *bufs,
   mm_camera_buf_def_t *frame = bufs->bufs[0];
   metadata_buffer_t *pMetadata;
   cam_auto_focus_data_t *focus_data;
-  uint8_t curr_entry;
 
   /* find channel */
   for (i = 0; i < MM_CHANNEL_TYPE_MAX; i++) {
@@ -237,18 +236,13 @@ static void mm_app_snapshot_metadata_notify_cb(mm_camera_super_buf_t *bufs,
 
   pMetadata = (metadata_buffer_t *)frame->buffer;
 
-  curr_entry = GET_FIRST_PARAM_ID(pMetadata);
-  while (curr_entry != CAM_INTF_PARM_MAX) {
-    if (curr_entry == CAM_INTF_META_AUTOFOCUS_DATA) {
-      focus_data =
-                  (cam_auto_focus_data_t *)POINTER_OF(CAM_INTF_META_AUTOFOCUS_DATA, pMetadata);
-      if (focus_data->focus_state == CAM_AF_FOCUSED) {
-        CDBG_ERROR("%s: AutoFocus Done Call Back Received\n",__func__);
-        mm_camera_app_done();
-      }
-      break;
-   }
-   curr_entry = GET_NEXT_PARAM_ID(curr_entry, pMetadata);
+  if (IS_META_AVAILABLE(CAM_INTF_META_AUTOFOCUS_DATA, pMetadata)) {
+    focus_data = (cam_auto_focus_data_t *)
+      POINTER_OF_META(CAM_INTF_META_AUTOFOCUS_DATA, pMetadata);
+    if (focus_data->focus_state == CAM_AF_FOCUSED) {
+      CDBG_ERROR("%s: AutoFocus Done Call Back Received\n",__func__);
+      mm_camera_app_done();
+    }
   }
 
   if (MM_CAMERA_OK != pme->cam->ops->qbuf(bufs->camera_handle,
