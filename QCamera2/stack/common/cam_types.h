@@ -88,7 +88,7 @@
 #define MAX_AE_STATS_DATA_SIZE  1000
 #define MAX_AWB_STATS_DATA_SIZE 1000
 #define MAX_AF_STATS_DATA_SIZE  1000
-
+#define MAX_ASD_STATS_DATA_SIZE 1000
 
 
 #define TUNING_DATA_VERSION        3
@@ -105,8 +105,8 @@
 #define TUNING_CPP_DATA_OFFSET     (TUNING_SENSOR_DATA_MAX + TUNING_VFE_DATA_MAX)
 #define TUNING_CAC_DATA_OFFSET     (TUNING_SENSOR_DATA_MAX + \
                                    TUNING_VFE_DATA_MAX + TUNING_CPP_DATA_MAX)
-#define MAX_ISP_DATA_SIZE 14000
-#define MAX_PP_DATA_SIZE 2000
+#define MAX_ISP_DATA_SIZE 16384
+#define MAX_PP_DATA_SIZE  16384
 #define MAX_STATS_DATA_SIZE 4000
 
 #define MAX_AF_BRACKETING_VALUES 5
@@ -696,7 +696,7 @@ typedef struct {
 typedef struct {
     uint8_t stepsize;
     uint8_t direction;
-    uint8_t num_steps;
+    int32_t num_steps;
     uint8_t ttype;
 } tune_actuator_t;
 
@@ -966,6 +966,10 @@ typedef struct {
 } cam_chromatix_lite_af_stats_t;
 
 typedef struct {
+  uint8_t private_stats_data[MAX_ASD_STATS_DATA_SIZE];
+} cam_chromatix_lite_asd_stats_t;
+
+typedef struct {
     cam_dimension_t stream_sizes[MAX_NUM_STREAMS];
     uint32_t num_streams;
     uint32_t type[MAX_NUM_STREAMS];
@@ -1118,6 +1122,7 @@ typedef enum {
     CAM_INTF_META_CHROMATIX_LITE_AE,
     CAM_INTF_META_CHROMATIX_LITE_AWB,
     CAM_INTF_META_CHROMATIX_LITE_AF,
+    CAM_INTF_META_CHROMATIX_LITE_ASD,
     CAM_INTF_PARM_GET_CHROMATIX,
     CAM_INTF_PARM_SET_RELOAD_CHROMATIX,
     CAM_INTF_PARM_SET_AUTOFOCUSTUNING,
@@ -1317,6 +1322,7 @@ typedef enum {
     CAM_EZTUNE_CMD_AEC_FORCE_SNAP_LC,
     CAM_EZTUNE_CMD_AEC_FORCE_SNAP_GAIN,
     CAM_EZTUNE_CMD_AEC_FORCE_SNAP_EXP,
+    CAM_EZTUNE_CMD_AWB_MODE,
 } cam_eztune_cmd_type_t;
 
 typedef struct {
@@ -1327,6 +1333,7 @@ typedef struct {
     int                   awb_enable;
     int                   af_enable;
     cam_ez_force_params_t ez_force_param;
+    int                   awb_mode;
   } u;
 } cam_eztune_cmd_data_t;
 
