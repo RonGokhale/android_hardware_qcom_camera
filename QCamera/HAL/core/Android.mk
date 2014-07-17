@@ -82,7 +82,8 @@ LOCAL_C_INCLUDES += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include/media
 LOCAL_ADDITIONAL_DEPENDENCIES := $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr
 
 LOCAL_C_INCLUDES += hardware/qcom/display/libgralloc \
-        hardware/qcom/media/libstagefrighthw
+        hardware/qcom/media/libstagefrighthw \
+        system/media/camera/include
 
 # if debug service layer and up , use stub camera!
 LOCAL_C_INCLUDES += \
@@ -96,7 +97,9 @@ LOCAL_SHARED_LIBRARIES := libutils libui libcamera_client liblog libcutils
 LOCAL_SHARED_LIBRARIES += libmmcamera_interface
 LOCAL_SHARED_LIBRARIES+= libbinder libmmjpeg_interface libhardware
 
+ifneq ($(call is-platform-sdk-version-at-least,20),true)
 LOCAL_CFLAGS += -include bionic/libc/kernel/common/linux/socket.h
+endif
 
 LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)/hw
 LOCAL_MODULE:= camera.$(TARGET_BOARD_PLATFORM)

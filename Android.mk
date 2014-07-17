@@ -148,7 +148,9 @@ ifneq ($(USE_CAMERA_STUB),true)
         LOCAL_SHARED_LIBRARIES+= libdl
       endif
 
+      ifneq ($(call is-platform-sdk-version-at-least,20),true)
       LOCAL_CFLAGS += -include bionic/libc/kernel/common/linux/socket.h
+      endif
 
       LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)/hw
       LOCAL_MODULE:= camera_1.0.$(TARGET_BOARD_PLATFORM)

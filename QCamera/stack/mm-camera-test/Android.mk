@@ -32,12 +32,12 @@ LOCAL_SRC_FILES:= \
 
 LOCAL_C_INCLUDES:=$(LOCAL_PATH)/inc
 LOCAL_C_INCLUDES+= \
-        $(TARGET_OUT_INTERMEDIATES)/include/mm-still/jpeg \
-        $(TARGET_OUT_INTERMEDIATES)/include/mm-camera \
         $(LOCAL_PATH)/../mm-camera-interface/inc \
         $(LOCAL_PATH)/../mm-jpeg-interface/inc \
         $(LOCAL_PATH)/../common \
         $(LOCAL_PATH)/../../../ \
+        $(TARGET_OUT_INTERMEDIATES)/include/mm-still/jpeg \
+        $(TARGET_OUT_INTERMEDIATES)/include/mm-camera \
 
 LOCAL_C_INCLUDES+= $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include/media
 LOCAL_C_INCLUDES+= $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include
