@@ -4611,9 +4611,18 @@ status_t QCameraHardwareInterface::setDimension()
     if( ((dim.display_width > dim.video_width) ||
         (dim.display_height > dim.video_height)) &&
         (mYUVThruVFE || !mIsYUVSensor) ) {
-        //Set preview sizes as record sizes.
-        dim.display_width = dim.video_width;
-        dim.display_height = dim.video_height;
+        if (mRecordingHint){
+            //Set preview sizes as record sizes if recoding hint is true.
+            dim.display_width = dim.video_width;
+            dim.display_height = dim.video_height;
+        } else {
+            dim.orig_video_width = dim.display_width;
+            dim.orig_video_height = dim.display_height;
+            dim.video_width = dim.display_width;
+            dim.video_height = dim.display_height;
+            dim.video_chroma_width = dim.display_width;
+            dim.video_chroma_height = dim.display_height;
+        }
     }
     if (mRecordingHint && mFullLiveshotEnabled){
         if( (dim.picture_width < dim.video_width) ||
