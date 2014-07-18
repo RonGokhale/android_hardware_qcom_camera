@@ -465,10 +465,8 @@ int32_t QCameraPostProcessor::getJpegEncodingConfig(mm_jpeg_encode_params_t& enc
         thumb_stream->getFrameDimension(src_dim);
         encode_parm.thumb_dim.src_dim = src_dim;
 
-        if (m_parent->mParameters.generateThumbFromMain()) {
-           encode_parm.thumb_rotation = 0;
-        } else if(!m_parent->needRotationReprocess() || need_thumb_rotate) {
-           encode_parm.thumb_rotation = jpeg_rotation;
+        if (!m_parent->needRotationReprocess() || need_thumb_rotate) {
+            encode_parm.thumb_rotation = jpeg_rotation;
         } else if ((90 == jpeg_rotation) || (270 == jpeg_rotation)) {
             // swap thumbnail dimensions
             cam_dimension_t tmp_dim = encode_parm.thumb_dim.dst_dim;
