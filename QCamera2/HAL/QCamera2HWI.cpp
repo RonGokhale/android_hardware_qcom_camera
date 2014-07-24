@@ -608,7 +608,7 @@ int QCamera2HardwareInterface::take_picture(struct camera_device *device)
     hw->lockAPI();
 
     /* Prepare snapshot in case LED needs to be flashed */
-    if (hw->mFlashNeeded == 1 || mParameters->getFlashValue() == CAM_FLASH_MODE_ON) {
+    if (hw->mFlashNeeded == 1 || hw->mParameters.getFlashValue() == CAM_FLASH_MODE_ON) {
         ret = hw->processAPI(QCAMERA_SM_EVT_PREPARE_SNAPSHOT, NULL);
         if (ret == NO_ERROR) {
             hw->waitAPIResult(QCAMERA_SM_EVT_PREPARE_SNAPSHOT);
