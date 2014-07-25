@@ -127,7 +127,7 @@ QCamera3Channel::~QCamera3Channel()
     if (m_bIsActive)
         stop();
 
-    for (int i = 0; i < m_numStreams; i++) {
+    for (uint32_t i = 0; i < m_numStreams; i++) {
         if (mStreams[i] != NULL) {
             delete mStreams[i];
             mStreams[i] = 0;
@@ -175,21 +175,17 @@ int32_t QCamera3Channel::init(mm_camera_channel_attr_t *attr,
  * DESCRIPTION: add a stream into channel
  *
  * PARAMETERS :
- *   @allocator      : stream related buffer allocator
- *   @streamInfoBuf  : ptr to buf that constains stream info
- *   @minStreamBufNum: number of stream buffers needed
- *   @paddingInfo    : padding information
- *   @stream_cb      : stream data notify callback
- *   @userdata       : user data ptr
+ *   @streamType     : stream type
+ *   @streamFormat   : stream format
+ *   @streamDim      : stream dimension
+ *   @minStreamBufNum : minimal buffer count for particular stream type
  *
  * RETURN     : int32_t type of status
  *              NO_ERROR  -- success
  *              none-zero failure code
  *==========================================================================*/
 int32_t QCamera3Channel::addStream(cam_stream_type_t streamType,
-                                  cam_format_t streamFormat,
-                                  cam_dimension_t streamDim,
-                                  uint8_t minStreamBufNum)
+        cam_format_t streamFormat, cam_dimension_t streamDim, uint8_t minStreamBufNum)
 {
     int32_t rc = NO_ERROR;
 
@@ -245,7 +241,7 @@ int32_t QCamera3Channel::start()
         return NO_INIT;
     }
 
-    for (int i = 0; i < m_numStreams; i++) {
+    for (uint32_t i = 0; i < m_numStreams; i++) {
         if (mStreams[i] != NULL) {
             mStreams[i]->start();
         }
@@ -253,7 +249,7 @@ int32_t QCamera3Channel::start()
     rc = m_camOps->start_channel(m_camHandle, m_handle);
 
     if (rc != NO_ERROR) {
-        for (int i = 0; i < m_numStreams; i++) {
+        for (uint32_t i = 0; i < m_numStreams; i++) {
             if (mStreams[i] != NULL) {
                 mStreams[i]->stop();
             }
@@ -284,7 +280,7 @@ int32_t QCamera3Channel::stop()
         return rc;
     }
 
-    for (int i = 0; i < m_numStreams; i++) {
+    for (uint32_t i = 0; i < m_numStreams; i++) {
         if (mStreams[i] != NULL) {
             mStreams[i]->stop();
         }
@@ -313,7 +309,7 @@ int32_t QCamera3Channel::bufDone(mm_camera_super_buf_t *recvd_frame)
     int32_t rc = NO_ERROR;
     for (int i = 0; i < recvd_frame->num_bufs; i++) {
          if (recvd_frame->bufs[i] != NULL) {
-             for (int j = 0; j < m_numStreams; j++) {
+             for (uint32_t j = 0; j < m_numStreams; j++) {
                  if (mStreams[j] != NULL &&
                      mStreams[j]->getMyHandle() == recvd_frame->bufs[i]->stream_id) {
                      rc = mStreams[j]->bufDone(recvd_frame->bufs[i]->buf_idx);
@@ -338,8 +334,8 @@ int32_t QCamera3Channel::bufDone(mm_camera_super_buf_t *recvd_frame)
 uint32_t QCamera3Channel::getStreamTypeMask()
 {
     uint32_t mask = 0;
-    for (int i = 0; i < m_numStreams; i++) {
-       mask |= (0x1 << mStreams[i]->getMyType());
+    for (uint32_t i = 0; i < m_numStreams; i++) {
+       mask |= (1U << mStreams[i]->getMyType());
     }
     return mask;
 }
@@ -356,7 +352,7 @@ uint32_t QCamera3Channel::getStreamTypeMask()
 uint32_t QCamera3Channel::getStreamID(uint32_t streamMask)
 {
     uint32_t streamID = 0;
-    for (int i = 0; i < m_numStreams; i++) {
+    for (uint32_t i = 0; i < m_numStreams; i++) {
         if (streamMask == (uint32_t )(0x1 << mStreams[i]->getMyType())) {
             streamID = mStreams[i]->getMyServerID();
             break;
@@ -378,7 +374,7 @@ uint32_t QCamera3Channel::getStreamID(uint32_t streamMask)
 mm_camera_buf_def_t* QCamera3RegularChannel::getInternalFormatBuffer(
                                             buffer_handle_t * buffer)
 {
-    int32_t index;
+    int index;
     if(buffer == NULL)
         return NULL;
     index = mMemory.getMatchBufIndex((void*)buffer);
@@ -386,7 +382,7 @@ mm_camera_buf_def_t* QCamera3RegularChannel::getInternalFormatBuffer(
         ALOGE("%s: Could not find object among registered buffers",__func__);
         return NULL;
     }
-    return mStreams[0]->getInternalFormatBuffer(index);
+    return mStreams[0]->getInternalFormatBuffer((uint32_t)index);
 }
 
 /*===========================================================================
@@ -401,7 +397,7 @@ mm_camera_buf_def_t* QCamera3RegularChannel::getInternalFormatBuffer(
  *==========================================================================*/
 QCamera3Stream *QCamera3Channel::getStreamByHandle(uint32_t streamHandle)
 {
-    for (int i = 0; i < m_numStreams; i++) {
+    for (uint32_t i = 0; i < m_numStreams; i++) {
         if (mStreams[i] != NULL && mStreams[i]->getMyHandle() == streamHandle) {
             return mStreams[i];
         }
@@ -419,7 +415,7 @@ QCamera3Stream *QCamera3Channel::getStreamByHandle(uint32_t streamHandle)
  *
  * RETURN     : stream object. NULL if not found
  *==========================================================================*/
-QCamera3Stream *QCamera3Channel::getStreamByIndex(uint8_t index)
+QCamera3Stream *QCamera3Channel::getStreamByIndex(uint32_t index)
 {
     if (index < m_numStreams) {
         return mStreams[index];
@@ -581,8 +577,8 @@ int32_t QCamera3RegularChannel::initialize()
         return -EINVAL;
     }
 
-    streamDim.width = mWidth;
-    streamDim.height = mHeight;
+    streamDim.width = (int32_t)mWidth;
+    streamDim.height = (int32_t)mHeight;
 
     rc = QCamera3Channel::addStream(mStreamType,
             streamFormat,
@@ -670,13 +666,13 @@ int32_t QCamera3RegularChannel::request(buffer_handle_t *buffer, uint32_t frameN
         }
     }
 
-    rc = mStreams[0]->bufDone(index);
+    rc = mStreams[0]->bufDone((uint32_t)index);
     if(rc != NO_ERROR) {
         ALOGE("%s: Failed to Q new buffer to stream",__func__);
         return rc;
     }
 
-    rc = mMemory.markFrameNumber(index, frameNumber);
+    rc = mMemory.markFrameNumber((uint32_t)index, frameNumber);
     return rc;
 }
 
@@ -768,7 +764,11 @@ void QCamera3RegularChannel::streamCbRoutine(
     result.acquire_fence = -1;
     result.release_fence = -1;
 
-    mChannelCB(NULL, &result, resultFrameNumber, mUserData);
+    if (0 <= resultFrameNumber) {
+        mChannelCB(NULL, &result, (uint32_t)resultFrameNumber, mUserData);
+    } else {
+        ALOGE("%s: Bad brame number", __func__);
+    }
     free(super_frame);
     return;
 }
@@ -783,7 +783,7 @@ void QCamera3RegularChannel::putStreamBufs()
     mMemory.unregisterBuffers();
 }
 
-int QCamera3RegularChannel::kMaxBuffers = 7;
+uint32_t QCamera3RegularChannel::kMaxBuffers = 7U;
 
 QCamera3MetadataChannel::QCamera3MetadataChannel(uint32_t cam_handle,
                     mm_camera_ops_t *cam_ops,
@@ -824,7 +824,7 @@ int32_t QCamera3MetadataChannel::initialize()
         return rc;
     }
 
-    streamDim.width = sizeof(metadata_buffer_t),
+    streamDim.width = (int32_t)sizeof(metadata_buffer_t),
     streamDim.height = 1;
     rc = QCamera3Channel::addStream(CAM_STREAM_TYPE_METADATA, CAM_FORMAT_MAX,
         streamDim, MIN_STREAMING_BUFFER_NUM);
@@ -900,10 +900,12 @@ QCameraRawChannel::QCameraRawChannel(uint32_t cam_handle,
                                 cb_routine, paddingInfo, userData),
                         mMemory(NULL)
 {
+    ALOGE_IF(((0 > raw_dim->width) || (0 > raw_dim->height)), "Bad dimension %dx%d",
+            raw_dim->width, raw_dim->height);
 
-  mWidth = raw_dim->width;
-  mHeight = raw_dim->height;
-  mMaxBuffers = 1;
+    mWidth = (uint32_t)raw_dim->width;
+    mHeight = (uint32_t)raw_dim->height;
+    mMaxBuffers = 1U;
 }
 
 QCameraRawChannel::~QCameraRawChannel()
@@ -936,8 +938,8 @@ int32_t QCameraRawChannel::initialize()
         return rc;
     }
 
-    streamDim.width = mWidth;
-    streamDim.height = mHeight;
+    streamDim.width = (int32_t)mWidth;
+    streamDim.height = (int32_t)mHeight;
     streamType = CAM_STREAM_TYPE_RAW;
     streamFormat = CAM_FORMAT_BAYER_QCOM_RAW_10BPP_GBRG;
 
@@ -1034,7 +1036,7 @@ void QCameraRawChannel::dumpRawSnapshot(mm_camera_buf_def_t *frame)
 
        int file_fd = open(buf, O_RDWR| O_CREAT, 0777);
        if (file_fd) {
-          int written_len = write(file_fd, frame->buffer, frame->frame_len);
+          ssize_t written_len = write(file_fd, frame->buffer, frame->frame_len);
           ALOGE("%s: written number of bytes %d", __func__, written_len);
           close(file_fd);
        } else {
@@ -1070,12 +1072,9 @@ void QCamera3PicChannel::jpegEvtHandle(jpeg_job_status_t status,
                                               void *userdata)
 {
     buffer_handle_t *resultBuffer;
-    int32_t resultFrameNumber;
     int resultStatus = CAMERA3_BUFFER_STATUS_OK;
     camera3_stream_buffer_t result;
     camera3_jpeg_blob_t jpegHeader;
-    char* jpeg_eof = 0;
-    int maxJpegSize;
     QCamera3PicChannel *obj = (QCamera3PicChannel *)userdata;
     if (obj) {
 
@@ -1100,27 +1099,30 @@ void QCamera3PicChannel::jpegEvtHandle(jpeg_job_status_t status,
         //Append at the end of jpeg image of buf_filled_len size
 
         jpegHeader.jpeg_blob_id = CAMERA3_JPEG_BLOB_ID;
-        jpegHeader.jpeg_size = p_output->buf_filled_len;
+        jpegHeader.jpeg_size = (uint32_t)p_output->buf_filled_len;
 
 
         char* jpeg_buf = (char *)p_output->buf_vaddr;
+        ssize_t maxJpegSize = -1;
 
         if(obj->mJpegSettings->max_jpeg_size <= 0 ||
-                obj->mJpegSettings->max_jpeg_size > obj->mMemory.getSize(obj->mCurrentBufIndex)){
-            ALOGW("%s:Max Jpeg size :%d is out of valid range setting to size of buffer",
+                (ssize_t)obj->mJpegSettings->max_jpeg_size >
+                    obj->mMemory.getSize(obj->mCurrentBufIndex)){
+            ALOGW("%s:Max Jpeg size :%zd is out of valid range setting to size of buffer",
                     __func__, obj->mJpegSettings->max_jpeg_size);
             maxJpegSize =  obj->mMemory.getSize(obj->mCurrentBufIndex);
         } else {
-            maxJpegSize = obj->mJpegSettings->max_jpeg_size;
-            ALOGI("%s: Setting max jpeg size to %d",__func__, maxJpegSize);
+            maxJpegSize = (ssize_t)obj->mJpegSettings->max_jpeg_size;
+            ALOGI("%s: Setting max jpeg size to %zd",__func__, maxJpegSize);
         }
-        jpeg_eof = &jpeg_buf[maxJpegSize-sizeof(jpegHeader)];
+        size_t jpeg_eof_offset = (size_t)(maxJpegSize - (ssize_t)sizeof(jpegHeader));
+        char *jpeg_eof = &jpeg_buf[jpeg_eof_offset];
         memcpy(jpeg_eof, &jpegHeader, sizeof(jpegHeader));
         obj->mMemory.cleanInvalidateCache(obj->mCurrentBufIndex);
 
         ////Use below data to issue framework callback
         resultBuffer = obj->mCamera3Buffers[obj->mCurrentBufIndex];
-        resultFrameNumber = obj->mMemory.getFrameNumber(obj->mCurrentBufIndex);
+        int32_t resultFrameNumber = obj->mMemory.getFrameNumber(obj->mCurrentBufIndex);
 
         result.stream = obj->mCamera3Stream;
         result.buffer = resultBuffer;
@@ -1128,8 +1130,12 @@ void QCamera3PicChannel::jpegEvtHandle(jpeg_job_status_t status,
         result.acquire_fence = -1;
         result.release_fence = -1;
 
-        CDBG("%s: Issue Callback", __func__);
-        obj->mChannelCB(NULL, &result, resultFrameNumber, obj->mUserData);
+        if (0 <= resultFrameNumber) {
+            CDBG("%s: Issue Callback", __func__);
+            obj->mChannelCB(NULL, &result, (uint32_t)resultFrameNumber, obj->mUserData);
+        } else {
+            ALOGE("%s: Bad frame number", __func__);
+        }
 
         // release internal data for jpeg job
         if (job != NULL) {
@@ -1155,7 +1161,7 @@ QCamera3PicChannel::QCamera3PicChannel(uint32_t cam_handle,
                         mCamera3Stream(stream),
                         mNumBufs(0),
                         mJpegSettings(NULL),
-                        mCurrentBufIndex(-1),
+                        mCurrentBufIndex(0U),
                         mYuvMemory(NULL),
                         mMetaFrame(NULL)
 {
@@ -1211,10 +1217,10 @@ int32_t QCamera3PicChannel::initialize()
 
     streamType = CAM_STREAM_TYPE_SNAPSHOT;
     streamFormat = CAM_FORMAT_YUV_420_NV21;
-    streamDim.width = mCamera3Stream->width;
-    streamDim.height = mCamera3Stream->height;
+    streamDim.width = (int32_t)mCamera3Stream->width;
+    streamDim.height = (int32_t)mCamera3Stream->height;
 
-    int num_buffers = 1;
+    uint8_t num_buffers = 1U;
     mNumBufs = CAM_MAX_NUM_BUFS_PER_STREAM;
     rc = QCamera3Channel::addStream(streamType, streamFormat, streamDim,
             num_buffers);
@@ -1255,10 +1261,10 @@ int32_t QCamera3PicChannel::request(buffer_handle_t *buffer,
             return DEAD_OBJECT;
         }
     }
-    rc = mMemory.markFrameNumber(index, frameNumber);
+    rc = mMemory.markFrameNumber((uint32_t)index, frameNumber);
 
     //Start the postprocessor for jpeg encoding. Pass mMemory as destination buffer
-    mCurrentBufIndex = index;
+    mCurrentBufIndex = (uint32_t)index;
 
     if(pInputBuffer) {
         m_postprocessor.start(&mMemory, index, pInputChannel);
@@ -1467,13 +1473,13 @@ void QCamera3PicChannel::getThumbnailSize(cam_dimension_t &dim)
  *
  * RETURN     : jpeg quality setting
  *==========================================================================*/
-int QCamera3PicChannel::getJpegQuality()
+uint32_t QCamera3PicChannel::getJpegQuality()
 {
     int quality = mJpegSettings->jpeg_quality;
     if (quality < 0) {
         quality = 85;  //set to default quality value
     }
-    return quality;
+    return (uint32_t)quality;
 }
 
 /*===========================================================================
@@ -1485,13 +1491,13 @@ int QCamera3PicChannel::getJpegQuality()
  *
  * RETURN     : jpeg quality setting
  *==========================================================================*/
-int QCamera3PicChannel::getJpegThumbnailQuality()
+uint32_t QCamera3PicChannel::getJpegThumbnailQuality()
 {
     int quality = mJpegSettings->jpeg_thumb_quality;
     if (quality < 0) {
         quality = 85;  //set to default quality value
     }
-    return quality;
+    return (uint32_t)quality;
 }
 
 /*===========================================================================
@@ -1503,12 +1509,12 @@ int QCamera3PicChannel::getJpegThumbnailQuality()
  *
  * RETURN     : rotation information
  *==========================================================================*/
-int QCamera3PicChannel::getJpegRotation() {
-    int rotation = mJpegSettings->jpeg_orientation;
+uint32_t QCamera3PicChannel::getJpegRotation() {
+    int32_t rotation = mJpegSettings->jpeg_orientation;
     if (rotation < 0) {
         rotation = 0;
     }
-    return rotation;
+    return (uint32_t)rotation;
 }
 
 void QCamera3PicChannel::queueMetadata(mm_camera_super_buf_t *metadata_buf,
@@ -1536,12 +1542,16 @@ void QCamera3PicChannel::queueMetadata(mm_camera_super_buf_t *metadata_buf,
  *==========================================================================*/
 int32_t getRational(rat_t *rat, int num, int denom)
 {
+    if ((0 > num) || (0 > denom)) {
+        ALOGE("%s: Negative values", __func__);
+        return BAD_VALUE;
+    }
     if (NULL == rat) {
         ALOGE("%s: NULL rat input", __func__);
         return BAD_VALUE;
     }
-    rat->num = num;
-    rat->denom = denom;
+    rat->num = (uint32_t)num;
+    rat->denom = (uint32_t)denom;
     return NO_ERROR;
 }
 
@@ -1564,12 +1574,12 @@ int parseGPSCoordinate(const char *coord_str, rat_t* coord)
         ALOGE("%s: error, invalid argument coord == NULL", __func__);
         return BAD_VALUE;
     }
-    float degF = atof(coord_str);
+    double degF = atof(coord_str);
     if (degF < 0) {
         degF = -degF;
     }
-    float minF = (degF - (int) degF) * 60;
-    float secF = (minF - (int) minF) * 60;
+    double minF = (degF - (int) degF) * 60;
+    double secF = (minF - (int) minF) * 60;
 
     getRational(&coord[0], (int)degF, 1);
     getRational(&coord[1], (int)minF, 1);
@@ -1585,15 +1595,12 @@ int parseGPSCoordinate(const char *coord_str, rat_t* coord)
  * PARAMETERS :
  *   @dateTime   : string to store exif date time
  *   @subsecTime : string to store exif subsec time
- *   @count      : length of the dateTime string
- *   @subsecCount: length of the subsecTime string
  *
  * RETURN     : int32_t type of status
  *              NO_ERROR  -- success
  *              none-zero failure code
  *==========================================================================*/
-int32_t getExifDateTime(char *dateTime, char *subsecTime,
-        uint32_t &count, uint32_t &subsecCount)
+int32_t getExifDateTime(String8 &dateTime, String8 &subsecTime)
 {
     //get time and date from system
     struct timeval tv;
@@ -1604,15 +1611,13 @@ int32_t getExifDateTime(char *dateTime, char *subsecTime,
     //Write datetime according to EXIF Spec
     //"YYYY:MM:DD HH:MM:SS" (20 chars including \0)
     if (timeinfo != NULL) {
-        snprintf(dateTime, 20, "%04d:%02d:%02d %02d:%02d:%02d",
-                 timeinfo->tm_year + 1900, timeinfo->tm_mon + 1,
-                 timeinfo->tm_mday, timeinfo->tm_hour,
-                 timeinfo->tm_min, timeinfo->tm_sec);
-        count = 20;
+        dateTime = String8::format("%04d:%02d:%02d %02d:%02d:%02d",
+                timeinfo->tm_year + 1900, timeinfo->tm_mon + 1,
+                timeinfo->tm_mday, timeinfo->tm_hour,
+                timeinfo->tm_min, timeinfo->tm_sec);
 
         //Write subsec according to EXIF Sepc
-        snprintf(subsecTime, 7, "%06ld", tv.tv_usec);
-        subsecCount = 7;
+        subsecTime = String8::format("%06ld", tv.tv_usec);
         return NO_ERROR;
     } else {
         ALOGE("%s: Could not get the local time", __func__);
@@ -1653,13 +1658,13 @@ int32_t getExifFocalLength(rat_t *focalLength, float value)
 int32_t getExifExpTimeInfo(rat_t *expoTimeInfo, int64_t value)
 {
 
-    int cal_exposureTime;
+    int64_t cal_exposureTime;
     if (value != 0)
         cal_exposureTime = value;
     else
         cal_exposureTime = 60;
 
-    return getRational(expoTimeInfo, 1, cal_exposureTime);
+    return getRational(expoTimeInfo, 1, (int)cal_exposureTime);
 }
 
 /*===========================================================================
@@ -1682,7 +1687,7 @@ int32_t getExifGpsProcessingMethod(char *gpsProcessingMethod,
         memcpy(gpsProcessingMethod, ExifAsciiPrefix, EXIF_ASCII_PREFIX_SIZE);
         count = EXIF_ASCII_PREFIX_SIZE;
         strncpy(gpsProcessingMethod + EXIF_ASCII_PREFIX_SIZE, value, strlen(value));
-        count += strlen(value);
+        count += (uint32_t)strlen(value);
         gpsProcessingMethod[count++] = '\0'; // increase 1 for the last NULL char
         return NO_ERROR;
     } else {
@@ -1778,15 +1783,15 @@ int32_t getExifAltitude(rat_t *altitude,
 {
     char str[30];
     snprintf(str, sizeof(str), "%f", value);
-    if(str != NULL) {
+    if (str != NULL) {
         double value = atof(str);
         *altRef = 0;
         if(value < 0){
             *altRef = 1;
             value = -value;
         }
-        return getRational(altitude, value*1000, 1000);
-    }else{
+        return getRational(altitude, (int)(value * 1000), 1000);
+    } else {
         return BAD_VALUE;
     }
 }
@@ -1810,7 +1815,7 @@ int32_t getExifGpsDateTimeStamp(char *gpsDateStamp,
                                            rat_t *gpsTimeStamp, int64_t value)
 {
     char str[30];
-    snprintf(str, sizeof(str), "%lld", value);
+    snprintf(str, sizeof(str), "%lld", (long long int)value);
     if(str != NULL) {
         time_t unixTime = (time_t)atol(str);
         struct tm *UTCTimestamp = gmtime(&unixTime);
@@ -1858,39 +1863,22 @@ QCamera3Exif *QCamera3PicChannel::getExifData()
     uint32_t count = 0;
 
     // add exif entries
-    char dateTime[20];
-    char subsecTime[7];
-    uint32_t subsecCount;
-    memset(dateTime, 0, sizeof(dateTime));
-    memset(subsecTime, 0, sizeof(subsecTime));
-    count = 20;
-    subsecCount = 7;
-    rc = getExifDateTime(dateTime, subsecTime, count, subsecCount);
+    String8 dateTime;
+    String8 subsecTime;
+    rc = getExifDateTime(dateTime, subsecTime);
     if(rc == NO_ERROR) {
-        exif->addEntry(EXIFTAGID_DATE_TIME,
-                       EXIF_ASCII,
-                       count,
-                       (void *)dateTime);
-        exif->addEntry(EXIFTAGID_EXIF_DATE_TIME_ORIGINAL,
-                       EXIF_ASCII,
-                       count,
-                       (void *)dateTime);
-        exif->addEntry(EXIFTAGID_EXIF_DATE_TIME_DIGITIZED,
-                       EXIF_ASCII,
-                       count,
-                       (void *)dateTime);
-        exif->addEntry(EXIFTAGID_SUBSEC_TIME,
-                       EXIF_ASCII,
-                       subsecCount,
-                       (void *)subsecTime);
-        exif->addEntry(EXIFTAGID_SUBSEC_TIME_ORIGINAL,
-                       EXIF_ASCII,
-                       subsecCount,
-                       (void *)subsecTime);
-        exif->addEntry(EXIFTAGID_SUBSEC_TIME_DIGITIZED,
-                       EXIF_ASCII,
-                       subsecCount,
-                       (void *)subsecTime);
+        exif->addEntry(EXIFTAGID_DATE_TIME, EXIF_ASCII,
+                (uint32_t)(dateTime.length() + 1), (void *)dateTime.string());
+        exif->addEntry(EXIFTAGID_EXIF_DATE_TIME_ORIGINAL, EXIF_ASCII,
+                (uint32_t)(dateTime.length() + 1), (void *)dateTime.string());
+        exif->addEntry(EXIFTAGID_EXIF_DATE_TIME_DIGITIZED, EXIF_ASCII,
+                (uint32_t)(dateTime.length() + 1), (void *)dateTime.string());
+        exif->addEntry(EXIFTAGID_SUBSEC_TIME, EXIF_ASCII,
+                (uint32_t)(subsecTime.length() + 1), (void *)subsecTime.string());
+        exif->addEntry(EXIFTAGID_SUBSEC_TIME_ORIGINAL, EXIF_ASCII,
+                (uint32_t)(subsecTime.length() + 1), (void *)subsecTime.string());
+        exif->addEntry(EXIFTAGID_SUBSEC_TIME_DIGITIZED, EXIF_ASCII,
+                (uint32_t)(subsecTime.length() + 1), (void *)subsecTime.string());
     } else {
         ALOGE("%s: getExifDateTime failed", __func__);
     }
@@ -1998,10 +1986,8 @@ QCamera3Exif *QCamera3PicChannel::getExifData()
         rat_t gpsTimeStamp[3];
         rc = getExifGpsDateTimeStamp(gpsDateStamp, 20, gpsTimeStamp, *(mJpegSettings->gps_timestamp));
         if(rc == NO_ERROR) {
-            exif->addEntry(EXIFTAGID_GPS_DATESTAMP,
-                           EXIF_ASCII,
-                           strlen(gpsDateStamp) + 1,
-                           (void *)gpsDateStamp);
+            exif->addEntry(EXIFTAGID_GPS_DATESTAMP, EXIF_ASCII,
+                    (uint32_t)(strlen(gpsDateStamp) + 1), (void *)gpsDateStamp);
 
             exif->addEntry(EXIFTAGID_GPS_TIMESTAMP,
                            EXIF_RATIONAL,
@@ -2026,19 +2012,15 @@ QCamera3Exif *QCamera3PicChannel::getExifData()
 
     char value[PROPERTY_VALUE_MAX];
     if (property_get("ro.product.manufacturer", value, "QCOM-AA") > 0) {
-        exif->addEntry(EXIFTAGID_MAKE,
-                       EXIF_ASCII,
-                       strlen(value) + 1,
-                       (void *)value);
+        exif->addEntry(EXIFTAGID_MAKE, EXIF_ASCII,
+                (uint32_t)(strlen(value) + 1), (void *)value);
     } else {
         ALOGE("%s: getExifMaker failed", __func__);
     }
 
     if (property_get("ro.product.model", value, "QCAM-AA") > 0) {
-        exif->addEntry(EXIFTAGID_MODEL,
-                       EXIF_ASCII,
-                       strlen(value) + 1,
-                       (void *)value);
+        exif->addEntry(EXIFTAGID_MODEL, EXIF_ASCII,
+                (uint32_t)(strlen(value) + 1), (void *)value);
     } else {
         ALOGE("%s: getExifModel failed", __func__);
     }
@@ -2046,7 +2028,7 @@ QCamera3Exif *QCamera3PicChannel::getExifData()
     return exif;
 }
 
-int QCamera3PicChannel::kMaxBuffers = 1;
+uint32_t QCamera3PicChannel::kMaxBuffers = 1U;
 
 /*===========================================================================
  * FUNCTION   : QCamera3ReprocessChannel
@@ -2243,7 +2225,7 @@ QCamera3Stream * QCamera3ReprocessChannel::getStreamBySourceHandle(uint32_t srcH
 {
     QCamera3Stream *pStream = NULL;
 
-    for (int i = 0; i < m_numStreams; i++) {
+    for (uint32_t i = 0; i < m_numStreams; i++) {
         if (mSrcStreamHandles[i] == srcHandle) {
             pStream = mStreams[i];
             break;
@@ -2330,15 +2312,14 @@ int32_t QCamera3ReprocessChannel::doReprocess(mm_camera_super_buf_t *frame,
  *   @buf_lenght : length of the input buffer
  *   @ret_val    : result of reprocess.
  *                 Example: Could be faceID in case of register face image.
+ *   @meta_frame : metadata frame.
  *
  * RETURN     : int32_t type of status
  *              NO_ERROR  -- success
  *              none-zero failure code
  *==========================================================================*/
-int32_t QCamera3ReprocessChannel::doReprocess(int buf_fd,
-                                              uint32_t buf_length,
-                                              int32_t &ret_val,
-                                              mm_camera_super_buf_t *meta_frame)
+int32_t QCamera3ReprocessChannel::doReprocess(int buf_fd, size_t buf_length,
+        int32_t &ret_val, mm_camera_super_buf_t *meta_frame)
 {
     int32_t rc = 0;
     if (m_numStreams < 1) {
@@ -2350,8 +2331,8 @@ int32_t QCamera3ReprocessChannel::doReprocess(int buf_fd,
         return -1;
     }
 
-    uint32_t buf_idx = 0;
-    for (int i = 0; i < m_numStreams; i++) {
+    uint8_t buf_idx = 0;
+    for (uint32_t i = 0; i < m_numStreams; i++) {
         rc = mStreams[i]->mapBuf(CAM_MAPPING_BUF_TYPE_OFFLINE_INPUT_BUF,
                                  buf_idx, -1,
                                  buf_fd, buf_length);
@@ -2404,7 +2385,6 @@ int32_t QCamera3ReprocessChannel::addReprocStreamsFromSource(cam_pp_feature_conf
     cam_stream_type_t streamType;
     cam_format_t streamFormat;
     cam_frame_len_offset_t frameOffset;
-    int num_buffers = 2;
 
     streamType = CAM_STREAM_TYPE_OFFLINE_PROC;
     pSrcStream->getFormat(streamFormat);
@@ -2439,7 +2419,7 @@ int32_t QCamera3ReprocessChannel::addReprocStreamsFromSource(cam_pp_feature_conf
     }
 
     rc = pStream->init(streamType, streamFormat, streamDim, &reprocess_config,
-                       num_buffers,QCamera3Channel::streamCbRoutine, this);
+            2, QCamera3Channel::streamCbRoutine, this);
 
 
     if (rc == 0) {

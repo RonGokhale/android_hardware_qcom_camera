@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundataion. All rights reserved.
+/* Copyright (c) 2013-2014, The Linux Foundataion. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -53,7 +53,7 @@ class QCamera3Channel;
         int32_t sensor_sensitivity;
         int64_t sensor_exposure_time;
         float lens_focal_length;
-        int32_t max_jpeg_size;
+        size_t max_jpeg_size;
         int exposure_compensation;
         cam_rational_type_t exposure_comp_step;
         int64_t* gps_timestamp;

@@ -132,7 +132,7 @@ private:
 
     int8_t                     m_bThumbnailNeeded;
     QCamera3Memory             *mJpegMem;
-    int                        mJpegMemIndex;
+    uint32_t                   mJpegMemIndex;
     QCamera3ReprocessChannel *  m_pReprocChannel;
 
     QCameraQueue m_inputPPQ;            // input queue for postproc

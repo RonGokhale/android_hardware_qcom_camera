@@ -281,7 +281,7 @@ int QCamera2Factory::cameraDeviceOpen(int camera_id,
             delete hw;
         }
     } else if (mHalDescriptors[camera_id].device_version == CAMERA_DEVICE_API_VERSION_1_0) {
-        QCamera2HardwareInterface *hw = new QCamera2HardwareInterface(camera_id);
+        QCamera2HardwareInterface *hw = new QCamera2HardwareInterface((uint32_t)camera_id);
         if (!hw) {
             ALOGE("Allocation of hardware interface failed");
             return NO_MEMORY;
