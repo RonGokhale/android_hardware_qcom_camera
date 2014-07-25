@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundataion. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundataion. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -87,15 +87,15 @@ public:
 
     QCamera3Stream *getStreamByHandle(uint32_t streamHandle);
     uint32_t getMyHandle() const {return m_handle;};
-    uint8_t getNumOfStreams() const {return m_numStreams;};
-    QCamera3Stream *getStreamByIndex(uint8_t index);
+    uint32_t getNumOfStreams() const {return m_numStreams;};
+    QCamera3Stream *getStreamByIndex(uint32_t index);
 
     static void streamCbRoutine(mm_camera_super_buf_t *super_frame,
                 QCamera3Stream *stream, void *userdata);
     void *mUserData;
     cam_padding_info_t *mPaddingInfo;
     QCamera3Stream *mStreams[MAX_STREAM_NUM_IN_BUNDLE];
-    uint8_t m_numStreams;
+    uint32_t m_numStreams;
 protected:
 
    virtual int32_t init(mm_camera_channel_attr_t *attr,
@@ -153,12 +153,12 @@ public:
     virtual int32_t registerBuffer(buffer_handle_t *buffer);
 
 public:
-    static int kMaxBuffers;
+    static uint32_t kMaxBuffers;
 private:
     int32_t initialize(struct private_handle_t *priv_handle);
 
     camera3_stream_t *mCamera3Stream;
-    uint32_t mNumBufs;
+    uint8_t mNumBufs;
     Vector<buffer_handle_t *> mCamera3Buffers;
 
     QCamera3GrallocMemory mMemory;
@@ -225,7 +225,7 @@ public:
 private:
     QCamera3HeapMemory *mMemory;
     uint32_t mWidth, mHeight;
-    uint32_t mMaxBuffers;
+    uint8_t mMaxBuffers;
 };
 
 
@@ -255,9 +255,9 @@ public:
     bool isWNREnabled() {return m_bWNROn;};
     bool needOnlineRotation();
     void getThumbnailSize(cam_dimension_t &dim);
-    int getJpegQuality();
-    int getJpegThumbnailQuality();
-    int getJpegRotation();
+    uint32_t getJpegQuality();
+    uint32_t getJpegThumbnailQuality();
+    uint32_t getJpegRotation();
     bool isRawSnapshot();
     QCamera3Exif *getExifData();
     static void jpegEvtHandle(jpeg_job_status_t status,
@@ -274,15 +274,15 @@ public:
     virtual int32_t registerBuffer(buffer_handle_t *buffer);
 
 public:
-    static int kMaxBuffers;
+    static uint32_t kMaxBuffers;
     QCamera3PostProcessor m_postprocessor; // post processor
     cam_dimension_t m_max_pic_dim;
 
 private:
     camera3_stream_t *mCamera3Stream;
-    uint32_t mNumBufs;
+    uint8_t mNumBufs;
     jpeg_settings_t* mJpegSettings;
-    int32_t mCurrentBufIndex;
+    uint32_t mCurrentBufIndex;
     bool m_bWNROn;
     Vector<buffer_handle_t *> mCamera3Buffers;
 
@@ -307,7 +307,7 @@ public:
     int32_t doReprocess(mm_camera_super_buf_t *frame,
                         mm_camera_super_buf_t *meta_frame);
     // offline reprocess
-    int32_t doReprocess(int buf_fd, uint32_t buf_length, int32_t &ret_val,
+    int32_t doReprocess(int buf_fd, size_t buf_length, int32_t &ret_val,
                         mm_camera_super_buf_t *meta_buf);
     virtual QCamera3Memory *getStreamBufs(uint32_t len);
     virtual void putStreamBufs();
