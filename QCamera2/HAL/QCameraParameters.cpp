@@ -73,6 +73,7 @@ const char QCameraParameters::KEY_QC_SUPPORTED_MEM_COLOR_ENHANCE_MODES[] = "mce-
 const char QCameraParameters::KEY_QC_DIS[] = "dis";
 const char QCameraParameters::KEY_QC_SUPPORTED_DIS_MODES[] = "dis-values";
 const char QCameraParameters::KEY_QC_VIDEO_HIGH_FRAME_RATE[] = "video-hfr";
+const char QCameraParameters::KEY_QC_VIDEO_HIGH_SPEED_RECORDING[] = "video-hsr";
 const char QCameraParameters::KEY_QC_SUPPORTED_VIDEO_HIGH_FRAME_RATE_MODES[] = "video-hfr-values";
 const char QCameraParameters::KEY_QC_REDEYE_REDUCTION[] = "redeye-reduction";
 const char QCameraParameters::KEY_QC_SUPPORTED_REDEYE_REDUCTION[] = "redeye-reduction-values";
@@ -294,8 +295,6 @@ const char QCameraParameters::VIDEO_HFR_2X[] = "60";
 const char QCameraParameters::VIDEO_HFR_3X[] = "90";
 const char QCameraParameters::VIDEO_HFR_4X[] = "120";
 const char QCameraParameters::VIDEO_HFR_5X[] = "150";
-const char QCameraParameters::VIDEO_HFR_PREFIX_HFR[] = "hfr";
-const char QCameraParameters::VIDEO_HFR_PREFIX_HSR[] = "hsr";
 
 // Values for HDR Bracketing settings.
 const char QCameraParameters::AE_BRACKET_OFF[] = "Off";
@@ -925,10 +924,6 @@ String8 QCameraParameters::createHfrValuesString(
                     if (count > 0) {
                         str.append(",");
                     }
-                     str.append(VIDEO_HFR_PREFIX_HFR);
-                     str.append(map[j].desc);
-                     str.append(",");
-                     str.append(VIDEO_HFR_PREFIX_HSR);
                      str.append(map[j].desc);
                      count++;
                      break; //loop j
@@ -960,16 +955,13 @@ String8 QCameraParameters::createHfrSizesString(
     String8 str;
     char buffer[32];
 
-    // Insert twice so count to match HSR/HFR values
     if (len > 0) {
-        snprintf(buffer, sizeof(buffer), "%dx%d,%dx%d",
-                 values[0].dim.width, values[0].dim.height,
+        snprintf(buffer, sizeof(buffer), "%dx%d",
                  values[0].dim.width, values[0].dim.height);
         str.append(buffer);
     }
     for (int i = 1; i < len; i++) {
-        snprintf(buffer, sizeof(buffer), ",%dx%d,%dx%d",
-                 values[i].dim.width, values[i].dim.height,
+        snprintf(buffer, sizeof(buffer), ",%dx%d",
                  values[i].dim.width, values[i].dim.height);
         str.append(buffer);
     }
@@ -1273,11 +1265,27 @@ int32_t QCameraParameters::setLiveSnapshotSize(const QCameraParameters& params)
     // check if HFR is enabled
     const char *hfrStr = params.get(KEY_QC_VIDEO_HIGH_FRAME_RATE);
     cam_hfr_mode_t hfrMode = CAM_HFR_MODE_OFF;
+    const char *hsrStr = params.get(KEY_QC_VIDEO_HIGH_SPEED_RECORDING);
 
-    if (hfrStr != NULL && strcmp(hfrStr, VIDEO_HFR_OFF) && 3 < strlen(hfrStr)) {
+    if (hsrStr != NULL && strcmp(hsrStr, "off")) {
         int32_t value = lookupAttr(HFR_MODES_MAP,
                                    sizeof(HFR_MODES_MAP)/sizeof(QCameraMap),
-                                   &hfrStr[3]);
+                                   hsrStr);
+        for (int i = 0; i < m_pCapability->hfr_tbl_cnt; i++) {
+            if (m_pCapability->hfr_tbl[i].mode == value) {
+                livesnapshot_sizes_tbl_cnt =
+                    m_pCapability->hfr_tbl[i].livesnapshot_sizes_tbl_cnt;
+                livesnapshot_sizes_tbl =
+                    &m_pCapability->hfr_tbl[i].livesnapshot_sizes_tbl[0];
+                hfrMode = m_pCapability->hfr_tbl[i].mode;
+                break;
+            }
+        }
+    }
+    else if (hfrStr != NULL && strcmp(hfrStr, "off")) {
+        int32_t value = lookupAttr(HFR_MODES_MAP,
+                                   sizeof(HFR_MODES_MAP)/sizeof(QCameraMap),
+                                   hfrStr);
         if (value != NAME_NOT_FOUND) {
             // if HFR is enabled, change live snapshot size
             if (value > CAM_HFR_MODE_OFF) {
@@ -1776,17 +1784,32 @@ bool QCameraParameters::UpdateHFRFrameRate(const QCameraParameters& params)
                 __func__, parm_minfps, parm_maxfps);
 
     const char *hfrStr = params.get(KEY_QC_VIDEO_HIGH_FRAME_RATE);
+    const char *hsrStr = params.get(KEY_QC_VIDEO_HIGH_SPEED_RECORDING);
+
     const char *prev_hfrStr = CameraParameters::get(KEY_QC_VIDEO_HIGH_FRAME_RATE);
+    const char *prev_hsrStr = CameraParameters::get(KEY_QC_VIDEO_HIGH_SPEED_RECORDING);
 
     if(hfrStr != NULL && strcmp(hfrStr, prev_hfrStr)) {
         updateParamEntry(KEY_QC_VIDEO_HIGH_FRAME_RATE, hfrStr);
     }
 
+    if(hsrStr != NULL && strcmp(hsrStr, prev_hsrStr)) {
+        updateParamEntry(KEY_QC_VIDEO_HIGH_SPEED_RECORDING, hsrStr);
+
+    }
+
     // check if HFR is enabled
-    if(hfrStr != NULL && strcmp(hfrStr, VIDEO_HFR_OFF)){
+    if(hfrStr != NULL && strcmp(hfrStr, "off")){
         hfrMode = lookupAttr(HFR_MODES_MAP,
                                sizeof(HFR_MODES_MAP)/sizeof(QCameraMap),
-                               &hfrStr[3]);
+                               hfrStr);
+        if(NAME_NOT_FOUND != hfrMode) newHfrMode = hfrMode;
+    }
+    // check if HSR is enabled
+    else if(hsrStr != NULL && strcmp(hsrStr, "off")){
+        hfrMode = lookupAttr(HFR_MODES_MAP,
+                               sizeof(HFR_MODES_MAP)/sizeof(QCameraMap),
+                               hsrStr);
         if(NAME_NOT_FOUND != hfrMode) newHfrMode = hfrMode;
     }
     ALOGE("%s: prevHfrMode - %d, currentHfrMode = %d ",
@@ -4203,7 +4226,8 @@ int32_t QCameraParameters::initDefaultParameters()
             HFR_MODES_MAP,
             sizeof(HFR_MODES_MAP) / sizeof(QCameraMap));
     set(KEY_QC_SUPPORTED_VIDEO_HIGH_FRAME_RATE_MODES, hfrValues.string());
-    set(KEY_QC_VIDEO_HIGH_FRAME_RATE, VIDEO_HFR_OFF);
+    set(KEY_QC_VIDEO_HIGH_SPEED_RECORDING, "off");
+    set(KEY_QC_VIDEO_HIGH_FRAME_RATE, "off");
     String8 hfrSizeValues = createHfrSizesString(
             m_pCapability->hfr_tbl,
             m_pCapability->hfr_tbl_cnt);
