@@ -523,6 +523,7 @@ typedef struct {
     /* Shared between HAL1 and HAL3 */
     INCLUDE(CAM_INTF_PARM_ANTIBANDING,                  uint32_t,                    1);
     INCLUDE(CAM_INTF_PARM_EXPOSURE_COMPENSATION,        int32_t,                     1);
+    INCLUDE(CAM_INTF_PARM_EV_STEP,                      cam_rational_type_t,         1);
     INCLUDE(CAM_INTF_PARM_AEC_LOCK,                     uint32_t,                    1);
     INCLUDE(CAM_INTF_PARM_FPS_RANGE,                    cam_fps_range_t,             1);
     INCLUDE(CAM_INTF_PARM_AWB_LOCK,                     uint32_t,                    1);
@@ -598,6 +599,14 @@ typedef struct {
     INCLUDE(CAM_INTF_PARM_STATS_AF_PAAF,                uint32_t,                    1);
     INCLUDE(CAM_INTF_PARM_FOCUS_BRACKETING,             cam_af_bracketing_t,         1);
     INCLUDE(CAM_INTF_PARM_FLASH_BRACKETING,             cam_flash_bracketing_t,      1);
+    INCLUDE(CAM_INTF_META_JPEG_GPS_COORDINATES,         double,                      3);
+    INCLUDE(CAM_INTF_META_JPEG_GPS_PROC_METHODS,        uint32_t,                    GPS_PROCESSING_METHOD_SIZE_IN_WORD);
+    INCLUDE(CAM_INTF_META_JPEG_GPS_TIMESTAMP,           int64_t,                     1);
+    INCLUDE(CAM_INTF_META_JPEG_ORIENTATION,             int32_t,                     1);
+    INCLUDE(CAM_INTF_META_JPEG_QUALITY,                 uint32_t,                    1);
+    INCLUDE(CAM_INTF_META_JPEG_THUMB_QUALITY,           uint32_t,                    1);
+    INCLUDE(CAM_INTF_META_JPEG_THUMB_SIZE,              cam_dimension_t,             1);
+    INCLUDE(CAM_INTF_META_PROFILE_TONE_CURVE,           cam_profile_tone_curve,      1);
 } parm_data_t;
 
 typedef parm_data_t metadata_data_t;
