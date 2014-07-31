@@ -1697,7 +1697,7 @@ int QCamera3HardwareInterface::processCaptureRequest(
                 mPictureChannel->queueMetadata(reproc_meta.meta_buf,mMetadataChannel,false);
             }
             // Notify RAW when we receive a BLOB request and RAW setprop is set
-            if (mRawDump)
+            if (mRawDump && mRawChannel)
                 mRawChannel->request(NULL, frameNumber);
         } else {
             CDBG("%s: %d, request with buffer %p, frame_number %d", __func__,
