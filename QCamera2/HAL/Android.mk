@@ -17,7 +17,7 @@ LOCAL_SRC_FILES := \
         QCameraThermalAdapter.cpp \
         wrapper/QualcommCamera.cpp
 
-LOCAL_CFLAGS = -Wall -Werror
+LOCAL_CFLAGS = -Wall
 #Debug logs are enabled
 #LOCAL_CFLAGS += -DDISABLE_DEBUG_LOG
 
@@ -33,6 +33,7 @@ LOCAL_C_INCLUDES := \
         frameworks/native/include/media/openmax \
         hardware/qcom/display/libgralloc \
         hardware/qcom/media/libstagefrighthw \
+        system/media/camera/include \
         $(LOCAL_PATH)/../../mm-image-codec/qexif \
         $(LOCAL_PATH)/../../mm-image-codec/qomx_core \
         $(LOCAL_PATH)/../util \
