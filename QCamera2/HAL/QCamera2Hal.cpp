@@ -50,6 +50,7 @@ camera_module_t HAL_MODULE_INFO_SYM = {
 #endif
 #ifdef USE_VENDOR_CAMERA_EXT
     get_vendor_tag_ops: NULL,
-    reserved:  {0}
+    open_legacy: NULL,
+    reserved: {0}
 #endif
 };
