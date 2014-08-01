@@ -3134,7 +3134,7 @@ int32_t QCameraParameters::setNumOfSnapshot()
                 if ((str_val != NULL) && (strlen(str_val) > 0)) {
                     char prop[PROPERTY_VALUE_MAX];
                     memset(prop, 0, sizeof(prop));
-                    strcpy(prop, str_val);
+                    strncpy(prop, str_val, PROPERTY_VALUE_MAX);
                     char *saveptr = NULL;
                     char *token = strtok_r(prop, ",", &saveptr);
                     while (token != NULL) {
@@ -7207,7 +7207,7 @@ uint8_t QCameraParameters::getBurstCountForAdvancedCapture()
       if ((str_val != NULL) && (strlen(str_val) > 0)) {
           char prop[PROPERTY_VALUE_MAX];
           memset(prop, 0, sizeof(prop));
-          strcpy(prop, str_val);
+          strncpy(prop, str_val, PROPERTY_VALUE_MAX);
           char *saveptr = NULL;
           char *token = strtok_r(prop, ",", &saveptr);
           while (token != NULL) {
@@ -8331,8 +8331,10 @@ int32_t QCameraParameters::AddGetParmEntryToBatch(parm_buffer_t *p_table,
     if (position == current){
         //DO NOTHING
     } else if (position < current){
-        SET_NEXT_PARAM_ID(position, p_table, current);
-        SET_FIRST_PARAM_ID(p_table, position);
+        if(position < CAM_INTF_PARM_MAX) {
+            SET_NEXT_PARAM_ID(position, p_table, current);
+            SET_FIRST_PARAM_ID(p_table, position);
+        }
     } else {
         /* Search for the position in the linked list where we need to slot in*/
         while (position > GET_NEXT_PARAM_ID(current, p_table))
@@ -8340,9 +8342,11 @@ int32_t QCameraParameters::AddGetParmEntryToBatch(parm_buffer_t *p_table,
 
         /*If node already exists no need to alter linking*/
         if (position != GET_NEXT_PARAM_ID(current, p_table)) {
-            next=GET_NEXT_PARAM_ID(current, p_table);
-            SET_NEXT_PARAM_ID(current, p_table, position);
-            SET_NEXT_PARAM_ID(position, p_table, next);
+            if(position < CAM_INTF_PARM_MAX) {
+                next=GET_NEXT_PARAM_ID(current, p_table);
+                SET_NEXT_PARAM_ID(current, p_table, position);
+                SET_NEXT_PARAM_ID(position, p_table, next);
+            }
         }
     }
 
@@ -8531,6 +8535,9 @@ int32_t QCameraReprocScaleParam::setScaleSizeTbl(uint8_t scale_cnt, cam_dimensio
     if(mNeedScaleCnt + org_cnt > MAX_SIZES_CNT){
         ALOGE("%s: picture size list exceed the max count.", __func__);
         return BAD_VALUE;
+    }
+    if(mNeedScaleCnt > MAX_SCALE_SIZES_CNT) {
+        mNeedScaleCnt = MAX_SCALE_SIZES_CNT;
     }
 
     //get the total picture size table
