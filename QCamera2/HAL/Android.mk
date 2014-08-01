@@ -21,9 +21,9 @@ LOCAL_CFLAGS = -Wall -Werror
 #Debug logs are enabled
 #LOCAL_CFLAGS += -DDISABLE_DEBUG_LOG
 
-ifeq ($(TARGET_USE_VENDOR_CAMERA_EXT),true)
-LOCAL_CFLAGS += -DUSE_VENDOR_CAMERA_EXT
-endif
+#ifeq ($(TARGET_USE_VENDOR_CAMERA_EXT),true)
+#LOCAL_CFLAGS += -DUSE_VENDOR_CAMERA_EXT
+#endif
 ifneq ($(call is-platform-sdk-version-at-least,18),true)
 LOCAL_CFLAGS += -DUSE_JB_MR1
 endif
@@ -38,11 +38,11 @@ LOCAL_C_INCLUDES := \
         $(LOCAL_PATH)/../util \
         $(LOCAL_PATH)/wrapper
 
-ifeq ($(TARGET_USE_VENDOR_CAMERA_EXT),true)
-LOCAL_C_INCLUDES += hardware/qcom/display/msm8974/libgralloc
-else
+#ifeq ($(TARGET_USE_VENDOR_CAMERA_EXT),true)
+#LOCAL_C_INCLUDES += hardware/qcom/display/msm8974/libgralloc
+#else
 LOCAL_C_INCLUDES += hardware/qcom/display/libgralloc
-endif
+#endif
 LOCAL_C_INCLUDES += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include
 LOCAL_C_INCLUDES += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include/media
 LOCAL_ADDITIONAL_DEPENDENCIES := $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr
