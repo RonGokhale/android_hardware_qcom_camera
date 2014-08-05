@@ -641,6 +641,8 @@ public:
     int32_t setAecLock(const char *aecStr);
     bool is4k2kVideoResolution();
     int32_t setIntEvent(cam_int_evt_params_t params);
+    void setOfflineRAW();
+    bool getofflineRAW(){return mOfflineRAW;};
 
 private:
     int32_t setPreviewSize(const QCameraParameters& );
@@ -886,6 +888,7 @@ private:
     int32_t mFlashDaemonValue;
     int32_t mHfrMode;
     bool m_bHDRModeSensor;
+    bool mOfflineRAW;
 };
 
 }; // namespace qcamera
