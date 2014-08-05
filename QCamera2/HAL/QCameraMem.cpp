@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundataion. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundataion. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -32,12 +32,20 @@
 #include <string.h>
 #include <fcntl.h>
 #include <sys/mman.h>
+#include <sys/ioctl.h>
 #include <utils/Errors.h>
-#include <gralloc_priv.h>
+
+#ifdef _ANDROID_
 #include <QComOMXMetadata.h>
+#else
+#include <cutils/native_handle.h>
+#endif
+
 #include "QCamera2HWI.h"
 #include "QCameraMem.h"
-
+#ifdef _ANDROID_
+#include <gralloc_priv.h>
+#endif
 extern "C" {
 #include <mm_camera_interface.h>
 }
@@ -1225,7 +1233,7 @@ int QCameraVideoMemory::getMatchBufIndex(const void *opaque,
     }
     return index;
 }
-
+#ifdef _ANDROID_
 /*===========================================================================
  * FUNCTION   : QCameraGrallocMemory
  *
@@ -1692,5 +1700,5 @@ void *QCameraGrallocMemory::getPtr(int index) const
     }
     return mCameraMemory[index]->data;
 }
-
+#endif //_ANDROID_
 }; //namespace qcamera

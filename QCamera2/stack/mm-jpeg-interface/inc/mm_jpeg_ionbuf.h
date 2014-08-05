@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2013,2014, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -32,6 +32,8 @@
 
 
 #include <stdio.h>
+#include <inttypes.h>
+#include <stddef.h>
 #include <linux/msm_ion.h>
 #include <sys/mman.h>
 #include <unistd.h>

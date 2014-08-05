@@ -33,7 +33,9 @@
 #include <cam_semaphore.h>
 
 #include "mm_camera_interface.h"
+#ifdef _ANDROID_
 #include <hardware/camera.h>
+#endif
 /**********************************************************************************
 * Data structure declare
 ***********************************************************************************/
@@ -407,7 +409,11 @@ typedef struct mm_camera_obj {
 
     pthread_mutex_t msg_lock; /* lock for sending msg through socket */
 } mm_camera_obj_t;
-
+typedef struct camera_info {
+    int facing;
+	int orientation;
+	uint32_t device_version;
+} camera_info_t;
 typedef struct {
     int8_t num_cam;
     char video_dev_name[MM_CAMERA_MAX_NUM_SENSORS][MM_CAMERA_DEV_NAME_LEN];

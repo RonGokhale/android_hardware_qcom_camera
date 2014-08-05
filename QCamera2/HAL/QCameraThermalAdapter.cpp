@@ -1,4 +1,4 @@
-/* Copyright (c) 2013, The Linux Foundataion. All rights reserved.
+/* Copyright (c) 2013,2014, The Linux Foundataion. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -63,7 +63,7 @@ int QCameraThermalAdapter::init(QCameraThermalCallback *thermalCb)
     int rc = NO_ERROR;
 
     ALOGV("%s E", __func__);
-    mHandle = dlopen("/vendor/lib/libthermalclient.so", RTLD_NOW);
+    mHandle = dlopen("/vendor/lib/libthermalclient.so", RTLD_LAZY);
     if (!mHandle) {
         error = dlerror();
         ALOGE("%s: dlopen failed with error %s",

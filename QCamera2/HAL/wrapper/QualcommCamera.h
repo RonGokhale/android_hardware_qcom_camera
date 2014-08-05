@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2014, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -38,12 +38,12 @@ extern "C" {
   int get_number_of_cameras();
   int get_camera_info(int camera_id, struct camera_info *info);
 
-  int camera_device_open(const struct hw_module_t* module, const char* id,
+  int camera_device_open(const struct hw_module_t* module, int id,
           struct hw_device_t** device);
 
   hw_device_t * open_camera_device(int cameraId);
 
-  int close_camera_device( hw_device_t *);
+  int close_camera_device( struct camera_device *);
 
 namespace android {
   int set_preview_window(struct camera_device *,

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -30,41 +30,46 @@
 #ifndef __MM_JPEG_DBG_H__
 #define __MM_JPEG_DBG_H__
 
-#define LOG_DEBUG
+#if defined(USE_DLOG)
+  #include <dlog/dlog.h>
+#elif defined(_ANDROID_)
+  #include <utils/Log.h>
+#else
+    #include <stdio.h>
+#endif
+#undef CDBG
+#undef LOGE
+#undef LOGD
+//#define LOG_DEBUG
 
 #ifndef LOG_DEBUG
-  #ifdef _ANDROID_
+  #if defined(_ANDROID_) || defined (USE_DLOG)
     #undef LOG_NIDEBUG
     #undef LOG_TAG
     #define LOG_NIDEBUG 0
-    #define LOG_TAG "mm-jpeg-intf"
-    #include <utils/Log.h>
+    #define LOG_TAG "mm-camera-jpeg-intf"
   #else
-    #include <stdio.h>
     #define ALOGE CDBG
   #endif
-  #undef CDBG
   #define CDBG(fmt, args...) do{}while(0)
 #else
-  #ifdef _ANDROID_
+  #if defined(_ANDROID_) || defined (USE_DLOG)
     #undef LOG_NIDEBUG
     #undef LOG_TAG
     #define LOG_NIDEBUG 0
-    #define LOG_TAG "mm-jpeg-intf"
-    #include <utils/Log.h>
-    #define CDBG(fmt, args...) ALOGE(fmt, ##args)
+    #define LOG_TAG "mm-camera-jpeg-intf"    
+    #define CDBG(fmt, args...) ALOGV(fmt, ##args)
   #else
-    #include <stdio.h>
-    #define CDBG(fmt, args...) fprintf(stderr, fmt, ##args)
-    #define ALOGE(fmt, args...) fprintf(stderr, fmt, ##args)
+    #define CDBG(fmt, args...) fprintf(stderr, ""fmt"\n", ##args)
+    #define ALOGE(fmt, args...) fprintf(stderr, ""fmt"\n", ##args)
   #endif
 #endif
 
-#ifdef _ANDROID_
-  #define CDBG_HIGH(fmt, args...)  ALOGE(fmt, ##args)
+#if defined(_ANDROID_) || defined (USE_DLOG)
+  #define CDBG_HIGH(fmt, args...)  ALOGI(fmt, ##args)
   #define CDBG_ERROR(fmt, args...)  ALOGE(fmt, ##args)
 #else
-  #define CDBG_HIGH(fmt, args...) fprintf(stderr, fmt, ##args)
-  #define CDBG_ERROR(fmt, args...) fprintf(stderr, fmt, ##args)
+  #define CDBG_HIGH(fmt, args...) fprintf(stderr, ""fmt"\n", ##args)
+  #define CDBG_ERROR(fmt, args...) fprintf(stderr, ""fmt"\n", ##args)
 #endif
 #endif /* __MM_JPEG_DBG_H__ */

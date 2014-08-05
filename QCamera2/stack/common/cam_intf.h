@@ -30,9 +30,9 @@
 #ifndef __QCAMERA_INTF_H__
 #define __QCAMERA_INTF_H__
 
+#include "cam_types.h"
 #include <media/msmb_isp.h>
 #include <semaphore.h>
-#include "cam_types.h"
 
 #define ONE_MB_OF_PARAMS (1024 * 1024)
 #define CAM_PRIV_IOCTL_BASE (V4L2_CID_PRIVATE_BASE + 14)

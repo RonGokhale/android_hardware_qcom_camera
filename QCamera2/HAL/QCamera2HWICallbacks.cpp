@@ -29,6 +29,7 @@
 
 #define LOG_TAG "QCamera2HWI"
 
+#include <errno.h>
 #include <time.h>
 #include <fcntl.h>
 #include <utils/Errors.h>
@@ -278,7 +279,7 @@ void QCamera2HardwareInterface::capture_channel_cb_routine(mm_camera_super_buf_t
         return;
     }
     *frame = *recvd_frame;
-
+#ifdef _ANDROID_
     property_get("persist.camera.dumpmetadata", value, "0");
     int32_t enabled = atoi(value);
     if (enabled) {
@@ -298,6 +299,7 @@ void QCamera2HardwareInterface::capture_channel_cb_routine(mm_camera_super_buf_t
             }
         }
     }
+#endif
 
     // Wait on Postproc initialization if needed
     pme->waitDefferedWork(pme->mReprocJob);
@@ -412,6 +414,7 @@ void QCamera2HardwareInterface::preview_stream_cb_routine(mm_camera_super_buf_t 
                                                           void *userdata)
 {
     ALOGD("[KPI Perf] %s : BEGIN", __func__);
+#ifdef _ANDROID_
     int err = NO_ERROR;
     QCamera2HardwareInterface *pme = (QCamera2HardwareInterface *)userdata;
     QCameraGrallocMemory *memory = (QCameraGrallocMemory *)super_frame->bufs[0]->mem_info;
@@ -523,6 +526,9 @@ void QCamera2HardwareInterface::preview_stream_cb_routine(mm_camera_super_buf_t 
     }
 
     free(super_frame);
+
+#endif //_ANDROID_
+
     ALOGD("[KPI Perf] %s : END", __func__);
     return;
 }
@@ -630,7 +636,12 @@ void QCamera2HardwareInterface::postview_stream_cb_routine(mm_camera_super_buf_t
 {
     int err = NO_ERROR;
     QCamera2HardwareInterface *pme = (QCamera2HardwareInterface *)userdata;
+#ifdef _ANDROID_
     QCameraGrallocMemory *memory = (QCameraGrallocMemory *)super_frame->bufs[0]->mem_info;
+#else
+    //TODO:: Replace gralloc memory with ION Memory for postview stream.
+    QCameraStreamMemory *memory = (QCameraStreamMemory *)super_frame->bufs[0]->mem_info;
+#endif
 
     if (pme == NULL) {
         ALOGE("%s: Invalid hardware object", __func__);
@@ -782,6 +793,7 @@ void QCamera2HardwareInterface::snapshot_stream_cb_routine(mm_camera_super_buf_t
         return;
     }
 
+#ifdef _ANDROID_
     property_get("persist.camera.dumpmetadata", value, "0");
     int32_t enabled = atoi(value);
     if (enabled) {
@@ -807,6 +819,7 @@ void QCamera2HardwareInterface::snapshot_stream_cb_routine(mm_camera_super_buf_t
             }
         }
     }
+#endif
 
     pme->m_postprocessor.processData(super_frame);
 
@@ -1219,8 +1232,12 @@ void QCamera2HardwareInterface::dumpJpegToFile(const void *data,
                                                int index)
 {
     char value[PROPERTY_VALUE_MAX];
-    property_get("persist.camera.dumpimg", value, "0");
+#ifdef _ANDROID_
+     property_get("persist.camera.dumpimg", value, "0");
     int32_t enabled = atoi(value);
+#else
+    int32_t enabled = 1 << 5;
+#endif
     int frm_num = 0;
     uint32_t skip_mode = 0;
 
@@ -1366,8 +1383,12 @@ void QCamera2HardwareInterface::dumpFrameToFile(QCameraStream *stream,
                                                 int dump_type)
 {
     char value[PROPERTY_VALUE_MAX];
+#ifdef _ANDROID_
     property_get("persist.camera.dumpimg", value, "0");
     int32_t enabled = atoi(value);
+#else
+    int32_t enabled = 1;
+#endif
     int frm_num = 0;
     uint32_t skip_mode = 0;
     int mDumpFrmCnt = stream->mDumpFrame;

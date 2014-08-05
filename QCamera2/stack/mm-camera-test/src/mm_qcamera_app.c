@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -83,8 +83,8 @@ void mm_camera_app_done()
 int mm_app_load_hal(mm_camera_app_t *my_cam_app)
 {
     memset(&my_cam_app->hal_lib, 0, sizeof(hal_interface_lib_t));
-    my_cam_app->hal_lib.ptr = dlopen("libmmcamera_interface.so", RTLD_NOW);
-    my_cam_app->hal_lib.ptr_jpeg = dlopen("libmmjpeg_interface.so", RTLD_NOW);
+    my_cam_app->hal_lib.ptr = dlopen("libmmcamera_interface.so", RTLD_LAZY);
+    my_cam_app->hal_lib.ptr_jpeg = dlopen("libmmjpeg_interface.so", RTLD_LAZY);
     if (!my_cam_app->hal_lib.ptr || !my_cam_app->hal_lib.ptr_jpeg) {
         CDBG_ERROR("%s Error opening HAL library %s\n", __func__, dlerror());
         return -MM_CAMERA_E_GENERAL;
@@ -1857,7 +1857,7 @@ int32_t mm_camera_load_tuninglibrary(mm_camera_tuning_lib_params_t *tuning_param
   void *(*tuning_open_lib)(void) = NULL;
 
   CDBG("%s  %d\n", __func__, __LINE__);
-  tuning_param->lib_handle = dlopen("libmmcamera_tuning.so", RTLD_NOW);
+  tuning_param->lib_handle = dlopen("libmmcamera_tuning.so", RTLD_LAZY);
   if (!tuning_param->lib_handle) {
     CDBG_ERROR("%s Failed opening libmmcamera_tuning.so\n", __func__);
     return -EINVAL;

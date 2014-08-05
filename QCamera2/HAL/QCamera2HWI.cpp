@@ -33,8 +33,10 @@
 #include <hardware/camera.h>
 #include <stdlib.h>
 #include <utils/Errors.h>
+#ifdef _ANDROID_
 #include <gralloc_priv.h>
 #include <gui/Surface.h>
+#endif
 
 #include "QCamera2HWI.h"
 #include "QCameraMem.h"
@@ -948,7 +950,9 @@ QCamera2HardwareInterface::QCamera2HardwareInterface(int cameraId)
       mNumSnapshots(0),
       m_stateMachine(this),
       m_postprocessor(this),
+#ifdef _ANDROID_
       m_thermalAdapter(QCameraThermalAdapter::getInstance()),
+#endif
       m_cbNotifier(this),
       m_bShutterSoundPlayed(false),
       m_bPreviewStarted(false),
@@ -989,12 +993,14 @@ QCamera2HardwareInterface::QCamera2HardwareInterface(int cameraId)
 
     memset(m_channels, 0, sizeof(m_channels));
 
+#ifdef _ANDROID_
 #ifdef HAS_MULTIMEDIA_HINTS
     if (hw_get_module(POWER_HARDWARE_MODULE_ID, (const hw_module_t **)&m_pPowerModule)) {
         ALOGE("%s: %s module not found", __func__, POWER_HARDWARE_MODULE_ID);
     }
 #endif
 
+#endif //_ANDROID_
     memset(mDeffOngoingJobs, 0, sizeof(mDeffOngoingJobs));
 
     mDefferedWorkThread.launch(defferedWorkRoutine, this);
@@ -1046,9 +1052,11 @@ int QCamera2HardwareInterface::openCamera(struct hw_device_t **hw_device)
     rc = openCamera();
     if (rc == NO_ERROR){
         *hw_device = &mCameraDevice.common;
+#ifdef _ANDROID_
         if (m_thermalAdapter.init(this) != 0) {
           ALOGE("Init thermal adapter failed");
         }
+#endif
     }
     else
         *hw_device = NULL;
@@ -1179,12 +1187,12 @@ int QCamera2HardwareInterface::openCamera()
     }
 
     mParameters.init(gCamCapability[mCameraId], mCameraHandle, this, this);
-
+#ifdef _ANDROID_
     rc = m_thermalAdapter.init(this);
     if (rc != 0) {
         ALOGE("Init thermal adapter failed");
     }
-
+#endif
     mCameraOpened = true;
 
     return NO_ERROR;
@@ -1227,8 +1235,9 @@ int QCamera2HardwareInterface::closeCamera()
     m_postprocessor.stop();
     m_postprocessor.deinit();
 
+#ifdef _ANDROID_
     m_thermalAdapter.deinit();
-
+#endif
     // delete all channels if not already deleted
     for (i = 0; i < QCAMERA_CH_TYPE_MAX; i++) {
         if (m_channels[i] != NULL) {
@@ -1416,6 +1425,7 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
         mParameters.getNumOfExtraHDROutBufsIfNeeded() +
         mParameters.getNumOfExtraBuffersForImageProc();
 
+#ifdef _ANDROID_
     if (!isNoDisplayMode()) {
         if(mPreviewWindow != NULL) {
             if (mPreviewWindow->get_min_undequeued_buffer_count(mPreviewWindow,&minUndequeCount)
@@ -1428,6 +1438,7 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
             minUndequeCount = BufferQueue::MIN_UNDEQUEUED_BUFFERS;
         }
     }
+#endif
 
     // Get buffer count for the particular stream type
     switch (stream_type) {
@@ -1569,6 +1580,7 @@ QCameraMemory *QCamera2HardwareInterface::allocateStreamBuf(cam_stream_type_t st
     switch (stream_type) {
     case CAM_STREAM_TYPE_PREVIEW:
         {
+#ifdef _ANDROID_
             if (isNoDisplayMode()) {
                 mem = new QCameraStreamMemory(mGetMemory,
                                               bCachedMem,
@@ -1586,10 +1598,15 @@ QCameraMemory *QCamera2HardwareInterface::allocateStreamBuf(cam_stream_type_t st
                         mParameters.getPreviewHalPixelFormat());
                 mem = grallocMemory;
             }
+#else
+             //Use ION memory for non android platform.
+             mem = new QCameraStreamMemory(mGetMemory, bCachedMem);
+#endif //_ANDROID_
         }
         break;
     case CAM_STREAM_TYPE_POSTVIEW:
         {
+#ifdef _ANDROID_
             if (isPreviewRestartEnabled()) {
                 mem = new QCameraStreamMemory(mGetMemory, bCachedMem);
             } else {
@@ -1608,6 +1625,9 @@ QCameraMemory *QCamera2HardwareInterface::allocateStreamBuf(cam_stream_type_t st
                 }
                 mem = grallocMemory;
             }
+#else
+           mem = new QCameraStreamMemory(mGetMemory, bCachedMem);
+#endif
         }
         break;
     case CAM_STREAM_TYPE_SNAPSHOT:
@@ -2005,7 +2025,7 @@ int QCamera2HardwareInterface::startRecording()
     if (rc == NO_ERROR) {
         rc = startChannel(QCAMERA_CH_TYPE_VIDEO);
     }
-
+#ifdef _ANDROID_
 #ifdef HAS_MULTIMEDIA_HINTS
     if (rc == NO_ERROR) {
         if (m_pPowerModule) {
@@ -2015,6 +2035,7 @@ int QCamera2HardwareInterface::startRecording()
         }
     }
 #endif
+#endif //_ANDROID_
     ALOGD("%s: X", __func__);
     return rc;
 }
@@ -2034,6 +2055,7 @@ int QCamera2HardwareInterface::stopRecording()
 {
     int rc = stopChannel(QCAMERA_CH_TYPE_VIDEO);
     ALOGD("%s: E", __func__);
+#ifdef _ANDROID_
 #ifdef HAS_MULTIMEDIA_HINTS
     if (m_pPowerModule) {
         if (m_pPowerModule->powerHint) {
@@ -2041,6 +2063,7 @@ int QCamera2HardwareInterface::stopRecording()
         }
     }
 #endif
+#endif //_ANDROID_
     ALOGD("%s: X", __func__);
     return rc;
 }
@@ -2338,8 +2361,11 @@ int32_t QCamera2HardwareInterface::configureZSLHDRBracketing()
             tmp.appendFormat("%d", 0);
             tmp.append(",");
     }
-
+#ifdef _ANDROID_
     if( !tmp.isEmpty() &&
+#else
+    if( (tmp.length() > 0) &&
+#endif
         ( MAX_EXP_BRACKETING_LENGTH > tmp.length() ) ) {
         //Trim last comma
         memset(aeBracket.values, '\0', MAX_EXP_BRACKETING_LENGTH);
@@ -5251,9 +5277,13 @@ bool QCamera2HardwareInterface::isCACEnabled()
 {
     char prop[PROPERTY_VALUE_MAX];
     memset(prop, 0, sizeof(prop));
+#ifdef _ANDROID_
     property_get("persist.camera.feature.cac", prop, "0");
     int enableCAC = atoi(prop);
     return enableCAC == 1;
+#else
+    return true;
+#endif
 }
 
 /*===========================================================================
@@ -5835,10 +5865,14 @@ void *QCamera2HardwareInterface::defferedWorkRoutine(void *obj)
                             }
                         }
                         {
+#ifdef _ANDROID_
                             Mutex::Autolock l(pme->mDeffLock);
+#endif
                             pme->mDeffOngoingJobs[dw->id] = false;
                             delete dw;
+#ifdef _ANDROID_
                             pme->mDeffCond.signal();
+#endif
                         }
 
                     }
@@ -5853,10 +5887,14 @@ void *QCamera2HardwareInterface::defferedWorkRoutine(void *obj)
                             pme->delChannel(QCAMERA_CH_TYPE_CAPTURE);
                         }
                         {
+#ifdef _ANDROID_
                             Mutex::Autolock l(pme->mDeffLock);
+#endif
                             pme->mDeffOngoingJobs[dw->id] = false;
                             delete dw;
+#ifdef _ANDROID_
                             pme->mDeffCond.signal();
+#endif
                         }
                     }
                     break;
@@ -5895,7 +5933,9 @@ void *QCamera2HardwareInterface::defferedWorkRoutine(void *obj)
 int32_t QCamera2HardwareInterface::queueDefferedWork(DefferedWorkCmd cmd,
                                                      DefferWorkArgs args)
 {
+#ifdef _ANDROID_
     Mutex::Autolock l(mDeffLock);
+#endif
     for (int i = 0; i < MAX_ONGOING_JOBS; ++i) {
         if (!mDeffOngoingJobs[i]) {
             mCmdQueue.enqueue(new DeffWork(cmd, i, args));
@@ -5923,14 +5963,19 @@ int32_t QCamera2HardwareInterface::queueDefferedWork(DefferedWorkCmd cmd,
  *==========================================================================*/
 int32_t QCamera2HardwareInterface::waitDefferedWork(int32_t &job_id)
 {
+#ifdef _ANDROID_
     Mutex::Autolock l(mDeffLock);
+#endif
 
     if ((MAX_ONGOING_JOBS <= job_id) || (0 > job_id)) {
         return NO_ERROR;
     }
 
     while ( mDeffOngoingJobs[job_id] == true ) {
+#ifdef _ANDROID_
         mDeffCond.wait(mDeffLock);
+#endif
+	usleep(100*1000);
     }
 
     job_id = MAX_ONGOING_JOBS;

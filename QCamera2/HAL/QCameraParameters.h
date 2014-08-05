@@ -19,7 +19,6 @@
 #ifndef ANDROID_HARDWARE_QCAMERA_PARAMETERS_H
 #define ANDROID_HARDWARE_QCAMERA_PARAMETERS_H
 
-#include <camera/CameraParameters.h>
 #include <cutils/properties.h>
 #include <hardware/camera.h>
 #include <stdlib.h>
@@ -27,7 +26,11 @@
 #include "cam_intf.h"
 #include "QCameraMem.h"
 #include "QCameraThermalAdapter.h"
-
+#ifdef _ANDROID_
+#include <camera/CameraParameters.h>
+#else
+#include "CameraParameters.h"
+#endif
 extern "C" {
 #include <mm_jpeg_interface.h>
 }
@@ -715,13 +718,13 @@ private:
     const char *lookupNameByValue(const QCameraMap arr[], int len, int value);
 
     // ops for batch set/get params with server
-    int32_t initBatchUpdate(void *p_table);
-    int32_t AddSetParmEntryToBatch(void *p_table,
+    int32_t initBatchUpdate(parm_buffer_t *p_table);
+    int32_t AddSetParmEntryToBatch(parm_buffer_t *p_table,
                                    cam_intf_parm_type_t paramType,
                                    uint32_t paramLength,
                                    void *paramValue);
     int32_t commitSetBatch();
-    int32_t AddGetParmEntryToBatch(void *p_table,
+    int32_t AddGetParmEntryToBatch(parm_buffer_t *p_table,
                                    cam_intf_parm_type_t paramType);
     int32_t commitGetBatch();
 
@@ -758,7 +761,7 @@ private:
     cam_capability_t *m_pCapability;
     mm_camera_vtbl_t *m_pCamOpsTbl;
     QCameraHeapMemory *m_pParamHeap;
-    parm_buffer_new_t *m_pParamBuf; // ptr to param buf in m_pParamHeap
+    parm_buffer_t     *m_pParamBuf;  // ptr to param buf in m_pParamHeap
 
     bool m_bZslMode;                // if ZSL is enabled
     bool m_bZslMode_new;
