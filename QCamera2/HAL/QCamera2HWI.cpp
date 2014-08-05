@@ -1444,10 +1444,12 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
 
                 bufferCnt = zslQBuffers + minCircularBufNum +
                         mParameters.getNumOfExtraBuffersForImageProc() +
-                        EXTRA_ZSL_PREVIEW_STREAM_BUF;
+                        EXTRA_ZSL_PREVIEW_STREAM_BUF +
+                        mParameters.getNumOfExtraBuffersForPreview();
             } else {
                 bufferCnt = CAMERA_MIN_STREAMING_BUFFERS +
-                            mParameters.getMaxUnmatchedFramesInQueue();
+                        mParameters.getMaxUnmatchedFramesInQueue() +
+                        mParameters.getNumOfExtraBuffersForPreview();
             }
             bufferCnt += minUndequeCount;
         }
@@ -1509,7 +1511,8 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
         break;
     case CAM_STREAM_TYPE_VIDEO:
         {
-            bufferCnt = CAMERA_MIN_VIDEO_BUFFERS;
+            bufferCnt = CAMERA_MIN_VIDEO_BUFFERS +
+                    mParameters.getNumOfExtraBuffersForVideo();
         }
         break;
     case CAM_STREAM_TYPE_METADATA:
@@ -1754,6 +1757,10 @@ QCameraHeapMemory *QCamera2HardwareInterface::allocateStreamInfoBuf(
     case CAM_STREAM_TYPE_VIDEO:
         streamInfo->useAVTimer = mParameters.isAVTimerEnabled();
         streamInfo->dis_enable = mParameters.isDISEnabled();
+        if (mParameters.isSeeMoreEnabled()) {
+            streamInfo->pp_config.feature_mask |= CAM_QCOM_FEATURE_LLVD;
+        }
+
     case CAM_STREAM_TYPE_PREVIEW:
         if (mParameters.getRecordingHintValue()) {
             const char* dis_param = mParameters.get(QCameraParameters::KEY_QC_DIS);
@@ -1765,6 +1772,9 @@ QCameraHeapMemory *QCamera2HardwareInterface::allocateStreamInfoBuf(
                 streamInfo->is_type = static_cast<cam_is_type_t>(atoi(value));
             } else {
                 streamInfo->is_type = IS_TYPE_NONE;
+            }
+            if (mParameters.isSeeMoreEnabled()) {
+                streamInfo->pp_config.feature_mask |= CAM_QCOM_FEATURE_LLVD;
             }
         }
         break;
