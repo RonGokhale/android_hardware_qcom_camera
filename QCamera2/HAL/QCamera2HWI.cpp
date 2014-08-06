@@ -45,6 +45,7 @@
 #define CAMERA_MIN_JPEG_ENCODING_BUFFERS 2
 #define CAMERA_MIN_VIDEO_BUFFERS         9
 #define CAMERA_LONGSHOT_STAGES           4
+#define CAMERA_ISP_PING_PONG_BUFFERS     2
 
 #define HDR_CONFIDENCE_THRESHOLD 0.4
 
@@ -1507,6 +1508,11 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
                         mParameters.getNumOfExtraBuffersForPreview();
             }
             bufferCnt += minUndequeCount;
+
+            if (getSensorType() == CAM_SENSOR_YUV) {
+                //ISP allocates native buffers in YUV case
+                bufferCnt -= CAMERA_MIN_STREAMING_BUFFERS;
+            }
         }
         break;
     case CAM_STREAM_TYPE_POSTVIEW:
@@ -1540,6 +1546,10 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
                     bufferCnt = zslQBuffers + minCircularBufNum +
                             mParameters.getNumOfExtraBuffersForImageProc();
                 }
+                if (getSensorType() == CAM_SENSOR_YUV) {
+                    //ISP allocates native buffers in YUV case
+                    bufferCnt -= CAMERA_ISP_PING_PONG_BUFFERS;
+                }
             } else {
                 bufferCnt = minCaptureBuffers +
                             mParameters.getNumOfExtraHDRInBufsIfNeeded() -
@@ -1556,6 +1566,11 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
     case CAM_STREAM_TYPE_RAW:
         if (mParameters.isZSLMode()) {
             bufferCnt = zslQBuffers + minCircularBufNum;
+            if (getSensorType() == CAM_SENSOR_YUV) {
+                //ISP allocates native buffers in YUV case
+                bufferCnt -= CAMERA_ISP_PING_PONG_BUFFERS;
+            }
+
         } else {
             bufferCnt = minCaptureBuffers +
                         mParameters.getNumOfExtraHDRInBufsIfNeeded() -
