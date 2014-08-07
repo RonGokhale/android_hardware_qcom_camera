@@ -512,6 +512,8 @@ private:
     int32_t mFlash;
     int32_t mRedEye;
     int32_t mFlashPresence;
+    bool mPreviewFrameSkipValid;
+    cam_frame_idx_range_t mPreviewFrameSkipIdxRange;
 };
 
 }; // namespace qcamera
