@@ -5840,7 +5840,15 @@ QCameraExif *QCamera2HardwareInterface::getExifData()
     count = 20;
     rc = mParameters.getExifDateTime(dateTime, count);
     if(rc == NO_ERROR) {
+        exif->addEntry(EXIFTAGID_DATE_TIME,
+                       EXIF_ASCII,
+                       count,
+                       (void *)dateTime);
         exif->addEntry(EXIFTAGID_EXIF_DATE_TIME_ORIGINAL,
+                       EXIF_ASCII,
+                       count,
+                       (void *)dateTime);
+        exif->addEntry(EXIFTAGID_EXIF_DATE_TIME_DIGITIZED,
                        EXIF_ASCII,
                        count,
                        (void *)dateTime);
@@ -5961,6 +5969,15 @@ QCameraExif *QCamera2HardwareInterface::getExifData()
                        (void *)value);
     } else {
         ALOGE("%s: getExifModel failed", __func__);
+    }
+
+    if (property_get("ro.build.description", value, "QCAM-AA") > 0) {
+        exif->addEntry(EXIFTAGID_SOFTWARE,
+                       EXIF_ASCII,
+                       strlen(value) + 1,
+                       (void *)value);
+    } else {
+        ALOGE("%s: getExifSoftware failed", __func__);
     }
 
     pthread_mutex_unlock(&m_parm_lock);
