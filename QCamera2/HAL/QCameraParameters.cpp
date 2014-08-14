@@ -670,7 +670,8 @@ QCameraParameters::QCameraParameters()
       m_bDisplayFrame(true),
       m_bAeBracketingEnabled(false),
       mFlashValue(CAM_FLASH_MODE_OFF),
-      mFlashDaemonValue(CAM_FLASH_MODE_OFF)
+      mFlashDaemonValue(CAM_FLASH_MODE_OFF),
+      m_bTruePortraitOn(false)
 {
     char value[PROPERTY_VALUE_MAX];
     // TODO: may move to parameter instead of sysprop
@@ -750,7 +751,8 @@ QCameraParameters::QCameraParameters(const String8 &params)
     mHfrMode(CAM_HFR_MODE_OFF),
     m_bAeBracketingEnabled(false),
     mFlashValue(CAM_FLASH_MODE_OFF),
-    mFlashDaemonValue(CAM_FLASH_MODE_OFF)
+    mFlashDaemonValue(CAM_FLASH_MODE_OFF),
+    m_bTruePortraitOn(false)
 {
     memset(&m_LiveSnapshotSize, 0, sizeof(m_LiveSnapshotSize));
     m_pTorch = NULL;
