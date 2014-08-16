@@ -239,7 +239,8 @@ QCamera3Stream::~QCamera3Stream()
 int32_t QCamera3Stream::init(cam_stream_type_t streamType,
         cam_format_t streamFormat, cam_dimension_t streamDim,
         cam_stream_reproc_config_t* reprocess_config, uint8_t minNumBuffers,
-        hal3_stream_cb_routine stream_cb, void *userdata)
+        uint32_t postprocess_mask,hal3_stream_cb_routine stream_cb,
+        void *userdata)
 {
     int32_t rc = OK;
     ssize_t bufSize = BAD_INDEX;
@@ -273,6 +274,9 @@ int32_t QCamera3Stream::init(cam_stream_type_t streamType,
     mStreamInfo->fmt = streamFormat;
     mStreamInfo->dim = streamDim;
     mStreamInfo->num_bufs = minNumBuffers;
+    mStreamInfo->pp_config.feature_mask = postprocess_mask;
+    ALOGV("%s: stream_type is %d, feature_mask is %d",
+          __func__, mStreamInfo->stream_type, mStreamInfo->pp_config.feature_mask);
 
     mNumBufs = minNumBuffers;
     if (reprocess_config != NULL) {

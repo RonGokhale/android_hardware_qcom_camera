@@ -95,7 +95,8 @@ QCamera3PostProcessor::~QCamera3PostProcessor()
  *              NO_ERROR  -- success
  *              none-zero failure code
  *==========================================================================*/
-int32_t QCamera3PostProcessor::init(jpeg_encode_callback_t jpeg_cb, void *user_data)
+int32_t QCamera3PostProcessor::init(jpeg_encode_callback_t jpeg_cb,
+    uint32_t postprocess_mask, void *user_data)
 {
     mJpegCB = jpeg_cb;
     mJpegUserData = user_data;
@@ -119,7 +120,7 @@ int32_t QCamera3PostProcessor::init(jpeg_encode_callback_t jpeg_cb, void *user_d
         ALOGE("%s : jpeg_open did not work", __func__);
         return UNKNOWN_ERROR;
     }
-
+    mPostProcMask = postprocess_mask;
     m_dataProcTh.launch(dataProcessRoutine, this);
 
     return NO_ERROR;
@@ -186,7 +187,7 @@ int32_t QCamera3PostProcessor::start(QCamera3Memory* mMemory, int index,
     }
     mJpegMemIndex = (uint32_t)index;
 
-    if (hal_obj->needReprocess()) {
+    if (hal_obj->needReprocess(mPostProcMask)) {
         while (!m_inputMetaQ.isEmpty()) {
            mm_camera_super_buf_t *meta_buf = (mm_camera_super_buf_t *)m_inputMetaQ.dequeue();
            if (meta_buf != NULL) {
@@ -408,7 +409,7 @@ int32_t QCamera3PostProcessor::processAuxiliaryData(mm_camera_buf_def_t *frame,
    aux_frame->num_bufs = 1;
    aux_frame->bufs[0] = frame;
    QCamera3HardwareInterface* hal_obj = (QCamera3HardwareInterface*)m_parent->mUserData;
-   if (hal_obj->needReprocess()) {
+   if (hal_obj->needReprocess(mPostProcMask)) {
        //enable reprocess path
        pthread_mutex_lock(&mReprocJobLock);
         // enqueu to post proc input queue
@@ -458,7 +459,7 @@ int32_t QCamera3PostProcessor::processAuxiliaryData(mm_camera_buf_def_t *frame,
 int32_t QCamera3PostProcessor::processData(mm_camera_super_buf_t *frame)
 {
     QCamera3HardwareInterface* hal_obj = (QCamera3HardwareInterface*)m_parent->mUserData;
-    if (hal_obj->needReprocess()) {
+    if (hal_obj->needReprocess(mPostProcMask)) {
         pthread_mutex_lock(&mReprocJobLock);
         // enqueu to post proc input queue
         m_inputPPQ.enqueue((void *)frame);
