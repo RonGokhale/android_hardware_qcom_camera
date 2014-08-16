@@ -83,6 +83,8 @@
 
 #define MAX_AF_BRACKETING_VALUES 5
 
+#define GPS_PROCESSING_METHOD_SIZE_IN_WORD (33+3)/4
+
 typedef enum {
     CAM_HAL_V1 = 1,
     CAM_HAL_V3 = 3
@@ -1037,6 +1039,7 @@ typedef enum {
     /* common between HAL1 and HAL3 */
     CAM_INTF_PARM_ANTIBANDING,
     CAM_INTF_PARM_EXPOSURE_COMPENSATION,
+    CAM_INTF_PARM_EV_STEP,
     CAM_INTF_PARM_AEC_LOCK,
     CAM_INTF_PARM_FPS_RANGE,
     CAM_INTF_PARM_AWB_LOCK,
@@ -1046,9 +1049,9 @@ typedef enum {
     CAM_INTF_PARM_LED_MODE,
     CAM_INTF_META_HISTOGRAM, /* 10 */
     CAM_INTF_META_FACE_DETECTION,
-    CAM_INTF_META_AUTOFOCUS_DATA,
 
     /* specific to HAl1 */
+    CAM_INTF_META_AUTOFOCUS_DATA,
     CAM_INTF_PARM_QUERY_FLASH4SNAP,
     CAM_INTF_PARM_EXPOSURE,
     CAM_INTF_PARM_SHARPNESS,
@@ -1144,7 +1147,6 @@ typedef enum {
     /*The best fit color channels gains calculated by the stats*/
     CAM_INTF_META_PRED_COLOR_CORRECT_GAINS,
     /* CONTROL */
-//    CAM_INTF_META_REQUEST_ID,
     /* A frame counter set by the framework. Must be maintained unchanged in
      * output frame. */
     CAM_INTF_META_FRAME_NUMBER,
@@ -1280,6 +1282,13 @@ typedef enum {
     /* DNG file support */
     CAM_INTF_META_PROFILE_TONE_CURVE,
     CAM_INTF_META_NEUTRAL_COL_POINT,
+    CAM_INTF_META_JPEG_GPS_COORDINATES,
+    CAM_INTF_META_JPEG_GPS_PROC_METHODS,
+    CAM_INTF_META_JPEG_GPS_TIMESTAMP,
+    CAM_INTF_META_JPEG_ORIENTATION,
+    CAM_INTF_META_JPEG_QUALITY,
+    CAM_INTF_META_JPEG_THUMB_QUALITY,
+    CAM_INTF_META_JPEG_THUMB_SIZE,
 
     CAM_INTF_PARM_MAX
 } cam_intf_parm_type_t;
