@@ -2326,7 +2326,7 @@ bool QCamera2HardwareInterface::processUFDumps(qcamera_jpeg_evt_payload_t *evt)
            snprintf(name, CAM_FN_CNT, "AllFocusImage");
            index = -1;
        } else {
-           snprintf(name, CAM_FN_CNT, "0");
+           snprintf(name, CAM_FN_CNT, "%c", '0');
        }
        CAM_DUMP_TO_FILE("/data/local/ubifocus", name, index, "jpg",
            dataPtr, dataLen);
