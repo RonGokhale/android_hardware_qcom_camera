@@ -914,16 +914,18 @@ OMX_ERRORTYPE mm_jpeg_session_config_thumbnail(mm_jpeg_job_session_t* p_session)
 
   if ((p_thumb_dim->dst_dim.width > p_thumb_dim->src_dim.width)
     || (p_thumb_dim->dst_dim.height > p_thumb_dim->src_dim.height)) {
-    CDBG("%s:%d] Upscale thumbnail from %dx%d to %dx%d",
+    CDBG_ERROR("%s:%d] Incorrect thumbnail dim %dx%d resetting to %dx%d",
       __func__, __LINE__,
-      p_thumb_dim->src_dim.width,
-      p_thumb_dim->src_dim.height,
       p_thumb_dim->dst_dim.width,
-      p_thumb_dim->dst_dim.height);
+      p_thumb_dim->dst_dim.height,
+      p_thumb_dim->src_dim.width,
+      p_thumb_dim->src_dim.height);
+    thumbnail_info.output_width = p_thumb_dim->src_dim.width;
+    thumbnail_info.output_height = p_thumb_dim->src_dim.height;
+  } else {
+    thumbnail_info.output_width = p_thumb_dim->dst_dim.width;
+    thumbnail_info.output_height = p_thumb_dim->dst_dim.height;
   }
-
-  thumbnail_info.output_width = p_thumb_dim->dst_dim.width;
-  thumbnail_info.output_height = p_thumb_dim->dst_dim.height;
 
   memset(p_frame_info, 0x0, sizeof(*p_frame_info));
 
