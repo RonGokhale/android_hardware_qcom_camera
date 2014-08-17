@@ -515,7 +515,7 @@ int process_meta_data(metadata_buffer_t *p_meta, QOMX_EXIF_INFO *exif_info,
   if (hal_version == CAM_HAL_V1) {
     if (p_cam_exif_params) {
       cam_sensor_params_t* sensor_params =
-        (cam_sensor_params_t *)POINTER_OF(CAM_INTF_META_SENSOR_INFO, p_meta);
+        (cam_sensor_params_t *)POINTER_OF_META(CAM_INTF_META_SENSOR_INFO, p_meta);
       // Check for sensor params from metadata frame
       if (sensor_params != NULL) {
         p_sensor_params = *sensor_params;
@@ -543,7 +543,7 @@ int process_meta_data(metadata_buffer_t *p_meta, QOMX_EXIF_INFO *exif_info,
   } else {
     /* Process 3a data */
     int32_t *iso =
-      (int32_t *)POINTER_OF(CAM_INTF_META_SENSOR_SENSITIVITY, p_meta);
+      (int32_t *)POINTER_OF_META(CAM_INTF_META_SENSOR_SENSITIVITY, p_meta);
     if (NULL != iso) {
       p_3a_params.iso_value= *iso;
     } else {
@@ -551,7 +551,7 @@ int process_meta_data(metadata_buffer_t *p_meta, QOMX_EXIF_INFO *exif_info,
     }
 
     int64_t *sensor_exposure_time =
-      (int64_t *)POINTER_OF(CAM_INTF_META_SENSOR_EXPOSURE_TIME, p_meta);
+      (int64_t *)POINTER_OF_META(CAM_INTF_META_SENSOR_EXPOSURE_TIME, p_meta);
     if (NULL != sensor_exposure_time) {
       p_3a_params.exp_time = (double)(*sensor_exposure_time / 1000000000.0);
     } else {
@@ -559,7 +559,7 @@ int process_meta_data(metadata_buffer_t *p_meta, QOMX_EXIF_INFO *exif_info,
     }
 
     cam_wb_mode_type *wb_mode =
-      (cam_wb_mode_type *)POINTER_OF(CAM_INTF_PARM_WHITE_BALANCE, p_meta);
+      (cam_wb_mode_type *)POINTER_OF_META(CAM_INTF_PARM_WHITE_BALANCE, p_meta);
     if (NULL != wb_mode) {
       p_3a_params.wb_mode = *wb_mode;
     } else {
@@ -567,14 +567,14 @@ int process_meta_data(metadata_buffer_t *p_meta, QOMX_EXIF_INFO *exif_info,
     }
 
     /* Process sensor data */
-    float *aperture = (float *)POINTER_OF(CAM_INTF_META_LENS_APERTURE, p_meta);
+    float *aperture = (float *)POINTER_OF_META(CAM_INTF_META_LENS_APERTURE, p_meta);
     if (NULL != aperture) {
       p_sensor_params.aperture_value = *aperture;
     } else {
       ALOGE("%s: Cannot extract Aperture value", __func__);
     }
 
-    uint8_t *flash_mode = (uint8_t *) POINTER_OF(CAM_INTF_META_FLASH_MODE, p_meta);
+    uint8_t *flash_mode = (uint8_t *) POINTER_OF_META(CAM_INTF_META_FLASH_MODE, p_meta);
     if (NULL != flash_mode) {
       p_sensor_params.flash_mode = *flash_mode;
     } else {
@@ -582,7 +582,7 @@ int process_meta_data(metadata_buffer_t *p_meta, QOMX_EXIF_INFO *exif_info,
     }
 
     uint8_t *flash_state =
-      (uint8_t *) POINTER_OF(CAM_INTF_META_FLASH_STATE, p_meta);
+      (uint8_t *) POINTER_OF_META(CAM_INTF_META_FLASH_STATE, p_meta);
     if (NULL != flash_state) {
       p_sensor_params.flash_state = *flash_state;
     } else {
@@ -600,7 +600,7 @@ int process_meta_data(metadata_buffer_t *p_meta, QOMX_EXIF_INFO *exif_info,
   }
   short val_short;
   scene_cap_type =
-    (cam_auto_scene_t *)POINTER_OF(CAM_INTF_META_ASD_SCENE_CAPTURE_TYPE, p_meta);
+    (cam_auto_scene_t *)POINTER_OF_META(CAM_INTF_META_ASD_SCENE_CAPTURE_TYPE, p_meta);
   if(scene_cap_type != NULL)
   val_short = (short) *scene_cap_type;
   else val_short = 0;
