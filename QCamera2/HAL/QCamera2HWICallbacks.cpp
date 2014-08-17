@@ -245,7 +245,7 @@ void QCamera2HardwareInterface::zsl_channel_cb(mm_camera_super_buf_t *recvd_fram
                         frame->bufs[i]->frame_idx,
                         pStream->getMyType(),
                         frame->bufs[i]->ts.tv_sec,
-                        frame->bufs[i]->ts.tv_nsec);
+                        frame->bufs[i]->ts.tv_usec);
             }
         }
     }
@@ -981,12 +981,12 @@ void QCamera2HardwareInterface::video_stream_cb_routine(mm_camera_super_buf_t *s
           __func__,
           frame->stream_id,
           frame->ts.tv_sec,
-          frame->ts.tv_nsec);
+          frame->ts.tv_usec);
     nsecs_t timeStamp;
     if(pme->mParameters.isAVTimerEnabled() == true) {
-        timeStamp = (nsecs_t)((frame->ts.tv_sec * 1000000LL) + frame->ts.tv_nsec) * 1000;
+        timeStamp = (((nsecs_t)frame->ts.tv_sec << 32) | frame->ts.tv_usec) * 1000;
     } else {
-        timeStamp = nsecs_t(frame->ts.tv_sec) * 1000000000LL + frame->ts.tv_nsec;
+        timeStamp = nsecs_t(frame->ts.tv_sec) * 1000000000LL + frame->ts.tv_usec;
     }
     ALOGE("Send Video frame to services/encoder TimeStamp : %lld", timeStamp);
     QCameraMemory *videoMemObj = (QCameraMemory *)frame->mem_info;

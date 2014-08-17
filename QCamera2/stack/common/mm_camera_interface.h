@@ -67,7 +67,7 @@ typedef struct {
     cam_stream_type_t stream_type;
     int8_t buf_idx;
     uint8_t is_uv_subsampled;
-    struct timespec ts;
+    struct timeval ts;
     uint32_t frame_idx;
     int8_t num_planes;
     struct v4l2_plane planes[VIDEO_MAX_PLANES];
