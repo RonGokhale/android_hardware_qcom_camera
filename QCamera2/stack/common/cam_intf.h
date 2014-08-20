@@ -317,6 +317,11 @@ typedef struct{
     cam_rational_type_t calibration_transform2[3][3];
     uint8_t focus_dist_calibrated;
     uint16_t isCacSupported;
+
+    /* Analysis stream max supported size */
+    cam_dimension_t analysis_max_res;
+    /* Analysis stream padding info */
+    cam_padding_info_t analysis_padding_info;
 } cam_capability_t;
 
 typedef enum {
