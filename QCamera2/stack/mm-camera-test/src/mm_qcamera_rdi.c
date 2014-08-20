@@ -103,7 +103,7 @@ mm_camera_stream_t * mm_app_add_rdi_stream(mm_camera_test_obj_t *test_obj,
         return NULL;
     }
 
-    CDBG_ERROR("%s: raw_dim w:%d height:%d\n", __func__, cam_cap->raw_dim.width, cam_cap->raw_dim.height);
+    CDBG_ERROR("%s: raw_dim w:%d height:%d\n", __func__, cam_cap->raw_dim[0].width, cam_cap->raw_dim[0].height);
     for (i = 0;i < cam_cap->supported_raw_fmt_cnt;i++) {
         CDBG_ERROR("%s: supported_raw_fmts[%zd]=%d\n", __func__,
             i, (int)cam_cap->supported_raw_fmts[i]);
@@ -143,10 +143,10 @@ mm_camera_stream_t * mm_app_add_rdi_stream(mm_camera_test_obj_t *test_obj,
     }
     stream->s_config.stream_info->fmt = fmt;
     CDBG("%s: RAW: w: %d, h: %d ", __func__,
-       cam_cap->raw_dim.width, cam_cap->raw_dim.height);
+       cam_cap->raw_dim[0].width, cam_cap->raw_dim[0].height);
 
-    stream->s_config.stream_info->dim.width = cam_cap->raw_dim.width;
-    stream->s_config.stream_info->dim.height = cam_cap->raw_dim.height;
+    stream->s_config.stream_info->dim.width = cam_cap->raw_dim[0].width;
+    stream->s_config.stream_info->dim.height = cam_cap->raw_dim[0].height;
     stream->s_config.padding_info = cam_cap->padding_info;
 
     rc = mm_app_config_stream(test_obj, channel, stream, &stream->s_config);
