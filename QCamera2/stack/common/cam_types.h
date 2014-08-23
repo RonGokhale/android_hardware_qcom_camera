@@ -1493,6 +1493,7 @@ typedef struct {
 #define CAM_QCOM_FEATURE_SENSOR_HDR     (1U<<15)
 #define CAM_QCOM_FEATURE_REFOCUS        (1U<<16)
 #define CAM_QCOM_FEATURE_CPP_TNR        (1U<<17)
+#define CAM_QCOM_FEATURE_COLOR_CONV     (1U<<18)
 #define CAM_QCOM_FEATURE_PP_SUPERSET    (CAM_QCOM_FEATURE_DENOISE2D|\
                                          CAM_QCOM_FEATURE_CROP|\
                                          CAM_QCOM_FEATURE_ROTATION|\
