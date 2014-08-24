@@ -319,6 +319,9 @@ typedef struct{
     uint16_t isCacSupported;
 
     cam_opaque_raw_format_t opaque_raw_fmt;
+    /* Can the sensor timestamp be compared to
+     * timestamps from other sub-systems (gyro, accelerometer etc.) */
+    uint8_t isTimestampCalibrated;
 
     /* Analysis stream max supported size */
     cam_dimension_t analysis_max_res;
