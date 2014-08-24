@@ -1305,6 +1305,9 @@ typedef enum {
     CAM_INTF_META_JPEG_THUMB_QUALITY,
     CAM_INTF_META_JPEG_THUMB_SIZE,
 
+    /* CAC */
+    CAM_INTF_PARM_CAC,
+
     CAM_INTF_PARM_MAX
 } cam_intf_parm_type_t;
 
@@ -1390,6 +1393,13 @@ typedef enum {
     /* Frame rate may be reduced by high quality */
     CAM_COLOR_CORRECTION_HIGH_QUALITY,
 } cam_color_correct_mode_t;
+
+typedef enum {
+    CAM_COLOR_CORRECTION_ABERRATION_OFF,
+    CAM_COLOR_CORRECTION_ABERRATION_FAST,
+    CAM_COLOR_CORRECTION_ABERRATION_HIGH_QUALITY,
+    CAM_COLOR_CORRECTION_ABERRATION_MAX
+} cam_aberration_mode_t;
 
 typedef struct {
     /* 3x3 float matrix in row-major order. each element is in range of (0, 1) */

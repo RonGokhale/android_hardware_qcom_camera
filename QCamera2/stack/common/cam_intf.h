@@ -323,6 +323,9 @@ typedef struct{
      * timestamps from other sub-systems (gyro, accelerometer etc.) */
     uint8_t isTimestampCalibrated;
 
+    cam_aberration_mode_t aberration_modes[CAM_COLOR_CORRECTION_ABERRATION_MAX];
+    uint32_t aberration_modes_count;
+
     /* Analysis stream max supported size */
     cam_dimension_t analysis_max_res;
     /* Analysis stream padding info */
@@ -614,6 +617,7 @@ typedef struct {
     INCLUDE(CAM_INTF_META_JPEG_THUMB_QUALITY,           uint32_t,                    1);
     INCLUDE(CAM_INTF_META_JPEG_THUMB_SIZE,              cam_dimension_t,             1);
     INCLUDE(CAM_INTF_META_PROFILE_TONE_CURVE,           cam_profile_tone_curve,      1);
+    INCLUDE(CAM_INTF_PARM_CAC,                          cam_aberration_mode_t,       1);
 } parm_data_t;
 
 typedef parm_data_t metadata_data_t;
