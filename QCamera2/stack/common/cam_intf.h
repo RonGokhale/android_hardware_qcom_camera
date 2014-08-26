@@ -318,6 +318,8 @@ typedef struct{
     uint8_t focus_dist_calibrated;
     uint16_t isCacSupported;
 
+    cam_opaque_raw_format_t opaque_raw_fmt;
+
     /* Analysis stream max supported size */
     cam_dimension_t analysis_max_res;
     /* Analysis stream padding info */
