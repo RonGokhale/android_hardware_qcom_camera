@@ -830,7 +830,7 @@ typedef struct {
     float real_gain;
     int32_t iso_value;
     uint32_t flash_needed;
-    int settled;
+    uint32_t settled;
     uint32_t exp_index;
     uint32_t line_count;
 } cam_ae_params_t;
@@ -1225,8 +1225,8 @@ typedef enum {
     CAM_INTF_META_ASD_HDR_SCENE_DATA,
     CAM_INTF_META_PRIVATE_DATA,
     CAM_INTF_PARM_STATS_DEBUG_MASK,
-    CAM_INTF_PARM_ALGO_OPTIMIZATIONS_MASK,
     CAM_INTF_PARM_ISP_DEBUG_MASK,
+    CAM_INTF_PARM_ALGO_OPTIMIZATIONS_MASK,
     /* Indicates streams ID of all the requested buffers */
     CAM_INTF_META_STREAM_ID,
     CAM_INTF_PARM_FOCUS_BRACKETING,
@@ -1334,7 +1334,7 @@ typedef struct {
 #define CAM_MAX_TONEMAP_CURVE_SIZE    128
 
 typedef struct {
-    int tonemap_points_cnt;
+    size_t tonemap_points_cnt;
 
     /* A 1D array of pairs of floats.
      * Mapping a 0-1 input range to a 0-1 output range.

@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -77,11 +77,11 @@ typedef enum {
  *  dump the image to the file
  **/
 #define DUMP_TO_FILE(filename, p_addr, len) ({ \
-  int rc = 0; \
+  size_t rc = 0; \
   FILE *fp = fopen(filename, "w+"); \
   if (fp) { \
     rc = fwrite(p_addr, 1, len, fp); \
-    CDBG_ERROR("%s:%d] written size %d", __func__, __LINE__, len); \
+    CDBG_ERROR("%s:%d] written size %zu", __func__, __LINE__, len); \
     fclose(fp); \
   } else { \
     CDBG_ERROR("%s:%d] open %s failed", __func__, __LINE__, filename); \
@@ -96,12 +96,12 @@ typedef enum {
  *  dump the image to the file if the memory is non-contiguous
  **/
 #define DUMP_TO_FILE2(filename, p_addr1, len1, paddr2, len2) ({ \
-  int rc = 0; \
+  size_t rc = 0; \
   FILE *fp = fopen(filename, "w+"); \
   if (fp) { \
     rc = fwrite(p_addr1, 1, len1, fp); \
     rc = fwrite(p_addr2, 1, len2, fp); \
-    CDBG_ERROR("%s:%d] written %d %d", __func__, __LINE__, len1, len2); \
+    CDBG_ERROR("%s:%d] written %zu %zu", __func__, __LINE__, len1, len2); \
     fclose(fp); \
   } else { \
     CDBG_ERROR("%s:%d] open %s failed", __func__, __LINE__, filename); \

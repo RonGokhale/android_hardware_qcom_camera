@@ -120,7 +120,7 @@ typedef struct {
 typedef struct {
     uint32_t camera_handle;
     uint32_t ch_id;
-    uint8_t num_bufs;
+    uint32_t num_bufs;
     mm_camera_buf_def_t* bufs[MAX_STREAM_NUM_IN_BUNDLE];
 } mm_camera_super_buf_t;
 

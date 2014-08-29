@@ -753,8 +753,8 @@ private:
     int32_t setBurstNum(const QCameraParameters& params);
     int32_t setSnapshotFDReq(const QCameraParameters& );
     int32_t setStatsDebugMask();
-    int32_t setAlgoOptimizationsMask();
     int32_t setISPDebugMask();
+    int32_t setAlgoOptimizationsMask();
     int32_t setTintlessValue(const QCameraParameters& params);
     int32_t setCDSMode(const QCameraParameters& params);
     int32_t setMobicat(const QCameraParameters& params);
@@ -881,7 +881,7 @@ private:
     bool m_bRecordingHint_new;
     bool m_bHistogramEnabled;       // if histogram is enabled
     bool m_bLongshotEnabled;        // if longshot is enabled
-    uint32_t  m_nFaceProcMask;      // face process mask
+    uint32_t m_nFaceProcMask;       // face process mask
     bool m_bDebugFps;               // if FPS need to be logged
     cam_focus_mode_type mFocusMode;
     cam_format_t mPreviewFormat;

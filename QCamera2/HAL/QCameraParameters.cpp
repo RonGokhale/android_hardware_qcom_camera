@@ -1355,21 +1355,24 @@ int32_t QCameraParameters::setLiveSnapshotSize(const QCameraParameters& params)
         livesnapshot_sizes_tbl_cnt = m_pCapability->vhdr_livesnapshot_sizes_tbl_cnt;
         livesnapshot_sizes_tbl = &m_pCapability->vhdr_livesnapshot_sizes_tbl[0];
     }
-    if (hsrStr != NULL && strcmp(hsrStr, "off")) {
+    if ((hsrStr != NULL) && strcmp(hsrStr, "off")) {
         int32_t value = lookupAttr(HFR_MODES_MAP, PARAM_MAP_SIZE(HFR_MODES_MAP), hsrStr);
-        for (size_t i = 0; i < m_pCapability->hfr_tbl_cnt; i++) {
-            if (m_pCapability->hfr_tbl[i].mode == value) {
-                livesnapshot_sizes_tbl_cnt =
-                        m_pCapability->hfr_tbl[i].livesnapshot_sizes_tbl_cnt;
-                livesnapshot_sizes_tbl =
-                        &m_pCapability->hfr_tbl[i].livesnapshot_sizes_tbl[0];
-                hfrMode = m_pCapability->hfr_tbl[i].mode;
-                break;
+        if ((value != NAME_NOT_FOUND) && (value > CAM_HFR_MODE_OFF)) {
+            // if HSR is enabled, change live snapshot size
+            for (size_t i = 0; i < m_pCapability->hfr_tbl_cnt; i++) {
+                if (m_pCapability->hfr_tbl[i].mode == value) {
+                    livesnapshot_sizes_tbl_cnt =
+                            m_pCapability->hfr_tbl[i].livesnapshot_sizes_tbl_cnt;
+                    livesnapshot_sizes_tbl =
+                            &m_pCapability->hfr_tbl[i].livesnapshot_sizes_tbl[0];
+                    hfrMode = m_pCapability->hfr_tbl[i].mode;
+                    break;
+                }
             }
         }
-    } else if (hfrStr != NULL && strcmp(hfrStr, "off")) {
+    } else if ((hfrStr != NULL) && strcmp(hfrStr, "off")) {
         int32_t value = lookupAttr(HFR_MODES_MAP, PARAM_MAP_SIZE(HFR_MODES_MAP), hfrStr);
-        if (value != NAME_NOT_FOUND && value > CAM_HFR_MODE_OFF) {
+        if ((value != NAME_NOT_FOUND) && (value > CAM_HFR_MODE_OFF)) {
             // if HFR is enabled, change live snapshot size
             for (size_t i = 0; i < m_pCapability->hfr_tbl_cnt; i++) {
                 if (m_pCapability->hfr_tbl[i].mode == value) {
@@ -1431,7 +1434,6 @@ int32_t QCameraParameters::setLiveSnapshotSize(const QCameraParameters& params)
 
     return NO_ERROR;
 }
-
 
 /*===========================================================================
  * FUNCTION   : setRawSize
@@ -1709,7 +1711,7 @@ int32_t QCameraParameters::setPreviewFpsRange(const QCameraParameters& params)
     if(updateNeeded) {
         m_bNeedRestart = true;
         rc = setHighFrameRate(mHfrMode);
-        if(rc !=  NO_ERROR) goto end;
+        if (rc != NO_ERROR) goto end;
     }
     CDBG("%s: UpdateHFRFrameRate %d", __func__, updateNeeded);
 
@@ -1730,16 +1732,16 @@ int32_t QCameraParameters::setPreviewFpsRange(const QCameraParameters& params)
 
     for(size_t i = 0; i < m_pCapability->fps_ranges_tbl_cnt; i++) {
         // if the value is in the supported list
-        if(minFps >= m_pCapability->fps_ranges_tbl[i].min_fps * 1000 &&
-           maxFps <= m_pCapability->fps_ranges_tbl[i].max_fps * 1000) {
+        if (minFps >= m_pCapability->fps_ranges_tbl[i].min_fps * 1000 &&
+                maxFps <= m_pCapability->fps_ranges_tbl[i].max_fps * 1000) {
             found = true;
             CDBG_HIGH("%s: FPS i=%d : minFps = %d, maxFps = %d"
                     " vidMinFps = %d, vidMaxFps = %d",
                     __func__, i, minFps, maxFps,
                     (int)m_hfrFpsRange.video_min_fps,
                     (int)m_hfrFpsRange.video_max_fps);
-            if ((m_hfrFpsRange.video_min_fps == 0) ||
-                    (m_hfrFpsRange.video_max_fps == 0)) {
+            if ((0.0f >= m_hfrFpsRange.video_min_fps) ||
+                    (0.0f >= m_hfrFpsRange.video_max_fps)) {
                 vidMinFps = minFps;
                 vidMaxFps = maxFps;
             }
@@ -1794,9 +1796,9 @@ bool QCameraParameters::UpdateHFRFrameRate(const QCameraParameters& params)
     const char *prev_hfrStr = CameraParameters::get(KEY_QC_VIDEO_HIGH_FRAME_RATE);
     const char *prev_hsrStr = CameraParameters::get(KEY_QC_VIDEO_HIGH_SPEED_RECORDING);
 
-      if ((hfrStr != NULL) && (prev_hfrStr != NULL) && strcmp(hfrStr, prev_hfrStr)) {
-          updateParamEntry(KEY_QC_VIDEO_HIGH_FRAME_RATE, hfrStr);
-      }
+    if ((hfrStr != NULL) && (prev_hfrStr != NULL) && strcmp(hfrStr, prev_hfrStr)) {
+        updateParamEntry(KEY_QC_VIDEO_HIGH_FRAME_RATE, hfrStr);
+    }
 
     if ((hsrStr != NULL) && (prev_hsrStr != NULL) && strcmp(hsrStr, prev_hsrStr)) {
         updateParamEntry(KEY_QC_VIDEO_HIGH_SPEED_RECORDING, hsrStr);
@@ -1804,12 +1806,12 @@ bool QCameraParameters::UpdateHFRFrameRate(const QCameraParameters& params)
     }
 
     // check if HFR is enabled
-    if(hfrStr != NULL && strcmp(hfrStr, "off")){
+    if ((hfrStr != NULL) && strcmp(hfrStr, "off")) {
         hfrMode = lookupAttr(HFR_MODES_MAP, PARAM_MAP_SIZE(HFR_MODES_MAP), hfrStr);
         if(NAME_NOT_FOUND != hfrMode) newHfrMode = hfrMode;
     }
     // check if HSR is enabled
-    else if(hsrStr != NULL && strcmp(hsrStr, "off")){
+    else if ((hsrStr != NULL) && strcmp(hsrStr, "off")) {
         hfrMode = lookupAttr(HFR_MODES_MAP, PARAM_MAP_SIZE(HFR_MODES_MAP), hsrStr);
         if(NAME_NOT_FOUND != hfrMode) newHfrMode = hfrMode;
     }
@@ -2599,8 +2601,7 @@ int32_t QCameraParameters::setZoom(const QCameraParameters& params)
     }
 
     int zoomLevel = params.getInt(KEY_ZOOM);
-    if((zoomLevel < 0) ||
-       (zoomLevel >= (int)m_pCapability->zoom_ratio_tbl_cnt)) {
+    if ((zoomLevel < 0) || (zoomLevel >= (int)m_pCapability->zoom_ratio_tbl_cnt)) {
         ALOGE("%s: invalid value %d out of (%d, %d)",
               __func__, zoomLevel,
               0, m_pCapability->zoom_ratio_tbl_cnt-1);
@@ -4164,8 +4165,8 @@ int32_t QCameraParameters::updateParameters(QCameraParameters& params,
     if ((rc = setLiveSnapshotSize(params)))             final_rc = rc;
     if ((rc = setJpegThumbnailSize(params)))            final_rc = rc;
     if ((rc = setStatsDebugMask()))                     final_rc = rc;
-    if ((rc = setAlgoOptimizationsMask()))              final_rc = rc;
     if ((rc = setISPDebugMask()))                       final_rc = rc;
+    if ((rc = setAlgoOptimizationsMask()))              final_rc = rc;
     if ((rc = setMobicat(params)))                      final_rc = rc;
     if ((rc = setAFBracket(params)))                    final_rc = rc;
     if ((rc = setChromaFlash(params)))                  final_rc = rc;
@@ -4618,7 +4619,7 @@ int32_t QCameraParameters::initDefaultParameters()
     setAEBracket(AE_BRACKET_OFF);
 
     //Set AF Bracketing.
-    for(size_t i = 0; i < m_pCapability->supported_focus_modes_cnt; i++) {
+    for (size_t i = 0; i < m_pCapability->supported_focus_modes_cnt; i++) {
         if ((CAM_FOCUS_MODE_AUTO == m_pCapability->supported_focus_modes[i]) &&
                 ((m_pCapability->qcom_supported_feature_mask &
                         CAM_QCOM_FEATURE_UBIFOCUS) > 0)) {
@@ -6052,11 +6053,11 @@ int32_t QCameraParameters::setCDSMode(const QCameraParameters& params)
     }
 
     if (cds_mode_str) {
-        CDBG("%s: Set CDS mode = %s", __func__, cds_mode_str);
         int32_t cds_mode = lookupAttr(CDS_MODES_MAP, PARAM_MAP_SIZE(CDS_MODES_MAP),
                 cds_mode_str);
-
-        if (cds_mode != NAME_NOT_FOUND) {
+        if (NAME_NOT_FOUND != cds_mode) {
+            CDBG("%s: Setting CDS mode value %s", __func__, cds_mode_str);
+            updateParamEntry(KEY_QC_CDS_MODE, cds_mode_str);
             return AddSetParmEntryToBatch(m_pParamBuf, CAM_INTF_PARM_CDS_MODE,
                     sizeof(cds_mode), &cds_mode);
         }
@@ -6659,13 +6660,13 @@ int32_t QCameraParameters::set3ALock(const char *lockStr)
                     focus_mode = CAM_FOCUS_MODE_FIXED;
                 }
             } else {
-               // retrieve previous focus value.
-               const char *focus = get(KEY_FOCUS_MODE);
-               int val = lookupAttr(FOCUS_MODES_MAP, PARAM_MAP_SIZE(FOCUS_MODES_MAP), focus);
-               if (val != NAME_NOT_FOUND) {
-                   focus_mode = (int32_t) val;
-                   CDBG("%s: focus mode %s", __func__, focus);
-               }
+                // retrieve previous focus value.
+                const char *focus = get(KEY_FOCUS_MODE);
+                int val = lookupAttr(FOCUS_MODES_MAP, PARAM_MAP_SIZE(FOCUS_MODES_MAP), focus);
+                if (val != NAME_NOT_FOUND) {
+                    focus_mode = (int32_t) val;
+                    CDBG("%s: focus mode %s", __func__, focus);
+                }
             }
             //Lock AWB
             rc = AddSetParmEntryToBatch(m_pParamBuf,
@@ -7039,10 +7040,9 @@ int32_t QCameraParameters::setOptiZoom(const char *optiZoomStr)
  *==========================================================================*/
 int32_t QCameraParameters::setFssr(const char *fssrStr)
 {
-    if(fssrStr != NULL) {
+    if (fssrStr != NULL) {
         CDBG_HIGH("%s: fssrStr = %s", __func__, fssrStr);
-        int value = lookupAttr(FSSR_MODES_MAP, PARAM_MAP_SIZE(FSSR_MODES_MAP),
-            fssrStr);
+        int value = lookupAttr(FSSR_MODES_MAP, PARAM_MAP_SIZE(FSSR_MODES_MAP), fssrStr);
         if(value != NAME_NOT_FOUND) {
             m_bFssrOn = (value != 0);
             updateParamEntry(KEY_QC_FSSR, fssrStr);
@@ -8144,8 +8144,8 @@ int32_t QCameraParameters::getEffectValue()
     uint32_t cnt = 0;
     const char *effect = get(KEY_EFFECT);
     if (effect) {
-        while(NULL != EFFECT_MODES_MAP[cnt].desc) {
-            if(!strcmp(EFFECT_MODES_MAP[cnt].desc, effect)) {
+        while (NULL != EFFECT_MODES_MAP[cnt].desc) {
+            if (!strcmp(EFFECT_MODES_MAP[cnt].desc, effect)) {
                 return EFFECT_MODES_MAP[cnt].val;
             }
             cnt++;
@@ -9193,30 +9193,30 @@ int32_t QCameraParameters::AddGetParmEntryToBatch(void *p_table,
      * direct indexing
      */
     for (j = 0; j < num_entry; j++) {
-      if (paramType == curr_param->entry_type) {
-        CDBG_HIGH("%s:Batch parameter overwrite for param: %d",
-                                                __func__, paramType);
+        if (paramType == curr_param->entry_type) {
+            CDBG_HIGH("%s:Batch parameter overwrite for param: %d",
+                    __func__, paramType);
         break;
-      }
-      curr_param = GET_NEXT_PARAM(curr_param, parm_entry_type_new_t);
+        }
+        curr_param = GET_NEXT_PARAM(curr_param, parm_entry_type_new_t);
     }
 
     //new param, search not found
     if (j == num_entry) {
-      if (aligned_size_req > param_buf->tot_rem_size) {
-        ALOGE("%s:Batch buffer running out of size, commit and resend",__func__);
-        //this is an extreme corner case
-        //if the size of the batch set is full, we return error
-        //the caller is expected to commit the get batch, use the params
-        //returned, initialize the batch again and continue
-        return NO_MEMORY;
-      }
+        if (aligned_size_req > param_buf->tot_rem_size) {
+            ALOGE("%s:Batch buffer running out of size, commit and resend", __func__);
+            // This is an extreme corner case
+            // if the size of the batch set is full, we return error
+            // the caller is expected to commit the get batch, use the params
+            // returned, initialize the batch again and continue.
+            return NO_MEMORY;
+        }
 
-      curr_param = (parm_entry_type_new_t *)
-          (void *) (&param_buf->entry[0] + param_buf->curr_size);
-      param_buf->curr_size += aligned_size_req;
-      param_buf->tot_rem_size -= aligned_size_req;
-      param_buf->num_entry++;
+        curr_param = (parm_entry_type_new_t *) (void *)
+                (&param_buf->entry[0] + param_buf->curr_size);
+        param_buf->curr_size += aligned_size_req;
+        param_buf->tot_rem_size -= aligned_size_req;
+        param_buf->num_entry++;
     }
 
     curr_param->entry_type = paramType;

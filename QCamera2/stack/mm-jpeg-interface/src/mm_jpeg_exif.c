@@ -413,7 +413,7 @@ int process_3a_data(cam_ae_params_t *p_ae_params, cam_awb_params_t *p_awb_params
       p_ae_params->line_count, p_ae_params->real_gain);
 
     /* Exposure time */
-    if (p_ae_params->exp_time == 0) {
+    if (0.0f >= p_ae_params->exp_time) {
       val_rat.num = 0;
       val_rat.denom = 0;
     } else {

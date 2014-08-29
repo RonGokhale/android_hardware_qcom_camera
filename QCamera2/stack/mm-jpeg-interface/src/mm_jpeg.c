@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -88,7 +88,7 @@ static OMX_ERRORTYPE mm_jpeg_session_configure(mm_jpeg_job_session_t *p_session)
  **/
 OMX_ERRORTYPE mm_jpeg_session_send_buffers(void *data)
 {
-  int32_t i = 0;
+  uint32_t i = 0;
   mm_jpeg_job_session_t* p_session = (mm_jpeg_job_session_t *)data;
   OMX_ERRORTYPE ret = OMX_ErrorNone;
   QOMX_BUFFER_INFO lbuffer_info;
@@ -150,7 +150,7 @@ OMX_ERRORTYPE mm_jpeg_session_send_buffers(void *data)
 OMX_ERRORTYPE mm_jpeg_session_free_buffers(void *data)
 {
   OMX_ERRORTYPE ret = OMX_ErrorNone;
-  int32_t i = 0;
+  uint32_t i = 0;
   mm_jpeg_job_session_t* p_session = (mm_jpeg_job_session_t *)data;
   mm_jpeg_encode_params_t *p_params = &p_session->params;
 
@@ -420,7 +420,7 @@ OMX_ERRORTYPE mm_jpeg_session_config_main_buffer_offset(
     return rc;
   }
 
-  CDBG_HIGH("%s:%d] yOffset = %d, cbcrOffset = (%d %d), totalSize = %zd,"
+  CDBG_HIGH("%s:%d] yOffset = %d, cbcrOffset = (%d %d), totalSize = %zu,"
     "cbcrStartOffset = (%d %d)", __func__, __LINE__,
     (int)frame_info.yOffset,
     (int)frame_info.cbcrOffset[0],
@@ -837,7 +837,7 @@ OMX_ERRORTYPE mm_jpeg_session_config_thumbnail(mm_jpeg_job_session_t* p_session)
   QOMX_YUV_FRAME_INFO *p_frame_info = &thumbnail_info.tmbOffset;
   mm_jpeg_buf_t *p_tmb_buf = &p_params->src_thumb_buf[p_jobparams->thumb_index];
 
-  CDBG_HIGH("%s:%d] encode_thumbnail %d", __func__, __LINE__,
+  CDBG_HIGH("%s:%d] encode_thumbnail %u", __func__, __LINE__,
     p_params->encode_thumbnail);
   if (OMX_FALSE == p_params->encode_thumbnail) {
     return ret;
@@ -1403,7 +1403,7 @@ static OMX_ERRORTYPE mm_jpeg_session_encode(mm_jpeg_job_session_t *p_session)
   snprintf(filename, 255, "/data/jpeg/mm_jpeg_int%d.yuv", p_session->ebd_count);
   DUMP_TO_FILE(filename,
     p_session->p_in_omx_buf[p_jobparams->src_index]->pBuffer,
-    (int)p_session->p_in_omx_buf[p_jobparams->src_index]->nAllocLen);
+    (size_t)p_session->p_in_omx_buf[p_jobparams->src_index]->nAllocLen);
 #endif
 
   ret = OMX_EmptyThisBuffer(p_session->omx_handle,
@@ -1420,7 +1420,7 @@ static OMX_ERRORTYPE mm_jpeg_session_encode(mm_jpeg_job_session_t *p_session)
     p_session->ebd_count);
   DUMP_TO_FILE(filename,
     p_session->p_in_omx_thumb_buf[p_jobparams->thumb_index]->pBuffer,
-    (int)p_session->p_in_omx_thumb_buf[p_jobparams->thumb_index]->nAllocLen);
+    (size_t)p_session->p_in_omx_thumb_buf[p_jobparams->thumb_index]->nAllocLen);
 #endif
     ret = OMX_EmptyThisBuffer(p_session->omx_handle,
         p_session->p_in_omx_thumb_buf[p_jobparams->thumb_index]);
@@ -2223,7 +2223,7 @@ int32_t mm_jpeg_create_session(mm_jpeg_obj *my_obj,
   }
 
   // Queue the output buf indexes
-  for (i = 0; i < (uint32_t)p_params->num_dst_bufs; i++) {
+  for (i = 0; i < p_params->num_dst_bufs; i++) {
     qdata.u32 = i + 1;
     mm_jpeg_queue_enq(p_out_buf_q, qdata);
   }

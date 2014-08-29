@@ -310,8 +310,8 @@ public:
 private:
     sp<CameraContext> camera[MAX_CAM_INSTANCES];
     char GetNextCmd(sp<qcamera::CameraContext> currentCamera);
-    size_t  mCurrentCameraIndex;
-    size_t  mSaveCurrentCameraIndex;
+    size_t mCurrentCameraIndex;
+    size_t mSaveCurrentCameraIndex;
     Vector< sp<qcamera::CameraContext> > mAvailableCameras;
     bool mTestRunning;
     Interpreter *mInterpreter;
