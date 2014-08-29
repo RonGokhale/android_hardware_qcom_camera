@@ -134,7 +134,8 @@ int mm_camera_socket_sendmsg(
     iov[0].iov_len = buf_size;
     msgh.msg_iov = iov;
     msgh.msg_iovlen = 1;
-    CDBG("%s: iov_len=%zd", __func__, iov[0].iov_len);
+    CDBG("%s: iov_len=%llu", __func__,
+            (unsigned long long int)iov[0].iov_len);
 
     msgh.msg_control = NULL;
     msgh.msg_controllen = 0;

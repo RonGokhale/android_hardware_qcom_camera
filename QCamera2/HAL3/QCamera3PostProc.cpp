@@ -302,8 +302,8 @@ int32_t QCamera3PostProcessor::getJpegEncodingConfig(mm_jpeg_encode_params_t& en
         ret = BAD_VALUE;
         goto on_error;
     }
-    encode_parm.num_src_bufs = (int32_t)pStreamMem->getCnt();
-    for (uint32_t i = 0; i < (uint32_t)encode_parm.num_src_bufs; i++) {
+    encode_parm.num_src_bufs = pStreamMem->getCnt();
+    for (uint32_t i = 0; i < encode_parm.num_src_bufs; i++) {
         if (pStreamMem != NULL) {
             encode_parm.src_main_buf[i].index = i;
             bufSize = pStreamMem->getSize(i);
@@ -332,7 +332,7 @@ int32_t QCamera3PostProcessor::getJpegEncodingConfig(mm_jpeg_encode_params_t& en
         cam_frame_len_offset_t thumb_offset;
         memset(&thumb_offset, 0, sizeof(cam_frame_len_offset_t));
         main_stream->getFrameOffset(thumb_offset);
-        encode_parm.num_tmb_bufs = (int32_t)pStreamMem->getCnt();
+        encode_parm.num_tmb_bufs = pStreamMem->getCnt();
         for (uint32_t i = 0; i < pStreamMem->getCnt(); i++) {
             if (pStreamMem != NULL) {
                 encode_parm.src_thumb_buf[i].index = i;
@@ -721,7 +721,7 @@ void QCamera3PostProcessor::releaseJpegJobData(qcamera_hal3_jpeg_data_t *job)
         }
 
         if (NULL != job->aux_frame) {
-            for(int i = 0; i < job->aux_frame->num_bufs; i++) {
+            for (uint32_t i = 0; i < job->aux_frame->num_bufs; i++) {
                 memset(job->aux_frame->bufs[i], 0, sizeof(mm_camera_buf_def_t));
                 free(job->aux_frame->bufs[i]);
                 job->aux_frame->bufs[i] = NULL;
@@ -864,7 +864,7 @@ int32_t QCamera3PostProcessor::encodeData(qcamera_hal3_jpeg_data_t *jpeg_job_dat
 
     // find snapshot frame and thumnail frame
     //Note: In this version we will receive only snapshot frame.
-    for (int i = 0; i < recvd_frame->num_bufs; i++) {
+    for (uint32_t i = 0; i < recvd_frame->num_bufs; i++) {
         QCamera3Stream *srcStream =
             srcChannel->getStreamByHandle(recvd_frame->bufs[i]->stream_id);
         if (srcStream != NULL) {
@@ -994,8 +994,8 @@ int32_t QCamera3PostProcessor::encodeData(qcamera_hal3_jpeg_data_t *jpeg_job_dat
     //as we don't support bundling of snapshot and metadata streams.
 
     mm_camera_buf_def_t *meta_frame = NULL;
-    if(jpeg_job_data->src_frame) {
-        for (int i = 0; i < jpeg_job_data->src_frame->num_bufs; i++) {
+    if (jpeg_job_data->src_frame) {
+        for (uint32_t i = 0; i < jpeg_job_data->src_frame->num_bufs; i++) {
             // look through input superbuf
             if (jpeg_job_data->src_frame->bufs[i]->stream_type == CAM_STREAM_TYPE_METADATA) {
                 meta_frame = jpeg_job_data->src_frame->bufs[i];
@@ -1005,8 +1005,9 @@ int32_t QCamera3PostProcessor::encodeData(qcamera_hal3_jpeg_data_t *jpeg_job_dat
     }
     if (meta_frame == NULL && jpeg_job_data->src_reproc_frame != NULL) {
         // look through reprocess source superbuf
-        for (int i = 0; i < jpeg_job_data->src_reproc_frame->num_bufs; i++) {
-            if (jpeg_job_data->src_reproc_frame->bufs[i]->stream_type == CAM_STREAM_TYPE_METADATA) {
+        for (uint32_t i = 0; i < jpeg_job_data->src_reproc_frame->num_bufs; i++) {
+            if (jpeg_job_data->src_reproc_frame->bufs[i]->stream_type ==
+                    CAM_STREAM_TYPE_METADATA) {
                 meta_frame = jpeg_job_data->src_reproc_frame->bufs[i];
                 break;
             }

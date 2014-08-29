@@ -395,7 +395,7 @@ int process_3a_data(cam_3a_params_t *p_3a_params, QOMX_EXIF_INFO *exif_info)
     p_3a_params->exp_time, p_3a_params->iso_value, p_3a_params->wb_mode);
 
   /*Exposure time*/
-  if (p_3a_params->exp_time == 0) {
+  if (0.0f >= p_3a_params->exp_time) {
       val_rat.num = 0;
       val_rat.denom = 0;
   } else {

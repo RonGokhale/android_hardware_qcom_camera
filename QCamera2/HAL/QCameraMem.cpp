@@ -244,7 +244,7 @@ void QCameraMemory::getBufDef(const cam_frame_len_offset_t &offset,
  *==========================================================================*/
 inline void QCameraMemory::traceLogAllocStart(size_t size, int count, const char *allocName)
 {
-    ALOGD("%s : alloc E count=%d size=%d", __func__, count, size);
+    ALOGD("%s : alloc E count=%d size=%zu", __func__, count, size);
 #ifdef ATRACE_TAG_CAMERA
     char atracer[30];
     if ((size * (size_t)count) > MEMLOG_THRESH) {
@@ -274,7 +274,7 @@ inline void QCameraMemory::traceLogAllocEnd(size_t size)
 #ifdef ATRACE_TAG_CAMERA
     if (size > MEMLOG_THRESH) {
         ATRACE_END();
-        ALOGE("%s %d", __func__, size);
+        ALOGE("%s %zu", __func__, size);
     }
 #endif
 }
@@ -335,7 +335,7 @@ int QCameraMemory::alloc(int count, size_t size, unsigned int heap_id,
         }
 
     }
-    traceLogAllocEnd((size * (size_t)count));
+    traceLogAllocEnd (size * (size_t)count);
     return rc;
 }
 

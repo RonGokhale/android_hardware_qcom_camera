@@ -52,7 +52,7 @@
   } \
 })
 
-static int32_t g_count = 1, g_i;
+static uint32_t g_count = 1U, g_i;
 
 typedef struct {
   mm_jpeg_color_format fmt;
@@ -65,10 +65,10 @@ typedef struct {
   int width;
   int height;
   char *out_filename;
-  int8_t burst_mode;
-  int min_out_bufs;
+  uint32_t burst_mode;
+  uint32_t min_out_bufs;
   mm_jpeg_intf_test_colfmt_t col_fmt;
-  int8_t encode_thumbnail;
+  uint32_t encode_thumbnail;
   int tmb_width;
   int tmb_height;
   int main_quality;
@@ -116,8 +116,8 @@ typedef struct {
   mm_jpeg_encode_params_t params;
   mm_jpeg_job_t job;
   uint32_t session_id;
-  int32_t num_bufs;
-  int min_out_bufs;
+  uint32_t num_bufs;
+  uint32_t min_out_bufs;
   size_t buf_filled_len[MAX_NUM_BUFS];
 } mm_jpeg_intf_test_t;
 
@@ -250,7 +250,7 @@ static int encode_init(jpeg_test_input_t *p_input, mm_jpeg_intf_test_t *p_obj)
   mm_jpeg_encode_params_t *p_params = &p_obj->params;
   mm_jpeg_encode_job_t *p_job_params = &p_obj->job.encode_job;
   uint32_t i = 0;
-  int8_t burst_mode = p_input->burst_mode;
+  uint32_t burst_mode = p_input->burst_mode;
   jpeg_test_input_t *p_in = p_input;
 
   do {
@@ -303,7 +303,7 @@ static int encode_init(jpeg_test_input_t *p_input, mm_jpeg_intf_test_t *p_obj)
     i++;
   } while((++p_in)->filename);
 
-  p_obj->num_bufs = (int32_t)i;
+  p_obj->num_bufs = i;
 
   pthread_mutex_init(&p_obj->lock, NULL);
   pthread_cond_init(&p_obj->cond, NULL);
@@ -398,7 +398,7 @@ static int encode_test(jpeg_test_input_t *p_input)
 {
   int rc = 0;
   mm_jpeg_intf_test_t jpeg_obj;
-  int32_t i = 0;
+  uint32_t i = 0;
 
   memset(&jpeg_obj, 0x0, sizeof(jpeg_obj));
   rc = encode_init(p_input, &jpeg_obj);
@@ -427,9 +427,9 @@ static int encode_test(jpeg_test_input_t *p_input)
 
   for (i = 0; i < jpeg_obj.num_bufs; i++) {
     jpeg_obj.job.job_type = JPEG_JOB_TYPE_ENCODE;
-    jpeg_obj.job.encode_job.src_index = i;
-    jpeg_obj.job.encode_job.dst_index = i;
-    jpeg_obj.job.encode_job.thumb_index = (uint32_t)i;
+    jpeg_obj.job.encode_job.src_index = (int32_t) i;
+    jpeg_obj.job.encode_job.dst_index = (int32_t) i;
+    jpeg_obj.job.encode_job.thumb_index = (uint32_t) i;
 
     if (jpeg_obj.params.burst_mode && jpeg_obj.min_out_bufs) {
       jpeg_obj.job.encode_job.dst_index = -1;

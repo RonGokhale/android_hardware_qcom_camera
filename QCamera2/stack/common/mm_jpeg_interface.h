@@ -109,15 +109,16 @@ typedef struct {
 
 typedef struct {
   /* num of buf in src img */
-  int32_t num_src_bufs;
+  uint32_t num_src_bufs;
 
   /* num of src tmb bufs */
-  int32_t num_tmb_bufs;
+  uint32_t num_tmb_bufs;
 
   /* num of buf in src img */
-  int32_t num_dst_bufs;
+  uint32_t num_dst_bufs;
 
-  int8_t encode_thumbnail;
+  /* should create thumbnail from main image or not */
+  uint32_t encode_thumbnail;
 
   /* src img bufs */
   mm_jpeg_buf_t src_main_buf[MM_JPEG_MAX_BUF];
@@ -163,7 +164,7 @@ typedef struct {
   mm_jpeg_dim_t main_dim;
 
   /* enable encoder burst mode */
-  int8_t burst_mode;
+  uint32_t burst_mode;
 
   /* get memory function ptr */
   int (*get_memory)( omx_jpeg_ouput_buf_t *p_out_buf);
@@ -171,10 +172,10 @@ typedef struct {
 
 typedef struct {
   /* num of buf in src img */
-  int32_t num_src_bufs;
+  uint32_t num_src_bufs;
 
   /* num of buf in src img */
-  int32_t num_dst_bufs;
+  uint32_t num_dst_bufs;
 
   /* src img bufs */
   mm_jpeg_buf_t src_main_buf[MM_JPEG_MAX_BUF];

@@ -315,7 +315,7 @@ int32_t QCamera3Channel::stop()
 int32_t QCamera3Channel::bufDone(mm_camera_super_buf_t *recvd_frame)
 {
     int32_t rc = NO_ERROR;
-    for (int i = 0; i < recvd_frame->num_bufs; i++) {
+    for (uint32_t i = 0; i < recvd_frame->num_bufs; i++) {
          if (recvd_frame->bufs[i] != NULL) {
              for (uint32_t j = 0; j < m_numStreams; j++) {
                  if (mStreams[j] != NULL &&
@@ -1880,7 +1880,7 @@ QCamera3Exif *QCamera3PicChannel::getExifData()
     String8 dateTime;
     String8 subsecTime;
     rc = getExifDateTime(dateTime, subsecTime);
-    if(rc == NO_ERROR) {
+    if (rc == NO_ERROR) {
         exif->addEntry(EXIFTAGID_DATE_TIME, EXIF_ASCII,
                 (uint32_t)(dateTime.length() + 1), (void *)dateTime.string());
         exif->addEntry(EXIFTAGID_EXIF_DATE_TIME_ORIGINAL, EXIF_ASCII,
@@ -2292,7 +2292,7 @@ int32_t QCamera3ReprocessChannel::doReprocess(mm_camera_super_buf_t *frame,
         ALOGE("%s: No source channel for reprocess", __func__);
         return -1;
     }
-    for (int i = 0; i < frame->num_bufs; i++) {
+    for (uint32_t i = 0; i < frame->num_bufs; i++) {
         QCamera3Stream *pStream = getStreamBySourceHandle(frame->bufs[i]->stream_id);
         if (pStream != NULL) {
             cam_stream_parm_buffer_t param;

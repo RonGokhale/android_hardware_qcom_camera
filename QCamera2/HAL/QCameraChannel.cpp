@@ -356,16 +356,16 @@ int32_t QCameraChannel::stop()
 int32_t QCameraChannel::bufDone(mm_camera_super_buf_t *recvd_frame)
 {
     int32_t rc = NO_ERROR;
-    for (int i = 0; i < recvd_frame->num_bufs; i++) {
-         if (recvd_frame->bufs[i] != NULL) {
-             for (uint32_t j = 0; j < m_numStreams; j++) {
-                 if (mStreams[j] != NULL &&
-                     mStreams[j]->getMyHandle() == recvd_frame->bufs[i]->stream_id) {
-                     rc = mStreams[j]->bufDone(recvd_frame->bufs[i]->buf_idx);
-                     break; // break loop j
-                 }
-             }
-         }
+    for (uint32_t i = 0; i < recvd_frame->num_bufs; i++) {
+        if (recvd_frame->bufs[i] != NULL) {
+            for (uint32_t j = 0; j < m_numStreams; j++) {
+                if (mStreams[j] != NULL &&
+                        mStreams[j]->getMyHandle() == recvd_frame->bufs[i]->stream_id) {
+                    rc = mStreams[j]->bufDone(recvd_frame->bufs[i]->buf_idx);
+                    break; // break loop j
+                }
+            }
+        }
     }
 
     return rc;
@@ -819,34 +819,34 @@ int32_t QCameraReprocessChannel::addReprocStreamsFromSource(
                 continue;
             }
 
-            if(pStream->isTypeOf(CAM_STREAM_TYPE_PREVIEW) ||
-                       pStream->isTypeOf(CAM_STREAM_TYPE_POSTVIEW) ||
-                       pStream->isOrignalTypeOf(CAM_STREAM_TYPE_PREVIEW) ||
-                       pStream->isOrignalTypeOf(CAM_STREAM_TYPE_POSTVIEW) ||
-                       (param.getofflineRAW() && pStream->isTypeOf(CAM_STREAM_TYPE_RAW))) {
-                  uint32_t feature_mask = config.feature_mask;
+            if (pStream->isTypeOf(CAM_STREAM_TYPE_PREVIEW) ||
+                    pStream->isTypeOf(CAM_STREAM_TYPE_POSTVIEW) ||
+                    pStream->isOrignalTypeOf(CAM_STREAM_TYPE_PREVIEW) ||
+                    pStream->isOrignalTypeOf(CAM_STREAM_TYPE_POSTVIEW) ||
+                    (param.getofflineRAW() && pStream->isTypeOf(CAM_STREAM_TYPE_RAW))) {
+                uint32_t feature_mask = config.feature_mask;
 
-                  if ((feature_mask & ~CAM_QCOM_FEATURE_HDR) == 0
-                      && param.isHDREnabled()
-                      && !param.isHDRThumbnailProcessNeeded()) {
+                if ((feature_mask & ~CAM_QCOM_FEATURE_HDR) == 0
+                        && param.isHDREnabled()
+                        && !param.isHDRThumbnailProcessNeeded()) {
 
-                      // Skip thumbnail stream reprocessing in HDR
-                      // if only hdr is enabled
-                      continue;
-                  }
+                    // Skip thumbnail stream reprocessing in HDR
+                    // if only hdr is enabled
+                    continue;
+                }
 
-                  // skip thumbnail reprocessing if not needed
-                  if (!param.needThumbnailReprocess(&feature_mask)) {
-                      continue;
-                  }
+                // skip thumbnail reprocessing if not needed
+                if (!param.needThumbnailReprocess(&feature_mask)) {
+                    continue;
+                }
 
-                  //Don't do WNR for thumbnail
-                  feature_mask &= ~CAM_QCOM_FEATURE_DENOISE2D;
-                  if(!feature_mask) {
+                //Don't do WNR for thumbnail
+                feature_mask &= ~CAM_QCOM_FEATURE_DENOISE2D;
+                if (!feature_mask) {
                     // Skip thumbnail stream reprocessing since no other
                     //reprocessing is enabled.
-                      continue;
-                  }
+                    continue;
+                }
             }
 
             pStreamInfoBuf = allocator.allocateStreamInfoBuf(CAM_STREAM_TYPE_OFFLINE_PROC);
@@ -1062,7 +1062,7 @@ int32_t QCameraReprocessChannel::doReprocessOffline(
     // find meta data stream and index of meta data frame in the superbuf
     mm_camera_buf_def_t *meta_buf = NULL;
     QCameraStream *pStream = NULL;
-    for (int i = 0; i < frame->num_bufs; i++) {
+    for (uint32_t i = 0; i < frame->num_bufs; i++) {
         pStream = m_pSrcChannel->getStreamByHandle(frame->bufs[i]->stream_id);
         if (pStream != NULL) {
             if (pStream->isTypeOf(CAM_STREAM_TYPE_METADATA)) {
@@ -1072,7 +1072,7 @@ int32_t QCameraReprocessChannel::doReprocessOffline(
         }
     }
 
-    for (int i = 0; i < frame->num_bufs; i++) {
+    for (uint32_t i = 0; i < frame->num_bufs; i++) {
         pStream = getStreamBySrouceHandle(frame->bufs[i]->stream_id);
         if (pStream != NULL) {
             if (pStream->isTypeOf(CAM_STREAM_TYPE_METADATA)) {
@@ -1187,7 +1187,7 @@ int32_t QCameraReprocessChannel::doReprocess(mm_camera_super_buf_t *frame,
     // find meta data stream and index of meta data frame in the superbuf
     QCameraStream *pMetaStream = NULL;
     uint32_t meta_buf_index = 0;
-    for (int i = 0; i < frame->num_bufs; i++) {
+    for (uint32_t i = 0; i < frame->num_bufs; i++) {
         QCameraStream *pStream = m_pSrcChannel->getStreamByHandle(frame->bufs[i]->stream_id);
         if (pStream != NULL) {
             if (pStream->isTypeOf(CAM_STREAM_TYPE_METADATA)) {
@@ -1198,7 +1198,7 @@ int32_t QCameraReprocessChannel::doReprocess(mm_camera_super_buf_t *frame,
         }
     }
 
-    for (int i = 0; i < frame->num_bufs; i++) {
+    for (uint32_t i = 0; i < frame->num_bufs; i++) {
         QCameraStream *pStream = getStreamBySrouceHandle(frame->bufs[i]->stream_id);
         if (pStream != NULL) {
             if(mParameter.getofflineRAW() && !pStream->isOrignalTypeOf(CAM_STREAM_TYPE_RAW)){
