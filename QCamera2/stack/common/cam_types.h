@@ -1261,6 +1261,7 @@ typedef enum {
     /* Indicates streams ID of all the requested buffers */
     CAM_INTF_META_STREAM_ID,
     CAM_INTF_PARM_FOCUS_BRACKETING,
+    CAM_INTF_PARM_MULTI_TOUCH_FOCUS_BRACKETING,
     CAM_INTF_PARM_FLASH_BRACKETING,
     CAM_INTF_PARM_GET_IMG_PROP,
 
@@ -1434,6 +1435,7 @@ typedef struct {
 #define CAM_QCOM_FEATURE_DIS20          (1<<16)
 #define CAM_QCOM_FEATURE_TRUEPORTRAIT   (1<<17)
 #define CAM_QCOM_FEATURE_FSSR           (1<<18)
+#define CAM_QCOM_FEATURE_MULTI_TOUCH_FOCUS (1<<19)
 
 // Debug mask
 #define HAL_DEBUG_MASK_HAL                 (1<<0)
@@ -1483,7 +1485,7 @@ typedef struct {
 typedef struct {
     uint8_t enable;
     uint8_t burst_count;
-    uint8_t focus_steps[MAX_AF_BRACKETING_VALUES];
+    int32_t focus_steps[MAX_AF_BRACKETING_VALUES];
     uint8_t output_count;
 } cam_af_bracketing_t;
 
