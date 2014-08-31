@@ -618,6 +618,7 @@ typedef struct {
     INCLUDE(CAM_INTF_META_JPEG_THUMB_SIZE,              cam_dimension_t,             1);
     INCLUDE(CAM_INTF_META_PROFILE_TONE_CURVE,           cam_profile_tone_curve,      1);
     INCLUDE(CAM_INTF_PARM_CAC,                          cam_aberration_mode_t,       1);
+    INCLUDE(CAM_INTF_META_NEUTRAL_COL_POINT,            cam_neutral_col_point_t,     1);
 } parm_data_t;
 
 typedef parm_data_t metadata_data_t;
