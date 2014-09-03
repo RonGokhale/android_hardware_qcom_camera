@@ -1084,6 +1084,24 @@ int QCamera2HardwareInterface::openCamera()
                                               camEvtHandle,
                                               (void *) this);
 
+#if MSM8610_PLATFORM
+    // Determine if 256MB config
+    if (Is256MBConfig()) {
+        cam_dimension_t temp_size;
+        cam_dimension_t limit;
+
+        // for 256MB config, restrict to 3MP picture size
+        limit.width = 2048;
+        limit.height = 1536;
+        while (removeSizeGreaterThanLimit(gCamCapability[mCameraId]->picture_sizes_tbl,
+                                          gCamCapability[mCameraId]->picture_sizes_tbl_cnt,
+                                          limit, temp_size)) {
+          ALOGE("%s: removing picture size %dx%d", __func__, temp_size.width, temp_size.height);
+          gCamCapability[mCameraId]->picture_sizes_tbl_cnt--;
+        }
+    }
+#endif // MSM8610_PLATFORM
+
     /* get max pic size for jpeg work buf calculation*/
     for(i = 0; i < gCamCapability[mCameraId]->picture_sizes_tbl_cnt - 1; i++)
     {
