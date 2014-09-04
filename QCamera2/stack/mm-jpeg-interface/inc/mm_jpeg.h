@@ -241,9 +241,14 @@ static inline void cirq_reset(mm_jpeg_cirq_t *q)
 })
 
 
-typedef struct {
+typedef union {
+  uint32_t u32;
+  void* p;
+} mm_jpeg_q_data_t;
+
+  typedef struct {
   struct cam_list list;
-  void* data;
+  mm_jpeg_q_data_t data;
 } mm_jpeg_q_node_t;
 
 typedef struct {
@@ -307,7 +312,7 @@ typedef struct mm_jpeg_job_session {
   OMX_BOOL config;
 
   /* job history count to generate unique id */
-  int job_hist;
+  unsigned int job_hist;
 
   OMX_BOOL encoding;
 
@@ -317,7 +322,7 @@ typedef struct mm_jpeg_job_session {
   int event_pending;
 
   uint8_t *meta_enc_key;
-  uint32_t meta_enc_keylen;
+  size_t meta_enc_keylen;
 
   struct mm_jpeg_job_session *next_session;
 
@@ -377,9 +382,9 @@ typedef struct mm_jpeg_obj_t {
 
 
   /* Max pic dimension for work buf calc*/
-  int32_t max_pic_w;
-  int32_t max_pic_h;
-  int work_buf_cnt;
+  uint32_t max_pic_w;
+  uint32_t max_pic_h;
+  uint32_t work_buf_cnt;
 
 #ifdef LOAD_ADSP_RPC_LIB
   void *adsprpc_lib_handle;
@@ -441,13 +446,15 @@ uint8_t mm_jpeg_util_get_index_by_handler(uint32_t handler);
 
 /* basic queue functions */
 extern int32_t mm_jpeg_queue_init(mm_jpeg_queue_t* queue);
-extern int32_t mm_jpeg_queue_enq(mm_jpeg_queue_t* queue, void* node);
-extern int32_t mm_jpeg_queue_enq_head(mm_jpeg_queue_t* queue, void* node);
-extern void* mm_jpeg_queue_deq(mm_jpeg_queue_t* queue);
+extern int32_t mm_jpeg_queue_enq(mm_jpeg_queue_t* queue,
+    mm_jpeg_q_data_t data);
+extern int32_t mm_jpeg_queue_enq_head(mm_jpeg_queue_t* queue,
+    mm_jpeg_q_data_t data);
+extern mm_jpeg_q_data_t mm_jpeg_queue_deq(mm_jpeg_queue_t* queue);
 extern int32_t mm_jpeg_queue_deinit(mm_jpeg_queue_t* queue);
 extern int32_t mm_jpeg_queue_flush(mm_jpeg_queue_t* queue);
 extern uint32_t mm_jpeg_queue_get_size(mm_jpeg_queue_t* queue);
-extern void* mm_jpeg_queue_peek(mm_jpeg_queue_t* queue);
+extern mm_jpeg_q_data_t mm_jpeg_queue_peek(mm_jpeg_queue_t* queue);
 extern int32_t addExifEntry(QOMX_EXIF_INFO *p_exif_info, exif_tag_id_t tagid,
   exif_tag_type_t type, uint32_t count, void *data);
 extern int32_t releaseExifEntry(QEXIF_INFO_DATA *p_exif_data);
