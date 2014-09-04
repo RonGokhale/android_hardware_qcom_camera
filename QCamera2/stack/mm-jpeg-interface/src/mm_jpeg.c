@@ -85,7 +85,7 @@ static OMX_ERRORTYPE mm_jpeg_session_configure(mm_jpeg_job_session_t *p_session)
  **/
 OMX_ERRORTYPE mm_jpeg_session_send_buffers(void *data)
 {
-  uint32_t i = 0;
+  int32_t i = 0;
   mm_jpeg_job_session_t* p_session = (mm_jpeg_job_session_t *)data;
   OMX_ERRORTYPE ret = OMX_ErrorNone;
   QOMX_BUFFER_INFO lbuffer_info;
@@ -148,7 +148,7 @@ OMX_ERRORTYPE mm_jpeg_session_send_buffers(void *data)
 OMX_ERRORTYPE mm_jpeg_session_free_buffers(void *data)
 {
   OMX_ERRORTYPE ret = OMX_ErrorNone;
-  uint32_t i = 0;
+  int32_t i = 0;
   mm_jpeg_job_session_t* p_session = (mm_jpeg_job_session_t *)data;
   mm_jpeg_encode_params_t *p_params = &p_session->params;
   mm_jpeg_encode_job_t *p_jobparams = &p_session->encode_job;
@@ -2096,7 +2096,7 @@ int32_t mm_jpeg_create_session(mm_jpeg_obj *my_obj,
   mm_jpeg_job_session_t *p_session = NULL;
   mm_jpeg_job_session_t * p_prev_session = NULL;
   *p_session_id = 0;
-  unsigned int i = 0;
+  uint32_t i = 0;
   uint32_t num_omx_sessions;
   uint32_t work_buf_size;
   mm_jpeg_queue_t *p_session_handle_q, *p_out_buf_q;
@@ -2227,7 +2227,7 @@ int32_t mm_jpeg_create_session(mm_jpeg_obj *my_obj,
   }
 
   // Queue the output buf indexes
-  for (i = 0; i < p_params->num_dst_bufs; i++) {
+  for (i = 0; i < (uint32_t)p_params->num_dst_bufs; i++) {
     mm_jpeg_queue_enq(p_out_buf_q, (void *)(i+1));
   }
 
