@@ -504,18 +504,19 @@ int process_meta_data(metadata_buffer_t *p_meta, QOMX_EXIF_INFO *exif_info,
   cam_3a_params_t p_3a_params;
   cam_auto_scene_t *scene_cap_type;
 
-  if (!p_meta) {
-    ALOGE("%s %d:Meta data is NULL", __func__, __LINE__);
-    return 0;
-  }
-
   memset(&p_3a_params,  0,  sizeof(cam_3a_params_t));
   memset(&p_sensor_params, 0, sizeof(cam_sensor_params_t));
 
-  if (hal_version == CAM_HAL_V1) {
+  if (hal_version == CAM_HAL_V1 || !p_meta) {
+    if (!p_meta) {
+      ALOGE("%s:%d] Metadata is null, use cached exif", __func__, __LINE__);
+    }
     if (p_cam_exif_params) {
-      cam_sensor_params_t* sensor_params =
-        (cam_sensor_params_t *)POINTER_OF_META(CAM_INTF_META_SENSOR_INFO, p_meta);
+      cam_sensor_params_t* sensor_params = NULL;
+      if (p_meta) {
+        sensor_params = (cam_sensor_params_t *)
+          POINTER_OF_META(CAM_INTF_META_SENSOR_INFO, p_meta);
+      }
       // Check for sensor params from metadata frame
       if (sensor_params != NULL) {
         p_sensor_params = *sensor_params;
@@ -596,18 +597,25 @@ int process_meta_data(metadata_buffer_t *p_meta, QOMX_EXIF_INFO *exif_info,
 
   rc = process_sensor_data(&p_sensor_params, exif_info);
   if (rc) {
-      ALOGE("%s %d: Failed to extract sensor params", __func__, __LINE__);
+    ALOGE("%s %d: Failed to extract sensor params", __func__, __LINE__);
   }
-  short val_short;
-  scene_cap_type =
-    (cam_auto_scene_t *)POINTER_OF_META(CAM_INTF_META_ASD_SCENE_CAPTURE_TYPE, p_meta);
-  if(scene_cap_type != NULL)
-  val_short = (short) *scene_cap_type;
-  else val_short = 0;
-  rc = addExifEntry(exif_info, EXIFTAGID_SCENE_CAPTURE_TYPE, EXIF_SHORT,
-    sizeof(val_short)/2, &val_short);
-  if (rc) {
-    ALOGE("%s:%d]: Error adding ASD Exif Entry", __func__, __LINE__);
+
+  if (p_meta) {
+    short val_short;
+    scene_cap_type =
+      (cam_auto_scene_t *)POINTER_OF_META(CAM_INTF_META_ASD_SCENE_CAPTURE_TYPE, p_meta);
+    if (scene_cap_type != NULL) {
+      val_short = (short) *scene_cap_type;
+    } else {
+      val_short = 0;
+    }
+    rc = addExifEntry(exif_info, EXIFTAGID_SCENE_CAPTURE_TYPE, EXIF_SHORT,
+      sizeof(val_short)/2, &val_short);
+    if (rc) {
+      ALOGE("%s:%d]: Error adding ASD Exif Entry", __func__, __LINE__);
+    }
+  } else {
+    ALOGE("%s:%d]: Error adding ASD Exif Entry, no meta", __func__, __LINE__);
   }
   return rc;
 }
