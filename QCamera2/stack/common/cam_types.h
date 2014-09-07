@@ -83,7 +83,7 @@
 #define MAX_STATS_DATA_SIZE 4000
 
 #define MAX_AF_BRACKETING_VALUES 5
-
+#define MAX_TEST_PATTERN_CNT     8
 #define GPS_PROCESSING_METHOD_SIZE_IN_WORD (33+3)/4
 
 typedef enum {
@@ -1308,6 +1308,7 @@ typedef enum {
     CAM_INTF_PARM_FOCUS_BRACKETING,
     CAM_INTF_PARM_FLASH_BRACKETING,
     CAM_INTF_PARM_GET_IMG_PROP,
+    CAM_INTF_META_TEST_PATTERN_DATA,
     /* DNG file support */
     CAM_INTF_META_PROFILE_TONE_CURVE,
     CAM_INTF_META_NEUTRAL_COL_POINT,
@@ -1728,6 +1729,22 @@ typedef enum {
     CAM_FOCUS_APPROXIMATE,
     CAM_FOCUS_CALIBRATED
 } cam_focus_calibration_t;
+
+typedef enum {
+    CAM_TEST_PATTERN_OFF,
+    CAM_TEST_PATTERN_SOLID_COLOR,
+    CAM_TEST_PATTERN_COLOR_BARS,
+    CAM_TEST_PATTERN_COLOR_BARS_FADE_TO_GRAY,
+    CAM_TEST_PATTERN_PN9,
+} cam_test_pattern_mode_t;
+
+typedef struct {
+    cam_test_pattern_mode_t mode;
+    int32_t r;
+    int32_t gr;
+    int32_t gb;
+    int32_t b;
+} cam_test_pattern_data_t;
 
 typedef enum {
     LEGACY_RAW,
