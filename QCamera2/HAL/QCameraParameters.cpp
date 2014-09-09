@@ -5693,13 +5693,13 @@ int32_t QCameraParameters::setCDSMode(const QCameraParameters& params)
     const char *prev_str = get(KEY_QC_CDS_MODE);
     char *cds_mode_str = NULL;
     int32_t rc = NO_ERROR;
+    char prop[PROPERTY_VALUE_MAX];
 
     if (str) {
         if (!prev_str || !strcmp(str, prev_str)) {
             cds_mode_str = (char *)str;
         }
     } else {
-        char prop[PROPERTY_VALUE_MAX];
         memset(prop, 0, sizeof(prop));
         property_get("persist.camera.CDS", prop, CDS_MODE_AUTO);
         cds_mode_str = prop;
@@ -5714,6 +5714,9 @@ int32_t QCameraParameters::setCDSMode(const QCameraParameters& params)
             if (rc != NO_ERROR) {
                 ALOGE("%s:Failed CDS MODE to update table", __func__);
             }
+        } else {
+            ALOGE("%s: Invalid argument for CDS MODE %s", __func__,  cds_mode_str);
+            rc = BAD_VALUE;
         }
     }
     return rc;
