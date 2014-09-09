@@ -1007,7 +1007,8 @@ QCamera2HardwareInterface::QCamera2HardwareInterface(int cameraId)
       mPostviewJob(-1),
       mMetadataJob(-1),
       mReprocJob(-1),
-      mRawdataJob(-1)
+      mRawdataJob(-1),
+      mPreviewFrameSkipValid(0)
 {
     getLogLevel();
     mCameraDevice.common.tag = HARDWARE_DEVICE_TAG;
@@ -1039,6 +1040,9 @@ QCamera2HardwareInterface::QCamera2HardwareInterface(int cameraId)
 #endif
 
     memset(mDeffOngoingJobs, 0, sizeof(mDeffOngoingJobs));
+
+    //reset preview frame skip
+    memset(&mPreviewFrameSkipIdxRange, 0, sizeof(cam_frame_idx_range_t));
 
     mDefferedWorkThread.launch(defferedWorkRoutine, this);
     mDefferedWorkThread.sendCmd(CAMERA_CMD_TYPE_START_DATA_PROC, FALSE, FALSE);
@@ -1699,10 +1703,12 @@ QCameraMemory *QCamera2HardwareInterface::allocateStreamBuf(cam_stream_type_t st
         break;
     case CAM_STREAM_TYPE_VIDEO:
         {
+            //Use uncached allocation by default
+            bCachedMem = QCAMERA_ION_USE_NOCACHE;
             char value[PROPERTY_VALUE_MAX];
-            property_get("persist.camera.mem.usecache", value, "1");
-            if (atoi(value) == 0) {
-                bCachedMem = QCAMERA_ION_USE_NOCACHE;
+            property_get("persist.camera.mem.usecache", value, "0");
+            if (atoi(value) == 1) {
+                bCachedMem = QCAMERA_ION_USE_CACHE;
             }
             ALOGD("%s: vidoe buf using cached memory = %d", __func__, bCachedMem);
             mem = new QCameraVideoMemory(mGetMemory, bCachedMem);
@@ -2029,6 +2035,10 @@ int QCamera2HardwareInterface::stopPreview()
     // stop preview stream
     stopChannel(QCAMERA_CH_TYPE_ZSL);
     stopChannel(QCAMERA_CH_TYPE_PREVIEW);
+
+    //reset preview frame skip
+    mPreviewFrameSkipValid = 0;
+    memset(&mPreviewFrameSkipIdxRange, 0, sizeof(cam_frame_idx_range_t));
 
     // delete all channels from preparePreview
     unpreparePreview();
@@ -6557,7 +6567,7 @@ bool QCamera2HardwareInterface::isRegularCapture()
     if (numOfSnapshotsExpected() == 1 &&
         !isLongshotEnabled() &&
         !mParameters.getRecordingHintValue() &&
-        !isZSLMode()) {
+        !isZSLMode() && !mParameters.isHDREnabled()) {
             ret = true;
     }
     return ret;
