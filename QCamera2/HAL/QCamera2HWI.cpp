@@ -1752,8 +1752,7 @@ QCameraMemory *QCamera2HardwareInterface::allocateStreamBuf(
             bCachedMem = QCAMERA_ION_USE_NOCACHE;
             char value[PROPERTY_VALUE_MAX];
             property_get("persist.camera.mem.usecache", value, "0");
-            //LLV needs cached video buffers
-            if ((atoi(value) == 1) || mParameters.isSeeMoreEnabled()) {
+            if (atoi(value) == 1) {
                 bCachedMem = QCAMERA_ION_USE_CACHE;
             }
             ALOGD("%s: vidoe buf using cached memory = %d", __func__, bCachedMem);
