@@ -1320,11 +1320,14 @@ typedef enum {
     CAM_INTF_META_JPEG_THUMB_QUALITY,
     CAM_INTF_META_JPEG_THUMB_SIZE,
 
+    /* trigger for all modules to read the debug/log level properties */
+    CAM_INTF_PARM_UPDATE_DEBUG_LEVEL,
     /* CAC */
     CAM_INTF_PARM_CAC,
 
     /* OTP : WB gr/gb */
     CAM_INTF_META_OTP_WB_GRGB,
+
     CAM_INTF_PARM_MAX
 } cam_intf_parm_type_t;
 

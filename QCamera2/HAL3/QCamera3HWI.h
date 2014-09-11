@@ -290,6 +290,7 @@ private:
     int64_t mMinRawFrameDuration;
     bool mRawDump;
     power_module_t *m_pPowerModule;   // power module
+    bool    mUpdateDebugLevel;
 
 #ifdef HAS_MULTIMEDIA_HINTS
     bool mHdrHint;
