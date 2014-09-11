@@ -60,6 +60,10 @@ const char QCameraParameters::KEY_QC_SUPPORTED_ISO_MODES[] = "iso-values";
 const char QCameraParameters::KEY_QC_EXPOSURE_TIME[] = "exposure-time";
 const char QCameraParameters::KEY_QC_MIN_EXPOSURE_TIME[] = "min-exposure-time";
 const char QCameraParameters::KEY_QC_MAX_EXPOSURE_TIME[] = "max-exposure-time";
+const char QCameraParameters::KEY_QC_CURRENT_EST_SNAP_EXP_TIME[] = "estimate-snap-exp-time";
+const char QCameraParameters::KEY_QC_CURRENT_EST_SNAP_ISO[] = "estimate-snap-iso";
+const char QCameraParameters::KEY_QC_EST_CURRENT_LUMA[] = "estimate-current-luma";
+const char QCameraParameters::KEY_QC_EST_LUMA_TARGET[] = "estimate-luma-target";
 const char QCameraParameters::KEY_QC_LENSSHADE[] = "lensshade";
 const char QCameraParameters::KEY_QC_SUPPORTED_LENSSHADE_MODES[] = "lensshade-values";
 const char QCameraParameters::KEY_QC_AUTO_EXPOSURE[] = "auto-exposure";
@@ -662,6 +666,8 @@ QCameraParameters::QCameraParameters()
       m_bHDROutputCropEnabled(false),
       m_curCCT(-1),
       m_curFocusPos(-1),
+      m_curEstSnapExpTime(-1),
+      m_curEstSnapIso(-1),
       m_tempMap(),
       m_bAFBracketingOn(false),
       m_bChromaFlashOn(false),
@@ -2593,6 +2599,42 @@ int32_t  QCameraParameters::setExposureTime(const QCameraParameters& params)
             return setExposureTime(str);
         }
     }
+
+    return NO_ERROR;
+}
+
+/*===========================================================================
+ * FUNCTION   : updateEstSnapAECParm
+ *
+ * DESCRIPTION: update estimate AEC info for snapshot from metadata callback
+ *
+ * PARAMETERS :
+ *   @est_exp_time : estimate snapshot exposure time
+ *   @est_iso : estimate snapshot iso
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t  QCameraParameters::updateEstSnapAECParm(cam_ae_params_t aec_params)
+{
+    if (aec_params.estimate_snap_exp_time != m_curEstSnapExpTime) {
+        ALOGD("%s: update estimate snap exp time. old:%d, now:%d", __func__,
+                m_curEstSnapExpTime, aec_params.estimate_snap_exp_time);
+        m_curEstSnapExpTime = aec_params.estimate_snap_exp_time;
+        set(KEY_QC_CURRENT_EST_SNAP_EXP_TIME, m_curEstSnapExpTime);
+    }
+
+
+    if (aec_params.estimate_snap_iso != m_curEstSnapIso) {
+        ALOGD("%s: update estimate snap iso. old:%d, now:%d", __func__,
+                m_curEstSnapIso, aec_params.estimate_snap_iso);
+        m_curEstSnapIso = aec_params.estimate_snap_iso;
+        set(KEY_QC_CURRENT_EST_SNAP_ISO, m_curEstSnapIso);
+    }
+
+    set(KEY_QC_EST_LUMA_TARGET, aec_params.estimate_luma_target);
+    set(KEY_QC_EST_CURRENT_LUMA, aec_params.estimate_current_luma);
 
     return NO_ERROR;
 }
@@ -5316,7 +5358,7 @@ int32_t  QCameraParameters::setExposureTime(const char *expTimeStr)
         }
     }
 
-    ALOGE("Invalid exposure time, value: %s",
+    ALOGE("####Invalid exposure time, value: %s",
           (expTimeStr == NULL) ? "NULL" : expTimeStr);
     return BAD_VALUE;
 }
