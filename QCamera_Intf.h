@@ -71,6 +71,9 @@
 #define CAMERA_EFFECT_USER_DEFINED6     17
 #define CAMERA_EFFECT_MAX               18
 
+#define TRUE (1)
+#define FALSE (0)
+
 enum {
   CAMERA_SUPPORT_MODE_2D = 0x01, /* Camera Sensor supports 2D mode. */
   CAMERA_SUPPORT_MODE_3D = 0x02, /* Camera Sensor supports 3D mode. */
