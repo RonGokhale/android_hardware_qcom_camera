@@ -851,6 +851,10 @@ typedef struct {
     float real_gain;
     int iso_value;
     uint32_t flash_needed;
+    uint32_t estimate_snap_exp_time;
+    uint32_t estimate_snap_iso;
+    uint32_t estimate_current_luma;
+    uint32_t estimate_luma_target;
     int settled;
     uint32_t exp_index;
     uint32_t line_count;
