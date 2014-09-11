@@ -325,11 +325,15 @@ status_t CameraContext::decodeJPEG(const sp<IMemory>& mem, SkBitmap *skBM)
         break;
     }
 
-    if (SkImageDecoder::DecodeMemory(buff, (size_t) size, skBM, kRGBA_8888_SkColorType,
+#ifndef USE_KK_CODE
+     if (SkImageDecoder::DecodeMemory(buff, (size_t) size, skBM, kRGBA_8888_SkColorType,
             SkImageDecoder::kDecodePixels_Mode) == false) {
         printf("%s():%d:: Failed during jpeg decode\n",__FUNCTION__,__LINE__);
         return BAD_VALUE;
     }
+#else
+    //TODO: Need to investigate and fix it as skia library has been changed.
+#endif
 
     return NO_ERROR;
 }

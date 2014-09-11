@@ -1741,7 +1741,6 @@ void QCamera2HardwareInterface::dumpFrameToFile(QCameraStream *stream,
 
                     filePath.append(buf);
                     int file_fd = open(filePath.string(), O_RDWR | O_CREAT, 0777);
-                    ssize_t written_len = 0;
                     if (file_fd > 0) {
                         void *data = NULL;
                         ssize_t written_len = 0;

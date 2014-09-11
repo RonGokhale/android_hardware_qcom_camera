@@ -5357,7 +5357,7 @@ int32_t  QCameraParameters::setFocusPosition(const char *typeStr, const char *po
         }
     }
 
-    ALOGE("%s, invalid params, type:%d, pos: %d", __func__, type, pos);
+    ALOGE("%s, invalid params, type:%d, pos: %f", __func__, type, pos);
     return BAD_VALUE;
 }
 
