@@ -117,6 +117,13 @@ const char QCameraParameters::KEY_QC_SNAPSHOT_FD_DATA[] = "snapshot-fd-data-enab
 const char QCameraParameters::KEY_QC_TINTLESS_ENABLE[] = "tintless";
 const char QCameraParameters::KEY_QC_SCENE_SELECTION[] = "scene-selection";
 const char QCameraParameters::KEY_QC_CDS_MODE[] = "cds-mode";
+const char QCameraParameters::KEY_QC_VIDEO_CDS_MODE[] = "video-cds-mode";
+const char QCameraParameters::KEY_QC_SUPPORTED_CDS_MODES[] = "cds-mode-values";
+const char QCameraParameters::KEY_QC_SUPPORTED_VIDEO_CDS_MODES[] = "video-cds-mode-values";
+const char QCameraParameters::KEY_QC_TNR_MODE[] = "tnr-mode";
+const char QCameraParameters::KEY_QC_VIDEO_TNR_MODE[] = "video-tnr-mode";
+const char QCameraParameters::KEY_QC_SUPPORTED_TNR_MODES[] = "tnr-mode-values";
+const char QCameraParameters::KEY_QC_SUPPORTED_VIDEO_TNR_MODES[] = "video-tnr-mode-values";
 const char QCameraParameters::KEY_QC_VIDEO_ROTATION[] = "video-rotation";
 const char QCameraParameters::KEY_QC_AF_BRACKET[] = "af-bracket";
 const char QCameraParameters::KEY_QC_SUPPORTED_AF_BRACKET_MODES[] = "af-bracket-values";
@@ -3451,27 +3458,70 @@ int32_t QCameraParameters::setWaveletDenoise(const QCameraParameters& params)
  *              NO_ERROR  -- success
  *              none-zero failure code
  *==========================================================================*/
-int32_t QCameraParameters::setTemporalDenoise()
+int32_t QCameraParameters::setTemporalDenoise(const QCameraParameters& params)
 {
     int32_t rc = NO_ERROR;
     if ((m_pCapability->qcom_supported_feature_mask & CAM_QCOM_FEATURE_CPP_TNR) == 0) {
         CDBG_HIGH("%s: TNR is not supported",__func__);
         return rc;
     }
-
+    const char *str = params.get(KEY_QC_TNR_MODE);
+    const char *prev_str = get(KEY_QC_TNR_MODE);
+    const char *video_str = params.get(KEY_QC_VIDEO_TNR_MODE);
+    const char *video_prev_str = get(KEY_QC_VIDEO_TNR_MODE);
+    char *tnr_mode_str = NULL;
+    char *video_tnr_mode_str = NULL;
     char value[PROPERTY_VALUE_MAX];
-    property_get("persist.camera.tnr.preview", value, "0");
+    char video_value[PROPERTY_VALUE_MAX];
 
-    if (0 < atoi(value))
-        m_bTNRPreviewOn = true;
-    else
-        m_bTNRPreviewOn = false;
+    if (str) {
+        if ((prev_str == NULL) || (strcmp(str, prev_str) != 0)) {
+            tnr_mode_str = (char *)str;
+        }
+    }
 
-    property_get("persist.camera.tnr.video", value, "0");
-    if (0 < atoi(value))
-        m_bTNRVideoOn = true;
-    else
-        m_bTNRVideoOn = false;
+    if (video_str) {
+        if ((video_prev_str == NULL) || (strcmp(video_str, video_prev_str) != 0)) {
+            video_tnr_mode_str = (char *)video_str;
+        }
+    }
+
+    if (!str && !video_str) {
+
+        memset(value, 0, sizeof(value));
+        memset(video_value, 0, sizeof(video_value));
+        property_get("persist.camera.tnr.preview", value, VALUE_OFF);
+        property_get("persist.camera.tnr.video", video_value, VALUE_OFF);
+        tnr_mode_str = value;
+        if (!strcmp(tnr_mode_str, "0")) {
+            tnr_mode_str = (char *)VALUE_OFF;
+        } else if(!strcmp(tnr_mode_str, "1")) {
+            tnr_mode_str = (char *)VALUE_ON;
+        }
+
+        video_tnr_mode_str = video_value;
+        if (!strcmp(video_tnr_mode_str, "0")) {
+            video_tnr_mode_str = (char *)VALUE_OFF;
+        } else if(!strcmp(video_tnr_mode_str, "1")) {
+            video_tnr_mode_str = (char *)VALUE_ON;
+        }
+    }
+
+    if (tnr_mode_str) {
+        if (!strcmp(tnr_mode_str, VALUE_ON)) {
+            m_bTNRPreviewOn = true;
+        } else {
+            m_bTNRPreviewOn = false;
+        }
+    }
+
+    if (video_tnr_mode_str) {
+        if (!strcmp(video_tnr_mode_str, VALUE_ON)) {
+            m_bTNRVideoOn = true;
+        } else {
+            m_bTNRVideoOn = false;
+        }
+    }
 
     cam_denoise_param_t temp;
     memset(&temp, 0, sizeof(temp));
@@ -3492,18 +3542,22 @@ int32_t QCameraParameters::setTemporalDenoise()
                 ALOGE("%s:Failed CDS MODE to update table", __func__);
                 return BAD_VALUE;
             } else {
-                CDBG("%s:Set CDS mode = %s", __func__, CDS_MODE_OFF);
+                CDBG("%s: Set CDS mode = %s", __func__, CDS_MODE_OFF);
             }
         } else {
             ALOGE("%s: Invalid argument for CDS MODE %d", __func__, cds_mode);
             rc = BAD_VALUE;
         }
+        CDBG("%s: TNR enable=%d, plates=%d", __func__,
+                temp.denoise_enable, temp.process_plates);
+        return AddSetParmEntryToBatch(m_pParamBuf, CAM_INTF_PARM_TEMPORAL_DENOISE,
+                sizeof(temp), &temp);
+    } else {
+        CDBG("%s: TNR enable=%d, plates=%d", __func__,
+                temp.denoise_enable, temp.process_plates);
+        return AddSetParmEntryToBatch(m_pParamBuf, CAM_INTF_PARM_TEMPORAL_DENOISE,
+                sizeof(temp), &temp);
     }
-
-    CDBG("%s: TNR enable=%d, plates=%d", __func__,
-            temp.denoise_enable, temp.process_plates);
-    return AddSetParmEntryToBatch(m_pParamBuf, CAM_INTF_PARM_TEMPORAL_DENOISE,
-            sizeof(temp), &temp);
 }
 
 /*===========================================================================
@@ -4014,7 +4068,7 @@ int32_t QCameraParameters::updateParameters(QCameraParameters& params,
     if ((rc = setSnapshotFDReq(params)))                final_rc = rc;
     if ((rc = setTintlessValue(params)))                final_rc = rc;
     if ((rc = setCDSMode(params)))                      final_rc = rc;
-    if ((rc = setTemporalDenoise()))                    final_rc = rc;
+    if ((rc = setTemporalDenoise(params)))              final_rc = rc;
 
     // update live snapshot size after all other parameters are set
     if ((rc = setLiveSnapshotSize(params)))             final_rc = rc;
@@ -4383,6 +4437,30 @@ int32_t QCameraParameters::initDefaultParameters()
             PARAM_MAP_SIZE(SCENE_MODES_MAP));
     set(KEY_SUPPORTED_SCENE_MODES, sceneModeValues);
     setSceneMode(SCENE_MODE_AUTO);
+
+    // Set CDS Mode
+    String8 cdsModeValues = createValuesStringFromMap(
+            CDS_MODES_MAP,
+            PARAM_MAP_SIZE(CDS_MODES_MAP));
+    set(KEY_QC_SUPPORTED_CDS_MODES, cdsModeValues);
+
+    // Set video CDS Mode
+    String8 videoCdsModeValues = createValuesStringFromMap(
+            CDS_MODES_MAP,
+            PARAM_MAP_SIZE(CDS_MODES_MAP));
+    set(KEY_QC_SUPPORTED_VIDEO_CDS_MODES, videoCdsModeValues);
+
+    // Set TNR Mode
+    String8 tnrModeValues = createValuesStringFromMap(
+            ON_OFF_MODES_MAP,
+            PARAM_MAP_SIZE(ON_OFF_MODES_MAP));
+    set(KEY_QC_SUPPORTED_TNR_MODES, tnrModeValues);
+
+    // Set video TNR Mode
+    String8 videoTnrModeValues = createValuesStringFromMap(
+            ON_OFF_MODES_MAP,
+            PARAM_MAP_SIZE(ON_OFF_MODES_MAP));
+    set(KEY_QC_SUPPORTED_VIDEO_TNR_MODES, videoTnrModeValues);
 
     // Set ISO Mode
     String8 isoValues = createValuesString(
@@ -5713,34 +5791,66 @@ int32_t QCameraParameters::setCDSMode(const QCameraParameters& params)
 {
     const char *str = params.get(KEY_QC_CDS_MODE);
     const char *prev_str = get(KEY_QC_CDS_MODE);
+    const char *video_str = params.get(KEY_QC_VIDEO_CDS_MODE);
+    const char *video_prev_str = get(KEY_QC_VIDEO_CDS_MODE);
     char *cds_mode_str = NULL;
+    char *video_cds_mode_str = NULL;
     int32_t rc = NO_ERROR;
     char prop[PROPERTY_VALUE_MAX];
+    char video_prop[PROPERTY_VALUE_MAX];
+    int32_t cds_mode = NAME_NOT_FOUND;
 
-    if (str) {
-        if (!prev_str || !strcmp(str, prev_str)) {
-            cds_mode_str = (char *)str;
-        }
-    } else {
-        memset(prop, 0, sizeof(prop));
-        property_get("persist.camera.CDS", prop, CDS_MODE_AUTO);
-        cds_mode_str = prop;
-    }
-
-    if (cds_mode_str) {
-        ALOGV("%s: Set CDS mode = %s", __func__, cds_mode_str);
-        int32_t cds_mode = lookupAttr(CDS_MODES_MAP, PARAM_MAP_SIZE(CDS_MODES_MAP), cds_mode_str);
-        if (NAME_NOT_FOUND != cds_mode) {
-            rc = AddSetParmEntryToBatch(m_pParamBuf, CAM_INTF_PARM_CDS_MODE,
-                    sizeof(cds_mode), &cds_mode);
-            if (rc != NO_ERROR) {
-                ALOGE("%s:Failed CDS MODE to update table", __func__);
+    if (m_bRecordingHint_new == true) {
+        if (video_str) {
+            if ((video_prev_str == NULL) || (strcmp(video_str, video_prev_str) != 0)) {
+                video_cds_mode_str = (char *)video_str;
             }
         } else {
-            ALOGE("%s: Invalid argument for CDS MODE %s", __func__,  cds_mode_str);
-            rc = BAD_VALUE;
+            memset(prop, 0, sizeof(prop));
+            property_get("persist.camera.video.CDS", video_prop, CDS_MODE_ON);
+            video_cds_mode_str = video_prop;
+        }
+    } else {
+        if (str) {
+            if ((prev_str == NULL) || (strcmp(str, prev_str) != 0)) {
+                cds_mode_str = (char *)str;
+            }
+        } else {
+            memset(prop, 0, sizeof(prop));
+            property_get("persist.camera.CDS", prop, CDS_MODE_ON);
+            cds_mode_str = prop;
         }
     }
+
+    if (m_bRecordingHint_new == true) {
+        if (video_cds_mode_str) {
+            cds_mode = lookupAttr(CDS_MODES_MAP,
+                    PARAM_MAP_SIZE(CDS_MODES_MAP),
+                    video_cds_mode_str);
+        }
+    } else {
+        if (cds_mode_str) {
+            cds_mode = lookupAttr(CDS_MODES_MAP,
+                    PARAM_MAP_SIZE(CDS_MODES_MAP),
+                    cds_mode_str);
+        }
+    }
+
+    if (cds_mode != NAME_NOT_FOUND) {
+        rc = AddSetParmEntryToBatch(m_pParamBuf,
+                CAM_INTF_PARM_CDS_MODE,
+                sizeof(cds_mode),
+                &cds_mode);
+        if (rc != NO_ERROR) {
+            ALOGE("%s:Failed CDS MODE to update table", __func__);
+        } else {
+            CDBG("%s: Set CDS mode = %d", __func__, cds_mode);
+        }
+    } else {
+        ALOGE("%s: Invalid argument for CDS MODE %s", __func__,  cds_mode_str);
+        rc = BAD_VALUE;
+    }
+
     return rc;
 }
 
