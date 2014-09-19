@@ -333,6 +333,8 @@ typedef struct mm_jpeg_job_session {
 
   mm_jpeg_queue_t *session_handle_q;
   mm_jpeg_queue_t *out_buf_q;
+
+  uint32_t job_index;
 } mm_jpeg_job_session_t;
 
 typedef struct {
