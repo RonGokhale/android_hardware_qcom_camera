@@ -91,6 +91,8 @@
 #define MAX_TEST_PATTERN_CNT     8
 #define GPS_PROCESSING_METHOD_SIZE_IN_WORD (33+3)/4
 
+#define MAX_INFLIGHT_REQUESTS  4
+
 typedef enum {
     CAM_HAL_V1 = 1,
     CAM_HAL_V3 = 3
