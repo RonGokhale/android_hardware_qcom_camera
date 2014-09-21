@@ -432,6 +432,8 @@ public:
     static const char KEY_QC_VIDEO_HDR[];
     static const char KEY_QC_VT_ENABLE[];
     static const char KEY_QC_SUPPORTED_VIDEO_HDR_MODES[];
+    static const char KEY_QC_SENSOR_HDR[];
+    static const char KEY_QC_SUPPORTED_SENSOR_HDR_MODES[];
 
     // Values for SKIN TONE ENHANCEMENT
     static const char SKIN_TONE_ENHANCEMENT_ENABLE[] ;
@@ -772,6 +774,7 @@ private:
     int32_t setSkinToneEnhancement(int sceFactor);
     int32_t setSceneDetect(const char *scendDetect);
     int32_t setVideoHDR(const char *videoHDR);
+    int32_t setSensorSnapshotHDR(const char *snapshotHDR);
     int32_t setVtEnable(const char *vtEnable);
     int32_t setZoom(int zoom_level);
     int32_t setISOValue(const char *isoValue);
@@ -931,7 +934,7 @@ private:
     int32_t mFlashValue;
     int32_t mFlashDaemonValue;
     bool m_bTruePortraitOn;
-
+    bool m_bSensorHDREnabled;             // if HDR is enabled
 };
 
 }; // namespace qcamera
