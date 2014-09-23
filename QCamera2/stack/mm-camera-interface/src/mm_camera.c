@@ -48,6 +48,8 @@
 #define GET_PARM_BIT32(parm, parm_arr) \
     ((parm_arr[parm/32]>>(parm%32))& 0x1)
 
+#define WAIT_TIMEOUT 500000000
+
 /* internal function declare */
 int32_t mm_camera_evt_sub(mm_camera_obj_t * my_obj,
                           uint8_t reg_flag);
@@ -142,7 +144,7 @@ static void mm_camera_dispatch_app_event(mm_camera_cmdcb_t *cmd_cb,
  *   @user_data: user data ptr (camera object)
  *
  * RETURN     : none
- *==========================================================================*/
+ *==========================================================================*/
 static void mm_camera_event_notify(void* user_data)
 {
     struct v4l2_event ev;
@@ -1566,9 +1568,17 @@ void mm_camera_util_wait_for_event(mm_camera_obj_t *my_obj,
                                    uint32_t evt_mask,
                                    uint32_t *status)
 {
+    int rc = 0;
+    struct timespec ts;
+    clock_gettime(CLOCK_REALTIME, &ts);
+    ts.tv_nsec += WAIT_TIMEOUT; //Revisit 500ms based on use case
     pthread_mutex_lock(&my_obj->evt_lock);
     while (!(my_obj->evt_rcvd.server_event_type & evt_mask)) {
-        pthread_cond_wait(&my_obj->evt_cond, &my_obj->evt_lock);
+        rc = pthread_cond_timedwait(&my_obj->evt_cond, &my_obj->evt_lock, &ts);
+        if (rc == ETIMEDOUT) {
+            ALOGE("%s pthread_cond_timedwait success\n", __func__);
+            break;
+        }
     }
     *status = my_obj->evt_rcvd.status;
     /* reset local storage for recieved event for next event */
