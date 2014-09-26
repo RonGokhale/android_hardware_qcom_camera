@@ -1026,7 +1026,8 @@ QCamera2HardwareInterface::QCamera2HardwareInterface(uint32_t cameraId)
       mMetadataJob(-1),
       mReprocJob(-1),
       mRawdataJob(-1),
-      mPreviewFrameSkipValid(0)
+      mPreviewFrameSkipValid(0),
+      mNumPreviewFaces(-1)
 {
     getLogLevel();
     ATRACE_CALL();
@@ -2089,6 +2090,7 @@ int QCamera2HardwareInterface::stopPreview()
 {
     ATRACE_CALL();
     CDBG_HIGH("%s: E", __func__);
+    mNumPreviewFaces = -1;
     // stop preview stream
     stopChannel(QCAMERA_CH_TYPE_ZSL);
     stopChannel(QCAMERA_CH_TYPE_PREVIEW);
@@ -5514,6 +5516,26 @@ QCameraChannel *QCamera2HardwareInterface::getChannelByHandle(uint32_t channelHa
 
     return NULL;
 }
+/*===========================================================================
+ * FUNCTION   : needPreviewFDCallback
+ *
+ * DESCRIPTION: decides if needPreviewFDCallback
+ *
+ * PARAMETERS :
+ *   @fd_data : number of faces
+ *
+ * RETURN     : bool type of status
+ *              true  -- success
+ *              fale -- failure code
+ *==========================================================================*/
+bool QCamera2HardwareInterface::needPreviewFDCallback(uint8_t num_faces)
+{
+    if (num_faces == 0 && mNumPreviewFaces == 0) {
+        return false;
+    }
+
+    return true;
+}
 
 /*===========================================================================
  * FUNCTION   : processFaceDetectionReuslt
@@ -5536,7 +5558,8 @@ int32_t QCamera2HardwareInterface::processFaceDetectionResult(cam_face_detection
 
     qcamera_face_detect_type_t fd_type = fd_data->fd_type;
     if ((NULL == mDataCb) ||
-        (fd_type == QCAMERA_FD_PREVIEW && !msgTypeEnabled(CAMERA_MSG_PREVIEW_METADATA)) ||
+        (fd_type == QCAMERA_FD_PREVIEW && (!msgTypeEnabled(CAMERA_MSG_PREVIEW_METADATA) ||
+        (!needPreviewFDCallback(fd_data->num_faces_detected)))) ||
         (fd_type == QCAMERA_FD_SNAPSHOT && !msgTypeEnabled(CAMERA_MSG_META_DATA))
         ) {
         CDBG_HIGH("%s: metadata msgtype not enabled, no ops here", __func__);
@@ -5589,6 +5612,7 @@ int32_t QCamera2HardwareInterface::processFaceDetectionResult(cam_face_detection
     unsigned char *faceData = NULL;
     if(fd_type == QCAMERA_FD_PREVIEW){
         faceData = pFaceResult;
+        mNumPreviewFaces = fd_data->num_faces_detected;
     }else if(fd_type == QCAMERA_FD_SNAPSHOT){
         //need fill meta type and meta data len first
         int *data_header = (int* )pFaceResult;
