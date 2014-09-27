@@ -696,6 +696,7 @@ int QCamera2HardwareInterface::take_picture(struct camera_device *device)
                 CDBG_HIGH("%s: [ZSL Retro] Prep Snapshot done", __func__);
 
             }
+            hw->mPrepSnapRun = true;
         }
         /* Regardless what the result value for prepare_snapshot,
          * go ahead with capture anyway. Just like the way autofocus
@@ -1068,6 +1069,7 @@ QCamera2HardwareInterface::QCamera2HardwareInterface(uint32_t cameraId)
       mFlashNeeded(false),
       mCaptureRotation(0U),
       mIs3ALocked(false),
+      mPrepSnapRun(false),
       mZoomLevel(0),
       m_bIntJpegEvtPending(false),
       m_bIntRawEvtPending(false),
@@ -2684,7 +2686,7 @@ int QCamera2HardwareInterface::takePicture()
                     return rc;
                 }
             }
-            if ( mLongshotEnabled ) {
+            if (mLongshotEnabled && mPrepSnapRun) {
                 mCameraHandle->ops->start_zsl_snapshot(
                         mCameraHandle->camera_handle,
                         pZSLChannel->getMyHandle());
@@ -3411,6 +3413,7 @@ int QCamera2HardwareInterface::sendCommand(int32_t command,
         if ( !m_stateMachine.isCaptureRunning() ) {
             mLongshotEnabled = true;
             mParameters.setLongshotEnable(mLongshotEnabled);
+            mPrepSnapRun = false;
 
             // Due to recent buffer count optimizations
             // ZSL might run with considerably less buffers
@@ -3451,12 +3454,13 @@ int QCamera2HardwareInterface::sendCommand(int32_t command,
             cancelPicture();
             processEvt(QCAMERA_SM_EVT_SNAPSHOT_DONE, NULL);
             QCameraChannel *pZSLChannel = m_channels[QCAMERA_CH_TYPE_ZSL];
-            if (isZSLMode() && (NULL != pZSLChannel)) {
+            if (isZSLMode() && (NULL != pZSLChannel) && mPrepSnapRun) {
                 mCameraHandle->ops->stop_zsl_snapshot(
                         mCameraHandle->camera_handle,
                         pZSLChannel->getMyHandle());
             }
         }
+        mPrepSnapRun = false;
         mLongshotEnabled = false;
         rc = mParameters.setLongshotEnable(mLongshotEnabled);
         break;
