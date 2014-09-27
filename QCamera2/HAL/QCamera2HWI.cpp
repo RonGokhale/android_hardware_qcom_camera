@@ -3051,6 +3051,12 @@ int QCamera2HardwareInterface::cancelPicture()
     if (mParameters.isUbiFocusEnabled()) {
         configureAFBracketing(false);
     }
+    if (mParameters.isMultiTouchFocusEnabled()) {
+        configureMTFBracketing(false);
+    }
+    if (mParameters.isMultiTouchFocusSelected()) {
+        mParameters.resetMultiTouchFocusParam();
+    }
     return NO_ERROR;
 }
 
@@ -3074,12 +3080,6 @@ void QCamera2HardwareInterface::captureDone()
     if (mParameters.isfssrEnabled()) {
         CDBG_HIGH("%s: Restoring previous zoom value!!",__func__);
         mParameters.setAndCommitZoom(mZoomLevel);
-    }
-    if (mParameters.isMultiTouchFocusEnabled()) {
-        configureMTFBracketing(false);
-    }
-    if (mParameters.isMultiTouchFocusSelected()) {
-        mParameters.resetMultiTouchFocusParam();
     }
 }
 

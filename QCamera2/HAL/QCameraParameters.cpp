@@ -3321,6 +3321,7 @@ int32_t QCameraParameters::setTouchAFAEC(const QCameraParameters& params)
 
 int32_t QCameraParameters::updateMTFInfo(const int32_t lensPos)
 {
+   int i;
    CDBG_HIGH("%s: current lens position is: %d, burst count = %d",
            __func__, lensPos, m_MTFBracketInfo.burst_count);
    if (m_MTFBracketInfo.burst_count >= MAX_AF_BRACKETING_VALUES) {
@@ -3329,7 +3330,7 @@ int32_t QCameraParameters::updateMTFInfo(const int32_t lensPos)
    if (m_MTFBracketInfo.burst_count == 0) {
        m_MTFBracketInfo.focus_steps[0] = lensPos;
    } else {
-      for (int i = 0; i < m_MTFBracketInfo.burst_count; i++) {
+      for (i = 0; i < m_MTFBracketInfo.burst_count; i++) {
          if (lensPos > m_MTFBracketInfo.focus_steps[i]) {
             for (int j = m_MTFBracketInfo.burst_count; j > i; j--) {
                m_MTFBracketInfo.focus_steps[j] = m_MTFBracketInfo.focus_steps[j-1];
@@ -3337,6 +3338,9 @@ int32_t QCameraParameters::updateMTFInfo(const int32_t lensPos)
             m_MTFBracketInfo.focus_steps[i] = lensPos;
             break;
          }
+      }
+      if (m_MTFBracketInfo.burst_count == i) {
+          m_MTFBracketInfo.focus_steps[i] = lensPos;
       }
    }
    for (int i = 0; i < MAX_AF_BRACKETING_VALUES; i++) {
@@ -9861,10 +9865,10 @@ uint8_t QCameraParameters::getNumOfExtraBuffersForImageProc()
             numOfBufs +=
                 m_pCapability->ubifocus_af_bracketing_need.burst_count + 1;
         }
-    } else if (isMultiTouchFocusEnabled()) {
-        numOfBufs += m_currNumBufMTF - 1;
+    } else if (m_bMultiTouchFocusOn) {
+        numOfBufs += m_pCapability->mtf_af_bracketing_parm.burst_count - 1;
         if (isMTFRefocus()) {
-            numOfBufs += m_currNumBufMTF + 1;
+            numOfBufs += m_pCapability->mtf_af_bracketing_parm.burst_count + 1;
         }
     } else if (m_bOptiZoomOn) {
         numOfBufs += m_pCapability->opti_zoom_settings_need.burst_count - 1;
