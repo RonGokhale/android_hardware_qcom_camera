@@ -423,7 +423,7 @@ int32_t QCameraStream::init(QCameraHeapMemory *streamInfoBuf,
         }
     } else {
         ALOGE("Failed to retrieve buffer size (bad index)");
-            goto err1;
+        goto err1;
     }
 
     // Calculate buffer size for deffered allocation

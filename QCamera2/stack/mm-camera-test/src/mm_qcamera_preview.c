@@ -36,7 +36,7 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 static void mm_app_metadata_notify_cb(mm_camera_super_buf_t *bufs,
                                      void *user_data)
 {
-  int i = 0;
+  uint32_t i = 0;
   mm_camera_channel_t *channel = NULL;
   mm_camera_stream_t *p_stream = NULL;
   mm_camera_test_obj_t *pme = (mm_camera_test_obj_t *)user_data;
@@ -120,7 +120,7 @@ static void mm_app_metadata_notify_cb(mm_camera_super_buf_t *bufs,
 static void mm_app_preview_notify_cb(mm_camera_super_buf_t *bufs,
                                      void *user_data)
 {
-    int i = 0;
+    uint32_t i = 0;
     mm_camera_channel_t *channel = NULL;
     mm_camera_stream_t *p_stream = NULL;
     mm_camera_buf_def_t *frame = NULL;
@@ -140,7 +140,7 @@ static void mm_app_preview_notify_cb(mm_camera_super_buf_t *bufs,
         return;
     }
 
-    CDBG("%s: BEGIN - length=%d, frame idx = %d\n",
+    CDBG("%s: BEGIN - length=%zu, frame idx = %d\n",
             __func__, frame->frame_len, frame->frame_idx);
 
     /* find channel */
@@ -204,7 +204,7 @@ static void mm_app_zsl_notify_cb(mm_camera_super_buf_t *bufs,
                                  void *user_data)
 {
     int rc = 0;
-    int i = 0;
+    uint32_t i = 0;
     mm_camera_test_obj_t *pme = (mm_camera_test_obj_t *)user_data;
     mm_camera_channel_t *channel = NULL;
     mm_camera_stream_t *p_stream = NULL;

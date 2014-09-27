@@ -85,7 +85,7 @@ static OMX_ERRORTYPE mm_jpeg_session_configure(mm_jpeg_job_session_t *p_session)
  **/
 OMX_ERRORTYPE mm_jpeg_session_send_buffers(void *data)
 {
-  int32_t i = 0;
+  uint32_t i = 0;
   mm_jpeg_job_session_t* p_session = (mm_jpeg_job_session_t *)data;
   OMX_ERRORTYPE ret = OMX_ErrorNone;
   QOMX_BUFFER_INFO lbuffer_info;
@@ -147,7 +147,7 @@ OMX_ERRORTYPE mm_jpeg_session_send_buffers(void *data)
 OMX_ERRORTYPE mm_jpeg_session_free_buffers(void *data)
 {
   OMX_ERRORTYPE ret = OMX_ErrorNone;
-  int32_t i = 0;
+  uint32_t i = 0;
   mm_jpeg_job_session_t* p_session = (mm_jpeg_job_session_t *)data;
   mm_jpeg_encode_params_t *p_params = &p_session->params;
 
@@ -844,7 +844,7 @@ OMX_ERRORTYPE mm_jpeg_session_config_thumbnail(mm_jpeg_job_session_t* p_session)
   QOMX_YUV_FRAME_INFO *p_frame_info = &thumbnail_info.tmbOffset;
   mm_jpeg_buf_t *p_tmb_buf = &p_params->src_thumb_buf[p_jobparams->thumb_index];
 
-  CDBG_HIGH("%s:%d] encode_thumbnail %d", __func__, __LINE__,
+  CDBG_HIGH("%s:%d] encode_thumbnail %u", __func__, __LINE__,
     p_params->encode_thumbnail);
   if (OMX_FALSE == p_params->encode_thumbnail) {
     return ret;
@@ -900,7 +900,6 @@ OMX_ERRORTYPE mm_jpeg_session_config_thumbnail(mm_jpeg_job_session_t* p_session)
   thumbnail_info.crop_info.nTop = p_thumb_dim->crop.top;
   thumbnail_info.rotation = (OMX_U32)p_params->thumb_rotation;
   thumbnail_info.quality = (OMX_U32)p_params->thumb_quality;
-
   thumbnail_info.output_width = (OMX_U32)p_thumb_dim->dst_dim.width;
   thumbnail_info.output_height = (OMX_U32)p_thumb_dim->dst_dim.height;
 
@@ -910,8 +909,8 @@ OMX_ERRORTYPE mm_jpeg_session_config_thumbnail(mm_jpeg_job_session_t* p_session)
       (p_session->params.rotation == 0 ||
       p_session->params.rotation == 180)) {
 
-      thumbnail_info.output_width = p_thumb_dim->dst_dim.height;
-      thumbnail_info.output_height = p_thumb_dim->dst_dim.width;
+      thumbnail_info.output_width = (OMX_U32)p_thumb_dim->dst_dim.height;
+      thumbnail_info.output_height = (OMX_U32)p_thumb_dim->dst_dim.width;
       thumbnail_info.rotation = p_session->params.rotation;
     }
   } else if ((p_thumb_dim->dst_dim.width > p_thumb_dim->src_dim.width) ||
@@ -920,8 +919,8 @@ OMX_ERRORTYPE mm_jpeg_session_config_thumbnail(mm_jpeg_job_session_t* p_session)
       __func__, __LINE__, p_thumb_dim->dst_dim.width,
       p_thumb_dim->dst_dim.height, p_thumb_dim->src_dim.width,
       p_thumb_dim->src_dim.height);
-    thumbnail_info.output_width = p_thumb_dim->src_dim.width;
-    thumbnail_info.output_height = p_thumb_dim->src_dim.height;
+    thumbnail_info.output_width = (OMX_U32)p_thumb_dim->src_dim.width;
+    thumbnail_info.output_height = (OMX_U32)p_thumb_dim->src_dim.height;
   }
 
   memset(p_frame_info, 0x0, sizeof(*p_frame_info));
@@ -1412,7 +1411,7 @@ static OMX_ERRORTYPE mm_jpeg_session_encode(mm_jpeg_job_session_t *p_session)
   pthread_mutex_unlock(&p_session->lock);
 
   if (p_session->thumb_from_main) {
-    p_jobparams->thumb_index = p_jobparams->src_index;
+    p_jobparams->thumb_index = (uint32_t)p_jobparams->src_index;
     p_jobparams->thumb_dim.crop = p_jobparams->main_dim.crop;
   }
 
@@ -1441,7 +1440,7 @@ static OMX_ERRORTYPE mm_jpeg_session_encode(mm_jpeg_job_session_t *p_session)
   snprintf(filename, 255, "/data/jpeg/mm_jpeg_int%d.yuv", p_session->ebd_count);
   DUMP_TO_FILE(filename,
     p_session->p_in_omx_buf[p_jobparams->src_index]->pBuffer,
-    (int)p_session->p_in_omx_buf[p_jobparams->src_index]->nAllocLen);
+    (size_t)p_session->p_in_omx_buf[p_jobparams->src_index]->nAllocLen);
 #endif
 
   ret = OMX_EmptyThisBuffer(p_session->omx_handle,
@@ -1458,7 +1457,7 @@ static OMX_ERRORTYPE mm_jpeg_session_encode(mm_jpeg_job_session_t *p_session)
     p_session->ebd_count);
   DUMP_TO_FILE(filename,
     p_session->p_in_omx_thumb_buf[p_jobparams->thumb_index]->pBuffer,
-    (int)p_session->p_in_omx_thumb_buf[p_jobparams->thumb_index]->nAllocLen);
+    (size_t)p_session->p_in_omx_thumb_buf[p_jobparams->thumb_index]->nAllocLen);
 #endif
     ret = OMX_EmptyThisBuffer(p_session->omx_handle,
         p_session->p_in_omx_thumb_buf[p_jobparams->thumb_index]);
@@ -2283,7 +2282,7 @@ int32_t mm_jpeg_create_session(mm_jpeg_obj *my_obj,
   }
 
   // Queue the output buf indexes
-  for (i = 0; i < (uint32_t)p_params->num_dst_bufs; i++) {
+  for (i = 0; i < p_params->num_dst_bufs; i++) {
     qdata.u32 = i + 1;
     mm_jpeg_queue_enq(p_out_buf_q, qdata);
   }

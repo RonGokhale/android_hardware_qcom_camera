@@ -1108,8 +1108,8 @@ int decrease_saturation (mm_camera_lib_handle *lib_handle) {
 int take_jpeg_snapshot(mm_camera_test_obj_t *test_obj, int is_burst_mode)
 {
   CDBG_HIGH("\nEnter take_jpeg_snapshot!!\n");
-  int rc = MM_CAMERA_OK;
-  if(MM_CAMERA_OK != (rc = mm_app_take_picture(test_obj,(uint8_t)is_burst_mode))) {
+  int rc = mm_app_take_picture (test_obj, (uint8_t)is_burst_mode);
+  if (MM_CAMERA_OK != rc) {
     CDBG_ERROR("%s: mm_app_take_picture() err=%d\n", __func__, rc);
   }
   return rc;

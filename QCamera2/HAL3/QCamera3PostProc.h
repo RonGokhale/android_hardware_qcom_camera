@@ -132,7 +132,7 @@ private:
     uint32_t                   mJpegSessionId;
     uint32_t                   mPostProcMask;
 
-    int8_t                     m_bThumbnailNeeded;
+    uint32_t                   m_bThumbnailNeeded;
     QCamera3Memory             *mJpegMem;
     uint32_t                   mJpegMemIndex;
     QCamera3ReprocessChannel *  m_pReprocChannel;

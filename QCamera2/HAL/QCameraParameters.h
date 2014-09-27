@@ -264,6 +264,9 @@ public:
     static const char KEY_QC_OPTI_ZOOM[];
     static const char KEY_QC_SUPPORTED_OPTI_ZOOM_MODES[];
 
+    // Auto HDR supported
+    static const char KEY_QC_AUTO_HDR_SUPPORTED[];
+
     // HDR modes
     static const char KEY_QC_HDR_MODE[];
     static const char KEY_QC_SUPPORTED_KEY_QC_HDR_MODES[];
@@ -273,9 +276,6 @@ public:
 
     //ZSL+HDR
     static const char KEY_QC_ZSL_HDR_SUPPORTED[];
-
-    // Auto HDR supported
-    static const char KEY_QC_AUTO_HDR_SUPPORTED[];
 
     // Values for Touch AF/AEC
     static const char TOUCH_AF_AEC_OFF[];
@@ -633,12 +633,12 @@ public:
     inline uint8_t UfOutputCount() {
             return m_pCapability->refocus_af_bracketing_need.output_count;};
     inline bool generateThumbFromMain() {return isUbiFocusEnabled() ||
-            isChromaFlashEnabled() || isOptiZoomEnabled() || isUbiRefocus(); };
+            isChromaFlashEnabled() || isOptiZoomEnabled() || isUbiRefocus(); }
     bool isDisplayFrameNeeded() { return m_bDisplayFrame; };
     int32_t setDisplayFrame(bool enabled) {m_bDisplayFrame=enabled; return 0;};
     bool isAdvCamFeaturesEnabled() {return isUbiFocusEnabled() ||
             isChromaFlashEnabled() || m_bOptiZoomOn || isHDREnabled() ||
-            isHDREnabled();};
+            isHDREnabled();}
     int32_t setAecLock(const char *aecStr);
     int32_t updateDebugLevel();
     bool is4k2kVideoResolution();
@@ -830,8 +830,8 @@ private:
     bool m_bRecordingHint;          // local copy of recording hint
     bool m_bRecordingHint_new;
     bool m_bHistogramEnabled;       // if histogram is enabled
-    bool m_bLongshotEnabled;       // if longshot is enabled
-    uint32_t  m_nFaceProcMask;      // face process mask
+    bool m_bLongshotEnabled;        // if longshot is enabled
+    uint32_t m_nFaceProcMask;       // face process mask
     bool m_bFaceDetectionOn;        //  if face Detection turned on by user
     bool m_bDebugFps;               // if FPS need to be logged
     cam_focus_mode_type mFocusMode;

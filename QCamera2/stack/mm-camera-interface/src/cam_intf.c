@@ -321,8 +321,6 @@ void *get_pointer_of(cam_intf_parm_type_t meta_id,
             return POINTER_OF_META(CAM_INTF_PARM_FOCUS_BRACKETING, metadata);
         case CAM_INTF_PARM_FLASH_BRACKETING:
             return POINTER_OF_META(CAM_INTF_PARM_FLASH_BRACKETING, metadata);
-        case CAM_INTF_PARM_CDS_MODE:
-            return POINTER_OF_META(CAM_INTF_PARM_CDS_MODE, metadata);
         case CAM_INTF_META_JPEG_GPS_COORDINATES:
             return POINTER_OF_META(CAM_INTF_META_JPEG_GPS_COORDINATES, metadata);
         case CAM_INTF_META_JPEG_GPS_PROC_METHODS:
@@ -337,10 +335,12 @@ void *get_pointer_of(cam_intf_parm_type_t meta_id,
             return POINTER_OF_META(CAM_INTF_META_JPEG_THUMB_QUALITY, metadata);
         case CAM_INTF_META_JPEG_THUMB_SIZE:
             return POINTER_OF_META(CAM_INTF_META_JPEG_THUMB_SIZE, metadata);
-        case CAM_INTF_PARM_CAC:
-            return POINTER_OF_META(CAM_INTF_PARM_CAC, metadata);
         case CAM_INTF_META_OTP_WB_GRGB:
             return POINTER_OF_META(CAM_INTF_META_OTP_WB_GRGB, metadata);
+        case CAM_INTF_PARM_CAC:
+            return POINTER_OF_META(CAM_INTF_PARM_CAC, metadata);
+        case CAM_INTF_PARM_CDS_MODE:
+            return POINTER_OF_META(CAM_INTF_PARM_CDS_MODE, metadata);
         default:
             return NULL;
     }
@@ -638,8 +638,6 @@ uint32_t get_size_of(cam_intf_parm_type_t param_id)
             return SIZE_OF_PARAM(CAM_INTF_PARM_FOCUS_BRACKETING, metadata);
         case CAM_INTF_PARM_FLASH_BRACKETING:
             return SIZE_OF_PARAM(CAM_INTF_PARM_FLASH_BRACKETING, metadata);
-        case CAM_INTF_PARM_CDS_MODE:
-            return SIZE_OF_PARAM(CAM_INTF_PARM_CDS_MODE, metadata);
         case CAM_INTF_META_JPEG_GPS_COORDINATES:
             return SIZE_OF_PARAM(CAM_INTF_META_JPEG_GPS_COORDINATES, metadata);
         case CAM_INTF_META_JPEG_GPS_PROC_METHODS:
@@ -654,10 +652,12 @@ uint32_t get_size_of(cam_intf_parm_type_t param_id)
             return SIZE_OF_PARAM(CAM_INTF_META_JPEG_THUMB_QUALITY, metadata);
         case CAM_INTF_META_JPEG_THUMB_SIZE:
             return SIZE_OF_PARAM(CAM_INTF_META_JPEG_THUMB_SIZE, metadata);
-        case CAM_INTF_PARM_CAC:
-            return SIZE_OF_PARAM(CAM_INTF_PARM_CAC, metadata);
         case CAM_INTF_META_OTP_WB_GRGB:
             return SIZE_OF_PARAM(CAM_INTF_META_OTP_WB_GRGB, metadata);
+        case CAM_INTF_PARM_CAC:
+            return SIZE_OF_PARAM(CAM_INTF_PARM_CAC, metadata);
+        case CAM_INTF_PARM_CDS_MODE:
+            return SIZE_OF_PARAM(CAM_INTF_PARM_CDS_MODE, metadata);
         default:
             return 0;
     }

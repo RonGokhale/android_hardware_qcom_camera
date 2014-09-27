@@ -144,7 +144,7 @@ static void mm_camera_dispatch_app_event(mm_camera_cmdcb_t *cmd_cb,
  *   @user_data: user data ptr (camera object)
  *
  * RETURN     : none
- *==========================================================================*/
+ *==========================================================================*/
 static void mm_camera_event_notify(void* user_data)
 {
     struct v4l2_event ev;

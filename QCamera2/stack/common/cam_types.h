@@ -973,14 +973,14 @@ typedef struct {
     size_t tuning_vfe_data_size;
     size_t tuning_cpp_data_size;
     size_t tuning_cac_data_size;
-    uint32_t tuning_mod3_data_size;
+    size_t tuning_mod3_data_size;
     uint8_t  data[TUNING_DATA_MAX];
 }tuning_params_t;
 
 typedef struct {
     int32_t event_type;
     cam_dimension_t dim;
-    int32_t size;
+    size_t size;
     char path[50];
 } cam_int_evt_params_t;
 
@@ -1424,7 +1424,7 @@ typedef struct {
     int32_t awb_enable;
     int32_t af_enable;
     cam_ez_force_params_t ez_force_param;
-    int                   awb_mode;
+    int32_t awb_mode;
   } u;
 } cam_eztune_cmd_data_t;
 
@@ -1511,7 +1511,7 @@ typedef struct {
 } cam_rgb_tonemap_curves;
 
 typedef struct {
-   int tonemap_points_cnt;
+   size_t tonemap_points_cnt;
    cam_tonemap_curve_t curve;
 } cam_profile_tone_curve;
 
@@ -1567,7 +1567,7 @@ typedef struct {
     int32_t step;
 } cam_control_range_t;
 
-#define CAM_QCOM_FEATURE_NONE            0
+#define CAM_QCOM_FEATURE_NONE            0U
 #define CAM_QCOM_FEATURE_FACE_DETECTION (1U<<0)
 #define CAM_QCOM_FEATURE_DENOISE2D      (1U<<1)
 #define CAM_QCOM_FEATURE_CROP           (1U<<2)
@@ -1773,20 +1773,6 @@ typedef enum {
 } cam_awb_state_t;
 
 typedef enum {
-    CAM_AWB_D50,
-    CAM_AWB_D65,
-    CAM_AWB_D75,
-    CAM_AWB_A,
-    CAM_AWB_CUSTOM_A,
-    CAM_AWB_WARM_FLO,
-    CAM_AWB_COLD_FLO,
-    CAM_AWB_CUSTOM_FLO,
-    CAM_AWB_NOON,
-    CAM_AWB_CUSTOM_DAYLIGHT,
-    CAM_AWB_INVALID_ALL_LIGHT,
-} cam_illuminat_t;
-
-typedef enum {
     CAM_FOCUS_UNCALIBRATED,
     CAM_FOCUS_APPROXIMATE,
     CAM_FOCUS_CALIBRATED
@@ -1807,6 +1793,20 @@ typedef struct {
     int32_t gb;
     int32_t b;
 } cam_test_pattern_data_t;
+
+typedef enum {
+    CAM_AWB_D50,
+    CAM_AWB_D65,
+    CAM_AWB_D75,
+    CAM_AWB_A,
+    CAM_AWB_CUSTOM_A,
+    CAM_AWB_WARM_FLO,
+    CAM_AWB_COLD_FLO,
+    CAM_AWB_CUSTOM_FLO,
+    CAM_AWB_NOON,
+    CAM_AWB_CUSTOM_DAYLIGHT,
+    CAM_AWB_INVALID_ALL_LIGHT,
+} cam_illuminat_t;
 
 typedef enum {
     LEGACY_RAW,

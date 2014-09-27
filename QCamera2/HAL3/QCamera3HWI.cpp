@@ -1025,8 +1025,7 @@ void QCamera3HardwareInterface::deriveMinFrameDuration()
         maxProcessedDim = maxJpegDim;
 
     //Find minimum durations for processed, jpeg, and raw
-    for (int i = 0; i < gCamCapability[mCameraId]->supported_raw_dim_cnt;
-            i++) {
+    for (size_t i = 0; i < gCamCapability[mCameraId]->supported_raw_dim_cnt; i++) {
         if (maxRawDim == gCamCapability[mCameraId]->raw_dim[i].width *
                 gCamCapability[mCameraId]->raw_dim[i].height) {
             mMinRawFrameDuration = gCamCapability[mCameraId]->raw_min_duration[i];
@@ -2417,11 +2416,10 @@ QCamera3HardwareInterface::translateCbMetadataToResultMetadata
 
     // CDS
     if (IS_META_AVAILABLE(CAM_INTF_PARM_CDS_MODE, metadata)) {
-        cam_cds_mode_type_t *cds = (cam_cds_mode_type_t *)
+        int32_t *cds = (int32_t *)
                 POINTER_OF_META(CAM_INTF_PARM_CDS_MODE, metadata);
-        int32_t mode = *cds;
         camMetadata.update(QCAMERA_CDS_MODE,
-                &mode, 1);
+                cds, 1);
     }
 
     if (IS_META_AVAILABLE(CAM_INTF_META_LENS_SHADING_MAP_MODE, metadata)) {
@@ -4659,7 +4657,7 @@ int QCamera3HardwareInterface::translateMetadataToParameters
         /* ch0 = G*/
         size_t point = 0;
         cam_tonemap_curve_t tonemapCurveGreen;
-        for (size_t i = 0; i < tonemapCurves.tonemap_points_cnt ; i++) {
+        for (size_t i = 0; i < tonemapCurves.tonemap_points_cnt; i++) {
             for (size_t j = 0; j < 2; j++) {
                tonemapCurveGreen.tonemap_points[i][j] =
                   frame_settings.find(ANDROID_TONEMAP_CURVE_GREEN).data.f[point];

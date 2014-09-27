@@ -149,9 +149,9 @@ typedef struct{
     uint8_t max_downscale_factor;
 
     /* dimension and supported output format of raw dump from camif */
-    uint8_t supported_raw_dim_cnt;
+    size_t supported_raw_dim_cnt;
     cam_dimension_t raw_dim[MAX_SIZES_CNT];
-    uint8_t supported_raw_fmt_cnt;
+    size_t supported_raw_fmt_cnt;
     cam_format_t supported_raw_fmts[CAM_FORMAT_MAX];
     /* The minimum frame duration that is supported for above
        raw resolution */
@@ -323,12 +323,13 @@ typedef struct{
     uint16_t isCacSupported;
 
     cam_opaque_raw_format_t opaque_raw_fmt;
-    /* Can the sensor timestamp be compared to
-     * timestamps from other sub-systems (gyro, accelerometer etc.) */
-    uint8_t isTimestampCalibrated;
 
     cam_aberration_mode_t aberration_modes[CAM_COLOR_CORRECTION_ABERRATION_MAX];
     uint32_t aberration_modes_count;
+
+    /* Can the sensor timestamp be compared to
+     * timestamps from other sub-systems (gyro, accelerometer etc.) */
+    uint8_t isTimestampCalibrated;
 
     /* Analysis stream max supported size */
     cam_dimension_t analysis_max_res;
@@ -407,7 +408,7 @@ typedef struct {
     cam_stream_buf_plane_info_t buf_planes;
 
     /* number of stream bufs will be allocated */
-    uint8_t num_bufs;
+    uint32_t num_bufs;
 
     /* streaming type */
     cam_streaming_mode_t streaming_mode;
@@ -595,7 +596,7 @@ typedef struct {
     INCLUDE(CAM_INTF_PARM_MAX_DIMENSION,                cam_dimension_t,             1);
     INCLUDE(CAM_INTF_PARM_RAW_DIMENSION,                cam_dimension_t,             1);
     INCLUDE(CAM_INTF_PARM_TINTLESS,                     int32_t,                     1);
-    INCLUDE(CAM_INTF_PARM_CDS_MODE,                     cam_cds_mode_type_t,         1);
+    INCLUDE(CAM_INTF_PARM_CDS_MODE,                     int32_t,                     1);
     INCLUDE(CAM_INTF_PARM_EZTUNE_CMD,                   cam_eztune_cmd_data_t,       1);
     INCLUDE(CAM_INTF_PARM_INT_EVT,                      cam_int_evt_params_t,        1);
     INCLUDE(CAM_INTF_PARM_RDI_MODE,                     int32_t,                     1);
@@ -630,9 +631,9 @@ typedef struct {
     INCLUDE(CAM_INTF_META_JPEG_THUMB_QUALITY,           uint32_t,                    1);
     INCLUDE(CAM_INTF_META_JPEG_THUMB_SIZE,              cam_dimension_t,             1);
     INCLUDE(CAM_INTF_META_PROFILE_TONE_CURVE,           cam_profile_tone_curve,      1);
+    INCLUDE(CAM_INTF_META_OTP_WB_GRGB,                  float,                       1);
     INCLUDE(CAM_INTF_PARM_CAC,                          cam_aberration_mode_t,       1);
     INCLUDE(CAM_INTF_META_NEUTRAL_COL_POINT,            cam_neutral_col_point_t,     1);
-    INCLUDE(CAM_INTF_META_OTP_WB_GRGB,                  float,                       1);
 } parm_data_t;
 
 typedef parm_data_t metadata_data_t;

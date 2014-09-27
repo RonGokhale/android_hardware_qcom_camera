@@ -1939,19 +1939,19 @@ int32_t mm_channel_handle_metadata(
              ch_obj->need3ABracketing = FALSE;
         }
 
-        if((ch_obj->burstSnapNum > 1) && (ch_obj->needLEDFlash == TRUE) &&
+        if ((ch_obj->burstSnapNum > 1) && (ch_obj->needLEDFlash == TRUE) &&
                 !ch_obj->isFlashBracketingEnabled && !ch_obj->need3ABracketing) {
             if((buf_info->frame_idx >= queue->led_off_start_frame_id)
                     &&  !queue->once) {
                 CDBG("%s: [ZSL Retro]Burst snap num = %d ",
-                        __func__,  ch_obj->burstSnapNum);
+                        __func__, ch_obj->burstSnapNum);
                 // Skip frames from LED OFF frame to get a good frame
                 queue->expected_frame_id = queue->led_off_start_frame_id +
                         queue->frame_skip_count;
                 queue->once = 1;
                 ch_obj->stopZslSnapshot = 1;
                 CDBG("%s:[ZSL Retro]Reached max led on frames = %d , expected id = %d",
-                        __func__,  buf_info->frame_idx, queue->expected_frame_id);
+                        __func__, buf_info->frame_idx, queue->expected_frame_id);
          }
        }
     }

@@ -576,7 +576,7 @@ private:
     bool m_bIntJpegEvtPending;
     bool m_bIntRawEvtPending;
     char m_BackendFileName[QCAMERA_MAX_FILEPATH_LENGTH];
-    int32_t mBackendFileSize;
+    size_t mBackendFileSize;
     pthread_mutex_t m_int_lock;
     pthread_cond_t m_int_cond;
 

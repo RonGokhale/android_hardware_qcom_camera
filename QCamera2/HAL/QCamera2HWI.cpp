@@ -1838,7 +1838,8 @@ QCameraHeapMemory *QCamera2HardwareInterface::allocateStreamInfoBuf(
     case CAM_STREAM_TYPE_RAW:
         property_get("persist.camera.raw_yuv", value, "0");
         raw_yuv = atoi(value) > 0 ? true : false;
-        if ((mParameters.isZSLMode() || isRdiMode() || raw_yuv)&& !mParameters.getofflineRAW()) {
+        if ((mParameters.isZSLMode() || isRdiMode() || raw_yuv) &&
+                !mParameters.getofflineRAW()) {
             CDBG_HIGH("RDI_DEBUG %s[%d]: CAM_STREAM_TYPE_RAW",
               __func__, __LINE__);
             streamInfo->streaming_mode = CAM_STREAMING_MODE_CONTINUOUS;
@@ -2190,8 +2191,9 @@ int QCamera2HardwareInterface::startRecording()
  *==========================================================================*/
 int QCamera2HardwareInterface::stopRecording()
 {
-    int rc = stopChannel(QCAMERA_CH_TYPE_VIDEO);
     CDBG_HIGH("%s: E", __func__);
+    int rc = stopChannel(QCAMERA_CH_TYPE_VIDEO);
+
 #ifdef HAS_MULTIMEDIA_HINTS
     if (m_pPowerModule) {
         if (m_pPowerModule->powerHint) {
@@ -2345,7 +2347,7 @@ bool QCamera2HardwareInterface::processUFDumps(qcamera_jpeg_evt_payload_t *evt)
            snprintf(name, CAM_FN_CNT, "AllFocusImage");
            index = -1;
        } else {
-           snprintf(name, CAM_FN_CNT, "%c", '0');
+           snprintf(name, CAM_FN_CNT, "%d", 0);
        }
        CAM_DUMP_TO_FILE("/data/local/ubifocus", name, index, "jpg",
            dataPtr, dataLen);
@@ -2492,7 +2494,7 @@ int32_t QCamera2HardwareInterface::configureHDRBracketing()
 
     // 'values' should be in "idx1,idx2,idx3,..." format
     uint32_t hdrFrameCount = gCamCaps[mCameraId]->hdr_bracketing_setting.num_frames;
-    ALOGE("%s : HDR values %d, %d frame count: %d",
+    ALOGE("%s : HDR values %d, %d frame count: %u",
           __func__,
           (int8_t) gCamCaps[mCameraId]->hdr_bracketing_setting.exp_val.values[0],
           (int8_t) gCamCaps[mCameraId]->hdr_bracketing_setting.exp_val.values[1],
@@ -2504,7 +2506,7 @@ int32_t QCamera2HardwareInterface::configureHDRBracketing()
     aeBracket.mode =
         gCamCaps[mCameraId]->hdr_bracketing_setting.exp_val.mode;
     String8 tmp;
-    for (uint32_t i = 0; i < hdrFrameCount ; i++) {
+    for (uint32_t i = 0; i < hdrFrameCount; i++) {
         tmp.appendFormat("%d",
             (int8_t) gCamCaps[mCameraId]->hdr_bracketing_setting.exp_val.values[i]);
         tmp.append(",");
@@ -4258,7 +4260,7 @@ int32_t QCamera2HardwareInterface::prepareRawStream(QCameraChannel *curChannel)
     for (int j = 0; j < QCAMERA_CH_TYPE_MAX; j++) {
         if (m_channels[j] != NULL) {
             pChannel = m_channels[j];
-            for (uint8_t i = 0; i < pChannel->getNumOfStreams();i++) {
+            for (uint8_t i = 0; i < pChannel->getNumOfStreams(); i++) {
                 QCameraStream *pStream = pChannel->getStreamByIndex(i);
                 if (pStream != NULL) {
                     if (pStream->isTypeOf(CAM_STREAM_TYPE_METADATA)) {
@@ -4276,7 +4278,7 @@ int32_t QCamera2HardwareInterface::prepareRawStream(QCameraChannel *curChannel)
         }
     }
 
-    for (uint8_t i = 0; i < curChannel->getNumOfStreams();i++) {
+    for (uint8_t i = 0; i < curChannel->getNumOfStreams(); i++) {
         QCameraStream *pStream = curChannel->getStreamByIndex(i);
         if (pStream != NULL) {
             if (pStream->isTypeOf(CAM_STREAM_TYPE_METADATA)) {
@@ -4331,12 +4333,12 @@ int32_t QCamera2HardwareInterface::addStreamToChannel(QCameraChannel *pChannel,
     }
 
     if ( ( streamType == CAM_STREAM_TYPE_SNAPSHOT ||
-        streamType == CAM_STREAM_TYPE_POSTVIEW ||
-        streamType == CAM_STREAM_TYPE_METADATA ||
-        streamType == CAM_STREAM_TYPE_RAW) &&
-        !isZSLMode() &&
-        !isLongshotEnabled() &&
-        !mParameters.getRecordingHintValue()) {
+            streamType == CAM_STREAM_TYPE_POSTVIEW ||
+            streamType == CAM_STREAM_TYPE_METADATA ||
+            streamType == CAM_STREAM_TYPE_RAW) &&
+            !isZSLMode() &&
+            !isLongshotEnabled() &&
+            !mParameters.getRecordingHintValue()) {
         rc = pChannel->addStream(*this,
                 pStreamInfo,
                 minStreamBufNum,
@@ -5713,7 +5715,7 @@ void QCamera2HardwareInterface::returnStreamBuffer(void *data,
 {
     QCameraStream *stream = ( QCameraStream * ) cookie;
     int idx = *((int *)data);
-    if ( (NULL != stream) && (0 <= idx) ) {
+    if ((NULL != stream) && (0 <= idx)) {
         stream->bufDone((uint32_t)idx);
     } else {
         ALOGE("%s: Cannot return buffer %d %p", __func__, idx, cookie);
@@ -5889,8 +5891,8 @@ int QCamera2HardwareInterface::calcThermalLevel(
             // Set lowest min FPS for now
             adjustedRange.min_fps = minFPS/1000.0f;
             adjustedRange.max_fps = minFPS/1000.0f;
-            for (size_t i = 0 ; i < gCamCaps[mCameraId]->fps_ranges_tbl_cnt ; i++) {
-                if ( gCamCaps[mCameraId]->fps_ranges_tbl[i].min_fps < adjustedRange.min_fps ) {
+            for (size_t i = 0; i < gCamCaps[mCameraId]->fps_ranges_tbl_cnt; i++) {
+                if (gCamCaps[mCameraId]->fps_ranges_tbl[i].min_fps < adjustedRange.min_fps) {
                     adjustedRange.min_fps = gCamCaps[mCameraId]->fps_ranges_tbl[i].min_fps;
                     adjustedRange.max_fps = adjustedRange.min_fps;
                 }
