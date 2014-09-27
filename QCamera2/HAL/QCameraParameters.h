@@ -403,6 +403,7 @@ public:
 
     static const char KEY_QC_HISTOGRAM[] ;
     static const char KEY_QC_SUPPORTED_HISTOGRAM_MODES[] ;
+    static const char KEY_QC_SUPPORTED_HDR_NEED_1X[];
     static const char KEY_QC_HDR_NEED_1X[];
     static const char KEY_QC_VIDEO_HDR[];
     static const char KEY_QC_VT_ENABLE[];
@@ -692,6 +693,7 @@ private:
     int32_t setChromaFlash(const QCameraParameters& );
     int32_t setOptiZoom(const QCameraParameters& );
     int32_t setHDRMode(const QCameraParameters& );
+    int32_t setHDRNeed1x(const QCameraParameters& );
     int32_t setRedeyeReduction(const QCameraParameters& );
     int32_t setGpsLocation(const QCameraParameters& );
     int32_t setRecordingHint(const QCameraParameters& );
@@ -752,6 +754,7 @@ private:
     int32_t setChromaFlash(const char *chromaFlashStr);
     int32_t setOptiZoom(const char *optiZoomStr);
     int32_t setHDRMode(const char *optiZoomStr);
+    int32_t setHDRNeed1x(const char *optiZoomStr);
     int32_t setRedeyeReduction(const char *redeyeStr);
     int32_t setWaveletDenoise(const char *wnrStr);
     int32_t setFaceRecognition(const char *faceRecog, uint32_t maxFaces);
