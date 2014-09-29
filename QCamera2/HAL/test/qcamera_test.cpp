@@ -327,7 +327,7 @@ status_t CameraContext::decodeJPEG(const sp<IMemory>& mem, SkBitmap *skBM)
         break;
     }
 
-    if (SkImageDecoder::DecodeMemory(buff, size, skBM, prefConfig,
+    if (SkImageDecoder::DecodeMemory(buff, (size_t) size, skBM, kRGBA_8888_SkColorType,
             SkImageDecoder::kDecodePixels_Mode) == false) {
         printf("%s():%d:: Failed during jpeg decode\n",__FUNCTION__,__LINE__);
         return BAD_VALUE;
@@ -808,7 +808,7 @@ void CameraContext::postData(int32_t msgType,
 
     if (msgType & CAMERA_MSG_COMPRESSED_IMAGE ) {
         String8 jpegPath;
-        jpegPath = jpegPath.format("/sdcard/img_%d.jpg", JpegIdx);
+        jpegPath = jpegPath.format("/data/img_%d.jpg", JpegIdx);
         if (!mPiPCapture) {
             // Normal capture case
             printf("JPEG done\n");
@@ -1951,7 +1951,7 @@ status_t CameraContext::configureRecorder()
 
     char fileName[100];
 
-    sprintf(fileName, "/sdcard/vid_cam%d_%dx%d_%d.mpeg", mCameraIndex,
+    snprintf(fileName, 100,  "/sdcard/vid_cam%d_%dx%d_%d.mpeg", mCameraIndex,
             videoSize.width, videoSize.height, mVideoIdx++);
 
     mVideoFd = open(fileName, O_CREAT | O_RDWR );
@@ -2727,14 +2727,14 @@ status_t Interpreter::configureViVCodec()
             mTestContext->mViVVid.VideoSizes[0].height >=
             mTestContext->mViVVid.VideoSizes[1].width *
             mTestContext->mViVVid.VideoSizes[1].height) {
-        sprintf(fileName, "/sdcard/ViV_vid_%dx%d_%d.mp4",
+        snprintf(fileName, 100,  "/sdcard/ViV_vid_%dx%d_%d.mp4",
             mTestContext->mViVVid.VideoSizes[0].width,
             mTestContext->mViVVid.VideoSizes[0].height,
             mTestContext->mViVVid.ViVIdx++);
         format->setInt32("width", mTestContext->mViVVid.VideoSizes[0].width);
         format->setInt32("height", mTestContext->mViVVid.VideoSizes[0].height);
     } else {
-        sprintf(fileName, "/sdcard/ViV_vid_%dx%d_%d.mp4",
+        snprintf(fileName, 100,  "/sdcard/ViV_vid_%dx%d_%d.mp4",
             mTestContext->mViVVid.VideoSizes[1].width,
             mTestContext->mViVVid.VideoSizes[1].height,
             mTestContext->mViVVid.ViVIdx++);
@@ -2801,15 +2801,17 @@ status_t Interpreter::configureViVCodec()
         mTestContext->mViVVid.VideoSizes[0].height >=
         mTestContext->mViVVid.VideoSizes[1].width *
         mTestContext->mViVVid.VideoSizes[1].height) {
-        native_window_set_buffers_geometry(mTestContext->mViVVid.ANW.get(),
+        native_window_set_buffers_dimensions(mTestContext->mViVVid.ANW.get(),
             mTestContext->mViVVid.VideoSizes[0].width,
-            mTestContext->mViVVid.VideoSizes[0].height,
-            HAL_PIXEL_FORMAT_NV12_ENCODEABLE);
+            mTestContext->mViVVid.VideoSizes[0].height);
+        native_window_set_buffers_format(mTestContext->mViVVid.ANW.get(),
+          HAL_PIXEL_FORMAT_NV12_ENCODEABLE);
     } else {
-        native_window_set_buffers_geometry(mTestContext->mViVVid.ANW.get(),
+        native_window_set_buffers_dimensions(mTestContext->mViVVid.ANW.get(),
             mTestContext->mViVVid.VideoSizes[1].width,
-            mTestContext->mViVVid.VideoSizes[1].height,
-            HAL_PIXEL_FORMAT_NV12_ENCODEABLE);
+            mTestContext->mViVVid.VideoSizes[1].height);
+        native_window_set_buffers_format(mTestContext->mViVVid.ANW.get(),
+          HAL_PIXEL_FORMAT_NV12_ENCODEABLE);
     }
     native_window_set_usage(mTestContext->mViVVid.ANW.get(),
         GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN);
@@ -3138,7 +3140,7 @@ status_t TestContext::FunctionalTest()
         mInterpreter->setTestCtxInst(this);
     }
 
-
+    mCurrentCameraIndex = 0;
     mTestRunning = true;
 
     while (mTestRunning) {
@@ -3151,9 +3153,11 @@ status_t TestContext::FunctionalTest()
         switch (command.cmd) {
         case Interpreter::SWITCH_CAMERA_CMD:
         {
-            mCurrentCameraIndex++;
-            mCurrentCameraIndex %= mAvailableCameras.size();
-            currentCamera = mAvailableCameras.itemAt(mCurrentCameraIndex);
+            if (mCurrentCameraIndex == 0) {
+              mCurrentCameraIndex = 1;
+            } else if (mCurrentCameraIndex == 1) {
+		      mCurrentCameraIndex = 0;
+            }
         }
             break;
 
