@@ -1536,11 +1536,6 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
                         mParameters.getNumOfExtraBuffersForPreview();
             }
             bufferCnt += minUndequeCount;
-
-            if (getSensorType() == CAM_SENSOR_YUV) {
-                //ISP allocates native buffers in YUV case
-                bufferCnt -= CAMERA_MIN_STREAMING_BUFFERS;
-            }
         }
         break;
     case CAM_STREAM_TYPE_POSTVIEW:
