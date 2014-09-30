@@ -34,6 +34,10 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
 #include <pthread.h>
 #include <dlfcn.h>
 #include <stdlib.h>
+#include <linux/types.h>
+#include <stdint.h>
+#include <inttypes.h>
+#include <stddef.h>
 #include "OMX_Component.h"
 
 #define TRUE 1

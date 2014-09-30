@@ -32,9 +32,14 @@
 
 #include <hardware/camera.h>
 #include <hardware/power.h>
+#if defined(USE_DLOG)
+#include <dlog/dlog.h>
+#elif defined(_ANDROID_)
 #include <utils/Log.h>
 #include <utils/Mutex.h>
 #include <utils/Condition.h>
+#endif
+#include "Mutex.h"
 #include <QCameraParameters.h>
 
 #include "QCameraQueue.h"
@@ -52,6 +57,16 @@ extern "C" {
 #include <mm_camera_interface.h>
 #include <mm_jpeg_interface.h>
 }
+#ifndef _ANDROID_
+enum MetaBufferType {
+   kMetadataBufferTypeCameraSource  = 0,
+   kMetadataBufferTypeGrallocSource = 1,
+};
+struct encoder_media_buffer_type {
+   MetaBufferType buffer_type;
+   native_handle *meta_handle;
+};
+#endif
 
 #if DISABLE_DEBUG_LOG
 
@@ -67,12 +82,16 @@ inline void __null_log(int, const char *, const char *, ...) {}
 #define ALOGI(...) do { __null_log(0, LOG_TAG,__VA_ARGS__); } while (0)
 #endif
 
-#ifdef CDBG
+
+
+/*#ifdef CDBG
 #undef CDBG
-#define CDBG(...) do{} while(0)
+#define CDBG(...) do{} while(0)*/
 #endif
 
-#else
+/*#else
+#define ALOGD_IF(cond, format, arg...) \
+    ((CONDITION(cond)) ? (LOGD(format, ##arg)) : (0))
 
 #ifdef CDBG
 #undef CDBG
@@ -85,7 +104,13 @@ inline void __null_log(int, const char *, const char *, ...) {}
 #define CDBG_HIGH(fmt, args...) ALOGD_IF(gCamHalLogLevel >= 1, fmt, ##args)
 
 #endif // DISABLE_DEBUG_LOG
+*/
 
+
+#define CDBG(fmt, args...) fprintf(stderr, ""fmt"\n", ##args)
+#define CDBG_HIGH(fmt, args...) fprintf(stderr, ""fmt"\n", ##args)
+#define CDBG_ERROR(fmt, args...) fprintf(stderr, ""fmt"\n", ##args)
+#define CDBG_LOW(fmt, args...) fprintf(stderr, ""fmt"\n", ##args)
 namespace qcamera {
 
 #ifndef TRUE
@@ -616,10 +641,10 @@ private:
 
     QCameraCmdThread      mDefferedWorkThread;
     QCameraQueue          mCmdQueue;
-
+#ifdef _ANDROID_
     Mutex                 mDeffLock;
     Condition             mDeffCond;
-
+#endif
     int32_t queueDefferedWork(DefferedWorkCmd cmd,
                               DefferWorkArgs args);
     int32_t waitDefferedWork(int32_t &job_id);

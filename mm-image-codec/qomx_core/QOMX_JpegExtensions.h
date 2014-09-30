@@ -283,6 +283,7 @@ typedef struct {
 * buffer memory operations
 * @get_memory - function to allocate buffer memory
 **/
+
 typedef struct {
   int (*get_memory)( omx_jpeg_ouput_buf_t *p_out_buf);
 } QOMX_MEM_OPS;

@@ -29,48 +29,57 @@
 
 #ifndef __MM_CAMERA_DBG_H__
 #define __MM_CAMERA_DBG_H__
-
 #define LOG_DEBUG 1
 /* Choose debug log level. This will not affect the error logs
    0: turns off CDBG and CDBG_HIGH logs
    1: turns-on CDBG_HIGH logs
    2: turns-on CDBG_HIGH and CDBG logs */
-extern volatile uint32_t gMmCameraIntfLogLevel;
+//extern volatile uint32_t gMmCameraIntfLogLevel;
+
+#if defined(USE_DLOG)
+  #include <dlog/dlog.h>
+  #include <stdio.h>
+#elif defined(_ANDROID_)
+  #include <utils/Log.h>
+#else
+    #include <stdio.h>
+#endif
+#undef CDBG
+#undef LOGE
+#undef LOGD
+
 
 #ifndef LOG_DEBUG
-  #ifdef _ANDROID_
-    #undef LOG_NIDEBUG
-    #undef LOG_TAG
-    #define LOG_NIDEBUG 0
-    #define LOG_TAG "mm-camera-intf"
-    #include <utils/Log.h>
-  #else
-    #include <stdio.h>
-    #define ALOGE CDBG
-  #endif
-  #undef CDBG
   #define CDBG(fmt, args...) do{}while(0)
-  #define CDBG_ERROR(fmt, args...) ALOGE(fmt, ##args)
-#else
-  #ifdef _ANDROID_
+  #if defined(_ANDROID_) || defined (USE_DLOG)
     #undef LOG_NIDEBUG
     #undef LOG_TAG
     #define LOG_NIDEBUG 0
     #define LOG_TAG "mm-camera-intf"
-    #include <utils/Log.h>
-    #define CDBG(fmt, args...) ALOGD_IF(gMmCameraIntfLogLevel >= 2, fmt, ##args)
   #else
-    #include <stdio.h>
-    #define CDBG(fmt, args...) fprintf(stderr, fmt, ##args)
-    #define ALOGE(fmt, args...) fprintf(stderr, fmt, ##args)
+    #define LOGE(fmt, args...) do {} while (0)
+  #endif
+#else
+  #if defined(_ANDROID_) || defined (USE_DLOG)
+    #undef LOG_NIDEBUG
+    #undef LOG_TAG
+    #define LOG_NIDEBUG 0
+    #define LOG_TAG "mm-camera-intf"
+    #define CDBG(fmt, args...) ALOGV(fmt, ##args)
+  #else
+    #define CDBG(fmt, args...) fprintf(stderr, ""fmt"\n", ##args)
+    #define LOGE(fmt, args...) fprintf(stderr, ""fmt"\n", ##args)
   #endif
 #endif
 
-#ifdef _ANDROID_
-  #define CDBG_HIGH(fmt, args...) ALOGD_IF(gMmCameraIntfLogLevel >= 1, fmt, ##args)
+#if defined(_ANDROID_) || defined (USE_DLOG)
+  #define CDBG_HIGH(fmt, args...)  ALOGI(fmt, ##args)
   #define CDBG_ERROR(fmt, args...)  ALOGE(fmt, ##args)
+  #define CDBG_LOW(fmt, args...) ALOGD(fmt, ##args)
 #else
-  #define CDBG_HIGH(fmt, args...) fprintf(stderr, fmt, ##args)
-  #define CDBG_ERROR(fmt, args...) fprintf(stderr, fmt, ##args)
+  #define ALOGE(fmt, args...) fprintf(stderr, ""fmt"\n", ##args)
+  #define CDBG_HIGH(fmt, args...) fprintf(stderr, ""fmt"\n", ##args)
+  #define CDBG_ERROR(fmt, args...) fprintf(stderr, ""fmt"\n", ##args)
+  #define CDBG_LOW(fmt, args...) fprintf(stderr, ""fmt"\n", ##args)
 #endif
 #endif /* __MM_CAMERA_DBG_H__ */

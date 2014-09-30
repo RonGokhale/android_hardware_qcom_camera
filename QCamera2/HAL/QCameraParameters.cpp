@@ -34,10 +34,12 @@
 #include <utils/Errors.h>
 #include <string.h>
 #include <stdlib.h>
-#include <gralloc_priv.h>
-#include <sys/sysinfo.h>
 #include "QCamera2HWI.h"
 #include "QCameraParameters.h"
+#ifdef _ANDROID_
+#include <gralloc_priv.h>
+#endif
+#include <sys/sysinfo.h>
 
 #define ASPECT_TOLERANCE 0.001
 #define FLIP_V_H (FLIP_H | FLIP_V)
@@ -6187,8 +6189,8 @@ int32_t QCameraParameters::setAEBracket(const char *aecBracketStr)
             if ((str_val != NULL) && (strlen(str_val)>0)) {
                 expBracket.mode = CAM_EXP_BRACKETING_ON;
                 m_bAeBracketingEnabled = true;
-                strlcpy(expBracket.values, str_val, MAX_EXP_BRACKETING_LENGTH);
-                CDBG("%s: setting Exposure Bracketing value of %s",
+                strncpy(expBracket.values, str_val, MAX_EXP_BRACKETING_LENGTH);
+                ALOGI("%s: setting Exposure Bracketing value of %s",
                       __func__, expBracket.values);
             }
             else {
@@ -7211,6 +7213,7 @@ int32_t QCameraParameters::getStreamDimension(cam_stream_type_t streamType,
     return ret;
 }
 
+#ifdef _ANDROID_
 /*===========================================================================
  * FUNCTION   : getPreviewHalPixelFormat
  *
@@ -7249,6 +7252,7 @@ int QCameraParameters::getPreviewHalPixelFormat() const
     CDBG_HIGH("%s: format %d\n", __func__, halPixelFormat);
     return halPixelFormat;
 }
+#endif
 
 /*===========================================================================
  * FUNCTION   : getthumbnailSize

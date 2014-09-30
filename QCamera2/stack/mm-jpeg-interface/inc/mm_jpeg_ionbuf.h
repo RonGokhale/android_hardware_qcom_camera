@@ -32,6 +32,8 @@
 
 
 #include <stdio.h>
+#include <inttypes.h>
+#include <stddef.h>
 #include <linux/msm_ion.h>
 #include <sys/mman.h>
 #include <unistd.h>

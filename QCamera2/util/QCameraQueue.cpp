@@ -28,7 +28,12 @@
 */
 
 #include <utils/Errors.h>
+#if defined(USE_DLOG)
+  #include <dlog/dlog.h>
+#elif defined(_ANDROID_)
 #include <utils/Log.h>
+#endif
+#include <stdlib.h>
 #include "QCameraQueue.h"
 
 namespace qcamera {
