@@ -84,12 +84,12 @@ inline void __null_log(int, const char *, const char *, ...) {}
 
 
 
-/*#ifdef CDBG
+#ifdef CDBG
 #undef CDBG
-#define CDBG(...) do{} while(0)*/
+#define CDBG(...) do{} while(0)
 #endif
 
-/*#else
+#else
 #define ALOGD_IF(cond, format, arg...) \
     ((CONDITION(cond)) ? (LOGD(format, ##arg)) : (0))
 
@@ -104,13 +104,13 @@ inline void __null_log(int, const char *, const char *, ...) {}
 #define CDBG_HIGH(fmt, args...) ALOGD_IF(gCamHalLogLevel >= 1, fmt, ##args)
 
 #endif // DISABLE_DEBUG_LOG
-*/
 
 
-#define CDBG(fmt, args...) fprintf(stderr, ""fmt"\n", ##args)
+
+/*#define CDBG(fmt, args...) fprintf(stderr, ""fmt"\n", ##args)
 #define CDBG_HIGH(fmt, args...) fprintf(stderr, ""fmt"\n", ##args)
 #define CDBG_ERROR(fmt, args...) fprintf(stderr, ""fmt"\n", ##args)
-#define CDBG_LOW(fmt, args...) fprintf(stderr, ""fmt"\n", ##args)
+#define CDBG_LOW(fmt, args...) fprintf(stderr, ""fmt"\n", ##args)*/
 namespace qcamera {
 
 #ifndef TRUE
