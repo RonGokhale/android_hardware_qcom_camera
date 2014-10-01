@@ -5,7 +5,7 @@ lib_LTLIBRARIES := libluacamerahal.la
 
 libluacamerahal_la_CFLAGS := $(DEBUG_CFLAGS) -DAMSS_VERSION=$(AMSS_VERSION) -Dstrcat=g_strlcat
 libluacamerahal_la_CFLAGS +=  -Wall -fno-short-enums -O0
-
+libluacamerahal_la_CFLAGS += -I ..
 libluacamerahal_la_SOURCES := QCamera2HalLuaBind.c
 
 libluacamerahal_la_LDFLAGS := -shared
@@ -23,6 +23,7 @@ lib_LTLIBRARIES += libluacamerakernel.la
 libluacamerakernel_la_CFLAGS := $(DEBUG_CFLAGS) -DAMSS_VERSION=$(AMSS_VERSION) -Dstrcat=g_strlcat
 libluacamerakernel_la_CFLAGS +=  -Wall -fno-short-enums -O0
 
+libluacamerakernel_la_CFLAGS += -I ..
 libluacamerakernel_la_SOURCES := CameraKernelLuaBind.c
 
 libluacamerakernel_la_LDFLAGS := -shared
