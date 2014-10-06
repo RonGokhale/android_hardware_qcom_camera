@@ -983,11 +983,8 @@ void QCamera2HardwareInterface::video_stream_cb_routine(mm_camera_super_buf_t *s
           frame->ts.tv_sec,
           frame->ts.tv_usec);
     nsecs_t timeStamp;
-    if(pme->mParameters.isAVTimerEnabled() == true) {
-        timeStamp = (((nsecs_t)frame->ts.tv_sec << 32) | frame->ts.tv_usec) * 1000;
-    } else {
-        timeStamp = nsecs_t(frame->ts.tv_sec) * 1000000000LL + frame->ts.tv_usec;
-    }
+    timeStamp = nsecs_t(frame->ts.tv_sec) * 1000000000LL +
+                          frame->ts.tv_usec * 1000;
     ALOGE("Send Video frame to services/encoder TimeStamp : %lld", timeStamp);
     QCameraMemory *videoMemObj = (QCameraMemory *)frame->mem_info;
     camera_memory_t *video_mem = NULL;

@@ -995,10 +995,7 @@ int32_t mm_stream_read_msm_frame(mm_stream_t * my_obj,
         buf_info->buf->buf_idx = idx;
         buf_info->buf->frame_idx = vb.sequence;
         buf_info->buf->ts.tv_sec  = vb.timestamp.tv_sec;
-        if (my_obj->stream_info->useAVTimer)
-            buf_info->buf->ts.tv_usec = vb.timestamp.tv_usec;
-        else
-            buf_info->buf->ts.tv_usec = vb.timestamp.tv_usec * 1000;
+        buf_info->buf->ts.tv_usec = vb.timestamp.tv_usec;
 
         CDBG("%s: VIDIOC_DQBUF buf_index %d, frame_idx %d, stream type %d\n",
           __func__, vb.index, buf_info->buf->frame_idx, my_obj->stream_info->stream_type);
