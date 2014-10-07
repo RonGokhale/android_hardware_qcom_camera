@@ -1692,7 +1692,7 @@ int32_t QCameraParameters::setFocusMode(const QCameraParameters& params)
 
     if (str != NULL) {
         if (prev_str == NULL ||
-            (strcmp(str, prev_str) != 0 && isAutoSceneMode)){
+            (strcmp(str, prev_str) != 0)){
                 rc = setFocusMode(str);
         }
     }
@@ -2705,8 +2705,9 @@ int32_t QCameraParameters::setSceneMode(const QCameraParameters& params)
             rc = setSceneMode(str);
 
             //Set scene mode specific settings like focus, flash,etc.
-            if(rc == NO_ERROR)
-                rc = setScenePreferences(params);
+            // No need to set Focus mode from HAL
+            // if(rc == NO_ERROR)
+            //    rc = setScenePreferences(params);
 
         }
     }
