@@ -194,6 +194,13 @@ public:
     static const char KEY_QC_TINTLESS_ENABLE[];
     static const char KEY_QC_SCENE_SELECTION[];
     static const char KEY_QC_CDS_MODE[];
+    static const char KEY_QC_VIDEO_CDS_MODE[];
+    static const char KEY_QC_SUPPORTED_CDS_MODES[];
+    static const char KEY_QC_SUPPORTED_VIDEO_CDS_MODES[];
+    static const char KEY_QC_TNR_MODE[];
+    static const char KEY_QC_VIDEO_TNR_MODE[];
+    static const char KEY_QC_SUPPORTED_TNR_MODES[];
+    static const char KEY_QC_SUPPORTED_VIDEO_TNR_MODES[];
     static const char KEY_QC_LONG_SHOT[];
 
     static const char KEY_INTERNAL_PERVIEW_RESTART[];
@@ -699,7 +706,7 @@ private:
     int32_t setRecordingHint(const QCameraParameters& );
     int32_t setNoDisplayMode(const QCameraParameters& );
     int32_t setWaveletDenoise(const QCameraParameters& );
-    int32_t setTemporalDenoise();
+    int32_t setTemporalDenoise(const QCameraParameters&);
     int32_t setZslMode(const QCameraParameters& );
     int32_t setZslAttributes(const QCameraParameters& );
     int32_t setAutoHDR(const QCameraParameters& params);
@@ -822,6 +829,7 @@ private:
     static const QCameraMap<int> OPTI_ZOOM_MODES_MAP[];
     static const QCameraMap<int> HDR_MODES_MAP[];
     static const QCameraMap<cam_cds_mode_type_t> CDS_MODES_MAP[];
+    static const QCameraMap<int> TNR_MODES_MAP[];
 
     cam_capability_t *m_pCapability;
     mm_camera_vtbl_t *m_pCamOpsTbl;
