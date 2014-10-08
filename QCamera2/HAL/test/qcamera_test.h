@@ -179,6 +179,7 @@ private:
     sp<IMemory> PiPPtrTmp;
 
     size_t mCurrentPreviewSizeIdx;
+    Size getPreviewSizeFromVideoSizes(Size currentVideoSize);
     size_t mCurrentPictureSizeIdx;
     size_t mCurrentVideoSizeIdx;
     Vector<Size> mSupportedPreviewSizes;
