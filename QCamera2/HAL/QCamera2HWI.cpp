@@ -1897,9 +1897,7 @@ QCameraHeapMemory *QCamera2HardwareInterface::allocateStreamInfoBuf(
         break;
     }
 
-    if ((!isZSLMode() ||
-        (isZSLMode() && (stream_type != CAM_STREAM_TYPE_SNAPSHOT))) &&
-        !mParameters.isHDREnabled()) {
+    if (stream_type != CAM_STREAM_TYPE_SNAPSHOT && !mParameters.isHDREnabled()) {
         //set flip mode based on Stream type;
         int flipMode = mParameters.getFlipMode(stream_type);
         if (flipMode > 0) {
