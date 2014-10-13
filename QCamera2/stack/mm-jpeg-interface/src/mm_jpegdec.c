@@ -120,7 +120,7 @@ static void mm_jpegdec_job_done(mm_jpeg_job_session_t *p_session)
  **/
 OMX_ERRORTYPE mm_jpegdec_session_send_buffers(void *data)
 {
-  int32_t i = 0;
+  uint32_t i = 0;
   mm_jpeg_job_session_t* p_session = (mm_jpeg_job_session_t *)data;
   OMX_ERRORTYPE ret = OMX_ErrorNone;
   QOMX_BUFFER_INFO lbuffer_info;
@@ -158,7 +158,7 @@ OMX_ERRORTYPE mm_jpegdec_session_send_buffers(void *data)
 OMX_ERRORTYPE mm_jpegdec_session_free_buffers(void *data)
 {
   OMX_ERRORTYPE ret = OMX_ErrorNone;
-  int32_t i = 0;
+  uint32_t i = 0;
   mm_jpeg_job_session_t* p_session = (mm_jpeg_job_session_t *)data;
   mm_jpeg_decode_params_t *p_params = &p_session->dec_params;
 
@@ -513,7 +513,7 @@ static OMX_ERRORTYPE mm_jpegdec_session_decode(mm_jpeg_job_session_t *p_session)
   mm_jpeg_decode_params_t *p_params = &p_session->dec_params;
   mm_jpeg_decode_job_t *p_jobparams = &p_session->decode_job;
   OMX_EVENTTYPE lEvent;
-  int32_t i;
+  uint32_t i;
   QOMX_BUFFER_INFO lbuffer_info;
 
   pthread_mutex_lock(&p_session->lock);
@@ -766,8 +766,8 @@ int32_t mm_jpegdec_start_decode_job(mm_jpeg_obj *my_obj,
     return rc;
   }
 
-  if ((p_jobparams->src_index >= p_session->dec_params.num_src_bufs) ||
-    (p_jobparams->dst_index >= p_session->dec_params.num_dst_bufs)) {
+  if ((p_jobparams->src_index >= (int32_t)p_session->dec_params.num_src_bufs) ||
+    (p_jobparams->dst_index >= (int32_t)p_session->dec_params.num_dst_bufs)) {
     CDBG_ERROR("%s:%d] invalid buffer indices", __func__, __LINE__);
     return rc;
   }

@@ -101,12 +101,12 @@ void QCamera2HardwareInterface::zsl_channel_cb(mm_camera_super_buf_t *recvd_fram
     // DUMP RAW if available
     property_get("persist.camera.zsl_raw", value, "0");
     dump_raw = atoi(value) > 0 ? true : false;
-    if ( dump_raw ) {
-        for ( int i= 0 ; i < recvd_frame->num_bufs ; i++ ) {
-            if ( recvd_frame->bufs[i]->stream_type == CAM_STREAM_TYPE_RAW ) {
+    if (dump_raw) {
+        for (uint32_t i = 0; i < recvd_frame->num_bufs; i++) {
+            if (recvd_frame->bufs[i]->stream_type == CAM_STREAM_TYPE_RAW) {
                 mm_camera_buf_def_t * raw_frame = recvd_frame->bufs[i];
                 QCameraStream *pStream = pChannel->getStreamByHandle(raw_frame->stream_id);
-                if ( NULL != pStream ) {
+                if (NULL != pStream) {
                     pme->dumpFrameToFile(pStream, raw_frame, QCAMERA_DUMP_FRM_RAW);
                 }
                 break;
@@ -118,12 +118,12 @@ void QCamera2HardwareInterface::zsl_channel_cb(mm_camera_super_buf_t *recvd_fram
     // DUMP YUV before reprocess if needed
     property_get("persist.camera.zsl_yuv", value, "0");
     dump_yuv = atoi(value) > 0 ? true : false;
-    if ( dump_yuv ) {
-        for ( int i= 0 ; i < recvd_frame->num_bufs ; i++ ) {
-            if ( recvd_frame->bufs[i]->stream_type == CAM_STREAM_TYPE_SNAPSHOT ) {
+    if (dump_yuv) {
+        for (uint32_t i = 0; i < recvd_frame->num_bufs; i++) {
+            if (recvd_frame->bufs[i]->stream_type == CAM_STREAM_TYPE_SNAPSHOT) {
                 mm_camera_buf_def_t * yuv_frame = recvd_frame->bufs[i];
                 QCameraStream *pStream = pChannel->getStreamByHandle(yuv_frame->stream_id);
-                if ( NULL != pStream ) {
+                if (NULL != pStream) {
                     pme->dumpFrameToFile(pStream, yuv_frame, QCAMERA_DUMP_FRM_SNAPSHOT);
                 }
                 break;
@@ -136,10 +136,10 @@ void QCamera2HardwareInterface::zsl_channel_cb(mm_camera_super_buf_t *recvd_fram
         //Need Face Detection result for snapshot frames
         //Get the Meta Data frames
         mm_camera_buf_def_t *pMetaFrame = NULL;
-        for(int i = 0; i < frame->num_bufs; i++){
+        for (uint32_t i = 0; i < frame->num_bufs; i++) {
             QCameraStream *pStream = pChannel->getStreamByHandle(frame->bufs[i]->stream_id);
-            if(pStream != NULL){
-                if(pStream->isTypeOf(CAM_STREAM_TYPE_METADATA)){
+            if (pStream != NULL) {
+                if (pStream->isTypeOf(CAM_STREAM_TYPE_METADATA)) {
                     pMetaFrame = frame->bufs[i]; //find the metadata
                     break;
                 }
@@ -179,14 +179,14 @@ void QCamera2HardwareInterface::zsl_channel_cb(mm_camera_super_buf_t *recvd_fram
     if (enabled) {
         mm_camera_buf_def_t *pMetaFrame = NULL;
         QCameraStream *pStream = NULL;
-        for(int i = 0; i < frame->num_bufs; i++){
+        for (uint32_t i = 0; i < frame->num_bufs; i++) {
             pStream = pChannel->getStreamByHandle(frame->bufs[i]->stream_id);
-            if(pStream != NULL){
-                if(pStream->isTypeOf(CAM_STREAM_TYPE_METADATA)){
+            if (pStream != NULL) {
+                if (pStream->isTypeOf(CAM_STREAM_TYPE_METADATA)) {
                     pMetaFrame = frame->bufs[i];
-                    if(pMetaFrame != NULL &&
-                       ((cam_metadata_info_t *)pMetaFrame->buffer)->is_tuning_params_valid){
-                        pme->dumpMetadataToFile(pStream, pMetaFrame,(char *)"ZSL_Snapshot");
+                    if (pMetaFrame != NULL &&
+                            ((cam_metadata_info_t *)pMetaFrame->buffer)->is_tuning_params_valid) {
+                        pme->dumpMetadataToFile(pStream, pMetaFrame, (char *) "ZSL_Snapshot");
                     }
                     break;
                 }
@@ -199,7 +199,7 @@ void QCamera2HardwareInterface::zsl_channel_cb(mm_camera_super_buf_t *recvd_fram
     if (log_matching) {
         CDBG_HIGH("%s : ZSL super buffer contains:", __func__);
         QCameraStream *pStream = NULL;
-        for (int i = 0; i < frame->num_bufs; i++) {
+        for (uint32_t i = 0; i < frame->num_bufs; i++) {
             pStream = pChannel->getStreamByHandle(frame->bufs[i]->stream_id);
             if (pStream != NULL ) {
                 CDBG_HIGH("%s: Buffer with V4Lindex %d frame index %d of type %dTimestamp: %ld %ld",
@@ -270,12 +270,12 @@ void QCamera2HardwareInterface::capture_channel_cb_routine(mm_camera_super_buf_t
     // DUMP YUV before reprocess if needed
     property_get("persist.camera.nonzsl.yuv", value, "0");
     dump_yuv = atoi(value) > 0 ? true : false;
-    if ( dump_yuv ) {
-        for ( int i= 0 ; i < recvd_frame->num_bufs ; i++ ) {
-            if ( recvd_frame->bufs[i]->stream_type == CAM_STREAM_TYPE_SNAPSHOT ) {
+    if (dump_yuv) {
+        for (uint32_t i= 0 ; i < recvd_frame->num_bufs ; i++) {
+            if (recvd_frame->bufs[i]->stream_type == CAM_STREAM_TYPE_SNAPSHOT) {
                 mm_camera_buf_def_t * yuv_frame = recvd_frame->bufs[i];
                 QCameraStream *pStream = pChannel->getStreamByHandle(yuv_frame->stream_id);
-                if ( NULL != pStream ) {
+                if (NULL != pStream) {
                     pme->dumpFrameToFile(pStream, yuv_frame, QCAMERA_DUMP_FRM_SNAPSHOT);
                 }
                 break;
@@ -288,14 +288,14 @@ void QCamera2HardwareInterface::capture_channel_cb_routine(mm_camera_super_buf_t
     if (enabled) {
         mm_camera_buf_def_t *pMetaFrame = NULL;
         QCameraStream *pStream = NULL;
-        for(int i = 0; i < frame->num_bufs; i++){
+        for (uint32_t i = 0; i < frame->num_bufs; i++) {
             pStream = pChannel->getStreamByHandle(frame->bufs[i]->stream_id);
-            if(pStream != NULL){
-                if(pStream->isTypeOf(CAM_STREAM_TYPE_METADATA)){
+            if (pStream != NULL) {
+                if (pStream->isTypeOf(CAM_STREAM_TYPE_METADATA)) {
                     pMetaFrame = frame->bufs[i]; //find the metadata
-                    if(pMetaFrame != NULL &&
-                       ((cam_metadata_info_t *)pMetaFrame->buffer)->is_tuning_params_valid){
-                        pme->dumpMetadataToFile(pStream, pMetaFrame,(char *)"Snapshot");
+                    if (pMetaFrame != NULL &&
+                            ((cam_metadata_info_t *)pMetaFrame->buffer)->is_tuning_params_valid){
+                        pme->dumpMetadataToFile(pStream, pMetaFrame, (char *) "Snapshot");
                     }
                     break;
                 }
@@ -317,7 +317,7 @@ void QCamera2HardwareInterface::capture_channel_cb_routine(mm_camera_super_buf_t
         // find snapshot frame
         QCameraStream *main_stream = NULL;
         mm_camera_buf_def_t *main_frame = NULL;
-        for (int i = 0; i < recvd_frame->num_bufs; i++) {
+        for (uint32_t i = 0; i < recvd_frame->num_bufs; i++) {
             QCameraStream *pStream =
                 pChannel->getStreamByHandle(recvd_frame->bufs[i]->stream_id);
             if (pStream != NULL) {
@@ -570,7 +570,7 @@ void QCamera2HardwareInterface::preview_stream_cb_routine(mm_camera_super_buf_t 
  *              none-zero failure code
  *==========================================================================*/
 int32_t QCamera2HardwareInterface::sendPreviewCallback(QCameraStream *stream,
-        QCameraGrallocMemory *memory, int32_t idx)
+        QCameraGrallocMemory *memory, uint32_t idx)
 {
     camera_memory_t *previewMem = NULL;
     camera_memory_t *data = NULL;
@@ -628,7 +628,8 @@ int32_t QCamera2HardwareInterface::sendPreviewCallback(QCameraStream *stream,
             vStride = streamInfo->buf_planes.plane_info.mp[2].stride;
             vScanline = streamInfo->buf_planes.plane_info.mp[2].scanline;
 
-            previewBufSize = yStride * yScanline + uStride * uScanline + vStride * vScanline;
+            previewBufSize = (size_t)
+                    (yStride * yScanline + uStride * uScanline + vStride * vScanline);
             previewBufSizeFromCallback = previewBufSize;
         } else {
             yStride = streamInfo->buf_planes.plane_info.mp[0].stride;
@@ -641,11 +642,11 @@ int32_t QCamera2HardwareInterface::sendPreviewCallback(QCameraStream *stream,
             uvStrideToApp = yStrideToApp;
             uvScanlineToApp = yScanlineToApp / 2;
 
-            previewBufSize = (yStrideToApp * yScanlineToApp) +
-                    (uvStrideToApp * uvScanlineToApp);
+            previewBufSize = (size_t)
+                    ((yStrideToApp * yScanlineToApp) + (uvStrideToApp * uvScanlineToApp));
 
-            previewBufSizeFromCallback = (yStride * yScanline) +
-                    (uvStride * uvScanline);
+            previewBufSizeFromCallback = (size_t)
+                    ((yStride * yScanline) + (uvStride * uvScanline));
         }
         if(previewBufSize == previewBufSizeFromCallback) {
             previewMem = mGetMemory(memory->getFd(idx),
@@ -669,7 +670,7 @@ int32_t QCamera2HardwareInterface::sendPreviewCallback(QCameraStream *stream,
                 dstOffset = i * yStrideToApp;
 
                 memcpy((unsigned char *) dataToApp->data + dstOffset,
-                        (unsigned char *) data->data + srcOffset, yStrideToApp);
+                        (unsigned char *) data->data + srcOffset, (size_t) yStrideToApp);
             }
 
             srcBaseOffset = yStride * yScanline;
@@ -681,7 +682,7 @@ int32_t QCamera2HardwareInterface::sendPreviewCallback(QCameraStream *stream,
 
                 memcpy((unsigned char *) dataToApp->data + dstOffset,
                         (unsigned char *) data->data + srcOffset,
-                        yStrideToApp);
+                        (size_t) yStrideToApp);
             }
         }
     } else {
@@ -1006,14 +1007,14 @@ void QCamera2HardwareInterface::snapshot_channel_cb_routine(mm_camera_super_buf_
         }
         mm_camera_buf_def_t *pMetaFrame = NULL;
         QCameraStream *pStream = NULL;
-        for(int i = 0; i < super_frame->num_bufs; i++){
+        for (uint32_t i = 0; i < super_frame->num_bufs; i++) {
             pStream = pChannel->getStreamByHandle(super_frame->bufs[i]->stream_id);
-            if(pStream != NULL){
-                if(pStream->isTypeOf(CAM_STREAM_TYPE_METADATA)){
+            if (pStream != NULL) {
+                if (pStream->isTypeOf(CAM_STREAM_TYPE_METADATA)) {
                     pMetaFrame = super_frame->bufs[i]; //find the metadata
-                    if(pMetaFrame != NULL &&
-                       ((cam_metadata_info_t *)pMetaFrame->buffer)->is_tuning_params_valid){
-                        pme->dumpMetadataToFile(pStream, pMetaFrame,(char *)"Snapshot");
+                    if (pMetaFrame != NULL &&
+                            ((cam_metadata_info_t *)pMetaFrame->buffer)->is_tuning_params_valid) {
+                        pme->dumpMetadataToFile(pStream, pMetaFrame, (char *) "Snapshot");
                     }
                     break;
                 }
@@ -1097,7 +1098,6 @@ void QCamera2HardwareInterface::preview_raw_stream_cb_routine(mm_camera_super_bu
 {
     ATRACE_CALL();
     CDBG_HIGH("[KPI Perf] %s : BEGIN", __func__);
-    int i = -1;
     char value[PROPERTY_VALUE_MAX];
     bool dump_raw = false;
 
@@ -1114,10 +1114,10 @@ void QCamera2HardwareInterface::preview_raw_stream_cb_routine(mm_camera_super_bu
     property_get("persist.camera.preview_raw", value, "0");
     dump_raw = atoi(value) > 0 ? true : false;
 
-    for ( i= 0 ; i < super_frame->num_bufs ; i++ ) {
-        if ( super_frame->bufs[i]->stream_type == CAM_STREAM_TYPE_RAW ) {
+    for (uint32_t i = 0; i < super_frame->num_bufs; i++) {
+        if (super_frame->bufs[i]->stream_type == CAM_STREAM_TYPE_RAW) {
             mm_camera_buf_def_t * raw_frame = super_frame->bufs[i];
-            if ( NULL != stream) {
+            if (NULL != stream) {
                 if (dump_raw) {
                     pme->dumpFrameToFile(stream, raw_frame, QCAMERA_DUMP_FRM_RAW);
                 }
@@ -1153,7 +1153,6 @@ void QCamera2HardwareInterface::snapshot_raw_stream_cb_routine(mm_camera_super_b
 {
     ATRACE_CALL();
     CDBG_HIGH("[KPI Perf] %s : BEGIN", __func__);
-    int i = -1;
     char value[PROPERTY_VALUE_MAX];
     bool dump_raw = false;
 
@@ -1170,10 +1169,10 @@ void QCamera2HardwareInterface::snapshot_raw_stream_cb_routine(mm_camera_super_b
     property_get("persist.camera.snapshot_raw", value, "0");
     dump_raw = atoi(value) > 0 ? true : false;
 
-    for ( i= 0 ; i < super_frame->num_bufs ; i++ ) {
-        if ( super_frame->bufs[i]->stream_type == CAM_STREAM_TYPE_RAW ) {
+    for (uint32_t i = 0; i < super_frame->num_bufs; i++) {
+        if (super_frame->bufs[i]->stream_type == CAM_STREAM_TYPE_RAW) {
             mm_camera_buf_def_t * raw_frame = super_frame->bufs[i];
-            if ( NULL != stream ) {
+            if (NULL != stream) {
                 if (dump_raw) {
                     pme->dumpFrameToFile(stream, raw_frame, QCAMERA_DUMP_FRM_RAW);
                 }
@@ -1366,7 +1365,7 @@ void QCamera2HardwareInterface::metadata_stream_cb_routine(mm_camera_super_buf_t
     /* Update 3a info */
     if(pMetaData->is_ae_params_valid) {
         pme->mExifParams.ae_params = pMetaData->ae_params;
-        pme->mFlashNeeded = (bool) pMetaData->ae_params.flash_needed;
+        pme->mFlashNeeded = pMetaData->ae_params.flash_needed ? true : false;
     }
     if(pMetaData->is_awb_params_valid) {
         pme->mExifParams.awb_params = pMetaData->awb_params;
@@ -1506,7 +1505,7 @@ void QCamera2HardwareInterface::reprocess_stream_cb_routine(mm_camera_super_buf_
  * RETURN     : None
  *==========================================================================*/
 void QCamera2HardwareInterface::dumpJpegToFile(const void *data,
-    size_t size, uint32_t index)
+        size_t size, uint32_t index)
 {
     char value[PROPERTY_VALUE_MAX];
     property_get("persist.camera.dumpimg", value, "0");
@@ -1580,17 +1579,17 @@ void QCamera2HardwareInterface::dumpMetadataToFile(QCameraStream *stream,
     uint32_t dumpFrmCnt = stream->mDumpMetaFrame;
     if(enabled){
         frm_num = ((enabled & 0xffff0000) >> 16);
-        if(frm_num == 0) {
+        if (frm_num == 0) {
             frm_num = 10; //default 10 frames
         }
-        if(frm_num > 256) {
+        if (frm_num > 256) {
             frm_num = 256; //256 buffers cycle around
         }
-        if((frm_num == 256) && (dumpFrmCnt >= frm_num)) {
+        if ((frm_num == 256) && (dumpFrmCnt >= frm_num)) {
             // reset frame count if cycling
             dumpFrmCnt = 0;
         }
-        CDBG_HIGH("dumpFrmCnt= %d, frm_num = %d", dumpFrmCnt, frm_num);
+        CDBG_HIGH("dumpFrmCnt= %u, frm_num = %u", dumpFrmCnt, frm_num);
         if (dumpFrmCnt < frm_num) {
             char timeBuf[128];
             char buf[32];
@@ -1754,6 +1753,7 @@ void QCamera2HardwareInterface::dumpFrameToFile(QCameraStream *stream,
 
                     filePath.append(buf);
                     int file_fd = open(filePath.string(), O_RDWR | O_CREAT, 0777);
+                    ssize_t written_len = 0;
                     if (file_fd > 0) {
                         void *data = NULL;
                         ssize_t written_len = 0;

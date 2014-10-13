@@ -265,7 +265,7 @@ void mm_app_dump_frame(mm_camera_buf_def_t *frame,
 }
 
 void mm_app_dump_jpeg_frame(const void * data, size_t size, char* name,
-    char* ext, uint32_t index)
+        char* ext, uint32_t index)
 {
     char buf[64];
     int file_fd;
@@ -2255,9 +2255,9 @@ int mm_camera_lib_send_command(mm_camera_lib_handle *handle,
             width = handle->test_obj.buffer_width;
             height = handle->test_obj.buffer_height;
             handle->test_obj.buffer_width =
-                (uint32_t)camera_cap->raw_dim.width;
+                    (uint32_t)camera_cap->raw_dim.width;
             handle->test_obj.buffer_height =
-                (uint32_t)camera_cap->raw_dim.height;
+                    (uint32_t)camera_cap->raw_dim.height;
             handle->test_obj.buffer_format = DEFAULT_RAW_FORMAT;
             CDBG_ERROR("%s: MM_CAMERA_LIB_RAW_CAPTURE %dx%d\n",
                        __func__,

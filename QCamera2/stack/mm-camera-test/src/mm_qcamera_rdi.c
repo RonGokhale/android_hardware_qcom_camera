@@ -102,9 +102,11 @@ mm_camera_stream_t * mm_app_add_rdi_stream(mm_camera_test_obj_t *test_obj,
         return NULL;
     }
 
-    CDBG_ERROR("%s: raw_dim w:%d height:%d\n", __func__, cam_cap->raw_dim.width, cam_cap->raw_dim.height);
+    CDBG_ERROR("%s: raw_dim w:%d height:%d\n", __func__,
+            cam_cap->raw_dim.width, cam_cap->raw_dim.height);
     for (i = 0;i < cam_cap->supported_raw_fmt_cnt;i++) {
-        CDBG_ERROR("%s: supported_raw_fmts[%zd]=%d\n", __func__, i, cam_cap->supported_raw_fmts[i]);
+        CDBG_ERROR("%s: supported_raw_fmts[%zu]=%d\n", __func__,
+                i, cam_cap->supported_raw_fmts[i]);
         if (CAM_FORMAT_BAYER_MIPI_RAW_8BPP_GBRG <= cam_cap->supported_raw_fmts[i] &&
             CAM_FORMAT_BAYER_MIPI_RAW_12BPP_BGGR >= cam_cap->supported_raw_fmts[i])
         {

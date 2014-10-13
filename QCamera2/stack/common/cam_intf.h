@@ -123,6 +123,9 @@ typedef struct{
 
     uint8_t video_stablization_supported; /* flag id video stablization is supported */
 
+    size_t picture_sizes_tbl_cnt;                           /* picture sizes table size */
+    cam_dimension_t picture_sizes_tbl[MAX_SIZES_CNT];       /* picture sizes table */
+
     /* capabilities specific to HAL 1 */
 
     int32_t modes_supported;                                /* mask of modes supported: 2D, 3D */
@@ -137,9 +140,6 @@ typedef struct{
 
     size_t video_sizes_tbl_cnt;                             /* video sizes table size */
     cam_dimension_t video_sizes_tbl[MAX_SIZES_CNT];         /* video sizes table */
-
-    size_t picture_sizes_tbl_cnt;                           /* picture sizes table size */
-    cam_dimension_t picture_sizes_tbl[MAX_SIZES_CNT];       /* picture sizes table */
 
     size_t livesnapshot_sizes_tbl_cnt;                      /* livesnapshot sizes table size */
     cam_dimension_t livesnapshot_sizes_tbl[MAX_SIZES_CNT];  /* livesnapshot sizes table */
@@ -389,7 +389,7 @@ typedef struct {
     cam_stream_buf_plane_info_t buf_planes;
 
     /* number of stream bufs will be allocated */
-    uint8_t num_bufs;
+    uint32_t num_bufs;
 
     /* streaming type */
     cam_streaming_mode_t streaming_mode;
@@ -500,7 +500,7 @@ typedef union {
     INCLUDE(CAM_INTF_PARM_MAX_DIMENSION,            cam_dimension_t,             1);
     INCLUDE(CAM_INTF_PARM_RAW_DIMENSION,            cam_dimension_t,             1);
     INCLUDE(CAM_INTF_PARM_TINTLESS,                 int32_t,                     1);
-    INCLUDE(CAM_INTF_PARM_CDS_MODE,                 cam_cds_mode_type_t,         1);
+    INCLUDE(CAM_INTF_PARM_CDS_MODE,                 int32_t,                     1);
     INCLUDE(CAM_INTF_PARM_WB_CCT,                   int32_t,                     1);
     INCLUDE(CAM_INTF_PARM_EZTUNE_CMD,               cam_eztune_cmd_data_t,       1);
     INCLUDE(CAM_INTF_PARM_LONGSHOT_ENABLE,          int8_t,                      1);
@@ -547,8 +547,8 @@ typedef union {
     INCLUDE(CAM_INTF_META_TONEMAP_MODE,             uint8_t,                     1);
     INCLUDE(CAM_INTF_META_FLASH_MODE,               uint8_t,                     1);
     INCLUDE(CAM_INTF_PARM_STATS_DEBUG_MASK,         uint32_t,                    1);
-    INCLUDE(CAM_INTF_PARM_ALGO_OPTIMIZATIONS_MASK,  uint32_t,                    1);
     INCLUDE(CAM_INTF_PARM_ISP_DEBUG_MASK,           uint32_t,                    1);
+    INCLUDE(CAM_INTF_PARM_ALGO_OPTIMIZATIONS_MASK,  uint32_t,                    1);
     INCLUDE(CAM_INTF_PARM_FOCUS_BRACKETING,         cam_af_bracketing_t,         1);
     INCLUDE(CAM_INTF_PARM_MULTI_TOUCH_FOCUS_BRACKETING, cam_af_bracketing_t,     1);
     INCLUDE(CAM_INTF_PARM_FLASH_BRACKETING,         cam_flash_bracketing_t,      1);

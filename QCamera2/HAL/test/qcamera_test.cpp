@@ -189,16 +189,14 @@ status_t CameraContext::saveFile(const sp<IMemory>& mem, String8 path)
         return BAD_VALUE;
     }
 
-    if ( size != write(fd, buff, (size_t)size) ) {
-        printf("Bad Write error (%d)%s\n",
-               errno,
-               strerror(errno));
+    if (size != write(fd, buff, (size_t)size)) {
+        printf("Bad Write error (%d)%s\n", errno, strerror(errno));
         close(fd);
         return INVALID_OPERATION;
     }
 
-    printf("%s: buffer=%p, size=%zd stored at %s\n",
-            __FUNCTION__, buff, size, path.string());
+    printf("%s: buffer=%p, size=%lld stored at %s\n",
+            __FUNCTION__, buff, (long long int) size, path.string());
 
     if (fd >= 0)
         close(fd);
@@ -832,16 +830,12 @@ void CameraContext::postData(int32_t msgType,
 
                 // Find the the capture with higher width and height and read
                 // its jpeg sections
-                if ((mInterpr->camera[0]->mWidthTmp *
-                        mInterpr->camera[0]->mHeightTmp) >
-                        (mInterpr->camera[1]->mWidthTmp *
-                        mInterpr->camera[1]->mHeightTmp)) {
+                if ((mInterpr->camera[0]->mWidthTmp * mInterpr->camera[0]->mHeightTmp) >
+                        (mInterpr->camera[1]->mWidthTmp * mInterpr->camera[1]->mHeightTmp)) {
                     buff = (unsigned char *)PiPPtrTmp->pointer();
                     size= PiPPtrTmp->size();
-                } else if ((mInterpr->camera[0]->mWidthTmp *
-                        mInterpr->camera[0]->mHeightTmp) <
-                        (mInterpr->camera[1]->mWidthTmp *
-                        mInterpr->camera[1]->mHeightTmp)) {
+                } else if ((mInterpr->camera[0]->mWidthTmp * mInterpr->camera[0]->mHeightTmp) <
+                        (mInterpr->camera[1]->mWidthTmp * mInterpr->camera[1]->mHeightTmp)) {
                     buff = (unsigned char *)PiPPtrTmp->pointer();
                     size= PiPPtrTmp->size();
                 } else {
@@ -861,8 +855,7 @@ void CameraContext::postData(int32_t msgType,
 
                     mJEXIFTmp = FindSection(M_EXIF);
                     mJEXIFSection = *mJEXIFTmp;
-                    mJEXIFSection.Data =
-                        (unsigned char*)malloc(mJEXIFTmp->Size);
+                    mJEXIFSection.Data = (unsigned char*)malloc(mJEXIFTmp->Size);
                     memcpy(mJEXIFSection.Data,
                         mJEXIFTmp->Data, mJEXIFTmp->Size);
                     DiscardData();
@@ -870,10 +863,10 @@ void CameraContext::postData(int32_t msgType,
 
                     wStream = new SkFILEWStream(jpegPath.string());
                     skBMDec = PiPCopyToOneFile(&mInterpr->camera[0]->skBMtmp,
-                        &mInterpr->camera[1]->skBMtmp);
+                            &mInterpr->camera[1]->skBMtmp);
                     if (encodeJPEG(wStream, skBMDec, jpegPath) != false) {
                         printf("%s():%d:: Failed during jpeg encode\n",
-                            __FUNCTION__,__LINE__);
+                                __FUNCTION__, __LINE__);
                         return;
                     }
                     mPiPIdx = 0;
@@ -887,8 +880,7 @@ void CameraContext::postData(int32_t msgType,
         }
     }
 
-    if ( ( msgType & CAMERA_MSG_PREVIEW_METADATA ) &&
-         ( NULL != metadata ) ) {
+    if ((msgType & CAMERA_MSG_PREVIEW_METADATA) && (NULL != metadata)) {
         printf("Face detected %d \n", metadata->number_of_faces);
     }
     mInterpr->PiPUnlock();
@@ -2582,9 +2574,9 @@ void CameraContext::printMenu(sp<CameraContext> currentCamera)
     printf("   %c. Stop Preview\n",
             Interpreter::STOP_PREVIEW_CMD);
     printf("   %c. Preview size:  %dx%d\n",
-           Interpreter::CHANGE_PREVIEW_SIZE_CMD,
-           currentPreviewSize.width,
-           currentPreviewSize.height);
+            Interpreter::CHANGE_PREVIEW_SIZE_CMD,
+            currentPreviewSize.width,
+            currentPreviewSize.height);
     printf("   %c. Video size:  %dx%d\n",
             Interpreter::CHANGE_VIDEO_SIZE_CMD,
             currentVideoSize.width,
@@ -2609,15 +2601,13 @@ void CameraContext::printMenu(sp<CameraContext> currentCamera)
     printf("   %c. Take picture in picture\n",
             Interpreter::TAKEPICTURE_IN_PICTURE_CMD);
     printf("   %c. Picture size:  %dx%d\n",
-           Interpreter::CHANGE_PICTURE_SIZE_CMD,
-           currentPictureSize.width,
-           currentPictureSize.height);
-    printf("   %c. zsl:  %s\n",
-            Interpreter::ZSL_CMD, mParams.get(CameraContext::KEY_ZSL)?
-            mParams.get(CameraContext::KEY_ZSL) : "NULL"   );
+            Interpreter::CHANGE_PICTURE_SIZE_CMD,
+            currentPictureSize.width,
+            currentPictureSize.height);
+    printf("   %c. zsl:  %s\n", Interpreter::ZSL_CMD, mParams.get(CameraContext::KEY_ZSL) ?
+            mParams.get(CameraContext::KEY_ZSL) : "NULL");
 
-    printf("\n");
-    printf("   Choice: ");
+    printf("\n   Choice: ");
 }
 
 /*===========================================================================
@@ -3035,7 +3025,7 @@ TestContext::TestContext()
     } while ( i < camera[0]->getNumberOfCameras() ) ;
 
     if (i < camera[0]->getNumberOfCameras() ) {
-        for ( size_t j = 0 ; j < mAvailableCameras.size() ; j++ ) {
+        for (size_t j = 0; j < mAvailableCameras.size(); j++) {
             camera[j] = mAvailableCameras.itemAt(j);
             camera[j]->closeCamera();
             camera[j].clear();
@@ -3058,7 +3048,7 @@ TestContext::~TestContext()
 {
     delete mInterpreter;
 
-    for ( size_t j = 0 ; j < mAvailableCameras.size() ; j++ ) {
+    for (size_t j = 0; j < mAvailableCameras.size(); j++) {
         camera[j] = mAvailableCameras.itemAt(j);
         camera[j]->closeCamera();
         camera[j].clear();
@@ -3230,8 +3220,7 @@ status_t TestContext::FunctionalTest()
                 mSaveCurrentCameraIndex = mCurrentCameraIndex;
                 for ( size_t i = 0; i < mAvailableCameras.size(); i++ ) {
                     mCurrentCameraIndex = i;
-                    currentCamera = mAvailableCameras.itemAt(
-                        mCurrentCameraIndex);
+                    currentCamera = mAvailableCameras.itemAt(mCurrentCameraIndex);
                     currentCamera->enablePiPCapture();
                     stat = currentCamera->takePicture();
                 }

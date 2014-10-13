@@ -711,7 +711,7 @@ void *eztune_proc(void *data)
       /*Receive message and process it*/
       recv_bytes = recv(client_socket, (void *)buf,
         lib_handle->tsctrl.proto->next_recv_len, 0);
-      CDBG("Receive %zd bytes \n", recv_bytes);
+      CDBG("Receive %lld bytes \n", (long long int) recv_bytes);
 
       if (recv_bytes == -1) {
         ALOGE("%s: Receive failed with error %s\n", __func__, strerror(errno));
