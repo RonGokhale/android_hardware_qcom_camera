@@ -291,6 +291,9 @@ public:
     //Longshot
     static const char KEY_QC_LONGSHOT_SUPPORTED[];
 
+    //livesnap support for 4K2K video resolutions
+    static const char KEY_QC_4K2K_LIVESNAP_SUPPORTED[];
+
     //ZSL+HDR
     static const char KEY_QC_ZSL_HDR_SUPPORTED[];
 
