@@ -4565,8 +4565,6 @@ int32_t QCameraParameters::initDefaultParameters()
     setISOValue(ISO_AUTO);
 
     // Set exposure time, we should get them from m_pCapability
-    m_pCapability->min_exposure_time = 200;
-    m_pCapability->max_exposure_time = 2000000;
     set(KEY_QC_MIN_EXPOSURE_TIME, m_pCapability->min_exposure_time);
     set(KEY_QC_MAX_EXPOSURE_TIME, m_pCapability->max_exposure_time);
     //setExposureTime("0");
@@ -5697,7 +5695,7 @@ int32_t  QCameraParameters::setISOValue(const char *isoValue)
  * DESCRIPTION: set exposure time
  *
  * PARAMETERS :
- *   @expTimeStr : string of exposure time, range (1/5, 2000) in ms
+ *   @expTimeStr : string of exposure time in ms
  *
  * RETURN     : int32_t type of status
  *              NO_ERROR  -- success
@@ -5707,8 +5705,8 @@ int32_t  QCameraParameters::setExposureTime(const char *expTimeStr)
 {
     if (expTimeStr != NULL) {
         int32_t expTimeUs = atoi(expTimeStr);
-        int32_t min_exp_time = m_pCapability->min_exposure_time; /* 200 */
-        int32_t max_exp_time = m_pCapability->max_exposure_time; /* 2000000 */
+        int32_t min_exp_time = m_pCapability->min_exposure_time;
+        int32_t max_exp_time = m_pCapability->max_exposure_time;
 
         // expTime == 0 means not to use manual exposure time.
         if (expTimeUs == 0 ||
