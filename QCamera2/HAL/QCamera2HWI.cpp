@@ -2748,6 +2748,8 @@ int QCamera2HardwareInterface::stopCaptureChannel(bool destroy)
 int QCamera2HardwareInterface::cancelPicture()
 {
     ALOGD("%s:%d] ",__func__, __LINE__);
+    waitDefferedWork(mReprocJob);
+
     //stop post processor
     m_postprocessor.stop();
 
