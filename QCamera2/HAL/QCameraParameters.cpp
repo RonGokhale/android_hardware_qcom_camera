@@ -1387,7 +1387,8 @@ int32_t QCameraParameters::setLiveSnapshotSize(const QCameraParameters& params)
         }
     }
 
-    if (useOptimal || hfrMode != CAM_HFR_MODE_OFF || (0 == strcmp(vhdrStr,"on"))) {
+    if (useOptimal || hfrMode != CAM_HFR_MODE_OFF ||
+            (vhdrStr != NULL && (0 == strcmp(vhdrStr,"on")))) {
         bool found = false;
 
         // first check if picture size is within the list of supported sizes
@@ -1417,7 +1418,7 @@ int32_t QCameraParameters::setLiveSnapshotSize(const QCameraParameters& params)
             }
 
             if ((!found && hfrMode != CAM_HFR_MODE_OFF) ||
-                    (!found && (0 == strcmp(vhdrStr,"on")))) {
+                    (!found && (vhdrStr != NULL && (0 == strcmp(vhdrStr,"on"))))) {
                 // Cannot find matching aspect ration from supported live snapshot list
                 // choose the max dim from preview and video size
                 CDBG("%s: Cannot find matching aspect ratio, choose max of preview or video size", __func__);
