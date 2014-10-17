@@ -439,10 +439,11 @@ private:
     bool needFDMetadata(qcamera_ch_type_enum_t channel_type);
     bool removeSizeFromList(cam_dimension_t* size_list, size_t length,
             cam_dimension_t size);
+    int32_t unconfigureAdvancedCapture();
     int32_t configureAdvancedCapture();
     int32_t configureAFBracketing(bool enable = true);
     int32_t configureMTFBracketing(bool enable = true);
-    int32_t configureFlashBracketing();
+    int32_t configureFlashBracketing(bool enable = true);
     int32_t startAdvancedCapture(QCameraPicChannel *pChannel);
     int32_t configureZSLHDRBracketing();
     int32_t startZslAdvancedCapture(QCameraPicChannel *pChannel);
@@ -639,6 +640,7 @@ private:
     bool mPreviewFrameSkipValid;
     cam_frame_idx_range_t mPreviewFrameSkipIdxRange;
     int32_t mNumPreviewFaces;
+    bool mAdvancedCaptureConfigured;
 };
 
 }; // namespace qcamera
