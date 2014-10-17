@@ -145,6 +145,7 @@ const char QCameraParameters::KEY_QC_MAX_WB_CCT[] = "max-wb-cct";
 const char QCameraParameters::KEY_INTERNAL_PERVIEW_RESTART[] = "internal-restart";
 const char QCameraParameters::KEY_QC_LONG_SHOT[] = "long-shot";
 const char QCameraParameters::KEY_QC_LONGSHOT_SUPPORTED[] = "longshot-supported";
+const char QCameraParameters::KEY_QC_4K2K_LIVESNAP_SUPPORTED[] = "4k2k-video-snapshot-supported";
 const char QCameraParameters::KEY_QC_ZSL_HDR_SUPPORTED[] = "zsl-hdr-supported";
 const char QCameraParameters::KEY_QC_AUTO_HDR_SUPPORTED[] = "auto-hdr-supported";
 
@@ -4769,6 +4770,9 @@ int32_t QCameraParameters::initDefaultParameters()
         set(KEY_QC_LONGSHOT_SUPPORTED, VALUE_FALSE);
         set(KEY_QC_ZSL_HDR_SUPPORTED, VALUE_FALSE);
     }
+
+    // Livesnapshot is not supported for 4K2K video resolutions
+    set(KEY_QC_4K2K_LIVESNAP_SUPPORTED, VALUE_FALSE);
 
     int32_t rc = commitParameters();
     if (rc == NO_ERROR) {
