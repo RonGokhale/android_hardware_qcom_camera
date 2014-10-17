@@ -6525,11 +6525,21 @@ QCameraExif *QCamera2HardwareInterface::getExifData()
     mFlashPresence = mParameters.getSupportedFlashModes();
 
     // add exif entries
-    String8 dateTime;
-    rc = mParameters.getExifDateTime(dateTime);
+    String8 dateTime, subSecTime;
+    rc = mParameters.getExifDateTime(dateTime, subSecTime);
     if(rc == NO_ERROR) {
+        exif->addEntry(EXIFTAGID_DATE_TIME, EXIF_ASCII,
+                (uint32_t)(dateTime.length() + 1), (void *)dateTime.string());
         exif->addEntry(EXIFTAGID_EXIF_DATE_TIME_ORIGINAL, EXIF_ASCII,
                 (uint32_t)(dateTime.length() + 1), (void *)dateTime.string());
+        exif->addEntry(EXIFTAGID_EXIF_DATE_TIME_DIGITIZED, EXIF_ASCII,
+                (uint32_t)(dateTime.length() + 1), (void *)dateTime.string());
+        exif->addEntry(EXIFTAGID_SUBSEC_TIME, EXIF_ASCII,
+                (uint32_t)(subSecTime.length() + 1), (void *)subSecTime.string());
+        exif->addEntry(EXIFTAGID_SUBSEC_TIME_ORIGINAL, EXIF_ASCII,
+                (uint32_t)(subSecTime.length() + 1), (void *)subSecTime.string());
+        exif->addEntry(EXIFTAGID_SUBSEC_TIME_DIGITIZED, EXIF_ASCII,
+                (uint32_t)(subSecTime.length() + 1), (void *)subSecTime.string());
     } else {
         ALOGE("%s: getExifDateTime failed", __func__);
     }

@@ -8129,20 +8129,26 @@ int QCameraParameters::parseGPSCoordinate(const char *coord_str, rat_t* coord)
  * DESCRIPTION: query exif date time
  *
  * PARAMETERS :
- *   @dateTime : String to store exif date time.
- *               Should be leaved unchanged in case of error.
+ *   @dateTime    : String to store exif date time.
+ *                  Should be leaved unchanged in case of error.
+ *   @subsecTime  : String to store exif time nanoseconds.
+ *                  Should be leaved unchanged in case of error.
  *
  * RETURN     : int32_t type of status
  *              NO_ERROR  -- success
  *              none-zero failure code
  *==========================================================================*/
-int32_t QCameraParameters::getExifDateTime(String8 &dateTime)
+int32_t QCameraParameters::getExifDateTime(String8 &dateTime, String8 &subsecTime)
 {
     int32_t ret = NO_ERROR;
+
     //get time and date from system
-    time_t rawtime = time(NULL);
-    if (((time_t) 0) <= rawtime) {
-        struct tm *timeinfo = localtime (&rawtime);
+    struct timeval tv;
+    struct tm timeinfo_data;
+
+    int res = gettimeofday(&tv, NULL);
+    if (0 == res) {
+        struct tm *timeinfo = localtime_r(&tv.tv_sec, &timeinfo_data);
         if (NULL != timeinfo) {
             //Write datetime according to EXIF Spec
             //"YYYY:MM:DD HH:MM:SS" (20 chars including \0)
@@ -8150,14 +8156,20 @@ int32_t QCameraParameters::getExifDateTime(String8 &dateTime)
                     timeinfo->tm_year + 1900, timeinfo->tm_mon + 1,
                     timeinfo->tm_mday, timeinfo->tm_hour,
                     timeinfo->tm_min, timeinfo->tm_sec);
+            //Write subsec according to EXIF Sepc
+            subsecTime = String8::format("%06ld", tv.tv_usec);
         } else {
-            ALOGE("%s: localtime() error: %s", __func__, strerror(errno));
+            ALOGE("%s: localtime_r() error", __func__);
             ret = UNKNOWN_ERROR;
         }
+    } else if (-1 == res) {
+        ALOGE("%s: gettimeofday() error: %s", __func__, strerror(errno));
+        ret = UNKNOWN_ERROR;
     } else {
-        ALOGE("%s: rawtime() error: %s", __func__, strerror(errno));
+        ALOGE("%s: gettimeofday() unexpected return code: %d", __func__, res);
         ret = UNKNOWN_ERROR;
     }
+
     return ret;
 }
 
