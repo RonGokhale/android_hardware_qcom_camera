@@ -1009,6 +1009,7 @@ QCamera2HardwareInterface::QCamera2HardwareInterface(uint32_t cameraId)
       mDumpSkipCnt(0U),
       mThermalLevel(QCAMERA_THERMAL_NO_ADJUSTMENT),
       mCancelAutoFocus(false),
+      mActiveAF(false),
       m_HDRSceneEnabled(false),
       mLongshotEnabled(false),
       m_max_pic_width(0),
@@ -2086,6 +2087,7 @@ int QCamera2HardwareInterface::stopPreview()
     ATRACE_CALL();
     CDBG_HIGH("%s: E", __func__);
     mNumPreviewFaces = -1;
+    mActiveAF = false;
     // stop preview stream
     stopChannel(QCAMERA_CH_TYPE_ZSL);
     stopChannel(QCAMERA_CH_TYPE_PREVIEW);
@@ -2228,6 +2230,7 @@ int QCamera2HardwareInterface::autoFocus()
 {
     int rc = NO_ERROR;
     setCancelAutoFocus(false);
+    mActiveAF = true;
     cam_focus_mode_type focusMode = mParameters.getFocusMode();
     CDBG_HIGH("[AF_DBG] %s: focusMode=%d, m_currentFocusState=%d, m_bAFRunning=%d",
           __func__, focusMode, m_currentFocusState, isAFRunning());
@@ -2265,6 +2268,7 @@ int QCamera2HardwareInterface::cancelAutoFocus()
 {
     int rc = NO_ERROR;
     setCancelAutoFocus(true);
+    mActiveAF = false;
     cam_focus_mode_type focusMode = mParameters.getFocusMode();
 
     switch (focusMode) {
@@ -3912,6 +3916,13 @@ int32_t QCamera2HardwareInterface::processAutoFocusEvent(cam_auto_focus_data_t &
             break;
         }
 
+        if (focus_data.focus_state == CAM_AF_PASSIVE_SCANNING ||
+            focus_data.focus_state == CAM_AF_PASSIVE_FOCUSED ||
+            focus_data.focus_state == CAM_AF_PASSIVE_UNFOCUSED) {
+            //ignore passive(CAF) events in Auto/Macro AF modes
+            break;
+        }
+
         if (focus_data.focus_state == CAM_AF_SCANNING ||
             focus_data.focus_state == CAM_AF_INACTIVE) {
             // in the middle of focusing, just ignore it
@@ -3932,17 +3943,28 @@ int32_t QCamera2HardwareInterface::processAutoFocusEvent(cam_auto_focus_data_t &
         break;
     case CAM_FOCUS_MODE_CONTINOUS_VIDEO:
     case CAM_FOCUS_MODE_CONTINOUS_PICTURE:
-        if (focus_data.focus_state == CAM_AF_FOCUSED ||
+        if (mActiveAF &&
+            (focus_data.focus_state == CAM_AF_PASSIVE_FOCUSED ||
+            focus_data.focus_state == CAM_AF_PASSIVE_UNFOCUSED)) {
+            //ignore passive(CAF) events during AF triggered by app/HAL
+            break;
+        }
+
+        if (focus_data.focus_state == CAM_AF_PASSIVE_FOCUSED ||
+            focus_data.focus_state == CAM_AF_PASSIVE_UNFOCUSED ||
+            focus_data.focus_state == CAM_AF_FOCUSED ||
             focus_data.focus_state == CAM_AF_NOT_FOCUSED) {
+
             // update focus distance
             mParameters.updateFocusDistances(&focus_data.focus_dist);
 
             ret = sendEvtNotify(CAMERA_MSG_FOCUS,
-                  (focus_data.focus_state == CAM_AF_FOCUSED)? true : false,
+                  (focus_data.focus_state == CAM_AF_PASSIVE_FOCUSED ||
+                   focus_data.focus_state == CAM_AF_FOCUSED)? true : false,
                   0);
         }
         ret = sendEvtNotify(CAMERA_MSG_FOCUS_MOVE,
-                (focus_data.focus_state == CAM_AF_SCANNING)? true : false,
+                (focus_data.focus_state == CAM_AF_PASSIVE_SCANNING)? true : false,
                 0);
         break;
     case CAM_FOCUS_MODE_INFINITY:
@@ -3951,6 +3973,12 @@ int32_t QCamera2HardwareInterface::processAutoFocusEvent(cam_auto_focus_data_t &
     default:
         CDBG_HIGH("%s: no ops for autofocus event in focusmode %d", __func__, focusMode);
         break;
+    }
+
+    //Reset mActiveAF once we receive focus done event
+    if (focus_data.focus_state == CAM_AF_FOCUSED ||
+        focus_data.focus_state == CAM_AF_NOT_FOCUSED) {
+        mActiveAF = false;
     }
 
     // we save cam_auto_focus_data_t.focus_pos to parameters,
