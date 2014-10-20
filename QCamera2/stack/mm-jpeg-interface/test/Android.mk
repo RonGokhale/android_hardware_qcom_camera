@@ -7,7 +7,11 @@ LOCAL_PATH := $(MM_JPEG_TEST_PATH)
 LOCAL_MODULE_TAGS := optional
 
 LOCAL_CFLAGS := -DCAMERA_ION_HEAP_ID=ION_IOMMU_HEAP_ID
+
+ifneq ($(call is-platform-sdk-version-at-least,20),true)
 LOCAL_CFLAGS += -Werror
+endif
+
 LOCAL_CFLAGS += -D_ANDROID_
 LOCAL_CFLAGS += -include mm_jpeg_dbg.h
 
@@ -49,7 +53,15 @@ LOCAL_PATH := $(MM_JPEG_TEST_PATH)
 LOCAL_MODULE_TAGS := optional
 
 LOCAL_CFLAGS := -DCAMERA_ION_HEAP_ID=ION_IOMMU_HEAP_ID
+
+ifneq ($(call is-platform-sdk-version-at-least,20),true)
 LOCAL_CFLAGS += -Werror
+endif
+
+ifeq ($(call is-platform-sdk-version-at-least,20),true)
+LOCAL_CFLAGS += -DUSE_L_CODE
+endif
+
 LOCAL_CFLAGS += -D_ANDROID_
 LOCAL_CFLAGS += -include mm_jpeg_dbg.h
 

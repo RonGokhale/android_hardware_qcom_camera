@@ -5536,7 +5536,9 @@ int32_t QCameraParameters::enableFlash(bool enableFlash, bool commitSettings)
         str);
 
     if (value != NAME_NOT_FOUND) {
+#ifdef USE_KK_CODE
         ALOGV("%s: Setting Flash value %s", __func__, flashStr);
+#endif
 
         rc = AddSetParmEntryToBatch(m_pParamBuf,
                                       CAM_INTF_PARM_LED_MODE,
