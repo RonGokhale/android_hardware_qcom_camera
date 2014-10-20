@@ -394,7 +394,7 @@ void QCamera2HardwareInterface::postproc_channel_cb_routine(mm_camera_super_buf_
     } else {
         pme->m_postprocessor.processPPData(frame);
     }
-
+    ATRACE_INT("Camera:Reprocess", 0);
     CDBG_HIGH("[KPI Perf] %s: X", __func__);
 }
 
@@ -438,7 +438,6 @@ void QCamera2HardwareInterface::dual_reproc_channel_cb_routine(mm_camera_super_b
     // send to postprocessor
     pme->m_postprocessor.processPPData(frame);
 
-    ATRACE_INT("Camera:Reprocess", 0);
     CDBG_HIGH("[KPI Perf] %s: X", __func__);
 }
 
