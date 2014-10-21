@@ -156,6 +156,9 @@ public:
     static const char KEY_QC_SELECTABLE_ZONE_AF[];
 
     static const char KEY_QC_ISO_MODE[];
+    static const char KEY_QC_CONTINUOUS_ISO[];
+    static const char KEY_QC_MIN_ISO[];
+    static const char KEY_QC_MAX_ISO[];
     static const char KEY_QC_SUPPORTED_ISO_MODES[];
     static const char KEY_QC_EXPOSURE_TIME[];
     static const char KEY_QC_MIN_EXPOSURE_TIME[];
@@ -200,8 +203,11 @@ public:
     static const char KEY_QC_WB_MANUAL_CCT[];
     static const char KEY_QC_MIN_WB_CCT[];
     static const char KEY_QC_MAX_WB_CCT[];
+    static const char KEY_QC_MANUAL_WB_GAINS[];
+    static const char KEY_QC_MIN_WB_GAIN[];
+    static const char KEY_QC_MAX_WB_GAIN[];
     static const char KEY_QC_LONG_SHOT[];
-    static const char WHITE_BALANCE_MANUAL_CCT[];
+    static const char WHITE_BALANCE_MANUAL[];
     static const char FOCUS_MODE_MANUAL_POSITION[];
 
     static const char KEY_QC_MANUAL_FOCUS_POSITION[];
@@ -210,6 +216,21 @@ public:
     static const char KEY_QC_MAX_FOCUS_POS_INDEX[];
     static const char KEY_QC_MIN_FOCUS_POS_DAC[];
     static const char KEY_QC_MAX_FOCUS_POS_DAC[];
+    static const char KEY_QC_MIN_FOCUS_POS_RATIO[];
+    static const char KEY_QC_MAX_FOCUS_POS_RATIO[];
+    static const char KEY_QC_MIN_FOCUS_POS_DIOPTER[];
+    static const char KEY_QC_MAX_FOCUS_POS_DIOPTER[];
+
+    static const char KEY_QC_SUPPORTED_MANUAL_FOCUS_MODES[];
+    static const char KEY_QC_SUPPORTED_MANUAL_EXPOSURE_MODES[];
+    static const char KEY_QC_SUPPORTED_MANUAL_WB_MODES[];
+    static const char KEY_QC_FOCUS_SCALE_MODE[];
+    static const char KEY_QC_FOCUS_DIOPTER_MODE[];
+    static const char KEY_QC_ISO_PRIORITY[];
+    static const char KEY_QC_EXP_TIME_PRIORITY[];
+    static const char KEY_QC_USER_SETTING[];
+    static const char KEY_QC_WB_CCT_MODE[];
+    static const char KEY_QC_WB_GAIN_MODE[];
 
     static const char KEY_INTERNAL_PERVIEW_RESTART[];
 
@@ -398,6 +419,7 @@ public:
     static const char ISO_800[];
     static const char ISO_1600[];
     static const char ISO_3200[];
+    static const char ISO_MANUAL[];
 
     // Values for auto exposure settings.
     static const char AUTO_EXPOSURE_FRAME_AVG[];
@@ -714,6 +736,7 @@ private:
     int32_t setVtEnable(const QCameraParameters& );
     int32_t setZoom(const QCameraParameters& );
     int32_t setISOValue(const QCameraParameters& );
+    int32_t setContinuousISO(const QCameraParameters& );
     int32_t setExposureTime(const QCameraParameters& );
     int32_t setRotation(const QCameraParameters& );
     int32_t setVideoRotation(const QCameraParameters& );
@@ -726,6 +749,7 @@ private:
     int32_t setExposureCompensation(const QCameraParameters& );
     int32_t setWhiteBalance(const QCameraParameters& );
     int32_t setWBManualCCT(const QCameraParameters& );
+    int32_t setManualWBGains(const QCameraParameters& );
     int32_t setAntibanding(const QCameraParameters& );
     int32_t setFocusAreas(const QCameraParameters& );
     int32_t setMeteringAreas(const QCameraParameters& );
@@ -780,6 +804,7 @@ private:
     int32_t setVtEnable(const char *vtEnable);
     int32_t setZoom(int zoom_level);
     int32_t setISOValue(const char *isoValue);
+    int32_t setContinuousISO(const char *isoValue);
     int32_t setExposureTime(const char *expTimeStr);
     int32_t setFlash(const char *flashStr);
     int32_t setAecLock(const char *aecStr);
@@ -791,6 +816,7 @@ private:
     int32_t setExposureCompensation(int expComp);
     int32_t setWhiteBalance(const char *wbStr);
     int32_t setWBManualCCT(const char *cctStr);
+    int32_t setManualWBGains(const char *gainStr);
     int32_t setAntibanding(const char *antiBandingStr);
     int32_t setFocusAreas(const char *focusAreasStr);
     int32_t setMeteringAreas(const char *meteringAreasStr);
@@ -915,7 +941,7 @@ private:
     QCameraTorchInterface *m_pTorch; // Interface for enabling torch
     bool m_bReleaseTorchCamera; // Release camera resources after torch gets disabled
     int32_t m_curCCT;
-    int32_t m_curFocusPos;
+    float m_curFocusPos;
 
     DefaultKeyedVector<String8,String8> m_tempMap; // map for temororily store parameters to be set
     cam_fps_range_t m_default_fps_range;
