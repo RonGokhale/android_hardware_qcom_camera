@@ -1352,6 +1352,7 @@ typedef struct {
 #define CAM_QCOM_FEATURE_SNAPSHOT_HDR   (1<<15)
 #define CAM_QCOM_FEATURE_LLVD           (1<<15)
 #define CAM_QCOM_FEATURE_DIS20          (1<<16)
+#define CAM_QCOM_FEATURE_STILLMORE      (1<<17)
 
 // Counter clock wise
 typedef enum {

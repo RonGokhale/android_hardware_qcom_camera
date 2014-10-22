@@ -135,6 +135,8 @@ const char QCameraParameters::KEY_QC_OPTI_ZOOM[] = "opti-zoom";
 const char QCameraParameters::KEY_QC_SEE_MORE[] = "see-more";
 const char QCameraParameters::KEY_QC_SUPPORTED_OPTI_ZOOM_MODES[] = "opti-zoom-values";
 const char QCameraParameters::KEY_QC_SUPPORTED_SEE_MORE_MODES[] = "see-more-values";
+const char QCameraParameters::KEY_QC_STILL_MORE[] = "still-more";
+const char QCameraParameters::KEY_QC_SUPPORTED_STILL_MORE_MODES[] = "still-more-values";
 const char QCameraParameters::KEY_QC_WB_MANUAL_CCT[] = "wb-manual-cct";
 const char QCameraParameters::KEY_QC_MIN_WB_CCT[] = "min-wb-cct";
 const char QCameraParameters::KEY_QC_MAX_WB_CCT[] = "max-wb-cct";
@@ -663,6 +665,7 @@ QCameraParameters::QCameraParameters()
       m_bChromaFlashOn(false),
       m_bOptiZoomOn(false),
       m_bSeeMoreOn(false),
+      m_bStillMoreOn(false),
       m_bHfrMode(false),
       m_bDisplayFrame(true)
 {
@@ -739,6 +742,7 @@ QCameraParameters::QCameraParameters(const String8 &params)
     m_bChromaFlashOn(false),
     m_bOptiZoomOn(false),
     m_bSeeMoreOn(false),
+    m_bStillMoreOn(false),
     m_bHfrMode(false)
 {
     memset(&m_LiveSnapshotSize, 0, sizeof(m_LiveSnapshotSize));
@@ -3256,6 +3260,34 @@ int32_t QCameraParameters::setSeeMore(const QCameraParameters& params)
 }
 
 /*===========================================================================
+ * FUNCTION   : setStillMore
+ *
+ * DESCRIPTION: set still more from user setting
+ *
+ * PARAMETERS :
+ *   @params  : user setting parameters
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraParameters::setStillMore(const QCameraParameters& params)
+{
+    const char *str = params.get(KEY_QC_STILL_MORE);
+    const char *prev_str = get(KEY_QC_STILL_MORE);
+    ALOGD("%s: str =%s & prev_str =%s",__func__, str, prev_str);
+    if (str != NULL) {
+        if (prev_str == NULL ||
+            strcmp(str, prev_str) != 0) {
+            m_bNeedRestart = true;
+            return setStillMore(str);
+        }
+    }
+    return NO_ERROR;
+}
+
+
+/*===========================================================================
  * FUNCTION   : setRedeyeReduction
  *
  * DESCRIPTION: set red eye reduction setting from user setting
@@ -4403,6 +4435,12 @@ int32_t QCameraParameters::initDefaultParameters()
         set(KEY_QC_SUPPORTED_SEE_MORE_MODES, onOffValues);
         setSeeMore(VALUE_OFF);
     }
+
+	if(m_pCapability->qcom_supported_feature_mask &
+        CAM_QCOM_FEATURE_STILLMORE) {
+        set(KEY_QC_SUPPORTED_STILL_MORE_MODES, onOffValues);
+		setStillMore(VALUE_OFF);
+	}
 
     //Set Scene Detection
     set(KEY_QC_SUPPORTED_SCENE_DETECT, onOffValues);
@@ -6645,6 +6683,37 @@ int32_t QCameraParameters::setSeeMore(const char *seeMoreStr)
 }
 
 /*===========================================================================
+ * FUNCTION   : setStillMore
+ *
+ * DESCRIPTION: set still more value
+ *
+ * PARAMETERS :
+ *   @stillMoreStr : still more value string
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraParameters::setStillMore(const char *stillMoreStr)
+{
+    ALOGD("%s: stillMoreStr =%s",__func__,stillMoreStr);
+    if(stillMoreStr != NULL) {
+        int value = lookupAttr(ON_OFF_MODES_MAP,
+                               sizeof(ON_OFF_MODES_MAP)/sizeof(QCameraMap),
+                               stillMoreStr);
+        if(value != NAME_NOT_FOUND) {
+            m_bStillMoreOn = (value != 0);
+            updateParamEntry(KEY_QC_STILL_MORE, stillMoreStr);
+
+            return NO_ERROR;
+        }
+    }
+    ALOGE("Invalid still more value: %s",
+        (stillMoreStr == NULL) ? "NULL" : stillMoreStr);
+    return BAD_VALUE;
+}
+
+/*===========================================================================
  * FUNCTION   : setAEBracketing
  *
  * DESCRIPTION: enables AE bracketing
@@ -7497,6 +7566,8 @@ uint8_t QCameraParameters::getBurstCountForAdvancedCapture()
     } else if (isHDREnabled()) {
         //number of snapshots required for HDR.
         burstCount = m_pCapability->hdr_bracketing_setting.num_frames;
+    } else if (isStillMoreEnabled()) {
+        burstCount = 5;
     } else if (isAEBracketEnabled()) {
       burstCount = 0;
       const char *str_val = m_AEBracketingClient.values;
@@ -9280,6 +9351,8 @@ uint8_t QCameraParameters::getNumOfExtraBuffersForImageProc()
         numOfBufs += m_pCapability->opti_zoom_settings_need.burst_count - 1;
     } else if (isChromaFlashEnabled()) {
         numOfBufs += 1; /* flash and non flash */
+    } else if (isStillMoreEnabled()) {
+        numOfBufs += 4;
     }
 
     return numOfBufs * getBurstNum();
