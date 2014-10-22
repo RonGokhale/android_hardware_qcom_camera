@@ -220,7 +220,7 @@ static void mm_channel_process_stream_buf(mm_camera_cmdcb_t * cmd_cb,
 
         if (ch_obj->pending_cnt > 0
             && (ch_obj->needLEDFlash == TRUE ||
-                ch_obj->need3ABracketing == TRUE)
+                MM_CHANNEL_BRACKETING_STATE_OFF != ch_obj->bracketingState)
             && (ch_obj->manualZSLSnapshot == FALSE)
             && ch_obj->startZSlSnapshotCalled == FALSE) {
 
@@ -235,7 +235,7 @@ static void mm_channel_process_stream_buf(mm_camera_cmdcb_t * cmd_cb,
             mm_camera_stop_zsl_snapshot(ch_obj->cam_obj);
             ch_obj->startZSlSnapshotCalled = FALSE;
             ch_obj->needLEDFlash = FALSE;
-            ch_obj->need3ABracketing = FALSE;
+            ch_obj->bracketingState = MM_CHANNEL_BRACKETING_STATE_OFF;
         }
     } else if (MM_CAMERA_CMD_TYPE_START_ZSL == cmd_cb->cmd_type) {
             ch_obj->manualZSLSnapshot = TRUE;
@@ -266,9 +266,9 @@ static void mm_channel_process_stream_buf(mm_camera_cmdcb_t * cmd_cb,
                 if (start) {
                     CDBG_HIGH("%s:%d] need AE bracketing, start zsl snapshot",
                         __func__, __LINE__);
-                    ch_obj->need3ABracketing = TRUE;
+                    ch_obj->bracketingState = MM_CHANNEL_BRACKETING_STATE_WAIT_GOOD_FRAME_IDX;
                 } else {
-                    ch_obj->need3ABracketing = FALSE;
+                    ch_obj->bracketingState = MM_CHANNEL_BRACKETING_STATE_OFF;
                 }
             }
                 break;
@@ -2047,7 +2047,7 @@ int32_t mm_channel_handle_metadata(
                 }
                 queue->expected_frame_id =
                     metadata->good_frame_idx_range.min_frame_idx;
-            } else if (ch_obj->need3ABracketing &&
+            } else if ((MM_CHANNEL_BRACKETING_STATE_WAIT_GOOD_FRAME_IDX == ch_obj->bracketingState) &&
                        !metadata->is_good_frame_idx_range_valid) {
                    /* Flush unwanted frames */
                    mm_channel_superbuf_flush_matched(ch_obj, queue);
@@ -2072,7 +2072,7 @@ int32_t mm_channel_handle_metadata(
                  }
                  queue->expected_frame_id =
                      metadata->good_frame_idx_range.min_frame_idx;
-                 ch_obj->need3ABracketing = FALSE;
+                 ch_obj->bracketingState = MM_CHANNEL_BRACKETING_STATE_ACTIVE;
             }
         }
     }
