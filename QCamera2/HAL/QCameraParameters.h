@@ -454,6 +454,7 @@ public:
     static const char KEY_QC_HISTOGRAM[] ;
     static const char KEY_QC_SUPPORTED_HISTOGRAM_MODES[] ;
     static const char KEY_QC_HDR_NEED_1X[];
+    static const char KEY_QC_SUPPORTED_HDR_NEED_1X[];
     static const char KEY_QC_VIDEO_HDR[];
     static const char KEY_QC_VT_ENABLE[];
     static const char KEY_QC_SUPPORTED_VIDEO_HDR_MODES[];
@@ -822,6 +823,7 @@ private:
     int32_t setMeteringAreas(const char *meteringAreasStr);
     int32_t setSceneMode(const char *sceneModeStr);
     int32_t setSelectableZoneAf(const char *selZoneAFStr);
+    int32_t setHDRNeed1x(const char *str);
     int32_t setAEBracket(const char *aecBracketStr);
     int32_t setAFBracket(const char *afBracketStr);
     int32_t setMultiTouchFocus(const char *multiTouchFocusStr);

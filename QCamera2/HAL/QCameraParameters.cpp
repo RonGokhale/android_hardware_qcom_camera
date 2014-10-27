@@ -115,6 +115,7 @@ const char QCameraParameters::KEY_QC_RAW_PICUTRE_SIZE[] = "raw-size";
 const char QCameraParameters::KEY_QC_SUPPORTED_SKIN_TONE_ENHANCEMENT_MODES[] = "skinToneEnhancement-values";
 const char QCameraParameters::KEY_QC_SUPPORTED_LIVESNAPSHOT_SIZES[] = "supported-live-snapshot-sizes";
 const char QCameraParameters::KEY_QC_SCALED_PICTURE_SIZES[] = "scaled-picture-sizes";
+const char QCameraParameters::KEY_QC_SUPPORTED_HDR_NEED_1X[] = "hdr-need-1x-values";
 const char QCameraParameters::KEY_QC_HDR_NEED_1X[] = "hdr-need-1x";
 const char QCameraParameters::KEY_QC_PREVIEW_FLIP[] = "preview-flip";
 const char QCameraParameters::KEY_QC_VIDEO_FLIP[] = "video-flip";
@@ -3105,18 +3106,8 @@ int32_t QCameraParameters::setSceneMode(const QCameraParameters& params)
         prev_str = get(KEY_QC_HDR_NEED_1X);
         if (str != NULL) {
             if (prev_str == NULL ||
-                strcmp(str, prev_str) != 0) {
-                if (strcmp(str,VALUE_ON) == 0) {
-                    m_bHDR1xFrameEnabled = true;
-                }
-                else {
-                    m_bHDR1xFrameEnabled = false;
-                }
-            updateParamEntry(KEY_QC_HDR_NEED_1X, str);
-            AddSetParmEntryToBatch(m_pParamBuf,
-                                   CAM_INTF_PARM_HDR_NEED_1X,
-                                   sizeof(m_bHDR1xFrameEnabled),
-                                   &m_bHDR1xFrameEnabled);
+                    strcmp(str, prev_str) != 0) {
+                rc = setHDRNeed1x(str);
             }
         }
     }
@@ -4795,6 +4786,18 @@ int32_t QCameraParameters::initDefaultParameters()
         set(KEY_QC_SUPPORTED_MULTI_TOUCH_FOCUS_MODES, multiTouchFocusValues);
         setMultiTouchFocus(MULTI_TOUCH_FOCUS_OFF);
     }
+    //Set HDR need 1x
+    String8 hdrNeed1xValues;
+    if (!(m_pCapability->qcom_supported_feature_mask &
+            CAM_QCOM_FEATURE_SENSOR_HDR)) {
+        hdrNeed1xValues = createValuesStringFromMap(
+                TRUE_FALSE_MODES_MAP,
+                PARAM_MAP_SIZE(TRUE_FALSE_MODES_MAP));
+    } else {
+        hdrNeed1xValues.append(VALUE_FALSE);
+    }
+    setHDRNeed1x(VALUE_FALSE);
+    set(KEY_QC_SUPPORTED_HDR_NEED_1X, hdrNeed1xValues);
 
     // Set Denoise
     if ((m_pCapability->qcom_supported_feature_mask & CAM_QCOM_FEATURE_DENOISE2D) > 0){
@@ -6733,6 +6736,33 @@ int32_t QCameraParameters::setSceneMode(const char *sceneModeStr)
     ALOGE("%s: Invalid Secene Mode: %s",
           __func__, (sceneModeStr == NULL) ? "NULL" : sceneModeStr);
     return BAD_VALUE;
+}
+
+/*===========================================================================
+ * FUNCTION   : setHDRNeed1x
+ *
+ * DESCRIPTION: set HDR need 1x from user setting
+ *
+ * PARAMETERS :
+ *   @selZoneAFStr : user setting parameters
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraParameters::setHDRNeed1x(const char *str)
+{
+    if (strcmp(str, VALUE_TRUE) == 0) {
+        m_bHDR1xFrameEnabled = true;
+    }
+    else {
+        m_bHDR1xFrameEnabled = false;
+    }
+    updateParamEntry(KEY_QC_HDR_NEED_1X, str);
+    return AddSetParmEntryToBatch(m_pParamBuf,
+            CAM_INTF_PARM_HDR_NEED_1X,
+            sizeof(m_bHDR1xFrameEnabled),
+            &m_bHDR1xFrameEnabled);
 }
 
 /*===========================================================================
