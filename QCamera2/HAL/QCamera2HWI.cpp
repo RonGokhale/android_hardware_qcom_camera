@@ -3955,6 +3955,12 @@ int32_t QCamera2HardwareInterface::processAutoFocusEvent(cam_auto_focus_data_t &
             break;
         }
 
+        if (!mActiveAF) {
+            ret = sendEvtNotify(CAMERA_MSG_FOCUS_MOVE,
+                    (focus_data.focus_state == CAM_AF_PASSIVE_SCANNING)? true : false,
+                    0);
+        }
+
         if (focus_data.focus_state == CAM_AF_PASSIVE_FOCUSED ||
             focus_data.focus_state == CAM_AF_PASSIVE_UNFOCUSED ||
             focus_data.focus_state == CAM_AF_FOCUSED ||
@@ -3968,9 +3974,6 @@ int32_t QCamera2HardwareInterface::processAutoFocusEvent(cam_auto_focus_data_t &
                    focus_data.focus_state == CAM_AF_FOCUSED)? true : false,
                   0);
         }
-        ret = sendEvtNotify(CAMERA_MSG_FOCUS_MOVE,
-                (focus_data.focus_state == CAM_AF_PASSIVE_SCANNING)? true : false,
-                0);
         break;
     case CAM_FOCUS_MODE_INFINITY:
     case CAM_FOCUS_MODE_FIXED:
