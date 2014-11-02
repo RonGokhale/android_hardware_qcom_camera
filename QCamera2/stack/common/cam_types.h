@@ -811,6 +811,11 @@ typedef struct {
   float focus_distance[CAM_FOCUS_DISTANCE_MAX_INDEX];
 } cam_focus_distances_info_t;
 
+typedef struct {
+  uint32_t scale;
+  float diopter;
+}cam_focus_pos_info_t ;
+
 /* Different autofocus cycle when calling do_autoFocus
  * CAM_AF_COMPLETE_EXISTING_SWEEP: Complete existing sweep
  * if one is ongoing, and lock.
@@ -908,6 +913,7 @@ typedef struct {
 
 typedef struct {
     int32_t cct_value;
+    cam_awb_gain_t rgb_gains;
     int32_t decision;
 } cam_awb_params_t;
 
@@ -1082,6 +1088,9 @@ typedef  struct {
 
     uint8_t is_mobicat_stats_params_valid;
     cam_stats_buffer_exif_debug_t mobicat_stats_buffer_data;
+
+    uint8_t is_focus_pos_info_valid;
+    cam_focus_pos_info_t cur_pos_info;
 } cam_metadata_info_t;
 
 typedef enum {

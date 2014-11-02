@@ -1514,7 +1514,7 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
         } else {
             //preview window might not be set at this point. So, query directly
             //from BufferQueue implementation of gralloc buffers.
-	      minUndequeCount = 2;
+            minUndequeCount = 2;
         }
     }
 
@@ -3886,6 +3886,20 @@ int32_t QCamera2HardwareInterface::sendEvtNotify(int32_t msg_type,
     return m_cbNotifier.notifyCallback(cbArg);
 }
 
+void QCamera2HardwareInterface::processAEInfo(cam_ae_params_t &ae_params)
+{
+    pthread_mutex_lock(&m_parm_lock);
+    mParameters.updateAEInfo(ae_params);
+    pthread_mutex_unlock(&m_parm_lock);
+}
+
+void QCamera2HardwareInterface::processFocusPositionInfo(cam_focus_pos_info_t &cur_pos_info)
+{
+    pthread_mutex_lock(&m_parm_lock);
+    mParameters.updateCurrentFocusPosition(cur_pos_info);
+    pthread_mutex_unlock(&m_parm_lock);
+}
+
 /*===========================================================================
  * FUNCTION   : processAutoFocusEvent
  *
@@ -3994,11 +4008,6 @@ int32_t QCamera2HardwareInterface::processAutoFocusEvent(cam_auto_focus_data_t &
         focus_data.focus_state == CAM_AF_NOT_FOCUSED) {
         mActiveAF = false;
     }
-
-    // we save cam_auto_focus_data_t.focus_pos to parameters,
-    // in any focus mode.
-    CDBG_HIGH("%s, update focus position: %d", __func__, focus_data.focus_pos);
-    mParameters.updateCurrentFocusPosition(focus_data.focus_pos);
 
     CDBG_HIGH("%s: X",__func__);
     return ret;
@@ -4118,9 +4127,10 @@ int32_t QCamera2HardwareInterface::processHDRData(cam_asd_hdr_scene_data_t hdr_s
  *==========================================================================*/
 int32_t QCamera2HardwareInterface::transAwbMetaToParams(cam_awb_params_t &awb_params)
 {
-    CDBG("%s, cct value: %d", __func__, awb_params.cct_value);
-
-    return mParameters.updateCCTValue(awb_params.cct_value);
+    pthread_mutex_lock(&m_parm_lock);
+    mParameters.updateAWBParams(awb_params);
+    pthread_mutex_unlock(&m_parm_lock);
+    return NO_ERROR;
 }
 
 /*===========================================================================
