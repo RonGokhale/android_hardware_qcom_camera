@@ -312,7 +312,7 @@ int QCameraMemory::alloc(int count, size_t size, unsigned int heap_id)
 
     for (int i = mBufferCount; i < new_bufCnt; i ++) {
         if ( NULL == mMemoryPool ) {
-            ALOGE("%s : No memory pool available", __func__);
+            CDBG_HIGH("%s : No memory pool available and So allocate new buffer", __func__);
             rc = allocOneBuffer(mMemInfo[i], heap_id, size, m_bCached);
             if (rc < 0) {
                 ALOGE("%s: AllocateIonMemory failed", __func__);
