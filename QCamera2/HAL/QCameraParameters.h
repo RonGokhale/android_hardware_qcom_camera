@@ -845,8 +845,8 @@ private:
     int32_t setTintlessValue(const char *tintStr);
 
 
-    int32_t parseGains(const char *gainStr, float &r_gain,
-                       float &g_gain, float &b_gain);
+    int32_t parseGains(const char *gainStr, double &r_gain,
+                       double &g_gain, double &b_gain);
     int32_t parse_pair(const char *str, int *first, int *second,
                        char delim, char **endptr);
     void parseSizesList(const char *sizesStr, Vector<Size> &sizes);
