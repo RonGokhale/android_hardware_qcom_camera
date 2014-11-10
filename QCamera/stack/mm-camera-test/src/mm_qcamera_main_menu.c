@@ -210,7 +210,7 @@ USER_INPUT_DISPLAY_T input_display;
 static int camframe_status = 0;
 
 #ifdef _ANDROID_
-char *sdcard_path = "/data";
+char *sdcard_path = "/data/misc/camera";
 #else
 char *sdcard_path = ".";
 #endif

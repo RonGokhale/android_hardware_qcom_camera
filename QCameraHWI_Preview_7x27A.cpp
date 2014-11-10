@@ -471,7 +471,7 @@ void QCameraStream_preview::dumpFrameToFile(struct msm_frame* newFrame)
   len = (w * h)*3/2;
   count++;
   if(count < 100) {
-    snprintf(buf, sizeof(buf), "/data/mzhu%d.yuv", count);
+    snprintf(buf, sizeof(buf), "/data/misc/camera/mzhu%d.yuv", count);
     file_fd = open(buf, O_RDWR | O_CREAT, 0777);
 
     rc = write(file_fd, (const void *)addr, len);

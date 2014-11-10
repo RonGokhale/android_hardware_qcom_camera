@@ -862,7 +862,7 @@ status_t QCameraHardwareInterface::encodeData(mm_camera_super_buf_t* recvd_frame
               jpg_job.encode_job.encode_parm.rotation, getJpegRotation());
 #if 0 //dump temp
         char buf[32];
-        snprintf(buf, sizeof(buf),"/data/BS_%dx%d.raw", main_buf_info->src_dim.width, main_buf_info->src_dim.height);
+        snprintf(buf, sizeof(buf),"/data/misc/camera/BS_%dx%d.raw", main_buf_info->src_dim.width, main_buf_info->src_dim.height);
         int file_fd = open(buf, O_RDWR | O_CREAT, 0777);
         if (file_fd < 0) {
           ALOGE("%s: cannot open file: BS\n", __func__);

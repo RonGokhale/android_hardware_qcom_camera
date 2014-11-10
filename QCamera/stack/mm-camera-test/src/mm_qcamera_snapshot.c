@@ -82,12 +82,12 @@ static int mm_app_dump_snapshot_frame(struct msm_frame *frame,
     int rc = 0;
 
     if (is_raw) {
-        snprintf(bufp, BUFF_SIZE_128, "/data/main_raw_%d.yuv", raw_snapshot_cnt);
+        snprintf(bufp, BUFF_SIZE_128, "/data/misc/camera/main_raw_%d.yuv", raw_snapshot_cnt);
     } else {
         if (is_main) {
-            snprintf(bufp, BUFF_SIZE_128, "/data/main_%d.yuv", snapshot_cnt);
+            snprintf(bufp, BUFF_SIZE_128, "/data/misc/camera/main_%d.yuv", snapshot_cnt);
         } else {
-            snprintf(bufp, BUFF_SIZE_128, "/data/thumb_%d.yuv", snapshot_cnt);
+            snprintf(bufp, BUFF_SIZE_128, "/data/misc/camera/thumb_%d.yuv", snapshot_cnt);
         }
     }
 
@@ -113,7 +113,7 @@ static void mm_app_dump_jpeg_frame(const void * data, uint32_t size, char* name,
     int file_fd;
     if ( data != NULL) {
         char * str;
-        snprintf(buf, sizeof(buf), "/data/%s_%d.%s", name, index, ext);
+        snprintf(buf, sizeof(buf), "/data/misc/camera/%s_%d.%s", name, index, ext);
         CDBG("%s: %s size =%d, jobId=%d", __func__, buf, size, index);
         file_fd = open(buf, O_RDWR | O_CREAT, 0777);
         write(file_fd, data, size);
