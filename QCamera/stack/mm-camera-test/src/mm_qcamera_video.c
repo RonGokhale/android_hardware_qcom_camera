@@ -60,7 +60,7 @@ static int mm_app_dump_video_frame(struct msm_frame *frame,
 
     v_cnt++;
     if(0 == (v_cnt % 10))
-        snprintf(bufp, BUFF_SIZE_128, "/data/v_%d.yuv", v_cnt);
+        snprintf(bufp, BUFF_SIZE_128, "/data/misc/camera/v_%d.yuv", v_cnt);
     else
         return 0;
 

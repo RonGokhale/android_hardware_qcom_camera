@@ -2243,19 +2243,19 @@ void QCameraHardwareInterface::dumpFrameToFile(struct msm_frame* newFrame,
           case  HAL_DUMP_FRM_PREVIEW:
             w = mDimension.display_width;
             h = mDimension.display_height;
-            snprintf(buf, sizeof(buf), "/data/%dp_%dx%d.yuv", mDumpFrmCnt, w, h);
+            snprintf(buf, sizeof(buf), "/data/misc/camera/%dp_%dx%d.yuv", mDumpFrmCnt, w, h);
             file_fd = open(buf, O_RDWR | O_CREAT, 0777);
             break;
           case HAL_DUMP_FRM_VIDEO:
             w = mDimension.video_width;
             h = mDimension.video_height;
-            snprintf(buf, sizeof(buf),"/data/%dv_%dx%d.yuv", mDumpFrmCnt, w, h);
+            snprintf(buf, sizeof(buf),"/data/misc/camera/%dv_%dx%d.yuv", mDumpFrmCnt, w, h);
             file_fd = open(buf, O_RDWR | O_CREAT, 0777);
             break;
           case HAL_DUMP_FRM_MAIN:
             w = mDimension.picture_width;
             h = mDimension.picture_height;
-            snprintf(buf, sizeof(buf), "/data/%dm_%dx%d.yuv", mDumpFrmCnt, w, h);
+            snprintf(buf, sizeof(buf), "/data/misc/camera/%dm_%dx%d.yuv", mDumpFrmCnt, w, h);
             file_fd = open(buf, O_RDWR | O_CREAT, 0777);
             if (mDimension.main_img_format == CAMERA_YUV_422_NV16 ||
                 mDimension.main_img_format == CAMERA_YUV_422_NV61)
@@ -2264,7 +2264,7 @@ void QCameraHardwareInterface::dumpFrameToFile(struct msm_frame* newFrame,
           case HAL_DUMP_FRM_THUMBNAIL:
             w = mDimension.ui_thumbnail_width;
             h = mDimension.ui_thumbnail_height;
-            snprintf(buf, sizeof(buf),"/data/%dt_%dx%d.yuv", mDumpFrmCnt, w, h);
+            snprintf(buf, sizeof(buf),"/data/misc/camera/%dt_%dx%d.yuv", mDumpFrmCnt, w, h);
             file_fd = open(buf, O_RDWR | O_CREAT, 0777);
             break;
           default:

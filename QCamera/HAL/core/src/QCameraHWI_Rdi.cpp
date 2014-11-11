@@ -245,7 +245,7 @@ void QCameraStream_Rdi::dumpFrameToFile(mm_camera_buf_def_t* newFrame)
     if (newFrame != NULL) {
         char * str;
         size = w*h; /* buffer size without padding */
-        snprintf(buf, sizeof(buf), "/data/%s_%d_%d_%d.%s", name, w, h, count,ext);
+        snprintf(buf, sizeof(buf), "/data/misc/camera/%s_%d_%d_%d.%s", name, w, h, count,ext);
         file_fd = open(buf, O_RDWR | O_CREAT, 0777);
         if (file_fd < 0) {
             ALOGE("%s: cannot open file\n", __func__);

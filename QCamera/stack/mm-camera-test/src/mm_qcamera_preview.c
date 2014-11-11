@@ -191,7 +191,7 @@ void dumpFrameToFile(mm_camera_buf_def_t* newFrame, int w, int h, char* name, in
     int i;
     if ( newFrame != NULL) {
         char * str;
-        snprintf(buf, sizeof(buf), "/data/%s.%s", name, ext);
+        snprintf(buf, sizeof(buf), "/data/misc/camera/%s.%s", name, ext);
         file_fd = open(buf, O_RDWR | O_CREAT, 0777);
         if (file_fd < 0) {
             CDBG_ERROR("%s: cannot open file %s \n", __func__, buf);

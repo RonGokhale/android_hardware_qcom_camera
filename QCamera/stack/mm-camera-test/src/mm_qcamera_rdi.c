@@ -64,7 +64,7 @@ static void dumpRdi(mm_camera_buf_def_t* newFrame, int w, int h, char* name, int
     char *ext = "yuv";
     if ( newFrame != NULL) {
         char * str;
-        snprintf(buf, sizeof(buf), "/data/%s_%d.%s", name, rdi_counter, ext);
+        snprintf(buf, sizeof(buf), "/data/misc/camera/%s_%d.%s", name, rdi_counter, ext);
         file_fd = open(buf, O_RDWR | O_CREAT, 0777);
         if (file_fd < 0) {
             CDBG_ERROR("%s: cannot open file\n", __func__);

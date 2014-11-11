@@ -2975,7 +2975,7 @@ void QualcommCameraHardware::runPreviewThread(void *data)
         int written;
                 if (frameCnt >= 0 && frameCnt <= 10 ) {
                     char buf[128];
-                    snprintf(buffer, sizeof(buf), "/data/%d_preview.yuv", frameCnt);
+                    snprintf(buffer, sizeof(buf), "/data/misc/camera/%d_preview.yuv", frameCnt);
                     int file_fd = open(buf, O_RDWR | O_CREAT, 0777);
                     ALOGV("dumping preview frame %d", frameCnt);
                     if (file_fd < 0) {
@@ -3495,7 +3495,7 @@ void QualcommCameraHardware::runVideoThread(void *data)
             static int frameCnt = 0;
             if (frameCnt >= 11 && frameCnt <= 13 ) {
                 char buf[128];
-                sprintf(buf,  "/data/%d_v.yuv", frameCnt);
+                sprintf(buf,  "/data/misc/camera/%d_v.yuv", frameCnt);
                 int file_fd = open(buf, O_RDWR | O_CREAT, 0777);
                 ALOGV("dumping video frame %d", frameCnt);
                 if (file_fd < 0) {
@@ -6730,8 +6730,8 @@ void QualcommCameraHardware::receiveLiveSnapshot(uint32_t jpeg_size)
 {
     ALOGV("receiveLiveSnapshot E");
 #if DUMP_LIVESHOT_JPEG_FILE
-    int file_fd = open("/data/LiveSnapshot.jpg", O_RDWR | O_CREAT, 0777);
-    ALOGV("dumping live shot image in /data/LiveSnapshot.jpg");
+    int file_fd = open("/data/misc/camera/LiveSnapshot.jpg", O_RDWR | O_CREAT, 0777);
+    ALOGV("dumping live shot image in /data/misc/camera/LiveSnapshot.jpg");
     if (file_fd < 0) {
         ALOGE("cannot open file\n");
     }
