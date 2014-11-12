@@ -810,7 +810,7 @@ void CameraContext::postData(int32_t msgType,
 
     if (msgType & CAMERA_MSG_COMPRESSED_IMAGE ) {
         String8 jpegPath;
-        jpegPath = jpegPath.format("/data/img_%d.jpg", JpegIdx);
+        jpegPath = jpegPath.format("/data/misc/camera/img_%d.jpg", JpegIdx);
         if (!mPiPCapture) {
             // Normal capture case
             printf("JPEG done\n");
