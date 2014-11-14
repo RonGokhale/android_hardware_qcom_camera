@@ -1182,13 +1182,6 @@ OMX_BOOL mm_jpeg_session_abort(mm_jpeg_job_session_t *p_session)
     CDBG("%s:%d] **** ABORTING", __func__, __LINE__);
     pthread_mutex_unlock(&p_session->lock);
 
-    ret = OMX_SendCommand(p_session->omx_handle, OMX_CommandStateSet,
-    OMX_StateIdle, NULL);
-
-    if (ret != OMX_ErrorNone) {
-      CDBG("%s:%d] OMX_SendCommand returned error %d", __func__, __LINE__, ret);
-      return 1;
-    }
     rc = mm_jpegenc_destroy_job(p_session);
     if (rc != 0) {
       CDBG("%s:%d] Destroy job returned error %d", __func__, __LINE__, rc);
@@ -2580,6 +2573,12 @@ OMX_ERRORTYPE mm_jpeg_fbd(OMX_HANDLETYPE hComponent,
       (int32_t)((uint32_t)GET_SESSION_IDX(
         p_session->sessionId)<<16 | --p_session->job_index));
   if (MM_JPEG_ABORT_NONE != p_session->abort_state) {
+    omx_jpeg_ouput_buf_t *jpeg_out = (omx_jpeg_ouput_buf_t*) pBuffer->pBuffer;
+    CDBG_HIGH("%s:%d] Releasing bit stream buf in abort ", __func__, __LINE__);
+
+    p_session->params.put_memory (jpeg_out);
+    p_session->abort_state = MM_JPEG_ABORT_DONE;
+    pthread_cond_signal(&p_session->cond);
     pthread_mutex_unlock(&p_session->lock);
     return ret;
   }
