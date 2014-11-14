@@ -9307,7 +9307,7 @@ int32_t QCameraParameters::initBatchUpdate(void *p_table)
     CDBG("%s:Initializing batch parameter set",__func__);
 
     parm_buffer_new_t *param_buf = (parm_buffer_new_t *)p_table;
-    memset(param_buf, 0, sizeof(ONE_MB_OF_PARAMS));
+    memset(param_buf, 0, ONE_MB_OF_PARAMS);
     param_buf->num_entry = 0;
     param_buf->curr_size = 0;
     param_buf->tot_rem_size = ONE_MB_OF_PARAMS - sizeof(parm_buffer_new_t);
