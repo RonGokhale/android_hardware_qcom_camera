@@ -2336,7 +2336,7 @@ bool QCamera2HardwareInterface::processUFDumps(qcamera_jpeg_evt_payload_t *evt)
        } else {
            snprintf(name, CAM_FN_CNT, "%d", 0);
        }
-       CAM_DUMP_TO_FILE("/data/local/ubifocus", name, index, "jpg",
+       CAM_DUMP_TO_FILE("/data/misc/camera/ubifocus", name, index, "jpg",
            dataPtr, dataLen);
        CDBG_HIGH("%s:%d] Dump the image %d %d allFocusImage %d", __func__, __LINE__,
            getOutputImageCount(), index, allFocusImage);
@@ -2391,7 +2391,7 @@ bool QCamera2HardwareInterface::processMTFDumps(qcamera_jpeg_evt_payload_t *evt)
        } else {
            strncpy(name, "0", CAM_FN_CNT - 1);
        }
-       CAM_DUMP_TO_FILE("/data/local/multiTouchFocus", name, index, "jpg",
+       CAM_DUMP_TO_FILE("/data/misc/camera/multiTouchFocus", name, index, "jpg",
                dataPtr, dataLen);
        CDBG("%s:%d] Dump the image %d %d allFocusImage %d", __func__, __LINE__,
                getOutputImageCount(), index, allFocusImage);
