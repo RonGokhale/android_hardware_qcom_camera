@@ -3850,6 +3850,7 @@ void QCamera2HardwareInterface::jpegEvtHandle(jpeg_job_status_t status,
 int QCamera2HardwareInterface::thermalEvtHandle(
         qcamera_thermal_level_enum_t level, void *userdata, void *data)
 {
+    int ret = NO_ERROR;
     if (!mCameraOpened) {
         CDBG("%s: Camera is not opened, no need to handle thermal evt", __func__);
         return NO_ERROR;
@@ -3858,10 +3859,17 @@ int QCamera2HardwareInterface::thermalEvtHandle(
     // Make sure thermal events are logged
     CDBG("%s: level = %d, userdata = %p, data = %p",
         __func__, level, userdata, data);
-    //We don't need to lockAPI, waitAPI here. QCAMERA_SM_EVT_THERMAL_NOTIFY
-    // becomes an aync call. This also means we can only pass payload
-    // by value, not by address.
-    return processAPI(QCAMERA_SM_EVT_THERMAL_NOTIFY, (void *)&level);
+    lockAPI();
+    qcamera_api_result_t apiResult;
+    qcamera_sm_evt_enum_t evt = QCAMERA_SM_EVT_THERMAL_NOTIFY;
+    ret = processAPI(evt, (void *)&level);
+
+    if (ret == NO_ERROR) {
+        waitAPIResult(evt, &apiResult);
+        ret = apiResult.status;
+    }
+    unlockAPI();
+    return ret;
 }
 
 /*===========================================================================
