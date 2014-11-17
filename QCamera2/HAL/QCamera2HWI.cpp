@@ -616,6 +616,7 @@ int QCamera2HardwareInterface::take_picture(struct camera_device *device)
             hw->waitAPIResult(QCAMERA_SM_EVT_PREPARE_SNAPSHOT);
             ret = hw->m_apiResult.status;
         }
+        hw->mPrepSnapRun = true;
     }
 
     /* Regardless what the result value for prepare_snapshot,
@@ -967,6 +968,7 @@ QCamera2HardwareInterface::QCamera2HardwareInterface(int cameraId)
       mFlashNeeded(false),
       mCaptureRotation(0),
       mIs3ALocked(false),
+      mPrepSnapRun(false),
       mZoomLevel(0),
       mSnapshotJob(-1),
       mPostviewJob(-1),
@@ -2525,7 +2527,7 @@ int QCamera2HardwareInterface::takePicture()
                     return rc;
                 }
             }
-            if ( mLongshotEnabled ) {
+            if (mLongshotEnabled && mPrepSnapRun) {
                 mCameraHandle->ops->start_zsl_snapshot(
                         mCameraHandle->camera_handle,
                         pZSLChannel->getMyHandle());
@@ -2984,6 +2986,7 @@ int QCamera2HardwareInterface::sendCommand(int32_t command, int32_t /*arg1*/, in
         if ( !m_stateMachine.isCaptureRunning() ) {
             mLongshotEnabled = true;
             mParameters.setLongshotEnable(mLongshotEnabled);
+            mPrepSnapRun = false;
         } else {
             rc = NO_INIT;
         }
@@ -2993,12 +2996,13 @@ int QCamera2HardwareInterface::sendCommand(int32_t command, int32_t /*arg1*/, in
             cancelPicture();
             processEvt(QCAMERA_SM_EVT_SNAPSHOT_DONE, NULL);
             QCameraChannel *pZSLChannel = m_channels[QCAMERA_CH_TYPE_ZSL];
-            if (isZSLMode() && (NULL != pZSLChannel)) {
+            if (isZSLMode() && (NULL != pZSLChannel) && mPrepSnapRun) {
                 mCameraHandle->ops->stop_zsl_snapshot(
                         mCameraHandle->camera_handle,
                         pZSLChannel->getMyHandle());
             }
         }
+        mPrepSnapRun = false;
         mLongshotEnabled = false;
         mParameters.setLongshotEnable(mLongshotEnabled);
         break;
