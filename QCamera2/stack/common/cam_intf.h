@@ -491,6 +491,7 @@ typedef union {
     INCLUDE(CAM_INTF_PARM_TINTLESS,                 int32_t,                     1);
     INCLUDE(CAM_INTF_PARM_CDS_MODE,                 cam_cds_mode_type_t,         1);
     INCLUDE(CAM_INTF_PARM_EZTUNE_CMD,               cam_eztune_cmd_data_t,       1);
+    INCLUDE(CAM_INTF_PARM_LONGSHOT_ENABLE,          int8_t,                      1);
 
     /* HAL3 specific */
     INCLUDE(CAM_INTF_META_FRAME_NUMBER,             uint32_t,                    1);

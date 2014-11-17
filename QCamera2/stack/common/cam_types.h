@@ -1024,6 +1024,7 @@ typedef enum {
     CAM_INTF_PARM_SET_PP_COMMAND,
     CAM_INTF_PARM_TINTLESS,
     CAM_INTF_PARM_CDS_MODE,
+    CAM_INTF_PARM_LONGSHOT_ENABLE,
 
     /* stream based parameters */
     CAM_INTF_PARM_DO_REPROCESS,
