@@ -870,12 +870,12 @@ int32_t QCameraStateMachine::procEvtPreviewReadyState(qcamera_sm_evt_enum_t evt,
        break;
     case QCAMERA_SM_EVT_THERMAL_NOTIFY:
         {
-             // No ops, but need to notify
-             ALOGE("%s: cannot handle evt(%d) in state(%d)", __func__, evt, m_state);
-             result.status = rc;
-             result.request_api = evt;
-             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-             m_parent->signalAPIResult(&result);
+            rc = m_parent->updateThermalLevel(
+                    *((qcamera_thermal_level_enum_t *)payload));
+            result.status = rc;
+            result.request_api = evt;
+            result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_EVT_INTERNAL:
@@ -1426,12 +1426,12 @@ int32_t QCameraStateMachine::procEvtPrepareSnapshotState(qcamera_sm_evt_enum_t e
        break;
     case QCAMERA_SM_EVT_THERMAL_NOTIFY:
         {
-             // No ops, but need to notify
-             ALOGE("%s: cannot handle evt(%d) in state(%d)", __func__, evt, m_state);
-             result.status = rc;
-             result.request_api = evt;
-             result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
-             m_parent->signalAPIResult(&result);
+            rc = m_parent->updateThermalLevel(
+                    *((qcamera_thermal_level_enum_t *)payload));
+            result.status = rc;
+            result.request_api = evt;
+            result.result_type = QCAMERA_API_RESULT_TYPE_DEF;
+            m_parent->signalAPIResult(&result);
         }
         break;
     case QCAMERA_SM_EVT_JPEG_EVT_NOTIFY:
