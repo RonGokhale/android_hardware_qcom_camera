@@ -1587,7 +1587,7 @@ void QCamera2HardwareInterface::dumpMetadataToFile(QCameraStream *stream,
             time (&current_time);
             timeinfo = localtime (&current_time);
             if (timeinfo != NULL)
-                strftime (timeBuf, sizeof(timeBuf),"/data/%Y%m%d%H%M%S", timeinfo);
+                strftime (timeBuf, sizeof(timeBuf),"/data/misc/camera/%Y%m%d%H%M%S", timeinfo);
             String8 filePath(timeBuf);
             snprintf(buf, sizeof(buf), "%um_%s_%d.bin", dumpFrmCnt, type, frame->frame_idx);
             filePath.append(buf);
