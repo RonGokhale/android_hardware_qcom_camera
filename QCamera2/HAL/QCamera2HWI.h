@@ -526,6 +526,7 @@ private:
     int mDumpSkipCnt; // frame skip count
     mm_jpeg_exif_params_t mExifParams;
     qcamera_thermal_level_enum_t mThermalLevel;
+    bool mActiveAF;
     bool m_HDRSceneEnabled;
     bool mLongshotEnabled;
     int32_t m_max_pic_width;
