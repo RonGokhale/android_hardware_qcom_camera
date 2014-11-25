@@ -35,6 +35,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <gralloc_priv.h>
+#include <sys/sysinfo.h>
 #include "QCamera2HWI.h"
 #include "QCameraParameters.h"
 
@@ -110,6 +111,8 @@ const char QCameraParameters::KEY_QC_SNAPSHOT_BURST_NUM[] = "snapshot-burst-num"
 const char QCameraParameters::KEY_QC_SNAPSHOT_FD_DATA[] = "snapshot-fd-data-enable";
 const char QCameraParameters::KEY_QC_TINTLESS_ENABLE[] = "tintless";
 const char QCameraParameters::KEY_QC_VIDEO_ROTATION[] = "video-rotation";
+const char QCameraParameters::KEY_QC_LONGSHOT_SUPPORTED[] = "longshot-supported";
+const char QCameraParameters::KEY_QC_ZSL_HDR_SUPPORTED[] = "zsl-hdr-supported";
 
 // Values for effect settings.
 const char QCameraParameters::EFFECT_EMBOSS[] = "emboss";
@@ -536,6 +539,7 @@ const QCameraParameters::QCameraMap QCameraParameters::FLIP_MODES_MAP[] = {
 #define DEFAULT_CAMERA_AREA "(0, 0, 0, 0, 0)"
 #define DATA_PTR(MEM_OBJ,INDEX) MEM_OBJ->getPtr( INDEX )
 #define MIN_PP_BUF_CNT 1
+#define TOTAL_RAM_SIZE_512MB 536870912
 
 
 /*===========================================================================
@@ -3932,6 +3936,20 @@ int32_t QCameraParameters::initDefaultParameters()
 
     // Set default Camera mode
     set(KEY_QC_CAMERA_MODE, 0);
+
+    //Get RAM size and disable features which are memory rich
+    struct sysinfo info;
+    sysinfo(&info);
+
+    ALOGV("%s: totalram = %ld, freeram = %ld ", __func__, info.totalram,
+        info.freeram);
+    if (info.totalram > TOTAL_RAM_SIZE_512MB) {
+        set(KEY_QC_LONGSHOT_SUPPORTED, VALUE_TRUE);
+        set(KEY_QC_ZSL_HDR_SUPPORTED, VALUE_TRUE);
+    } else {
+        set(KEY_QC_LONGSHOT_SUPPORTED, VALUE_FALSE);
+        set(KEY_QC_ZSL_HDR_SUPPORTED, VALUE_FALSE);
+    }
 
     int32_t rc = commitParameters();
     if (rc == NO_ERROR) {

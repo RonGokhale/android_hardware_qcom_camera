@@ -240,6 +240,12 @@ public:
     static const char EFFECT_SKETCH[];
     static const char EFFECT_NEON[];
 
+    //Longshot
+    static const char KEY_QC_LONGSHOT_SUPPORTED[];
+
+    //ZSL+HDR
+    static const char KEY_QC_ZSL_HDR_SUPPORTED[];
+
     // Values for Touch AF/AEC
     static const char TOUCH_AF_AEC_OFF[];
     static const char TOUCH_AF_AEC_ON[];
