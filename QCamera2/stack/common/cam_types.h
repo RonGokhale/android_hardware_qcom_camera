@@ -1745,8 +1745,11 @@ typedef enum {
     CAM_INTF_PARM_HW_DATA_OVERWRITE,
     /* Special event to request stream frames*/
     CAM_INTF_PARM_REQUEST_FRAMES,
-
-    CAM_INTF_PARM_MAX /* 180 */
+    /* Exif data for PDAF */
+    CAM_INTF_META_EXIF_DEBUG_PDAF,
+    /* FLIP mode parameter*/
+    CAM_INTF_PARM_FLIP,
+    CAM_INTF_PARM_MAX
 } cam_intf_parm_type_t;
 
 typedef struct {
