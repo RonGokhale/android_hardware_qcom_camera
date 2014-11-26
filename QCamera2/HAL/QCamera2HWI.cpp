@@ -509,6 +509,12 @@ void QCamera2HardwareInterface::release_recording_frame(
         ALOGE("NULL camera device");
         return;
     }
+
+    if (opaque == NULL) {
+        ALOGE("%s: Error!! Frame info is NULL", __func__);
+        return;
+    }
+
     ALOGD("%s: E", __func__);
     hw->lockAPI();
     int32_t ret = hw->processAPI(QCAMERA_SM_EVT_RELEASE_RECORIDNG_FRAME, (void *)opaque);
