@@ -528,6 +528,10 @@ void QCamera2HardwareInterface::release_recording_frame(
         ALOGE("NULL camera device");
         return;
     }
+    if (opaque == NULL) {
+        ALOGE("%s: Error!! Frame info is NULL", __func__);
+        return;
+    }
     CDBG("%s: E", __func__);
     hw->lockAPI();
     qcamera_api_result_t apiResult;
@@ -6358,7 +6362,7 @@ bool QCamera2HardwareInterface::needReprocess()
             return true;
         }
     } else {
-        if (feature_mask & CAM_QCOM_FEATURE_CPP) {
+        if (required_mask & CAM_QCOM_FEATURE_CPP) {
             CDBG_HIGH("%s: Need CPP in non-ZSL mode", __func__);
             pthread_mutex_unlock(&m_parm_lock);
             return true;
