@@ -1656,6 +1656,33 @@ int32_t QCameraPostProcessor::encodeData(qcamera_jpeg_data_t *jpeg_job_data,
         jpg_job.encode_job.dst_index = -1;
     }
 
+    // use src to reproc frame as work buffer; if src buf is not available
+    // jpeg interface will allocate work buffer
+    if (jpeg_job_data->src_reproc_frame != NULL) {
+        QCameraStream *main_stream = NULL;
+        mm_camera_buf_def_t *main_frame = NULL;
+        QCameraStream *thumb_stream = NULL;
+        mm_camera_buf_def_t *thumb_frame = NULL;
+        // Call queryStreams to fetch source of reproc frame
+        queryStreams(&main_stream,
+                &thumb_stream,
+                &main_frame,
+                &thumb_frame,
+                jpeg_job_data->src_reproc_frame,
+                NULL);
+
+        mm_camera_buf_def_t *workBuf = main_frame;
+        if (workBuf != NULL) {
+            int workBufIndex = workBuf->buf_idx;
+            QCameraMemory *workMem = (QCameraMemory *)workBuf->mem_info;
+            camera_memory_t *camWorkMem = workMem->getMemory(workBufIndex, false);
+            jpg_job.encode_job.work_buf.buf_size = camWorkMem->size;
+            jpg_job.encode_job.work_buf.buf_vaddr = (uint8_t *)camWorkMem->data;
+            jpg_job.encode_job.work_buf.fd = workMem->getFd(workBufIndex);
+            workMem->invalidateCache(workBufIndex);
+        }
+    }
+
     cam_dimension_t src_dim;
     memset(&src_dim, 0, sizeof(cam_dimension_t));
     main_stream->getFrameDimension(src_dim);
