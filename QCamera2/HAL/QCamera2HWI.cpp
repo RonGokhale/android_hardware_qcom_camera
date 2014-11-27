@@ -2471,6 +2471,7 @@ int32_t QCamera2HardwareInterface::configureAdvancedCapture()
     int32_t rc = NO_ERROR;
 
     setOutputImageCount(0);
+    setInputImageCount(0);
     mParameters.setDisplayFrame(FALSE);
     if (mParameters.isUbiFocusEnabled()) {
         rc = configureAFBracketing();
@@ -3120,7 +3121,8 @@ int QCamera2HardwareInterface::cancelPicture()
  *==========================================================================*/
 void QCamera2HardwareInterface::captureDone()
 {
-    if (++mOutputCount >= mParameters.getBurstCountForAdvancedCapture()) {
+    if (mParameters.isAdvCamFeaturesEnabled() &&
+        ++mInputCount >= mParameters.getBurstCountForAdvancedCapture()) {
         unconfigureAdvancedCapture();
     }
 }

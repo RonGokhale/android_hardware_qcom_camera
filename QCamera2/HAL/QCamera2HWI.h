@@ -454,6 +454,7 @@ private:
     int32_t configureAEBracketing();
     inline void setOutputImageCount(uint32_t aCount) {mOutputCount = aCount;}
     inline uint32_t getOutputImageCount() {return mOutputCount;}
+    inline void setInputImageCount(uint32_t aCount) {mInputCount = aCount;}
     bool processUFDumps(qcamera_jpeg_evt_payload_t *evt);
     void captureDone();
     bool processMTFDumps(qcamera_jpeg_evt_payload_t *evt);
@@ -640,6 +641,7 @@ private:
     int32_t mReprocJob;
     int32_t mRawdataJob;
     uint32_t mOutputCount;
+    uint32_t mInputCount;
     bool mPreviewFrameSkipValid;
     cam_frame_idx_range_t mPreviewFrameSkipIdxRange;
     int32_t mNumPreviewFaces;
