@@ -168,6 +168,7 @@ public:
     String8 dump(); //returns the state information in a string
     bool isPrepSnapStateRunning();
     bool isRecording();
+    void releaseThread();
 
 private:
     typedef enum {
