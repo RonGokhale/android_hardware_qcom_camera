@@ -92,14 +92,14 @@ int QCameraThermalAdapter::init(QCameraThermalCallback *thermalCb)
 
     // Register camera and camcorder callbacks
     mCameraHandle = mRegister(mStrCamera, thermalCallback, NULL);
-    if (mCameraHandle < 0) {
+    if (mCameraHandle == 0) {
         ALOGE("%s: thermal_client_register_callback failed %d",
                         __func__, mCameraHandle);
         rc = UNKNOWN_ERROR;
         goto error2;
     }
     mCamcorderHandle = mRegister(mStrCamcorder, thermalCallback, NULL);
-    if (mCamcorderHandle < 0) {
+    if (mCamcorderHandle == 0) {
         ALOGE("%s: thermal_client_register_callback failed %d",
                         __func__, mCamcorderHandle);
         rc = UNKNOWN_ERROR;
