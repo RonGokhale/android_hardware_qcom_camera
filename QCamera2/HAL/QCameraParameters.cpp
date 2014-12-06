@@ -1559,10 +1559,18 @@ int32_t QCameraParameters::setJpegThumbnailSize(const QCameraParameters& params)
     int height = params.getInt(KEY_JPEG_THUMBNAIL_HEIGHT);
 
     CDBG("requested jpeg thumbnail size %d x %d", width, height);
-
-    set(KEY_JPEG_THUMBNAIL_WIDTH, width);
-    set(KEY_JPEG_THUMBNAIL_HEIGHT, height);
-    return NO_ERROR;
+    int sizes_cnt = sizeof(THUMBNAIL_SIZES_MAP) / sizeof(cam_dimension_t);
+    // Validate thumbnail size
+    for (int i = 0; i < sizes_cnt; i++) {
+        if (width == THUMBNAIL_SIZES_MAP[i].width &&
+                height == THUMBNAIL_SIZES_MAP[i].height) {
+           set(KEY_JPEG_THUMBNAIL_WIDTH, width);
+           set(KEY_JPEG_THUMBNAIL_HEIGHT, height);
+           return NO_ERROR;
+        }
+    }
+    ALOGE("%s: error: setting jpeg thumbnail size (%d, %d)", __func__, width, height);
+    return BAD_VALUE;
 }
 
 /*===========================================================================
