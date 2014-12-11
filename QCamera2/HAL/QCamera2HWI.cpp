@@ -5534,12 +5534,14 @@ bool QCamera2HardwareInterface::needReprocess()
     if (mParameters.isUbiFocusEnabled() |
         mParameters.isChromaFlashEnabled() |
         mParameters.isHDREnabled() |
-        mParameters.isOptiZoomEnabled()) {
-        ALOGD("%s: need reprocess for |UbiFocus=%d|ChramaFlash=%d|OptiZoom=%d|",
+		mParameters.isOptiZoomEnabled() |
+		mParameters.isStillMoreEnabled()) {
+		ALOGD("%s: need reprocess for |UbiFocus=%d|ChramaFlash=%d|OptiZoom=%d|StillMore=%d",
                                          __func__,
                                          mParameters.isUbiFocusEnabled(),
                                          mParameters.isChromaFlashEnabled(),
-                                         mParameters.isOptiZoomEnabled());
+		                                 mParameters.isOptiZoomEnabled(),
+		                                 mParameters.isStillMoreEnabled());
         pthread_mutex_unlock(&m_parm_lock);
         return true;
     }
