@@ -2259,6 +2259,8 @@ int32_t QCamera2HardwareInterface::configureAdvancedCapture()
         rc = configureZSLHDRBracketing();
     } else if (mParameters.isAEBracketEnabled()) {
         rc = configureAEBracketing();
+    } else if (mParameters.isStillMoreEnabled()) {
+        ALOGE("%s: still more enabled, no need to do any configuration",__func__);
     } else {
         ALOGE("%s: No Advanced Capture feature enabled!! ", __func__);
         rc = BAD_VALUE;
@@ -2505,7 +2507,8 @@ int QCamera2HardwareInterface::takePicture()
             mParameters.isOptiZoomEnabled() ||
             mParameters.isHDREnabled() ||
             mParameters.isChromaFlashEnabled() ||
-            mParameters.isAEBracketEnabled()) {
+            mParameters.isAEBracketEnabled() ||
+            mParameters.isStillMoreEnabled()) {
         rc = configureAdvancedCapture();
         if (rc == NO_ERROR) {
             numSnapshots = mParameters.getBurstCountForAdvancedCapture();
@@ -4514,6 +4517,12 @@ QCameraReprocessChannel *QCamera2HardwareInterface::addOnlineReprocChannel(
                 (uint8_t) mParameters.getInt(CameraParameters::KEY_ZOOM);
     } else {
         pp_config.feature_mask &= ~CAM_QCOM_FEATURE_OPTIZOOM;
+    }
+
+    if(mParameters.isStillMoreEnabled()) {
+        pp_config.feature_mask |= CAM_QCOM_FEATURE_STILLMORE;
+    } else {
+        pp_config.feature_mask &= ~CAM_QCOM_FEATURE_STILLMORE;
     }
 
     //WNR and HDR happen inline. No extra buffers needed.
