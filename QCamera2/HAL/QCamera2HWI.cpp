@@ -6234,6 +6234,12 @@ cam_pp_feature_config_t QCamera2HardwareInterface::getReprocessConfig()
         pp_config.effect = effect;
     }
 
+    //check if zoom is enabled
+    int zoomLevel = mParameters.getInt(CameraParameters::KEY_ZOOM);
+    if (zoomLevel > 0 && feature_mask & CAM_QCOM_FEATURE_CROP) {
+        pp_config.feature_mask |= CAM_QCOM_FEATURE_CROP;
+    }
+
     //check if wavelet denoise is enabled
     if (feature_mask & CAM_QCOM_FEATURE_DENOISE2D &&
         mParameters.isWNREnabled()) {
