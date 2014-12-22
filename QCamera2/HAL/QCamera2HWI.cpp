@@ -3905,18 +3905,20 @@ int32_t QCamera2HardwareInterface::sendEvtNotify(int32_t msg_type,
     return m_cbNotifier.notifyCallback(cbArg);
 }
 
-void QCamera2HardwareInterface::processAEInfo(cam_ae_params_t &ae_params)
+int32_t QCamera2HardwareInterface::processAEInfo(cam_ae_params_t &ae_params)
 {
     pthread_mutex_lock(&m_parm_lock);
     mParameters.updateAEInfo(ae_params);
     pthread_mutex_unlock(&m_parm_lock);
+    return NO_ERROR;
 }
 
-void QCamera2HardwareInterface::processFocusPositionInfo(cam_focus_pos_info_t &cur_pos_info)
+int32_t QCamera2HardwareInterface::processFocusPositionInfo(cam_focus_pos_info_t &cur_pos_info)
 {
     pthread_mutex_lock(&m_parm_lock);
     mParameters.updateCurrentFocusPosition(cur_pos_info);
     pthread_mutex_unlock(&m_parm_lock);
+    return NO_ERROR;
 }
 
 /*===========================================================================
