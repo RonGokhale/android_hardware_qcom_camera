@@ -428,8 +428,9 @@ int32_t QCameraPostProcessor::getJpegEncodingConfig(mm_jpeg_encode_params_t& enc
         if (thumb_stream == NULL) {
             thumb_stream = main_stream;
 
-            if ((90 == m_parent->getJpegRotation())
-                    || (270 == m_parent->getJpegRotation())) {
+            if (((90 == m_parent->getJpegRotation())
+                    || (270 == m_parent->getJpegRotation()))
+                    && (m_parent->needRotationReprocess())) {
                 IMG_SWAP(encode_parm.thumb_dim.dst_dim.width,
                         encode_parm.thumb_dim.dst_dim.height);
             }
@@ -1651,8 +1652,9 @@ int32_t QCameraPostProcessor::encodeData(qcamera_jpeg_data_t *jpeg_job_data,
             thumb_stream = main_stream;
             thumb_frame = main_frame;
 
-            if ((90 == m_parent->getJpegRotation())
-                    || (270 == m_parent->getJpegRotation())) {
+            if (((90 == m_parent->getJpegRotation())
+                    || (270 == m_parent->getJpegRotation()))
+                    && (m_parent->needRotationReprocess())){
                 IMG_SWAP(jpg_job.encode_job.thumb_dim.dst_dim.width,
                         jpg_job.encode_job.thumb_dim.dst_dim.height);
             }
