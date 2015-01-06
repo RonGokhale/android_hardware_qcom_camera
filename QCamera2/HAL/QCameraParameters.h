@@ -296,6 +296,10 @@ public:
     static const char KEY_QC_AF_BRACKET[];
     static const char KEY_QC_SUPPORTED_AF_BRACKET_MODES[];
 
+    //Refocus
+    static const char KEY_QC_RE_FOCUS[];
+    static const char KEY_QC_SUPPORTED_RE_FOCUS_MODES[];
+
     //Chroma Flash
     static const char KEY_QC_CHROMA_FLASH[];
     static const char KEY_QC_SUPPORTED_CHROMA_FLASH_MODES[];
@@ -490,6 +494,10 @@ public:
     static const char AF_BRACKET_OFF[];
     static const char AF_BRACKET_ON[];
 
+    // Values for Refocus settings.
+    static const char RE_FOCUS_OFF[];
+    static const char RE_FOCUS_ON[];
+
     // Values for Chroma Flash settings.
     static const char CHROMA_FLASH_OFF[];
     static const char CHROMA_FLASH_ON[];
@@ -674,7 +682,7 @@ public:
     uint8_t getNumOfExtraBuffersForVideo();
     uint8_t getNumOfExtraBuffersForPreview();
     bool needThumbnailReprocess(uint32_t *pFeatureMask);
-    inline bool isUbiFocusEnabled() {return m_bAFBracketingOn;};
+    inline bool isUbiFocusEnabled() {return m_bAFBracketingOn && !m_bReFocusOn;};
     inline bool isMultiTouchFocusSelected() {return m_bMultiTouchFocusOn;};
     bool isMultiTouchFocusEnabled();
     void resetMultiTouchFocusParam();
@@ -699,16 +707,17 @@ public:
     int32_t setAndCommitZoom(int zoom_level);
     uint8_t getBurstCountForAdvancedCapture();
     int32_t setLongshotEnable(bool enable);
-    inline bool isUbiRefocus() {return isUbiFocusEnabled() &&
-        (m_pCapability->ubifocus_af_bracketing_need.output_count > 1);};
+    inline bool isUbiRefocus() {return m_bReFocusOn &&
+        (m_pCapability->refocus_af_bracketing_need.output_count > 1);};
     inline uint8_t UfOutputCount() {
-        return m_pCapability->ubifocus_af_bracketing_need.output_count;};
+        return m_pCapability->refocus_af_bracketing_need.output_count;};
     inline bool isMTFRefocus() {return (isMultiTouchFocusEnabled() &&
             (m_pCapability->mtf_af_bracketing_parm.output_count > 1));};
     uint32_t MTFOutputCount();
     inline bool generateThumbFromMain() {return isUbiFocusEnabled() ||
-            isChromaFlashEnabled() || isOptiZoomEnabled() || isDifferentFlipZSL() ||
-            isfssrEnabled() || isMultiTouchFocusEnabled() || isHDREnabled();}
+            isChromaFlashEnabled() || isOptiZoomEnabled() || isUbiRefocus() ||
+            isDifferentFlipZSL() || isfssrEnabled() || isMultiTouchFocusEnabled() ||
+            isHDREnabled();};
     cam_af_bracketing_t m_MTFBracketInfo;
     int32_t updateMTFInfo(const int32_t lenPos);
     uint8_t m_currNumBufMTF;
@@ -717,8 +726,8 @@ public:
     bool isDisplayFrameNeeded() { return m_bDisplayFrame; };
     int32_t setDisplayFrame(bool enabled) {m_bDisplayFrame=enabled; return 0;};
     bool isAdvCamFeaturesEnabled() {return isUbiFocusEnabled() ||
-            isChromaFlashEnabled() || isOptiZoomEnabled() || isHDREnabled() ||
-            isfssrEnabled() || isMultiTouchFocusEnabled();}
+            isChromaFlashEnabled() || isOptiZoomEnabled() || isUbiRefocus() ||
+            isHDREnabled() || isfssrEnabled() || isMultiTouchFocusEnabled();};
     int32_t setIntEvent(cam_int_evt_params_t params);
     uint8_t getLongshotStages();
 
@@ -768,6 +777,7 @@ private:
     int32_t setSelectableZoneAf(const QCameraParameters& );
     int32_t setAEBracket(const QCameraParameters& );
     int32_t setAFBracket(const QCameraParameters& );
+    int32_t setReFocus(const QCameraParameters& );
     int32_t setMultiTouchFocus(const QCameraParameters& );
     int32_t setTouchAFAEC(const QCameraParameters& params);
     int32_t setChromaFlash(const QCameraParameters& );
@@ -836,6 +846,7 @@ private:
     int32_t setHDRNeed1x(const char *str);
     int32_t setAEBracket(const char *aecBracketStr);
     int32_t setAFBracket(const char *afBracketStr);
+    int32_t setReFocus(const char *reFocusStr);
     int32_t setMultiTouchFocus(const char *multiTouchFocusStr);
     int32_t setTouchAFAEC(const char *touchAfAecStr);
     int32_t setChromaFlash(const char *chromaFlashStr);
@@ -905,6 +916,7 @@ private:
     static const QCameraMap<int> TOUCH_AF_AEC_MODES_MAP[];
     static const QCameraMap<cam_flip_t> FLIP_MODES_MAP[];
     static const QCameraMap<int> AF_BRACKETING_MODES_MAP[];
+    static const QCameraMap<int> RE_FOCUS_MODES_MAP[];
     static const QCameraMap<int> CHROMA_FLASH_MODES_MAP[];
     static const QCameraMap<int> OPTI_ZOOM_MODES_MAP[];
     static const QCameraMap<int> TRUE_PORTRAIT_MODES_MAP[];
@@ -959,6 +971,7 @@ private:
     cam_fps_range_t m_default_fps_range;
 
     bool m_bAFBracketingOn;
+    bool m_bReFocusOn;
     bool m_bMultiTouchFocusOn;
     bool m_bTouchFocusOn;
     bool m_bChromaFlashOn;
