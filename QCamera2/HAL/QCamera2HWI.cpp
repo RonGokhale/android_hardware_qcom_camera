@@ -1146,16 +1146,28 @@ int QCamera2HardwareInterface::openCamera()
                                               (void *) this);
 
     /* get max pic size for jpeg work buf calculation*/
-    for(i = 0; i < gCamCapability[mCameraId]->picture_sizes_tbl_cnt - 1; i++)
-    {
-      l_curr_width = gCamCapability[mCameraId]->picture_sizes_tbl[i].width;
-      l_curr_height = gCamCapability[mCameraId]->picture_sizes_tbl[i].height;
+    for (i = 0; i < gCamCapability[mCameraId]->picture_sizes_tbl_cnt - 1; i++) {
+        l_curr_width = gCamCapability[mCameraId]->picture_sizes_tbl[i].width;
+        l_curr_height = gCamCapability[mCameraId]->picture_sizes_tbl[i].height;
 
-      if ((l_curr_width * l_curr_height) >
-        (m_max_pic_width * m_max_pic_height)) {
-        m_max_pic_width = l_curr_width;
-        m_max_pic_height = l_curr_height;
-      }
+        if ((l_curr_width * l_curr_height) >
+                (m_max_pic_width * m_max_pic_height)) {
+            m_max_pic_width = l_curr_width;
+            m_max_pic_height = l_curr_height;
+        }
+
+    }
+    /* get max scale size for jpeg work buf calculation*/
+    for (i = 0; i <= gCamCapability[mCameraId]->scale_picture_sizes_cnt - 1; i++) {
+        l_curr_width = gCamCapability[mCameraId]->scale_picture_sizes[i].width;
+        l_curr_height = gCamCapability[mCameraId]->scale_picture_sizes[i].height;
+        CDBG("%s: scaled size %d,%d", __func__,l_curr_width, l_curr_height);
+        if ((l_curr_width * l_curr_height) >
+                (m_max_pic_width * m_max_pic_height)) {
+            m_max_pic_width = l_curr_width;
+            m_max_pic_height = l_curr_height;
+        }
+
     }
     //reset the preview and video sizes tables in case they were changed earlier
     copyList(savedSizes[mCameraId].all_preview_sizes, gCamCapability[mCameraId]->preview_sizes_tbl,
