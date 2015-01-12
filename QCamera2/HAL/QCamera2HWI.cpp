@@ -1021,6 +1021,8 @@ QCamera2HardwareInterface::QCamera2HardwareInterface(uint32_t cameraId)
       mIntPicThread(0),
       mFlashNeeded(false),
       mCaptureRotation(0U),
+      mJpegExifRotation(0U),
+      mUseJpegExifRotation(false),
       mIs3ALocked(false),
       mPrepSnapRun(false),
       mZoomLevel(0),
@@ -6460,6 +6462,8 @@ uint32_t QCamera2HardwareInterface::getJpegRotation() {
 void QCamera2HardwareInterface::getOrientation() {
     pthread_mutex_lock(&m_parm_lock);
     mCaptureRotation = mParameters.getJpegRotation();
+    mUseJpegExifRotation = mParameters.useJpegExifRotation();
+    mJpegExifRotation = mParameters.getJpegExifRotation();
     pthread_mutex_unlock(&m_parm_lock);
 }
 
@@ -6620,6 +6624,35 @@ QCameraExif *QCamera2HardwareInterface::getExifData()
                 EXIF_ASCII, strlen(value) + 1, (void *)value);
     } else {
         ALOGE("%s: getExifModel failed", __func__);
+    }
+
+    if (mUseJpegExifRotation) {
+        int16_t orientation;
+        switch (mJpegExifRotation) {
+        case 0:
+            orientation = 1;
+            break;
+        case 90:
+            orientation = 6;
+            break;
+        case 180:
+            orientation = 3;
+            break;
+        case 270:
+            orientation = 8;
+            break;
+        default:
+            orientation = 1;
+            break;
+        }
+        exif->addEntry(EXIFTAGID_ORIENTATION,
+                EXIF_SHORT,
+                1,
+                (void *)&orientation);
+        exif->addEntry(EXIFTAGID_TN_ORIENTATION,
+                EXIF_SHORT,
+                1,
+                (void *)&orientation);
     }
 
     pthread_mutex_unlock(&m_parm_lock);
