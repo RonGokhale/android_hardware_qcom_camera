@@ -309,10 +309,10 @@ static const str_map touchafaec[] = {
 };
 
 static const str_map hfr[] = {
-    { QCameraParameters::VIDEO_HFR_OFF, CAMERA_HFR_MODE_OFF },
     { QCameraParameters::VIDEO_HFR_2X, CAMERA_HFR_MODE_60FPS },
     { QCameraParameters::VIDEO_HFR_3X, CAMERA_HFR_MODE_90FPS },
     { QCameraParameters::VIDEO_HFR_4X, CAMERA_HFR_MODE_120FPS },
+    { QCameraParameters::VIDEO_HFR_OFF, CAMERA_HFR_MODE_OFF }
 };
 static const int HFR_VALUES_COUNT = (sizeof(hfr)/sizeof(str_map));
 
