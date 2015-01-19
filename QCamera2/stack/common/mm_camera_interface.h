@@ -32,6 +32,7 @@
 #include <linux/msm_ion.h>
 #include <linux/videodev2.h>
 #include <media/msmb_camera.h>
+#include "cam_types.h"
 #include "cam_intf.h"
 #include "cam_queue.h"
 
@@ -343,7 +344,7 @@ typedef struct {
      *       buf before this call
      **/
     int32_t (*set_parms) (uint32_t camera_handle,
-                          parm_buffer_t *parms);
+                          void *parms);
 
     /** get_parms: fucntion definition for querying camera
      *             based parameters from server
@@ -357,7 +358,7 @@ typedef struct {
      *       the buf before this call
      **/
     int32_t (*get_parms) (uint32_t camera_handle,
-                          parm_buffer_t *parms);
+                          void *parms);
 
     /** do_auto_focus: fucntion definition for performing auto focus
      *    @camera_handle : camer handler

@@ -34,6 +34,7 @@ libmmcamera_interface_la_SOURCES += src/mm_camera_channel.c
 libmmcamera_interface_la_SOURCES += src/mm_camera_stream.c
 libmmcamera_interface_la_SOURCES += src/mm_camera_thread.c
 libmmcamera_interface_la_SOURCES += src/mm_camera_sock.c
+libmmcamera_interface_la_SOURCES += src/cam_intf.c
 
 #TODO:
 #pkgconfigdir = $(libdir)/pkgconfig
