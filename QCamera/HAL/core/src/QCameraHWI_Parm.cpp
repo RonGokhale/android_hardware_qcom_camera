@@ -262,6 +262,7 @@ static const str_map scenedetect[] = {
 static const str_map focus_modes[] = {
     { QCameraParameters::FOCUS_MODE_AUTO,     AF_MODE_AUTO},
     { QCameraParameters::FOCUS_MODE_INFINITY, AF_MODE_INFINITY },
+    { QCameraParameters::FOCUS_MODE_FIXED, AF_MODE_INFINITY },
     { QCameraParameters::FOCUS_MODE_NORMAL,   AF_MODE_NORMAL },
     { QCameraParameters::FOCUS_MODE_MACRO,    AF_MODE_MACRO },
     { QCameraParameters::FOCUS_MODE_CONTINUOUS_PICTURE, AF_MODE_CAF},
@@ -1185,10 +1186,10 @@ void QCameraHardwareInterface::initDefaultParameters()
        mParameters.set(QCameraParameters::KEY_MAX_NUM_METERING_AREAS, "1");
    } else {
        mParameters.set(QCameraParameters::KEY_FOCUS_MODE,
-       QCameraParameters::FOCUS_MODE_INFINITY);
+       QCameraParameters::FOCUS_MODE_FIXED);
        mFocusMode = DONT_CARE;
        mParameters.set(QCameraParameters::KEY_SUPPORTED_FOCUS_MODES,
-       QCameraParameters::FOCUS_MODE_INFINITY);
+       QCameraParameters::FOCUS_MODE_FIXED);
        mParameters.set(QCameraParameters::KEY_MAX_NUM_FOCUS_AREAS, "0");
        mParameters.set(QCameraParameters::KEY_MAX_NUM_METERING_AREAS, "0");
    }
@@ -1573,7 +1574,7 @@ status_t QCameraHardwareInterface::setParameters(const QCameraParameters& params
         } else {
             (const_cast<QCameraParameters&>(params)).set(
                       QCameraParameters::KEY_FOCUS_MODE,
-                      QCameraParameters::FOCUS_MODE_INFINITY);
+                      QCameraParameters::FOCUS_MODE_FIXED);
             (const_cast<QCameraParameters&>(params)).set(
                       QCameraParameters::KEY_MAX_NUM_FOCUS_AREAS, "0");
             (const_cast<QCameraParameters&>(params)).set(
