@@ -331,6 +331,8 @@ int32_t mm_camera_open(mm_camera_obj_t *my_obj)
     /* set geo mode to 2D by default */
     my_obj->current_mode = CAMERA_MODE_2D;
 
+    my_obj->flash_disabled = 1;
+
     pthread_mutex_init(&my_obj->cb_lock, NULL);
 
     CDBG("%s : Launch async cmd Thread in Cam Open",__func__);
@@ -372,6 +374,17 @@ on_error:
 
 int32_t mm_camera_close(mm_camera_obj_t *my_obj)
 {
+    int32_t value = 0; /* Value to turn off LED */
+    /* Flash is left ON in few use case like Recording with flash ON.
+       Turn it off here */
+
+    if (!my_obj->flash_disabled) {
+        mm_camera_send_native_ctrl_cmd(my_obj,
+                                       CAMERA_SET_PARM_LED_MODE,
+                                       sizeof(int32_t),
+                                       value);
+    }
+
     CDBG("%s : Close evt Poll Thread in Cam Close",__func__);
     mm_camera_poll_thread_release(&my_obj->evt_poll_thread);
 
@@ -1590,6 +1603,7 @@ int32_t mm_camera_set_general_parm(mm_camera_obj_t * my_obj,
                                             CAMERA_SET_PARM_LED_MODE,
                                             sizeof(int32_t),
                                             p_value);
+        my_obj->flash_disabled = !(*(uint8_t*)p_value);
         break;
     case MM_CAMERA_PARM_ROLLOFF:
         rc = mm_camera_send_native_ctrl_cmd(my_obj,
