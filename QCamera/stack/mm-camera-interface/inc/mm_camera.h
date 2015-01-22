@@ -457,6 +457,7 @@ typedef struct mm_camera_obj {
     uint32_t snap_burst_num_by_user;
     camera_mode_t current_mode;
     uint32_t op_mode;
+    uint8_t flash_disabled;
     cam_ctrl_dimension_t dim;
 } mm_camera_obj_t;
 
