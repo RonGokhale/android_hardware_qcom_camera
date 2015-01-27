@@ -83,6 +83,7 @@ inline void __null_log(int, const char *, const char *, ...) {}
 #undef CDBG_HIGH
 #endif //#ifdef CDBG_HIGH
 #define CDBG_HIGH(fmt, args...) ALOGD_IF(gCamHalLogLevel >= 1, fmt, ##args)
+#define CDBG_ERROR(fmt, args...)  ALOGE(fmt, ##args)
 
 #endif // DISABLE_DEBUG_LOG
 
