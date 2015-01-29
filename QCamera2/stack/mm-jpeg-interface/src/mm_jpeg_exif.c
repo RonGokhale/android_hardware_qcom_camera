@@ -541,6 +541,12 @@ int process_meta_data(metadata_buffer_t *p_meta, QOMX_EXIF_INFO *exif_info,
       p_3a_params.brightness = 0.0;
     }
 
+    if (p_meta && IS_META_AVAILABLE(CAM_INTF_PARM_WHITE_BALANCE, p_meta)) {
+      int32_t *wb_mode =
+        (int32_t *)POINTER_OF_META(CAM_INTF_PARM_WHITE_BALANCE, p_meta);
+      p_3a_params.wb_mode = *wb_mode;
+    }
+
   } else {
     /* Process 3a data */
     int32_t *iso =
