@@ -224,7 +224,7 @@ int32_t QCameraPostProcessor::start(QCameraChannel *pSrcChannel)
     property_get("persist.camera.longshot.save", prop, "0");
     mUseSaveProc = atoi(prop) > 0 ? true : false;
 
-    m_dataProcTh.sendCmd(CAMERA_CMD_TYPE_START_DATA_PROC, FALSE, FALSE);
+    m_dataProcTh.sendCmd(CAMERA_CMD_TYPE_START_DATA_PROC, TRUE, FALSE);
     m_parent->m_cbNotifier.startSnapshots();
 
     mMultipleStages = false;
@@ -763,10 +763,24 @@ int32_t QCameraPostProcessor::processJpegEvt(qcamera_jpeg_evt_payload_t *evt)
             rc = FAILED_TRANSACTION;
             goto end;
         }
-
-        m_parent->dumpJpegToFile(evt->out_data.buf_vaddr,
-                                  evt->out_data.buf_filled_len,
-                                  evt->jobId);
+        if (!mJpegMemOpt) {
+            m_parent->dumpJpegToFile(evt->out_data.buf_vaddr,
+                                      evt->out_data.buf_filled_len,
+                                      evt->jobId);
+        }
+        else {
+            jpeg_out  = (omx_jpeg_ouput_buf_t*) evt->out_data.buf_vaddr;
+            if (jpeg_out != NULL) {
+                jpeg_mem = (camera_memory_t *)jpeg_out->mem_hdl;
+                if (jpeg_mem != NULL) {
+                    m_parent->dumpJpegToFile(jpeg_mem->data,
+                                              evt->out_data.buf_filled_len,
+                                              evt->jobId);
+                    jpeg_mem = NULL;
+                }
+                jpeg_out = NULL;
+            }
+        }
         ALOGD("%s: Dump jpeg_size=%d", __func__, evt->out_data.buf_filled_len);
 
         /* check if the all the captures are done */
@@ -2003,6 +2017,10 @@ void *QCameraPostProcessor::dataProcessRoutine(void *data)
             pme->m_saveProcTh.sendCmd(CAMERA_CMD_TYPE_START_DATA_PROC,
                                       FALSE,
                                       FALSE);
+
+            // signal cmd is completed
+            cam_sem_post(&cmdThread->sync_sem);
+
             break;
         case CAMERA_CMD_TYPE_STOP_DATA_PROC:
             {
