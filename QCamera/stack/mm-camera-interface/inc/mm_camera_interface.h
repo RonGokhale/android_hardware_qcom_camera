@@ -30,7 +30,6 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef __MM_CAMERA_INTERFACE_H__
 #define __MM_CAMERA_INTERFACE_H__
 #include <linux/msm_ion.h>
-#include <camera.h>
 #include "QCamera_Intf.h"
 #include "cam_list.h"
 
