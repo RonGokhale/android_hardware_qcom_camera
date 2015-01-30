@@ -10382,16 +10382,25 @@ bool QCameraParameters::needThumbnailReprocess(uint32_t *pFeatureMask)
 {
     if (isUbiFocusEnabled() || isChromaFlashEnabled() ||
             isOptiZoomEnabled() || isUbiRefocus() || isfssrEnabled() ||
-            isMultiTouchFocusEnabled()) {
+            isMultiTouchFocusEnabled() ||
+            (isHDREnabled() && !isHDRThumbnailProcessNeeded()) || isDifferentFlipZSL()) {
         *pFeatureMask &= ~CAM_QCOM_FEATURE_CHROMA_FLASH;
         *pFeatureMask &= ~CAM_QCOM_FEATURE_UBIFOCUS;
         *pFeatureMask &= ~CAM_QCOM_FEATURE_REFOCUS;
         *pFeatureMask &= ~CAM_QCOM_FEATURE_OPTIZOOM;
         *pFeatureMask &= ~CAM_QCOM_FEATURE_FSSR;
         *pFeatureMask &= ~CAM_QCOM_FEATURE_MULTI_TOUCH_FOCUS;
+        *pFeatureMask &= ~CAM_QCOM_FEATURE_HDR;
         return false;
     } else {
-        return true;
+        cam_dimension_t thumb_dim;
+        getThumbnailSize(&(thumb_dim.width), &(thumb_dim.height));
+        if (thumb_dim.width == 0 || thumb_dim.height == 0) {
+            return false;
+        }
+        else {
+            return true;
+        }
     }
 }
 
