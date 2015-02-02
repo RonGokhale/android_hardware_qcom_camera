@@ -870,7 +870,9 @@ int32_t QCameraPostProcessor::processJpegEvt(qcamera_jpeg_evt_payload_t *evt)
                 && (m_parent->getOutputImageCount() <
                 m_parent->mParameters.MTFOutputCount())) {
             jpeg_out  = (omx_jpeg_ouput_buf_t*) evt->out_data.buf_vaddr;
-            jpeg_mem = (camera_memory_t *)jpeg_out->mem_hdl;
+            if (jpeg_out != NULL) {
+                jpeg_mem = (camera_memory_t *)jpeg_out->mem_hdl;
+            }
             if (NULL != jpeg_mem) {
                 jpeg_mem->release(jpeg_mem);
                 jpeg_mem = NULL;
@@ -890,7 +892,9 @@ int32_t QCameraPostProcessor::processJpegEvt(qcamera_jpeg_evt_payload_t *evt)
             memcpy(jpeg_mem->data, evt->out_data.buf_vaddr, evt->out_data.buf_filled_len);
         } else {
             jpeg_out  = (omx_jpeg_ouput_buf_t*) evt->out_data.buf_vaddr;
-            jpeg_mem = (camera_memory_t *)jpeg_out->mem_hdl;
+            if (jpeg_out != NULL) {
+                jpeg_mem = (camera_memory_t *)jpeg_out->mem_hdl;
+            }
         }
 
         CDBG_HIGH("%s : Calling upperlayer callback to store JPEG image", __func__);
@@ -2702,8 +2706,8 @@ int QCameraPostProcessor::getJpegMemory(omx_jpeg_ouput_buf_t *out_buf)
  *==========================================================================*/
 int QCameraPostProcessor::releaseJpegMemory(omx_jpeg_ouput_buf_t *out_buf)
 {
-    ALOGD("%s: releasing jpeg out buffer of size: %d", __func__, out_buf->size);
-    if(out_buf && out_buf->mem_hdl) {
+    if (out_buf && out_buf->mem_hdl) {
+        CDBG_HIGH("%s: releasing jpeg out buffer of size: %d", __func__, out_buf->size);
         camera_memory_t *cam_mem = (camera_memory_t*)out_buf->mem_hdl;
         cam_mem->release(cam_mem);
         out_buf->mem_hdl = NULL;

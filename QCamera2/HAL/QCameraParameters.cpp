@@ -1978,7 +1978,7 @@ int32_t  QCameraParameters::setFocusPosition(const QCameraParameters& params)
     const char *type = params.get(KEY_QC_MANUAL_FOCUS_POS_TYPE);
     const char *prev_type = get(KEY_QC_MANUAL_FOCUS_POS_TYPE);
 
-    if ((pos != NULL) && (type != NULL)) {
+    if ((pos != NULL) && (type != NULL) && (focus_str != NULL)) {
         if (prev_pos  == NULL || (strcmp(pos, prev_pos) != 0) ||
             prev_type == NULL || (strcmp(type, prev_type) != 0) ||
             prev_focus_str == NULL || (strcmp(focus_str, prev_focus_str) != 0)) {
@@ -2280,7 +2280,7 @@ int32_t  QCameraParameters::setManualWhiteBalance(const QCameraParameters& param
     const char *type = params.get(KEY_QC_MANUAL_WB_TYPE);
     const char *prev_type = get(KEY_QC_MANUAL_WB_TYPE);
 
-    if ((value != NULL) && (type != NULL)) {
+    if ((value != NULL) && (type != NULL) && (wb_str != NULL)) {
         if (prev_value  == NULL || (strcmp(value, prev_value) != 0) ||
             prev_type == NULL || (strcmp(type, prev_type) != 0) ||
             prev_wb_str == NULL || (strcmp(wb_str, prev_wb_str) != 0)) {
@@ -3682,8 +3682,11 @@ int32_t QCameraParameters::setNumOfSnapshot()
                 nExpnum = 0;
                 const char *str_val = get(KEY_QC_CAPTURE_BURST_EXPOSURE);
                 if ((str_val != NULL) && (strlen(str_val) > 0)) {
-                    char prop[PROPERTY_VALUE_MAX];
-                    memset(prop, 0, sizeof(prop));
+                    char *prop = (char *) calloc(1, strlen(str_val) + 1);
+                    if (NULL == prop) {
+                        ALOGE("%s: No memory for prop", __func__);
+                        return NO_MEMORY;
+                    }
                     strcpy(prop, str_val);
                     char *saveptr = NULL;
                     char *token = strtok_r(prop, ",", &saveptr);
@@ -3691,6 +3694,7 @@ int32_t QCameraParameters::setNumOfSnapshot()
                         token = strtok_r(NULL, ",", &saveptr);
                         nExpnum++;
                     }
+                    free(prop);
                 }
                 if (nExpnum == 0) {
                     nExpnum = 1;
@@ -6554,13 +6558,28 @@ int32_t QCameraParameters::parseGains(const char *gainStr, double &r_gain,
     }
     strcpy(gains, gainStr);
     char *token = strtok_r(gains, ",", &saveptr);
+    if (NULL == token) {
+        ALOGE("%s:%d: strtok_r fails to find delimit", __func__,__LINE__);
+        goto on_error ;
+    }
     r_gain = atof(token);
     token = strtok_r(NULL, ",", &saveptr);
+    if (NULL == token) {
+        ALOGE("%s:%d strtok_r fails to find delimit", __func__,__LINE__);
+        goto on_error;
+    }
     g_gain = atof(token);
     token = strtok_r(NULL, ",", &saveptr);
+    if (NULL == token) {
+        ALOGE("%s:%d strtok_r fails to find delimit", __func__,__LINE__);
+        goto on_error;
+    }
     b_gain = atof(token);
     free(gains);
     return NO_ERROR;
+on_error:
+    free(gains);
+    return UNKNOWN_ERROR;
 }
 
 
@@ -8512,8 +8531,11 @@ uint8_t QCameraParameters::getBurstCountForAdvancedCapture()
       burstCount = 0;
       const char *str_val = m_AEBracketingClient.values;
       if ((str_val != NULL) && (strlen(str_val) > 0)) {
-          char prop[PROPERTY_VALUE_MAX];
-          memset(prop, 0, sizeof(prop));
+          char *prop = (char *) calloc(1, strlen(str_val) + 1);
+          if (NULL == prop) {
+              ALOGE("%s: No memory for prop", __func__);
+              return NO_MEMORY;
+          }
           strcpy(prop, str_val);
           char *saveptr = NULL;
           char *token = strtok_r(prop, ",", &saveptr);
@@ -8521,6 +8543,7 @@ uint8_t QCameraParameters::getBurstCountForAdvancedCapture()
               token = strtok_r(NULL, ",", &saveptr);
               burstCount++;
           }
+          free(prop);
       }
     }
 
