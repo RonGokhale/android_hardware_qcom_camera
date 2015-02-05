@@ -6363,6 +6363,17 @@ cam_pp_feature_config_t QCamera2HardwareInterface::getReprocessConfig()
         pp_config.feature_mask |= CAM_QCOM_FEATURE_FLIP;
     }
 
+    cam_dimension_t thumb_src_dim;
+    cam_dimension_t thumb_dst_dim;
+    mParameters.getThumbnailSize(&(thumb_dst_dim.width), &(thumb_dst_dim.height));
+    mParameters.getStreamDimension(CAM_STREAM_TYPE_POSTVIEW,thumb_src_dim);
+    if ((thumb_dst_dim.width != thumb_src_dim.width) ||
+            (thumb_dst_dim.height != thumb_src_dim.height)) {
+        if (thumb_dst_dim.width != 0 && thumb_dst_dim.height != 0) {
+            pp_config.feature_mask |= CAM_QCOM_FEATURE_CROP;
+        }
+    }
+
     CDBG_HIGH("%s: Final pproc config = %x", __func__, pp_config.feature_mask);
 
     return pp_config;
