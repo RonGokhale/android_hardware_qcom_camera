@@ -866,7 +866,7 @@ private:
     int32_t setFaceRecognition(const char *faceRecog, uint32_t maxFaces);
     int32_t setTintlessValue(const char *tintStr);
     int32_t setCacheVideoBuffers(const char *cacheVideoBufStr);
-    int32_t setLowPowerMode(bool value);
+    int32_t setLowPowerMode(const char * mode);
 
     int32_t parseGains(const char *gainStr, double &r_gain,
                        double &g_gain, double &b_gain);

@@ -3762,31 +3762,15 @@ int32_t QCameraParameters::setRecordingHint(const QCameraParameters& params)
  *==========================================================================*/
 int32_t QCameraParameters::setLowPowerMode(const QCameraParameters& params)
 {
-    int32_t ret = NO_ERROR;
-    const char *str_val  = params.get(KEY_QC_LOW_POWER_MODE);
+    const char *str_val = params.get(KEY_QC_LOW_POWER_MODE);
     const char *prev_str = get(KEY_QC_LOW_POWER_MODE);
-    int8_t value = -1;
-    char prop[PROPERTY_VALUE_MAX];
 
-    memset(prop, 0, sizeof(prop));
-    property_get("persist.camera.lowpower.enable", prop, "");
-
-    if (strlen(prop) > 0) {
-        value = atoi(prop);
-    } else if(str_val != NULL) {
+    if(str_val != NULL) {
         if (prev_str == NULL || strcmp(str_val, prev_str) != 0) {
-            value = atoi(str_val);
+            return setLowPowerMode(str_val);
         }
     }
-
-    if (value != -1) {
-        //map value to boolean for enabling/disabling low power
-        value = (value > 0)? true : false;
-        if ( m_bLowPowerMode != value ) {
-            ret = setLowPowerMode(value);
-        }
-    }
-    return ret;
+    return NO_ERROR;
 }
 
 /*===========================================================================
@@ -5041,7 +5025,7 @@ int32_t QCameraParameters::initDefaultParameters()
     } else {
         set(KEY_QC_LOW_POWER_MODE_SUPPORTED, VALUE_FALSE);
     }
-    setLowPowerMode(false);
+    setLowPowerMode(VALUE_DISABLE);
 
     int32_t rc = commitParameters();
     if (rc == NO_ERROR) {
@@ -8411,22 +8395,38 @@ int QCameraParameters::getMinPPBufs()
  * DESCRIPTION: enable/disable low power mode for camcorder
  *
  * PARAMETERS :
- *   @value   : true/false
+ *   @mode   : enable/disable string
  *
  * RETURN     : int32_t type of status
  *              NO_ERROR  -- success
  *              none-zero failure code
  *==========================================================================*/
-int32_t QCameraParameters::setLowPowerMode(bool value)
+int32_t QCameraParameters::setLowPowerMode(const char* mode)
 {
-    CDBG_HIGH("%s: Setting %s Power mode", __func__, value ? "low":"normal");
-    m_bLowPowerMode = value;
-    set(KEY_QC_LOW_POWER_MODE, value);
-    m_bNeedRestart = true;
-    return AddSetParmEntryToBatch(m_pParamBuf,
-                                  CAM_INTF_PARM_LOW_POWER_ENABLE,
-                                  sizeof(value),
-                                  &value);
+    if (mode != NULL) {
+        int8_t value = lookupAttr(ENABLE_DISABLE_MODES_MAP,
+                PARAM_MAP_SIZE(ENABLE_DISABLE_MODES_MAP), mode);
+
+        char prop[PROPERTY_VALUE_MAX];
+        memset(prop, 0, sizeof(prop));
+        property_get("persist.camera.lowpower.enable", prop, "");
+
+        if (strlen(prop) > 0) {
+            value = atoi(prop);
+        }
+        if (value != NAME_NOT_FOUND) {
+            CDBG_HIGH("%s: Setting %s Power mode", __func__, value ? "low":"normal");
+            m_bLowPowerMode = value;
+            set(KEY_QC_LOW_POWER_MODE, mode);
+            m_bNeedRestart = true;
+            return AddSetParmEntryToBatch(m_pParamBuf,
+                                          CAM_INTF_PARM_LOW_POWER_ENABLE,
+                                          sizeof(value),
+                                          &value);
+        }
+    }
+    ALOGE("Invalid power mode value: %s", (mode == NULL) ? "NULL" : mode);
+    return BAD_VALUE;
 }
 
 /*===========================================================================
