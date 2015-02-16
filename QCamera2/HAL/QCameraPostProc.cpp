@@ -1713,7 +1713,7 @@ int32_t QCameraPostProcessor::encodeData(qcamera_jpeg_data_t *jpeg_job_data,
                 NULL);
 
         mm_camera_buf_def_t *workBuf = main_frame;
-        if (workBuf != NULL) {
+        if ((workBuf != NULL) && (workBuf->stream_type != CAM_STREAM_TYPE_VIDEO)) {
             int workBufIndex = workBuf->buf_idx;
             QCameraMemory *workMem = (QCameraMemory *)workBuf->mem_info;
             camera_memory_t *camWorkMem = workMem->getMemory(workBufIndex, false);
