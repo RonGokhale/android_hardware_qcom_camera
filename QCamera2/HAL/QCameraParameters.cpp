@@ -4262,7 +4262,7 @@ int32_t QCameraParameters::initDefaultParameters()
 
     // Set exposure time, we should get them from m_pCapability
     m_pCapability->min_exposure_time = 200;
-    m_pCapability->max_exposure_time = 2000000;
+    m_pCapability->max_exposure_time = 100000000;
     set(KEY_QC_MIN_EXPOSURE_TIME, m_pCapability->min_exposure_time);
     set(KEY_QC_MAX_EXPOSURE_TIME, m_pCapability->max_exposure_time);
     //setExposureTime("0");
