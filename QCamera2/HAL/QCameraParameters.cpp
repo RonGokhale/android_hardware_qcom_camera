@@ -9985,6 +9985,10 @@ int32_t QCameraReprocScaleParam::setScaleSizeTbl(size_t scale_cnt,
         return BAD_VALUE;
     }
 
+    if (mNeedScaleCnt > MAX_SCALE_SIZES_CNT) {
+        mNeedScaleCnt = MAX_SCALE_SIZES_CNT;
+    }
+
     if(mNeedScaleCnt + org_cnt > MAX_SIZES_CNT){
         ALOGE("%s: picture size list exceed the max count.", __func__);
         return BAD_VALUE;
