@@ -474,7 +474,8 @@ int32_t mm_stream_fsm_inited(mm_stream_t *my_obj,
 
     switch(evt) {
     case MM_STREAM_EVT_ACQUIRE:
-        if ((NULL == my_obj->ch_obj) || (NULL == my_obj->ch_obj->cam_obj)) {
+        if ((NULL == my_obj->ch_obj) ||
+                ((NULL != my_obj->ch_obj) && (NULL == my_obj->ch_obj->cam_obj))) {
             CDBG_ERROR("%s: NULL channel or camera obj\n", __func__);
             rc = -1;
             break;
