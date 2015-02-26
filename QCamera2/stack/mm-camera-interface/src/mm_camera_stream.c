@@ -480,7 +480,7 @@ int32_t mm_stream_fsm_inited(mm_stream_t *my_obj,
             rc = -1;
             break;
         }
-        strcpy(t_devname, temp_dev_name);
+        strlcpy(t_devname, temp_dev_name, sizeof(t_devname));
         snprintf(dev_name, sizeof(dev_name), "/dev/%s",t_devname );
 
         my_obj->fd = open(dev_name, O_RDWR | O_NONBLOCK);
