@@ -1579,7 +1579,8 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
                     bufferCnt = zslQBuffers + minCircularBufNum +
                             mParameters.getNumOfExtraBuffersForImageProc();
                 }
-                if (getSensorType() == CAM_SENSOR_YUV) {
+                if (getSensorType() == CAM_SENSOR_YUV &&
+                    !gCamCapability[mCameraId]->use_pix_for_SOC) {
                     //ISP allocates native buffers in YUV case
                     bufferCnt -= CAMERA_ISP_PING_PONG_BUFFERS;
                 }
@@ -1598,7 +1599,8 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
     case CAM_STREAM_TYPE_RAW:
         if (mParameters.isZSLMode()) {
             bufferCnt = zslQBuffers + minCircularBufNum;
-            if (getSensorType() == CAM_SENSOR_YUV) {
+            if (getSensorType() == CAM_SENSOR_YUV &&
+                !gCamCapability[mCameraId]->use_pix_for_SOC) {
                 //ISP allocates native buffers in YUV case
                 bufferCnt -= CAMERA_ISP_PING_PONG_BUFFERS;
             }
