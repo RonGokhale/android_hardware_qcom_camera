@@ -1065,7 +1065,13 @@ QCamera2HardwareInterface::QCamera2HardwareInterface(uint32_t cameraId)
 
     memset(m_channels, 0, sizeof(m_channels));
     memset(&mExifParams, 0, sizeof(mm_jpeg_exif_params_t));
-
+    mExifParams.debug_params =
+            (mm_jpeg_debug_exif_params_t *) malloc (sizeof(mm_jpeg_debug_exif_params_t));
+    if (!mExifParams.debug_params) {
+        ALOGE("Out of Memory. Allocation failed for 3A debug exif params");
+    } else {
+        memset(mExifParams.debug_params, 0, sizeof(mm_jpeg_debug_exif_params_t));
+    }
 #ifdef HAS_MULTIMEDIA_HINTS
     if (hw_get_module(POWER_HARDWARE_MODULE_ID, (const hw_module_t **)&m_pPowerModule)) {
         ALOGE("%s: %s module not found", __func__, POWER_HARDWARE_MODULE_ID);
@@ -1336,6 +1342,9 @@ int QCamera2HardwareInterface::closeCamera()
 
     rc = mCameraHandle->ops->close_camera(mCameraHandle->camera_handle);
     mCameraHandle = NULL;
+    if (mExifParams.debug_params) {
+        free(mExifParams.debug_params);
+    }
     CDBG_HIGH("%s: X", __func__);
     return rc;
 }
