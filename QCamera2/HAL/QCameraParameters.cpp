@@ -799,7 +799,7 @@ QCameraParameters::QCameraParameters()
     // For thermal mode, it should be set as system property
     // because system property applies to all applications, while
     // parameters only apply to specific app.
-    property_get("persist.camera.thermal.mode", value, "frameskip");
+    property_get("persist.camera.thermal.mode", value, "fps");
     if (!strcmp(value, "frameskip")) {
         m_ThermalMode = QCAMERA_THERMAL_ADJUST_FRAMESKIP;
     } else {

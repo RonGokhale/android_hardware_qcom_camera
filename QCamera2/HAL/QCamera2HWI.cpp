@@ -1034,7 +1034,8 @@ QCamera2HardwareInterface::QCamera2HardwareInterface(uint32_t cameraId)
       mRawdataJob(-1),
       mPreviewFrameSkipValid(0),
       mNumPreviewFaces(-1),
-      mAdvancedCaptureConfigured(false)
+      mAdvancedCaptureConfigured(false),
+      mFPSReconfigure(false)
 {
     getLogLevel();
     ATRACE_CALL();
@@ -2847,6 +2848,22 @@ int QCamera2HardwareInterface::takePicture()
     getOrientation();
     CDBG_HIGH("%s: E", __func__);
     if (mParameters.isZSLMode()) {
+
+        //Reduce fps range to half of the current value during zsl snapshot.
+        //Note that fps parameter key is not modified here, but fps changed
+        //only in backend. First check if we need adjustment.
+        if (needAdjustFPS()) {
+            int minFPS, maxFPS;
+            cam_fps_range_t adjustedRange;
+            msm_vfe_frame_skip_pattern skipPattern; //dummy arg
+            mParameters.getPreviewFpsRange(&minFPS, &maxFPS);
+            //reuse thermal fps logic to calculate new fps range. Thermal mode/level
+            //is not modified as such.
+            calcThermalLevel(QCAMERA_THERMAL_SLIGHT_ADJUSTMENT, minFPS,
+                    maxFPS, adjustedRange, skipPattern);
+            mParameters.adjustPreviewFpsRange(&adjustedRange);
+        }
+
         QCameraPicChannel *pZSLChannel =
             (QCameraPicChannel *)m_channels[QCAMERA_CH_TYPE_ZSL];
         if (NULL != pZSLChannel) {
@@ -3109,6 +3126,18 @@ int QCamera2HardwareInterface::cancelPicture()
         if (NULL != pZSLChannel) {
             stopAdvancedCapture(pZSLChannel);
             pZSLChannel->cancelPicture();
+        }
+
+        if (mFPSReconfigure) {
+            //Restore fps after capture
+            int minFPS, maxFPS;
+            cam_fps_range_t adjustedRange;
+            msm_vfe_frame_skip_pattern skipPattern; //dummy arg
+            mParameters.getPreviewFpsRange(&minFPS, &maxFPS);
+            calcThermalLevel(mThermalLevel, minFPS,
+                    maxFPS, adjustedRange, skipPattern);
+            mParameters.adjustPreviewFpsRange(&adjustedRange);
+            mFPSReconfigure = false;
         }
     } else {
 
@@ -7126,6 +7155,27 @@ bool QCamera2HardwareInterface::isRegularCapture()
             ret = true;
     }
     return ret;
+}
+
+/*===========================================================================
+ * FUNCTION   : needAdjustFPS
+ *
+ * DESCRIPTION: Check if we need to adjust FPS during snapshot to optimize performance
+ *
+ * PARAMETERS :
+ *
+ * RETURN     : true - fps change needed
+ *              false - fps change not needed
+ *==========================================================================*/
+bool QCamera2HardwareInterface::needAdjustFPS()
+{
+    bool isRegularZSLCapture = mParameters.isZSLMode() && !mPrepSnapRun
+            && (numOfSnapshotsExpected() == 1) && !mLongshotEnabled
+            && !mParameters.isAdvCamFeaturesEnabled();
+    bool isLPMSupported = gCamCapability[mCameraId]->low_power_mode_supported;
+    bool isThermalTriggered = (mThermalLevel != QCAMERA_THERMAL_NO_ADJUSTMENT);
+    mFPSReconfigure = isRegularZSLCapture && isLPMSupported && !isThermalTriggered;
+    return mFPSReconfigure;
 }
 
 /*===========================================================================

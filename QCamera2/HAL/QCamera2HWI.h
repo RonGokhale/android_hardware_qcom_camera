@@ -344,6 +344,7 @@ private:
 
     bool needDebugFps();
     bool isRegularCapture();
+    bool needAdjustFPS();
     bool isCACEnabled();
     bool isPreviewRestartEnabled();
     bool is4k2kResolution(cam_dimension_t* resolution);
@@ -648,6 +649,7 @@ private:
     cam_frame_idx_range_t mPreviewFrameSkipIdxRange;
     int32_t mNumPreviewFaces;
     bool mAdvancedCaptureConfigured;
+    bool mFPSReconfigure;
 };
 
 }; // namespace qcamera
