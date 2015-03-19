@@ -1294,7 +1294,11 @@ int32_t QCameraPostProcessor::encodeData(qcamera_jpeg_data_t *jpeg_job_data,
         // create jpeg encoding session
         mm_jpeg_encode_params_t encodeParam;
         memset(&encodeParam, 0, sizeof(mm_jpeg_encode_params_t));
-        getJpegEncodingConfig(encodeParam, main_stream, thumb_stream);
+        ret = getJpegEncodingConfig(encodeParam, main_stream, thumb_stream);
+        if (ret != NO_ERROR) {
+            ALOGE("%s: error getting encoding config", __func__);
+            return ret;
+        }
         ALOGD("[KPI Perf] %s : call jpeg create_session", __func__);
         ret = mJpegHandle.create_session(mJpegClientHandle, &encodeParam, &mJpegSessionId);
         if (ret != NO_ERROR) {
