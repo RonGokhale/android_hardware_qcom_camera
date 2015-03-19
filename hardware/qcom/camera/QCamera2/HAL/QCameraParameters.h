@@ -474,7 +474,11 @@ public:
     static const char CDS_MODE_AUTO[];
 
     static const char KEY_SELECTED_AUTO_SCENE[];
-
+#ifdef TARGET_TS_MAKEUP
+    static const char KEY_TS_MAKEUP[];
+    static const char KEY_TS_MAKEUP_WHITEN[];
+    static const char KEY_TS_MAKEUP_CLEAN[];
+#endif
     enum {
         CAMERA_ORIENTATION_UNKNOWN = 0,
         CAMERA_ORIENTATION_PORTRAIT = 1,

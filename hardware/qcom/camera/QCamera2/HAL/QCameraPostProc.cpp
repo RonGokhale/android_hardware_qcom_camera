@@ -867,6 +867,7 @@ end:
  *==========================================================================*/
 int32_t QCameraPostProcessor::processPPData(mm_camera_super_buf_t *frame)
 {
+    ALOGE("QCameraPostProcessor::processPPData");
     bool needSuperBufMatch = m_parent->mParameters.generateThumbFromMain();
     if (m_bInited == FALSE) {
         ALOGE("%s: postproc not initialized yet", __func__);
@@ -890,7 +891,26 @@ int32_t QCameraPostProcessor::processPPData(mm_camera_super_buf_t *frame)
             setYUVFrameInfo(frame);
         return processRawData(frame);
     }
-
+#ifdef TARGET_TS_MAKEUP
+    // find snapshot frame frame
+    mm_camera_buf_def_t *pReprocFrame = NULL;
+    QCameraStream * pSnapshotStream = NULL;
+    for (uint32_t i = 0; i < frame->num_bufs; i++) {
+        pSnapshotStream = m_pReprocChannel->getStreamByHandle(frame->bufs[i]->stream_id);
+        if (pSnapshotStream != NULL) {
+            if (pSnapshotStream->isTypeOf(CAM_STREAM_TYPE_SNAPSHOT)
+                    ||pSnapshotStream->isOrignalTypeOf(CAM_STREAM_TYPE_SNAPSHOT))
+                pReprocFrame = frame->bufs[i];
+                break;
+            }
+    }
+    if(pReprocFrame != NULL && m_parent->mParameters.isFaceDetectionEnabled()){
+        m_parent->TsMakeupProcess_Snapshot(pReprocFrame,pSnapshotStream);
+    } else {
+        CDBG_HIGH("%s pReprocFrame == NULL || isFaceDetectionEnabled = %d",__func__,
+                m_parent->mParameters.isFaceDetectionEnabled());
+    }
+#endif
     if (m_parent->isLongshotEnabled() &&
          !getMultipleStages() &&
          !m_parent->isCaptureShutterEnabled()) {

@@ -333,7 +333,11 @@ const char QCameraParameters::CDS_MODE_ON[] = "on";
 const char QCameraParameters::CDS_MODE_AUTO[] = "auto";
 
 const char QCameraParameters::KEY_SELECTED_AUTO_SCENE[] = "selected-auto-scene";
-
+#ifdef TARGET_TS_MAKEUP
+const char QCameraParameters::KEY_TS_MAKEUP[] = "tsmakeup";
+const char QCameraParameters::KEY_TS_MAKEUP_WHITEN[] = "tsmakeup_whiten";
+const char QCameraParameters::KEY_TS_MAKEUP_CLEAN[] = "tsmakeup_clean";
+#endif
 static const char* portrait = "portrait";
 static const char* landscape = "landscape";
 
@@ -3853,7 +3857,20 @@ int32_t QCameraParameters::updateParameters(QCameraParameters& params,
     if ((rc = setLongshotParam(params)))                final_rc = rc;
 
     if ((rc = updateFlash(false)))                      final_rc = rc;
-
+#ifdef TARGET_TS_MAKEUP
+    if (params.get(KEY_TS_MAKEUP) != NULL) {
+        set(KEY_TS_MAKEUP,params.get(KEY_TS_MAKEUP));
+        final_rc = rc;
+    }
+    if (params.get(KEY_TS_MAKEUP_WHITEN) != NULL) {
+        set(KEY_TS_MAKEUP_WHITEN,params.get(KEY_TS_MAKEUP_WHITEN));
+        final_rc = rc;
+    }
+    if (params.get(KEY_TS_MAKEUP_CLEAN) != NULL) {
+        set(KEY_TS_MAKEUP_CLEAN,params.get(KEY_TS_MAKEUP_CLEAN));
+        final_rc = rc;
+    }
+#endif
 UPDATE_PARAM_DONE:
     needRestart = m_bNeedRestart;
     return final_rc;
