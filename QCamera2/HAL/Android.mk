@@ -71,11 +71,4 @@ LOCAL_MODULE_TAGS := optional
 
 include $(BUILD_SHARED_LIBRARY)
 
-ifeq ($(TARGET_TS_MAKEUP),true)
-include $(CLEAR_VARS)
-LOCAL_MODULE_TAGS :=optional
-LOCAL_PREBUILT_LIBS :=tsMakeuplib/lib/libts_face_beautify_hal.so tsMakeuplib/lib/libts_detected_face_hal.so
-include $(BUILD_MULTI_PREBUILT)
-endif
-
 include $(LOCAL_PATH)/test/Android.mk
