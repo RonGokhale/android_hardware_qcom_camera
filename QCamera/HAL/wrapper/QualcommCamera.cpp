@@ -47,6 +47,7 @@ extern "C" {
 }
 
 int HAL_currentCameraId;
+bool HAL_cameraOpened = false;
 
 /* HAL function implementation goes here*/
 
@@ -207,6 +208,7 @@ extern "C" int  camera_device_open(
                 device->ops = &camera_ops;
                 device->priv = (void *)camHal;
                 rc =  0;
+                HAL_cameraOpened = true;
             } else {
                 if (camHal->hardware) {
                     delete camHal->hardware;
@@ -219,6 +221,7 @@ extern "C" int  camera_device_open(
     }
 	/* pass actual hw_device ptr to framework. This amkes that we actally be use memberof() macro */
     *hw_device = (hw_device_t*)&device->common;
+    if ((rc < 0) && HAL_cameraOpened) rc = -EUSERS;
     ALOGE("%s:  end rc %d", __func__, rc);
     return rc;
 }
@@ -243,6 +246,7 @@ extern "C"  int close_camera_device( hw_device_t *hw_dev)
             free(camHal);
         }
         rc = 0;
+        HAL_cameraOpened = false;
     }
     return rc;
 }
