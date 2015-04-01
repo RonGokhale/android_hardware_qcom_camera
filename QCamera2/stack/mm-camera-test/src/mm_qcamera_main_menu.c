@@ -1727,8 +1727,8 @@ static int submain()
         }
     }
     /*start the eztune server*/
-    CDBG_HIGH("Starting eztune Server \n");
-    eztune_server_start(&lib_handle);
+   // CDBG_HIGH("Starting eztune Server \n");
+   // eztune_server_start(&lib_handle);
 
     do {
         print_current_menu (current_menu_id);
@@ -1962,16 +1962,6 @@ static int submain()
 
             case ACTION_TAKE_JPEG_SNAPSHOT:
                 CDBG_HIGH("\n Take JPEG snapshot\n");
-
-                rc = mm_camera_lib_send_command(&lib_handle,
-                                                MM_CAMERA_LIB_DO_AF,
-                                                NULL,
-                                                NULL);
-
-                if (rc != MM_CAMERA_OK) {
-                    CDBG_ERROR("%s:mm_camera_lib_send_command() err=%d\n", __func__, rc);
-                    goto ERROR;
-                }
 
                 rc = mm_camera_lib_send_command(&lib_handle,
                                                 MM_CAMERA_LIB_JPEG_CAPTURE,
