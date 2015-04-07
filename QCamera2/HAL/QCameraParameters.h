@@ -735,7 +735,7 @@ public:
             return m_pCapability->refocus_af_bracketing_need.output_count;};
     inline bool generateThumbFromMain() {return isUbiFocusEnabled() ||
             isChromaFlashEnabled() || isOptiZoomEnabled() || isUbiRefocus()
-            || isHDREnabled() || isStillMoreEnabled(); }
+            || isHDREnabled() || isStillMoreEnabled() || isTruePortraitEnabled(); }
     void updateCurrentFocusPosition(cam_focus_pos_info_t &cur_pos_info);
     void updateAEInfo(cam_3a_params_t &ae_params);
     bool isDisplayFrameNeeded() { return m_bDisplayFrame; };
@@ -916,6 +916,7 @@ private:
     int32_t parseGains(const char *gainStr, double &r_gain,
             double &g_gain, double &b_gain);
     int32_t setCacheVideoBuffers(const char *cacheVideoBufStr);
+    int32_t setCDSMode(int32_t cds_mode, bool initCommit);
 
     int32_t parse_pair(const char *str, int *first, int *second,
                        char delim, char **endptr);
@@ -1065,6 +1066,7 @@ private:
     bool m_bStreamsConfigured;
     int32_t mParmZoomLevel;
     bool m_bIsLowMemoryDevice;
+    int32_t mCds_mode;
 
     cam_capture_frame_config_t m_captureFrameConfig;
 };
