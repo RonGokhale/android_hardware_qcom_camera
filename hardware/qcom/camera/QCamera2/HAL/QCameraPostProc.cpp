@@ -867,7 +867,7 @@ end:
  *==========================================================================*/
 int32_t QCameraPostProcessor::processPPData(mm_camera_super_buf_t *frame)
 {
-    ALOGE("QCameraPostProcessor::processPPData");
+    CDBG_HIGH("QCameraPostProcessor::processPPData");
     bool needSuperBufMatch = m_parent->mParameters.generateThumbFromMain();
     if (m_bInited == FALSE) {
         ALOGE("%s: postproc not initialized yet", __func__);
@@ -904,8 +904,8 @@ int32_t QCameraPostProcessor::processPPData(mm_camera_super_buf_t *frame)
                 break;
             }
     }
-    if(pReprocFrame != NULL && m_parent->mParameters.isFaceDetectionEnabled()){
-        m_parent->TsMakeupProcess_Snapshot(pReprocFrame,pSnapshotStream);
+    if (pReprocFrame != NULL && m_parent->mParameters.isFaceDetectionEnabled()) {
+       m_parent->TsMakeupProcess_Snapshot(pReprocFrame,pSnapshotStream);
     } else {
         CDBG_HIGH("%s pReprocFrame == NULL || isFaceDetectionEnabled = %d",__func__,
                 m_parent->mParameters.isFaceDetectionEnabled());
