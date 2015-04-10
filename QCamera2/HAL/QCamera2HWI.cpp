@@ -885,30 +885,10 @@ void QCamera2HardwareInterface::release(struct camera_device *device)
  *              NO_ERROR  -- success
  *              none-zero failure code
  *==========================================================================*/
-int QCamera2HardwareInterface::dump(struct camera_device *device, int fd)
+int QCamera2HardwareInterface::dump(struct camera_device * /*device*/, int /*fd*/)
 {
-    int ret = NO_ERROR;
-
-    //Log level property is read when "adb shell dumpsys media.camera" is
-    //called so that the log level can be controlled without restarting
-    //media server
-    getLogLevel();
-    QCamera2HardwareInterface *hw =
-        reinterpret_cast<QCamera2HardwareInterface *>(device->priv);
-    if (!hw) {
-        ALOGE("NULL camera device");
-        return BAD_VALUE;
-    }
-    hw->lockAPI();
-    qcamera_api_result_t apiResult;
-    ret = hw->processAPI(QCAMERA_SM_EVT_DUMP, (void *)&fd);
-    if (ret == NO_ERROR) {
-        hw->waitAPIResult(QCAMERA_SM_EVT_DUMP, &apiResult);
-        ret = apiResult.status;
-    }
-    hw->unlockAPI();
-
-    return ret;
+    //This is not implemented, so just return here.
+    return NO_ERROR;
 }
 
 /*===========================================================================
