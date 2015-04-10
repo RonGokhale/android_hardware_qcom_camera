@@ -850,6 +850,7 @@ QCameraParameters::QCameraParameters()
     mParmZoomLevel = 0;
     mCurPPCount = 0;
     mBufBatchCnt = 0;
+    mRotation = 0;
 }
 
 /*===========================================================================
@@ -935,6 +936,7 @@ QCameraParameters::QCameraParameters(const String8 &params)
     mZoomLevel = 0;
     mParmZoomLevel = 0;
     mCurPPCount = 0;
+    mRotation = 0;
 }
 
 /*===========================================================================
@@ -2883,6 +2885,7 @@ int32_t QCameraParameters::setRotation(const QCameraParameters& params)
 
             ADD_SET_PARAM_ENTRY_TO_BATCH(m_pParamBuf, CAM_INTF_META_JPEG_ORIENTATION,
                     rotation);
+            mRotation = rotation;
         } else {
             ALOGE("Invalid rotation value: %d", rotation);
             return BAD_VALUE;
@@ -9411,7 +9414,7 @@ uint32_t QCameraParameters::getJpegRotation() {
 
     //If exif rotation is set, do not rotate captured image
     if (!useJpegExifRotation()) {
-        rotation = getInt(KEY_ROTATION);
+        rotation = mRotation;
         if (rotation < 0) {
             rotation = 0;
         }
@@ -9431,7 +9434,7 @@ uint32_t QCameraParameters::getJpegRotation() {
 uint32_t QCameraParameters::getDeviceRotation() {
     int rotation = 0;
 
-    rotation = getInt(KEY_ROTATION);
+    rotation = mRotation;
     if (rotation < 0) {
         rotation = 0;
     }
@@ -9452,7 +9455,7 @@ uint32_t QCameraParameters::getJpegExifRotation() {
     int rotation = 0;
 
     if (useJpegExifRotation()) {
-        rotation = getInt(KEY_ROTATION);
+        rotation = mRotation;
         if (rotation < 0) {
             rotation = 0;
         }
