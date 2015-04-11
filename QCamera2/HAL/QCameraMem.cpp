@@ -38,6 +38,7 @@
 #include <utils/Log.h>
 #include <gralloc_priv.h>
 #include <QComOMXMetadata.h>
+
 #include "QCamera2HWI.h"
 #include "QCameraMem.h"
 #include "QCameraParameters.h"
@@ -210,25 +211,90 @@ void QCameraMemory::getBufDef(const cam_frame_len_offset_t &offset,
     }
     bufDef.fd = mMemInfo[index].fd;
     bufDef.frame_len = mMemInfo[index].size;
+    bufDef.buf_type = CAM_STREAM_BUF_TYPE_MPLANE;
     bufDef.mem_info = (void *)this;
-    bufDef.num_planes = (int8_t)offset.num_planes;
+    bufDef.planes_buf.num_planes = (int8_t)offset.num_planes;
     bufDef.buffer = getPtr(index);
     bufDef.buf_idx = index;
 
     /* Plane 0 needs to be set separately. Set other planes in a loop */
-    bufDef.planes[0].length = offset.mp[0].len;
-    bufDef.planes[0].m.userptr = (long unsigned int)mMemInfo[index].fd;
-    bufDef.planes[0].data_offset = offset.mp[0].offset;
-    bufDef.planes[0].reserved[0] = 0;
-    for (int i = 1; i < bufDef.num_planes; i++) {
-         bufDef.planes[i].length = offset.mp[i].len;
-         bufDef.planes[i].m.userptr = (long unsigned int)mMemInfo[i].fd;
-         bufDef.planes[i].data_offset = offset.mp[i].offset;
-         bufDef.planes[i].reserved[0] =
-                 bufDef.planes[i-1].reserved[0] +
-                 bufDef.planes[i-1].length;
+    bufDef.planes_buf.planes[0].length = offset.mp[0].len;
+    bufDef.planes_buf.planes[0].m.userptr = (long unsigned int)mMemInfo[index].fd;
+    bufDef.planes_buf.planes[0].data_offset = offset.mp[0].offset;
+    bufDef.planes_buf.planes[0].reserved[0] = 0;
+    for (int i = 1; i < bufDef.planes_buf.num_planes; i++) {
+         bufDef.planes_buf.planes[i].length = offset.mp[i].len;
+         bufDef.planes_buf.planes[i].m.userptr = (long unsigned int)mMemInfo[i].fd;
+         bufDef.planes_buf.planes[i].data_offset = offset.mp[i].offset;
+         bufDef.planes_buf.planes[i].reserved[0] =
+                 bufDef.planes_buf.planes[i-1].reserved[0] +
+                 bufDef.planes_buf.planes[i-1].length;
     }
 }
+
+/*===========================================================================
+ * FUNCTION   : getUserBufDef
+ *
+ * DESCRIPTION: Fill Buffer structure with user buffer information
+                           This also fills individual stream buffers inside batch baffer strcuture
+ *
+ * PARAMETERS :
+ *   @buf_info : user buffer information
+ *   @bufDef  : Buffer strcuture to fill user buf info
+ *   @index   : index of the buffer
+ *   @plane_offset : plane buffer information
+ *   @planeBufDef  : [input] frame buffer offset
+ *   @plane_index  : index of the individual plane buffer
+ *   @bufs    : Stream Buffer object
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraMemory::getUserBufDef(const cam_stream_user_buf_info_t &buf_info,
+        mm_camera_buf_def_t &bufDef,
+        uint32_t index,
+        const cam_frame_len_offset_t &plane_offset,
+        mm_camera_buf_def_t *planeBufDef,
+        uint32_t plane_index,
+        QCameraMemory *bufs) const
+{
+    struct msm_camera_user_buf_cont_t *cont_buf = NULL;
+
+    if (!mBufferCount) {
+        ALOGE("Memory not allocated");
+        return INVALID_OPERATION;
+    }
+
+    for (int count = 0; count < mBufferCount; count++) {
+        bufDef.fd = mMemInfo[count].fd;
+        bufDef.buf_type = CAM_STREAM_BUF_TYPE_USERPTR;
+        bufDef.frame_len = buf_info.size;
+        bufDef.mem_info = (void *)this;
+        bufDef.buffer = (void *)((uint8_t *)getPtr(count)
+                + (index * buf_info.size));
+        bufDef.buf_idx = index;
+        bufDef.user_buf.num_buffers = (int8_t)buf_info.frame_buf_cnt;
+        bufDef.user_buf.bufs_used = (int8_t)buf_info.frame_buf_cnt;
+        bufDef.user_buf.bufs_released = buf_info.frame_buf_cnt;
+        bufDef.user_buf.buf_in_use = 1;
+
+        //Individual plane buffer structure to be filled
+        cont_buf = (struct msm_camera_user_buf_cont_t *)bufDef.buffer;
+        cont_buf->buf_cnt = bufDef.user_buf.num_buffers;
+
+        for (int i = 0; i < bufDef.user_buf.num_buffers; i++) {
+            bufs->getBufDef(plane_offset, planeBufDef[i], (plane_index + i));
+            bufDef.user_buf.buf_idx[i] = planeBufDef[i].buf_idx;
+            cont_buf->buf_idx[i] = planeBufDef[i].buf_idx;
+        }
+
+        CDBG("%s: num_buf = %d index = %d plane_idx = %d",
+                __func__, index, plane_index);
+    }
+    return NO_ERROR;
+}
+
 
 /*===========================================================================
  * FUNCTION   : traceLogAllocStart
@@ -1375,11 +1441,12 @@ QCameraGrallocMemory::~QCameraGrallocMemory()
  *   @scanline: scanline of preview frame
  *   @foramt  : format of preview image
  *   @usage : usage bit for gralloc
+ *   @maxFPS : max fps of preview stream
  *
  * RETURN     : none
  *==========================================================================*/
 void QCameraGrallocMemory::setWindowInfo(preview_stream_ops_t *window,
-        int width, int height, int stride, int scanline, int format, int usage)
+        int width, int height, int stride, int scanline, int format, int usage, int maxFPS)
 {
     mWindow = window;
     mWidth = width;
@@ -1388,6 +1455,34 @@ void QCameraGrallocMemory::setWindowInfo(preview_stream_ops_t *window,
     mScanline = scanline;
     mFormat = format;
     mUsage = usage;
+    setMaxFPS(maxFPS);
+}
+
+/*===========================================================================
+ * FUNCTION   : setMaxFPS
+ *
+ * DESCRIPTION: set max fps
+ *
+ * PARAMETERS :
+ *   @maxFPS : max fps of preview stream
+ *
+ * RETURN     : none
+ *==========================================================================*/
+void QCameraGrallocMemory::setMaxFPS(int maxFPS)
+{
+    /* input will be in multiples of 1000 */
+    maxFPS = (maxFPS + 500)/1000;
+
+    /* set the lower cap to 30 always, because we are not supporting runtime update of fps info
+      to display. Otherwise MDP may result in underruns (for example if initial fps is 15max and later
+      changed to 30).*/
+    if (maxFPS < 30) {
+        maxFPS = 30;
+    }
+
+    /* the new fps will be updated in metadata of the next frame enqueued to display*/
+    mMaxFPS = maxFPS;
+    CDBG_HIGH("%s: Setting max fps %d to display", __func__, mMaxFPS);
 }
 
 /*===========================================================================
@@ -1548,6 +1643,8 @@ int QCameraGrallocMemory::allocate(uint8_t count, size_t /*size*/,
 
         mPrivateHandle[cnt] =
             (struct private_handle_t *)(*mBufferHandle[cnt]);
+        //update max fps info
+        setMetaData(mPrivateHandle[cnt], UPDATE_REFRESH_RATE, (void*)&mMaxFPS);
         mMemInfo[cnt].main_ion_fd = open("/dev/ion", O_RDONLY);
         if (mMemInfo[cnt].main_ion_fd < 0) {
             ALOGE("%s: failed: could not open ion device", __func__);
