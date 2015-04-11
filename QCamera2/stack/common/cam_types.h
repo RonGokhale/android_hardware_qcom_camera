@@ -1703,8 +1703,9 @@ typedef enum {
     CAM_INTF_PARM_WB_MANUAL,
     /* IMG LIB reprocess debug section */
     CAM_INTF_META_IMGLIB, /* cam_intf_meta_imglib_t */
-
-    CAM_INTF_PARM_MAX
+    /* OEM specific parameters */
+    CAM_INTF_PARM_CUSTOM,
+    CAM_INTF_PARM_MAX /* 180 */
 } cam_intf_parm_type_t;
 
 typedef struct {
@@ -2213,5 +2214,14 @@ typedef struct {
 typedef struct {
     cam_intf_meta_imglib_input_aec_t meta_imglib_input_aec;
 } cam_intf_meta_imglib_t;
+
+/***********************************
+* ENUM definition for custom parameter type
+************************************/
+typedef enum {
+    CAM_CUSTOM_PARM_EXAMPLE,
+    CAM_CUSTOM_PARM_MAX,
+} cam_custom_parm_type;
+
 
 #endif /* __QCAMERA_TYPES_H__ */
