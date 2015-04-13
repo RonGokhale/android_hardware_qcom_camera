@@ -8918,7 +8918,7 @@ int32_t QCameraParameters::getStreamFormat(cam_stream_type_t streamType,
             int rawFormat;
             memset(raw_format, 0, sizeof(raw_format));
             /*Default value is CAM_FORMAT_BAYER_QCOM_RAW_10BPP_GBRG*/
-            property_get("persist.camera.raw.format", raw_format, "16");
+            property_get("persist.camera.raw.format", raw_format, "17");
             rawFormat = atoi(raw_format);
             format = (cam_format_t)rawFormat;
             CDBG_HIGH("%s: Raw stream format %d bundled with snapshot",
@@ -11578,6 +11578,45 @@ uint8_t QCameraParameters::getNumOfExtraBuffersForImageProc()
     }
 
     return (uint8_t)(numOfBufs * getBurstNum());
+}
+
+/*===========================================================================
+ * FUNCTION   : getExifBufIndex
+ *
+ * DESCRIPTION: get index of metadata to be used for EXIF
+ *
+ * PARAMETERS : @captureIndex - index of current captured frame
+ *
+ * RETURN     : index of metadata to be used for EXIF
+ *==========================================================================*/
+uint32_t QCameraParameters::getExifBufIndex(uint32_t captureIndex)
+{
+    uint32_t index = captureIndex;
+
+    if (isUbiRefocus()) {
+        if (captureIndex < m_pCapability->refocus_af_bracketing_need.burst_count) {
+            index = captureIndex;
+        } else {
+            index = 0;
+        }
+    } else if (isChromaFlashEnabled()) {
+        index = m_pCapability->chroma_flash_settings_need.metadata_index;
+    } else if (isHDREnabled()) {
+        if (isHDR1xFrameEnabled() && isHDR1xExtraBufferNeeded()) {
+            index = m_pCapability->hdr_bracketing_setting.num_frames;
+        } else {
+            for (index = 0; index < m_pCapability->hdr_bracketing_setting.num_frames; index++) {
+                if (0 == m_pCapability->hdr_bracketing_setting.exp_val.values[index]) {
+                    break;
+                }
+            }
+            if (index == m_pCapability->hdr_bracketing_setting.num_frames) {
+                index = captureIndex;
+            }
+        }
+    }
+
+    return index;
 }
 
 /*===========================================================================
