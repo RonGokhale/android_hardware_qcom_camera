@@ -1098,7 +1098,8 @@ QCamera2HardwareInterface::QCamera2HardwareInterface(uint32_t cameraId)
       mOutputCount(0),
       mInputCount(0),
       mAdvancedCaptureConfigured(false),
-      mHDRBracketingEnabled(false)
+      mHDRBracketingEnabled(false),
+      mCACDoneReceived(false)
 {
     getLogLevel();
     ATRACE_CALL();
