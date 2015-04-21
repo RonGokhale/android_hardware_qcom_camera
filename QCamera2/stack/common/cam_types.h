@@ -1743,6 +1743,8 @@ typedef enum {
     CAM_INTF_PARM_CUSTOM,
     /* Offline Data Overwrite */
     CAM_INTF_PARM_HW_DATA_OVERWRITE,
+    /* Special event to request stream frames*/
+    CAM_INTF_PARM_REQUEST_FRAMES,
 
     CAM_INTF_PARM_MAX /* 180 */
 } cam_intf_parm_type_t;
@@ -1959,7 +1961,8 @@ typedef struct {
 #define CAM_QCOM_FEATURE_MAX            (1U<<23)
 #define CAM_QCOM_FEATURE_PP_SUPERSET    (CAM_QCOM_FEATURE_DENOISE2D|CAM_QCOM_FEATURE_CROP|\
                                          CAM_QCOM_FEATURE_ROTATION|CAM_QCOM_FEATURE_SHARPNESS|\
-                                         CAM_QCOM_FEATURE_SCALE|CAM_QCOM_FEATURE_CAC)
+                                         CAM_QCOM_FEATURE_SCALE|CAM_QCOM_FEATURE_CAC|\
+                                         CAM_QCOM_FEATURE_CPP_TNR)
 
 #define CAM_QCOM_FEATURE_PP_PASS_1      CAM_QCOM_FEATURE_PP_SUPERSET
 #define CAM_QCOM_FEATURE_PP_PASS_2      CAM_QCOM_FEATURE_SCALE | CAM_QCOM_FEATURE_CROP;
