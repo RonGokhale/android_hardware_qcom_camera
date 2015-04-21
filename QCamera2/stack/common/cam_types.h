@@ -795,6 +795,7 @@ typedef enum {
     CAM_EVENT_TYPE_INT_TAKE_JPEG   = (1<<4),
     CAM_EVENT_TYPE_INT_TAKE_RAW    = (1<<5),
     CAM_EVENT_TYPE_DAEMON_PULL_REQ = (1<<6),
+    CAM_EVENT_TYPE_CAC_DONE        = (1<<7),
     CAM_EVENT_TYPE_MAX
 } cam_event_type_t;
 
@@ -1305,6 +1306,25 @@ typedef struct {
     cam_is_type_t is_type;
 } cam_stream_size_info_t;
 
+typedef enum {
+    CAM_INTF_OVERWRITE_MINI_CHROMATIX_OFFLINE,
+    CAM_INTF_OVERWRITE_ISP_HW_DATA_OFFLINE,
+    CAM_INTF_OVERWRITE_MINI_CHROMATIX_ONLINE,
+    CAM_INTF_OVERWRITE_ISP_HW_DATA_ONLINE,
+    CAM_INTF_OVERWRITE_MAX,
+} cam_intf_overwrite_type_t;
+
+typedef struct {
+  uint8_t lds_enabled;
+  float rnr_sampling_factor;
+} cam_img_hysterisis_info_t;
+
+typedef struct {
+  cam_intf_overwrite_type_t overwrite_type;
+  char isp_hw_data_list[4096];     /*add upper bound memory, customer to fill*/
+  char chromatix_data_overwrite[4096]; /*add bound memory, customer fill*/
+} cam_hw_data_overwrite_t;
+
 typedef struct {
     uint32_t num_streams;
     uint32_t streamID[MAX_NUM_STREAMS];
@@ -1315,6 +1335,11 @@ typedef struct {
     uint32_t num_streams;
     uint32_t stream_id[MAX_NUM_STREAMS];
 } cam_buf_divert_info_t;
+/*CAC Message posted during pipeline*/
+typedef struct {
+    uint32_t frame_id;
+    int32_t buf_idx;
+} cam_cac_info_t;
 
 typedef  struct {
     uint8_t is_stats_valid;               /* if histgram data is valid */
@@ -1331,6 +1356,13 @@ typedef  struct {
 
     uint8_t is_prep_snapshot_done_valid;  /* if prep snapshot done is valid */
     cam_prep_snapshot_state_t prep_snapshot_done_state;  /* prepare snapshot done state */
+
+    uint8_t is_cac_valid;                 /* if cac info is valid */
+    cam_cac_info_t cac_info;              /* cac info */
+
+    /* Hysterisis data from Img modules */
+    uint8_t is_hyst_info_valid;           /* if hyst info is valid */
+    cam_img_hysterisis_info_t img_hyst_info; /* hyst info */
 
     /* if good frame idx range is valid */
     uint8_t is_good_frame_idx_range_valid;
@@ -1682,13 +1714,15 @@ typedef enum {
     CAM_INTF_META_NEUTRAL_COL_POINT,
 
     /* CAC */
+    CAM_INTF_META_CAC_INFO,
     CAM_INTF_PARM_CAC,
+    CAM_INTF_META_IMG_HYST_INFO, /* 170 */
 
     /* trigger for all modules to read the debug/log level properties */
     CAM_INTF_PARM_UPDATE_DEBUG_LEVEL,
 
     /* OTP : WB gr/gb */
-    CAM_INTF_META_OTP_WB_GRGB, /* 170 */
+    CAM_INTF_META_OTP_WB_GRGB,
     /* LED override for EZTUNE */
     CAM_INTF_META_LED_MODE_OVERRIDE,
     /* auto lens position info */
@@ -1705,6 +1739,9 @@ typedef enum {
     CAM_INTF_META_IMGLIB, /* cam_intf_meta_imglib_t */
     /* OEM specific parameters */
     CAM_INTF_PARM_CUSTOM,
+    /* Offline Data Overwrite */
+    CAM_INTF_PARM_HW_DATA_OVERWRITE,
+
     CAM_INTF_PARM_MAX /* 180 */
 } cam_intf_parm_type_t;
 
