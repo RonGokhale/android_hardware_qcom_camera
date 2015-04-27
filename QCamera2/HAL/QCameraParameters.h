@@ -535,6 +535,10 @@ public:
     static const char VIDEO_HFR_3X[];
     static const char VIDEO_HFR_4X[];
     static const char VIDEO_HFR_5X[];
+    static const char VIDEO_HFR_6X[];
+    static const char VIDEO_HFR_7X[];
+    static const char VIDEO_HFR_8X[];
+    static const char VIDEO_HFR_9X[];
 
     // Values for feature on/off settings.
     static const char VALUE_OFF[];
@@ -866,6 +870,7 @@ private:
     int32_t setRdiMode(const QCameraParameters& );
     int32_t setSecureMode(const QCameraParameters& );
     int32_t setCacheVideoBuffers(const QCameraParameters& params);
+    int32_t setCustomParams(const QCameraParameters& params);
     int32_t setAutoExposure(const char *autoExp);
     int32_t setPreviewFpsRange(int min_fps,int max_fps,
             int vid_min_fps,int vid_max_fps);

@@ -359,6 +359,10 @@ const char QCameraParameters::VIDEO_HFR_2X[] = "60";
 const char QCameraParameters::VIDEO_HFR_3X[] = "90";
 const char QCameraParameters::VIDEO_HFR_4X[] = "120";
 const char QCameraParameters::VIDEO_HFR_5X[] = "150";
+const char QCameraParameters::VIDEO_HFR_6X[] = "180";
+const char QCameraParameters::VIDEO_HFR_7X[] = "210";
+const char QCameraParameters::VIDEO_HFR_8X[] = "240";
+const char QCameraParameters::VIDEO_HFR_9X[] = "480";
 
 // Values for HDR Bracketing settings.
 const char QCameraParameters::AE_BRACKET_OFF[] = "Off";
@@ -635,10 +639,14 @@ const QCameraParameters::QCameraMap<cam_iso_mode_type>
 const QCameraParameters::QCameraMap<cam_hfr_mode_t>
         QCameraParameters::HFR_MODES_MAP[] = {
     { VIDEO_HFR_OFF, CAM_HFR_MODE_OFF },
-    { VIDEO_HFR_2X,  CAM_HFR_MODE_60FPS },
-    { VIDEO_HFR_3X,  CAM_HFR_MODE_90FPS },
-    { VIDEO_HFR_4X,  CAM_HFR_MODE_120FPS },
-    { VIDEO_HFR_5X,  CAM_HFR_MODE_150FPS }
+    { VIDEO_HFR_2X, CAM_HFR_MODE_60FPS },
+    { VIDEO_HFR_3X, CAM_HFR_MODE_90FPS },
+    { VIDEO_HFR_4X, CAM_HFR_MODE_120FPS },
+    { VIDEO_HFR_5X, CAM_HFR_MODE_150FPS },
+    { VIDEO_HFR_6X, CAM_HFR_MODE_180FPS },
+    { VIDEO_HFR_7X, CAM_HFR_MODE_210FPS },
+    { VIDEO_HFR_8X, CAM_HFR_MODE_240FPS },
+    { VIDEO_HFR_9X, CAM_HFR_MODE_480FPS }
 };
 
 const QCameraParameters::QCameraMap<cam_bracket_mode>
@@ -1095,8 +1103,20 @@ String8 QCameraParameters::createHfrValuesString(const cam_hfr_info_t *values,
     String8 str;
     int count = 0;
 
+    char value[PROPERTY_VALUE_MAX];
+    int8_t batch_count = 0;
+
+    property_get("persist.camera.batchcount", value, "0");
+    batch_count = atoi(value);
+
     for (size_t i = 0; i < len; i++ ) {
-        for (size_t j = 0; j < map_len; j ++)
+        for (size_t j = 0; j < map_len; j ++) {
+            if ((batch_count < CAMERA_MIN_BATCH_COUNT)
+                    && (map[j].val > CAM_HFR_MODE_120FPS)) {
+                /*TODO: Work around. Need to revert when we have
+                complete 240fps support*/
+                break;
+            }
             if (map[j].val == (int)values[i].mode) {
                 if (NULL != map[j].desc) {
                     if (count > 0) {
@@ -1107,6 +1127,7 @@ String8 QCameraParameters::createHfrValuesString(const cam_hfr_info_t *values,
                      break; //loop j
                 }
             }
+        }
     }
     if (count > 0) {
         str.append(",");
@@ -1608,7 +1629,7 @@ int32_t QCameraParameters::setPreviewFormat(const QCameraParameters& params)
         char prop[PROPERTY_VALUE_MAX];
         int pFormat;
         memset(prop, 0, sizeof(prop));
-        property_get("persist.camera.preview.ubwc", prop, "1");
+        property_get("persist.camera.preview.ubwc", prop, "0");
         pFormat = atoi(prop);
         if (pFormat == 1) {
             mPreviewFormat = CAM_FORMAT_YUV_420_NV12_UBWC;
@@ -2010,6 +2031,22 @@ bool QCameraParameters::UpdateHFRFrameRate(const QCameraParameters& params)
             case CAM_HFR_MODE_150FPS:
                 min_fps = 150000;
                 max_fps = 150000;
+                break;
+            case CAM_HFR_MODE_180FPS:
+                min_fps = 180000;
+                max_fps = 180000;
+                break;
+            case CAM_HFR_MODE_210FPS:
+                min_fps = 210000;
+                max_fps = 210000;
+                break;
+            case CAM_HFR_MODE_240FPS:
+                min_fps = 240000;
+                max_fps = 240000;
+                break;
+            case CAM_HFR_MODE_480FPS:
+                min_fps = 480000;
+                max_fps = 480000;
                 break;
             case CAM_HFR_MODE_OFF:
             default:
@@ -4513,6 +4550,7 @@ int32_t QCameraParameters::updateParameters(QCameraParameters& params,
     if ((rc = setMobicat(params)))                      final_rc = rc;
     if ((rc = setSeeMore(params)))                      final_rc = rc;
     if ((rc = setStillMore(params)))                    final_rc = rc;
+    if ((rc = setCustomParams(params)))                 final_rc = rc;
 
     if ((rc = updateFlash(false)))                      final_rc = rc;
     if ((rc = setLongshotParam(params)))                final_rc = rc;
@@ -5034,6 +5072,7 @@ int32_t QCameraParameters::initDefaultParameters()
             m_pCapability->hfr_tbl,
             m_pCapability->hfr_tbl_cnt);
     set(KEY_QC_SUPPORTED_HFR_SIZES, hfrSizeValues.string());
+    CDBG("HFR values %s HFR Sizes = %d", hfrValues.string(), hfrSizeValues.string());
     setHighFrameRate(CAM_HFR_MODE_OFF);
 
     // Set Focus algorithms
@@ -8862,11 +8901,11 @@ int32_t QCameraParameters::getStreamFormat(cam_stream_type_t streamType,
 
     format = CAM_FORMAT_MAX;
     switch (streamType) {
-    case CAM_STREAM_TYPE_ANALYSIS:
     case CAM_STREAM_TYPE_PREVIEW:
-    case CAM_STREAM_TYPE_POSTVIEW:
         format = mPreviewFormat;
         break;
+    case CAM_STREAM_TYPE_POSTVIEW:
+    case CAM_STREAM_TYPE_ANALYSIS:
     case CAM_STREAM_TYPE_CALLBACK:
         format = mAppPreviewFormat;
         break;
@@ -9121,7 +9160,7 @@ int QCameraParameters::getPreviewHalPixelFormat() const
         break;
 #ifdef UBWC_PRESENT
     case CAM_FORMAT_YUV_420_NV12_UBWC:
-        halPixelFormat = HAL_PIXEL_FORMAT_YCbCr_420_SP;
+        halPixelFormat = HAL_PIXEL_FORMAT_YCbCr_420_SP_VENUS_UBWC;
         break;
 #endif
     case CAM_FORMAT_YUV_422_NV16:
@@ -11954,7 +11993,7 @@ void QCameraParameters::setBufBatchCount(int8_t buf_cnt)
     char value[PROPERTY_VALUE_MAX];
     int8_t count = 0;
 
-    property_get("persist.camera.batchmode", value, "0");
+    property_get("persist.camera.batchcount", value, "0");
     count = atoi(value);
 
     if (!(count != 0 || buf_cnt > CAMERA_MIN_BATCH_COUNT)) {
@@ -11962,16 +12001,56 @@ void QCameraParameters::setBufBatchCount(int8_t buf_cnt)
         return;
     }
 
-    if ( buf_cnt > CAMERA_MIN_BATCH_COUNT) {
-        mBufBatchCnt = buf_cnt;
+    while((m_pCapability->max_batch_bufs_supported != 0)
+            && (m_pCapability->max_batch_bufs_supported < buf_cnt)) {
+        buf_cnt = buf_cnt / 2;
+    }
+
+    if (count > 0) {
+        mBufBatchCnt = count;
         CDBG_HIGH("%s : Buffer batch count = %d", __func__, mBufBatchCnt);
         return;
     }
 
-    if ( count > 0) {
-        mBufBatchCnt = count;
+    if (buf_cnt > CAMERA_MIN_BATCH_COUNT) {
+        mBufBatchCnt = buf_cnt;
         CDBG_HIGH("%s : Buffer batch count = %d", __func__, mBufBatchCnt);
+        return;
     }
+}
+
+/*===========================================================================
+ * FUNCTION   : setCustomParams
+ *
+ * DESCRIPTION: Function to update OEM specific custom parameter
+ *
+ * PARAMETERS : params: Input Parameter object
+ *
+ * RETURN     :  error value
+ *==========================================================================*/
+int32_t QCameraParameters::setCustomParams(const QCameraParameters& params)
+{
+    int32_t rc = NO_ERROR;
+
+    /* Application specific parameter can be read from "params" and update m_pParamBuf
+       We can also update internal OEM custom parameters in this funcion.
+       "CAM_CUSTOM_PARM_EXAMPLE" is used as a example */
+
+    /*Get the pointer of shared buffer for custom parameter*/
+    custom_parm_buffer_t *customParam =
+            (custom_parm_buffer_t *)POINTER_OF_META(CAM_INTF_PARM_CUSTOM, m_pParamBuf);
+
+
+    /*start updating custom parameter values*/
+    if (ADD_SET_PARAM_ENTRY_TO_BATCH(customParam, CAM_CUSTOM_PARM_EXAMPLE, 1)) {
+        ALOGE("%s : Failed to update CAM_CUSTOM_PARM_DUMMY", __func__);
+        return BAD_VALUE;
+    }
+
+    /*set custom parameter values to main parameter buffer. Update isvalid flag*/
+    ADD_GET_PARAM_ENTRY_TO_BATCH(m_pParamBuf, CAM_INTF_PARM_CUSTOM);
+
+    return rc;
 }
 
 /*===========================================================================

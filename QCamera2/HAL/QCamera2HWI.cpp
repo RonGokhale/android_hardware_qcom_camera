@@ -51,7 +51,7 @@
 #define CAMERA_MIN_VIDEO_BUFFERS         9
 #define CAMERA_MIN_CALLBACK_BUFFERS      5
 #define CAMERA_LONGSHOT_STAGES           4
-#define CAMERA_MIN_VIDEO_BATCH_BUFFERS   5
+#define CAMERA_MIN_VIDEO_BATCH_BUFFERS   6
 
 //This multiplier signifies extra buffers that we need to allocate
 //for the output of pproc
@@ -1659,19 +1659,15 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
             }
 
             bufferCnt += mParameters.getNumOfExtraBuffersForVideo();
-            //if its 4K encoding usecase and power save feature enabled, then add extra buffer
+            //if its 4K encoding usecase, then add extra buffer
             cam_dimension_t dim;
             mParameters.getStreamDimension(CAM_STREAM_TYPE_VIDEO, dim);
             if (is4k2kResolution(&dim)) {
-                 property_get("vidc.debug.perf.mode", value, "0");
-                 bool isPwrSavEnabled = (atoi(value) == 2);
-                 if (isPwrSavEnabled) {
-                     //get additional buffer count
-                     property_get("vidc.enc.dcvs.extra-buff-count", value, "0");
-                     bufferCnt += atoi(value);
-                 }
+                 //get additional buffer count
+                 property_get("vidc.enc.dcvs.extra-buff-count", value, "0");
+                 bufferCnt += atoi(value);
             }
-            ALOGI("Buffer count is %d width / height (%d/%d) ", bufferCnt, dim.width, dim.height);
+            ALOGI("Buffer count is %d, width / height (%d/%d) ", bufferCnt, dim.width, dim.height);
         }
         break;
     case CAM_STREAM_TYPE_METADATA:
@@ -1782,8 +1778,7 @@ QCameraMemory *QCamera2HardwareInterface::allocateStreamBuf(
                     cam_format_t fmt;
                     mParameters.getStreamFormat(CAM_STREAM_TYPE_PREVIEW,fmt);
                     if (fmt == CAM_FORMAT_YUV_420_NV12_UBWC) {
-                        //@TODO : Enable when Display team define UBWC usage flag
-                        //usage = GRALLOC_USAGE_PRIVATE_ALLOC_UBWC ;
+                        usage = GRALLOC_USAGE_PRIVATE_ALLOC_UBWC ;
                     }
                 }
                 if (grallocMemory) {
@@ -2045,7 +2040,7 @@ QCameraHeapMemory *QCamera2HardwareInterface::allocateStreamInfoBuf(
     case CAM_STREAM_TYPE_VIDEO:
         streamInfo->dis_enable = mParameters.isDISEnabled();
         if (mParameters.getBufBatchCount()) {
-            //Update stream info structure with Bacth mode info
+            //Update stream info structure with batch mode info
             streamInfo->streaming_mode = CAM_STREAMING_MODE_BATCH;
             streamInfo->user_buf_info.frame_buf_cnt = mParameters.getBufBatchCount();
             streamInfo->user_buf_info.size =
@@ -2107,7 +2102,6 @@ QCameraHeapMemory *QCamera2HardwareInterface::allocateStreamInfoBuf(
     }
 
     if (!((needReprocess()) && (CAM_STREAM_TYPE_SNAPSHOT == stream_type ||
-            CAM_STREAM_TYPE_POSTVIEW == stream_type ||
             CAM_STREAM_TYPE_RAW == stream_type))) {
         if (gCamCaps[mCameraId]->min_required_pp_mask & CAM_QCOM_FEATURE_CROP)
             streamInfo->pp_config.feature_mask |= CAM_QCOM_FEATURE_CROP;
@@ -2124,7 +2118,7 @@ QCameraHeapMemory *QCamera2HardwareInterface::allocateStreamInfoBuf(
 /*===========================================================================
  * FUNCTION   : allocateStreamUserBuf
  *
- * DESCRIPTION: alocate user ptr for stream buffers
+ * DESCRIPTION: allocate user ptr for stream buffers
  *
  * PARAMETERS :
  *   @streamInfo  : stream info structure
@@ -2138,7 +2132,6 @@ QCameraMemory *QCamera2HardwareInterface::allocateStreamUserBuf(
 {
     int rc = NO_ERROR;
     QCameraMemory *mem = NULL;
-    bool bCachedMem = QCAMERA_ION_USE_CACHE;
     int bufferCnt = 0;
     int size = 0;
 
@@ -2149,15 +2142,11 @@ QCameraMemory *QCamera2HardwareInterface::allocateStreamUserBuf(
 
     // Allocate stream user buffer memory object
     switch (streamInfo->stream_type) {
-    case CAM_STREAM_TYPE_VIDEO:
-    {
-        char value[PROPERTY_VALUE_MAX];
-        property_get("persist.camera.mem.usecache", value, "0");
-        if (atoi(value) == 0) {
-            bCachedMem = QCAMERA_ION_USE_NOCACHE;
-        }
-        CDBG_HIGH("%s: vidoe buf using cached memory = %d", __func__, bCachedMem);
-        mem = new QCameraVideoMemory(mGetMemory, bCachedMem);
+    case CAM_STREAM_TYPE_VIDEO: {
+        QCameraVideoMemory *video_mem = new QCameraVideoMemory(
+                mGetMemory, FALSE, CAM_STREAM_BUF_TYPE_USERPTR);
+        video_mem->allocateMeta(streamInfo->num_bufs);
+        mem = static_cast<QCameraMemory *>(video_mem);
     }
     break;
 

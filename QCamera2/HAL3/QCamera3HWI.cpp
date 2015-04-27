@@ -49,6 +49,7 @@
 #include "QCamera3Channel.h"
 #include "QCamera3PostProc.h"
 #include "QCamera3VendorTags.h"
+#include <cutils/properties.h>
 
 using namespace android;
 
@@ -308,6 +309,7 @@ QCamera3HardwareInterface::QCamera3HardwareInterface(uint32_t cameraId,
       m_bIs4KVideo(false),
       m_bEisSupportedSize(false),
       m_bEisEnable(false),
+      m_MobicatMask(0),
       mMinProcessedFrameDuration(0),
       mMinJpegFrameDuration(0),
       mMinRawFrameDuration(0),
@@ -1165,51 +1167,70 @@ int QCamera3HardwareInterface::configureStreams(
             mStreamConfigInfo.type[i] = CAM_STREAM_TYPE_SNAPSHOT;
             mStreamConfigInfo.postprocess_mask[i] = CAM_QCOM_FEATURE_NONE;
         } else {
-           //for non zsl streams find out the format
-           switch (newStream->format) {
-           case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED :
-              {
-                 if (stream_usage & private_handle_t::PRIV_FLAGS_VIDEO_ENCODER) {
+            //for non zsl streams find out the format
+            switch (newStream->format) {
+            case HAL_PIXEL_FORMAT_IMPLEMENTATION_DEFINED :
+            {
+                char feature_mask_value[PROPERTY_VALUE_MAX];
+                uint32_t feature_mask;
+                int args_converted;
+                int property_len;
+
+                property_len = property_get("persist.camera.hal3.prv.feature",
+                        feature_mask_value, "0");
+                if ((property_len > 2) && (feature_mask_value[0] == '0') &&
+                        (feature_mask_value[1] == 'x')) {
+                    args_converted = sscanf(feature_mask_value, "0x%x", &feature_mask);
+                } else {
+                    args_converted = sscanf(feature_mask_value, "%d", &feature_mask);
+                }
+                if (1 != args_converted) {
+                    feature_mask = 0;
+                    ALOGE("%s: Wrong feature mask setting: %s", __func__, feature_mask_value);
+                }
+
+                if (stream_usage & private_handle_t::PRIV_FLAGS_VIDEO_ENCODER) {
                     mStreamConfigInfo.type[i] = CAM_STREAM_TYPE_VIDEO;
-                 } else {
+                } else {
                     mStreamConfigInfo.type[i] = CAM_STREAM_TYPE_PREVIEW;
-                 }
-                 mStreamConfigInfo.postprocess_mask[i] = CAM_QCOM_FEATURE_PP_SUPERSET_HAL3;
-              }
-              break;
-           case HAL_PIXEL_FORMAT_YCbCr_420_888:
-              mStreamConfigInfo.type[i] = CAM_STREAM_TYPE_CALLBACK;
-              mStreamConfigInfo.postprocess_mask[i] = CAM_QCOM_FEATURE_PP_SUPERSET_HAL3;
-              break;
-           case HAL_PIXEL_FORMAT_BLOB:
-              mStreamConfigInfo.type[i] = CAM_STREAM_TYPE_SNAPSHOT;
-              if (m_bIs4KVideo && !isZsl) {
-                  mStreamConfigInfo.postprocess_mask[i] = CAM_QCOM_FEATURE_PP_SUPERSET_HAL3;
-              } else {
-                  if (bUseCommonFeatureMask &&
-                          (((int32_t)newStream->width > maxViewfinderSize.width) ||
-                                  ((int32_t)newStream->height > maxViewfinderSize.height))) {
-                      mStreamConfigInfo.postprocess_mask[i] = commonFeatureMask;
-                  } else {
-                      mStreamConfigInfo.postprocess_mask[i] = CAM_QCOM_FEATURE_NONE;
-                  }
-              }
-              if (m_bIs4KVideo) {
-                  mStreamConfigInfo.stream_sizes[i].width = (int32_t)videoWidth;
-                  mStreamConfigInfo.stream_sizes[i].height = (int32_t)videoHeight;
-              }
-              break;
-           case HAL_PIXEL_FORMAT_RAW_OPAQUE:
-           case HAL_PIXEL_FORMAT_RAW16:
-           case HAL_PIXEL_FORMAT_RAW10:
-              mStreamConfigInfo.type[i] = CAM_STREAM_TYPE_RAW;
-              isRawStreamRequested = true;
-              break;
-           default:
-              mStreamConfigInfo.type[i] = CAM_STREAM_TYPE_DEFAULT;
-              mStreamConfigInfo.postprocess_mask[i] = CAM_QCOM_FEATURE_NONE;
-              break;
-           }
+                }
+                mStreamConfigInfo.postprocess_mask[i] = CAM_QCOM_FEATURE_PP_SUPERSET_HAL3;
+                mStreamConfigInfo.postprocess_mask[i] |= feature_mask;
+            }
+            break;
+            case HAL_PIXEL_FORMAT_YCbCr_420_888:
+                mStreamConfigInfo.type[i] = CAM_STREAM_TYPE_CALLBACK;
+                mStreamConfigInfo.postprocess_mask[i] = CAM_QCOM_FEATURE_PP_SUPERSET_HAL3;
+            break;
+            case HAL_PIXEL_FORMAT_BLOB:
+                mStreamConfigInfo.type[i] = CAM_STREAM_TYPE_SNAPSHOT;
+                if (m_bIs4KVideo && !isZsl) {
+                    mStreamConfigInfo.postprocess_mask[i] = CAM_QCOM_FEATURE_PP_SUPERSET_HAL3;
+                } else {
+                    if (bUseCommonFeatureMask &&
+                            (((int32_t)newStream->width > maxViewfinderSize.width) ||
+                                    ((int32_t)newStream->height > maxViewfinderSize.height))) {
+                        mStreamConfigInfo.postprocess_mask[i] = commonFeatureMask;
+                    } else {
+                        mStreamConfigInfo.postprocess_mask[i] = CAM_QCOM_FEATURE_NONE;
+                    }
+                }
+                if (m_bIs4KVideo) {
+                    mStreamConfigInfo.stream_sizes[i].width = (int32_t)videoWidth;
+                    mStreamConfigInfo.stream_sizes[i].height = (int32_t)videoHeight;
+                }
+                break;
+            case HAL_PIXEL_FORMAT_RAW_OPAQUE:
+            case HAL_PIXEL_FORMAT_RAW16:
+            case HAL_PIXEL_FORMAT_RAW10:
+                mStreamConfigInfo.type[i] = CAM_STREAM_TYPE_RAW;
+                isRawStreamRequested = true;
+                break;
+            default:
+                mStreamConfigInfo.type[i] = CAM_STREAM_TYPE_DEFAULT;
+                mStreamConfigInfo.postprocess_mask[i] = CAM_QCOM_FEATURE_NONE;
+                break;
+            }
         }
         if (newStream->priv == NULL) {
             //New stream, construct channel
@@ -1322,10 +1343,9 @@ int QCamera3HardwareInterface::configureStreams(
             {
                 QCamera3Channel *channel = (QCamera3Channel*) newStream->priv;
                 cam_format_t fmt =
-                        channel->getStreamDefaultFormat(stream_config_info.type[i]);
+                        channel->getStreamDefaultFormat(mStreamConfigInfo.type[i]);
                 if(fmt == CAM_FORMAT_YUV_420_NV12_UBWC) {
-                    //TODO : Enable when Display team define UBWC usage flag
-                    //newStream->usage |= GRALLOC_USAGE_PRIVATE_ALLOC_UBWC;
+                    newStream->usage |= GRALLOC_USAGE_PRIVATE_ALLOC_UBWC;
                 }
             }
 #endif
@@ -1870,6 +1890,8 @@ void QCamera3HardwareInterface::handleMetadataWithLock(
                     i->timestamp, i->request_id, i->jpegMetadata, i->pipeline_depth,
                     i->capture_intent);
 
+            saveExifParams(metadata);
+
             if (i->blob_request) {
                 {
                     //Dump tuning metadata if enabled and available
@@ -2264,6 +2286,8 @@ int QCamera3HardwareInterface::processCaptureRequest(
         int32_t tintless_value = 1;
         ADD_SET_PARAM_ENTRY_TO_BATCH(mParameters,
                 CAM_INTF_PARM_TINTLESS, tintless_value);
+
+        setMobicat();
 
         /*set the capture intent, hal version, tintless, stream info,
          *and disenable parameters to the backend*/
@@ -3721,6 +3745,62 @@ QCamera3HardwareInterface::translateFromHalMetadata(
 
     resultMetadata = camMetadata.release();
     return resultMetadata;
+}
+
+/*===========================================================================
+ * FUNCTION   : saveExifParams
+ *
+ * DESCRIPTION:
+ *
+ * PARAMETERS :
+ *   @metadata : metadata information from callback
+ *
+ * RETURN     : none
+ *
+ *==========================================================================*/
+void QCamera3HardwareInterface::saveExifParams(metadata_buffer_t *metadata)
+{
+    IF_META_AVAILABLE(cam_ae_exif_debug_t, ae_exif_debug_params,
+            CAM_INTF_META_EXIF_DEBUG_AE, metadata) {
+        mExifParams.ae_debug_params = *ae_exif_debug_params;
+        mExifParams.ae_debug_params_valid = TRUE;
+    }
+    IF_META_AVAILABLE(cam_awb_exif_debug_t,awb_exif_debug_params,
+            CAM_INTF_META_EXIF_DEBUG_AWB, metadata) {
+        mExifParams.awb_debug_params = *awb_exif_debug_params;
+        mExifParams.awb_debug_params_valid = TRUE;
+    }
+    IF_META_AVAILABLE(cam_af_exif_debug_t,af_exif_debug_params,
+            CAM_INTF_META_EXIF_DEBUG_AF, metadata) {
+        mExifParams.af_debug_params = *af_exif_debug_params;
+        mExifParams.af_debug_params_valid = TRUE;
+    }
+    IF_META_AVAILABLE(cam_asd_exif_debug_t, asd_exif_debug_params,
+            CAM_INTF_META_EXIF_DEBUG_ASD, metadata) {
+        mExifParams.asd_debug_params = *asd_exif_debug_params;
+        mExifParams.asd_debug_params_valid = TRUE;
+    }
+    IF_META_AVAILABLE(cam_stats_buffer_exif_debug_t,stats_exif_debug_params,
+            CAM_INTF_META_EXIF_DEBUG_STATS, metadata) {
+        mExifParams.stats_debug_params = *stats_exif_debug_params;
+        mExifParams.stats_debug_params_valid = TRUE;
+    }
+}
+
+/*===========================================================================
+ * FUNCTION   : get3AExifParams
+ *
+ * DESCRIPTION:
+ *
+ * PARAMETERS : none
+ *
+ *
+ * RETURN     : mm_jpeg_exif_params_t
+ *
+ *==========================================================================*/
+mm_jpeg_exif_params_t QCamera3HardwareInterface::get3AExifParams()
+{
+    return mExifParams;
 }
 
 /*===========================================================================
@@ -7235,6 +7315,58 @@ QCamera3ReprocessChannel *QCamera3HardwareInterface::addOfflineReprocChannel(
         return NULL;
     }
     return pChannel;
+}
+
+/*===========================================================================
+ * FUNCTION   : getMobicatMask
+ *
+ * DESCRIPTION: returns mobicat mask
+ *
+ * PARAMETERS : none
+ *
+ * RETURN     : mobicat mask
+ *
+ *==========================================================================*/
+uint8_t QCamera3HardwareInterface::getMobicatMask()
+{
+    return m_MobicatMask;
+}
+
+/*===========================================================================
+ * FUNCTION   : setMobicat
+ *
+ * DESCRIPTION: set Mobicat on/off.
+ *
+ * PARAMETERS :
+ *   @params  : none
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCamera3HardwareInterface::setMobicat()
+{
+    char value [PROPERTY_VALUE_MAX];
+    property_get("persist.camera.mobicat", value, "0");
+    int32_t ret = NO_ERROR;
+    uint8_t enableMobi = (uint8_t)atoi(value);
+
+    if (enableMobi) {
+        tune_cmd_t tune_cmd;
+        tune_cmd.type = SET_RELOAD_CHROMATIX;
+        tune_cmd.module = MODULE_ALL;
+        tune_cmd.value = TRUE;
+        ADD_SET_PARAM_ENTRY_TO_BATCH(mParameters,
+                CAM_INTF_PARM_SET_VFE_COMMAND,
+                tune_cmd);
+
+        ADD_SET_PARAM_ENTRY_TO_BATCH(mParameters,
+                CAM_INTF_PARM_SET_PP_COMMAND,
+                tune_cmd);
+    }
+    m_MobicatMask = enableMobi;
+
+    return ret;
 }
 
 /*===========================================================================
