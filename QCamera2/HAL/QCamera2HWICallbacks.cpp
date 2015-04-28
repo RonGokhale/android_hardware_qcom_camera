@@ -548,6 +548,8 @@ void QCamera2HardwareInterface::preview_stream_cb_routine(mm_camera_super_buf_t 
     ATRACE_CALL();
     CDBG_HIGH("[KPI Perf] %s : BEGIN", __func__);
     int err = NO_ERROR;
+    char value[PROPERTY_VALUE_MAX];
+    int dump_preview_yuv = 0;
     QCamera2HardwareInterface *pme = (QCamera2HardwareInterface *)userdata;
     QCameraGrallocMemory *memory = (QCameraGrallocMemory *)super_frame->bufs[0]->mem_info;
 
@@ -581,7 +583,12 @@ void QCamera2HardwareInterface::preview_stream_cb_routine(mm_camera_super_buf_t 
     }
 
     uint32_t idx = frame->buf_idx;
-    pme->dumpFrameToFile(stream, frame, QCAMERA_DUMP_FRM_PREVIEW);
+
+    property_get("persist.camera.preview_yuv", value, NULL);
+    dump_preview_yuv = atoi(value);
+    if (dump_preview_yuv && pme->mParameters.getRecordingHintValue()) {
+        pme->dumpFrameToFile(stream, frame, QCAMERA_DUMP_FRM_PREVIEW);
+    }
 
     if(pme->m_bPreviewStarted) {
        ALOGI("[KPI Perf] %s : PROFILE_FIRST_PREVIEW_FRAME", __func__);
@@ -1342,22 +1349,16 @@ void QCamera2HardwareInterface::preview_raw_stream_cb_routine(mm_camera_super_bu
         return;
     }
 
-    property_get("persist.camera.preview_raw", value, "0");
-    dump_raw = atoi(value) > 0 ? true : false;
+    mm_camera_buf_def_t *raw_frame = super_frame->bufs[0];
 
-    for (uint32_t i = 0; i < super_frame->num_bufs; i++) {
-        if (super_frame->bufs[i]->stream_type == CAM_STREAM_TYPE_RAW) {
-            mm_camera_buf_def_t * raw_frame = super_frame->bufs[i];
-            if (NULL != stream) {
-                if (dump_raw) {
-                    pme->dumpFrameToFile(stream, raw_frame, QCAMERA_DUMP_FRM_RAW);
-                }
-                stream->bufDone(super_frame->bufs[i]->buf_idx);
-            }
-            break;
+    if (raw_frame != NULL) {
+        property_get("persist.camera.preview_raw", value, "0");
+        dump_raw = atoi(value) > 0 ? true : false;
+        if ( dump_raw && pme->mParameters.getRecordingHintValue() ) {
+            pme->dumpFrameToFile(stream, raw_frame, QCAMERA_DUMP_FRM_RAW);
         }
+        stream->bufDone(raw_frame->buf_idx);
     }
-
     free(super_frame);
 
     CDBG_HIGH("[KPI Perf] %s : END", __func__);
