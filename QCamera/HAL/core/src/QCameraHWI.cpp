@@ -2724,6 +2724,7 @@ void QCameraHardwareInterface::stopPreview()
         default:
             break;
     }
+    setRecordingHintValue(mRecordingHint);
     ALOGI("stopPreview: X, mPreviewState = %d", mPreviewState);
 }
 
