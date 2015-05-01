@@ -615,6 +615,11 @@ static int32_t mm_jpeg_put_mem(void* p_jpeg_session)
   }
   p_params = &p_session->params;
   p_encode_job = &p_session->encode_job;
+
+  if (!p_params->get_memory) {
+    CDBG("%s:%d] get_mem not defined, ignore put mem", __func__, __LINE__);
+    return 0;
+  }
   if (!p_params || !p_encode_job || !p_params->put_memory) {
     CDBG_ERROR("%s:%d] Invalid jpeg encode params", __func__, __LINE__);
     return -1;
@@ -659,7 +664,13 @@ OMX_ERRORTYPE mm_jpeg_mem_ops(
   QOMX_MEM_OPS mem_ops;
   mm_jpeg_encode_params_t *p_params = &p_session->params;
 
-  mem_ops.get_memory = mm_jpeg_get_mem;
+  if (p_params->get_memory) {
+    mem_ops.get_memory = mm_jpeg_get_mem;
+  } else {
+    mem_ops.get_memory = NULL;
+    CDBG_HIGH("%s:%d] HAL get_mem handler undefined", __func__, __LINE__);
+  }
+
   mem_ops.psession = p_session;
   rc = OMX_GetExtensionIndex(p_session->omx_handle,
     QOMX_IMAGE_EXT_MEM_OPS_NAME, &indextype);
@@ -1275,9 +1286,6 @@ OMX_ERRORTYPE mm_jpeg_session_config_common(mm_jpeg_job_session_t *p_session)
   return rc;
 }
 
-
-
-
 /** mm_jpeg_session_abort:
  *
  *  Arguments:
@@ -1345,6 +1353,51 @@ OMX_BOOL mm_jpeg_session_abort(mm_jpeg_job_session_t *p_session)
   return 0;
 }
 
+/** mm_jpeg_config_multi_image_info
+ *
+ *  Arguments:
+ *    @p_session: encode session
+ *
+ *  Return: OMX_ERRORTYPE
+ *
+ *  Description:
+ *       Configure multi image parameters
+ *
+ **/
+static OMX_ERRORTYPE mm_jpeg_config_multi_image_info(
+  mm_jpeg_job_session_t *p_session)
+{
+  OMX_ERRORTYPE ret = OMX_ErrorNone;
+  QOMX_JPEG_MULTI_IMAGE_INFO multi_image_info;
+  OMX_INDEXTYPE multi_image_index;
+  mm_jpeg_encode_job_t *p_jobparams = &p_session->encode_job;
+
+  if (p_jobparams->multi_image_info.type == MM_JPEG_TYPE_MPO) {
+    ret = OMX_GetExtensionIndex(p_session->omx_handle,
+      QOMX_IMAGE_EXT_MULTI_IMAGE_NAME, &multi_image_index);
+    if (ret) {
+      CDBG_ERROR("%s:%d] Error getting multi image info extention index %d",
+        __func__, __LINE__, ret);
+      return ret;
+    }
+    memset(&multi_image_info, 0, sizeof(multi_image_info));
+    if (p_jobparams->multi_image_info.type == MM_JPEG_TYPE_MPO) {
+      multi_image_info.image_type = QOMX_JPEG_IMAGE_TYPE_MPO;
+    } else {
+      multi_image_info.image_type = QOMX_JPEG_IMAGE_TYPE_JPEG;
+    }
+    multi_image_info.is_primary_image = p_jobparams->multi_image_info.is_primary;
+    multi_image_info.num_of_images = p_jobparams->multi_image_info.num_of_images;
+
+    ret = OMX_SetConfig(p_session->omx_handle, multi_image_index,
+      &multi_image_info);
+    if (ret) {
+      CDBG_ERROR("%s:%d] Error setting multi image config", __func__, __LINE__);
+      return ret;
+    }
+  }
+  return ret;
+}
 
 /** mm_jpeg_configure_params
  *
@@ -1373,7 +1426,6 @@ static OMX_ERRORTYPE mm_jpeg_configure_job_params(
   ret = mm_jpeg_session_config_common(p_session);
   if (OMX_ErrorNone != ret) {
     CDBG_ERROR("%s:%d] config common failed", __func__, __LINE__);
-
   }
 
   /* config Main Image crop */
@@ -1442,6 +1494,13 @@ static OMX_ERRORTYPE mm_jpeg_configure_job_params(
         return ret;
       }
     }
+  }
+
+  /* Set multi image data*/
+  ret = mm_jpeg_config_multi_image_info(p_session);
+  if (OMX_ErrorNone != ret) {
+    CDBG_ERROR("%s: config multi image data failed", __func__);
+    return ret;
   }
 
   return ret;
