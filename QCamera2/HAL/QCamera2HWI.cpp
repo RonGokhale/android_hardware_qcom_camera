@@ -1967,6 +1967,15 @@ QCameraHeapMemory *QCamera2HardwareInterface::allocateStreamInfoBuf(
     streamInfo->num_bufs = getBufNumRequired(stream_type);
     streamInfo->streaming_mode = CAM_STREAMING_MODE_CONTINUOUS;
     streamInfo->is_secure = NON_SECURE;
+
+    /* Special mode test */
+    streamInfo->special_shotmode = SHOOTINGMODE_NORMAL;
+    streamInfo->special_mode_A = 0;
+    streamInfo->special_mode_B = 0;
+    CDBG_HIGH("special shotmode = %d, mode_A = %d, mode_B = %d",
+            streamInfo->special_shotmode, streamInfo->special_mode_A, 
+            streamInfo->special_mode_B);
+
     switch (stream_type) {
     case CAM_STREAM_TYPE_SNAPSHOT:
         if ((mParameters.isZSLMode() && mParameters.getRecordingHintValue() != true) ||

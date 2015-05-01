@@ -2262,5 +2262,14 @@ typedef enum {
     CAM_CUSTOM_PARM_MAX,
 } cam_custom_parm_type;
 
+typedef enum {
+    SHOOTINGMODE_NORMAL = 0,
+    SHOOTINGMODE_AUTO,
+    SHOOTINGMODE_1,
+    SHOOTINGMODE_2,
+    SHOOTINGMODE_3,
+    SHOOTINGMODE_MAX
+} cam_shootmode_type_t;
+
 
 #endif /* __QCAMERA_TYPES_H__ */

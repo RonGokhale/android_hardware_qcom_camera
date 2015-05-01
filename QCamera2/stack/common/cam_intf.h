@@ -495,6 +495,11 @@ typedef struct {
 
     /* if frames will not be received */
     uint8_t noFrameExpected;
+
+    /* Special modes */
+    cam_shootmode_type_t special_shotmode;
+    uint32_t special_mode_A;
+    uint32_t special_mode_B;
 } cam_stream_info_t;
 
 /*****************************************************************************
