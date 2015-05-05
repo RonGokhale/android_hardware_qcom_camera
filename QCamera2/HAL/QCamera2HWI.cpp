@@ -1223,6 +1223,7 @@ int QCamera2HardwareInterface::openCamera()
     int32_t l_curr_height = 0;
     m_max_pic_width = 0;
     m_max_pic_height = 0;
+    cam_dimension_t dim;
     size_t i;
 
     if (mCameraHandle) {
@@ -1277,6 +1278,9 @@ int QCamera2HardwareInterface::openCamera()
 
     mParameters.init(gCamCaps[mCameraId], mCameraHandle, this, this);
     mParameters.setMinPpMask(gCamCaps[mCameraId]->min_required_pp_mask);
+    dim.width = m_max_pic_width;
+    dim.height = m_max_pic_height;
+    mParameters.setMaxPicSize(dim);
 
     mCameraOpened = true;
 

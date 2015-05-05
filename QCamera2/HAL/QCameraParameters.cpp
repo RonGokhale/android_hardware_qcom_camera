@@ -8931,7 +8931,9 @@ int32_t QCameraParameters::getStreamDimension(cam_stream_type_t streamType,
         getPreviewSize(&dim.width, &dim.height);
         break;
     case CAM_STREAM_TYPE_SNAPSHOT:
-        if (getRecordingHintValue() == true) {
+        if (isPostProcScaling()) {
+            getMaxPicSize(dim);
+        } else if (getRecordingHintValue() == true) {
             // live snapshot
             getLiveSnapshotSize(dim);
         } else {
@@ -8950,6 +8952,12 @@ int32_t QCameraParameters::getStreamDimension(cam_stream_type_t streamType,
         dim.height = 1;
         break;
     case CAM_STREAM_TYPE_OFFLINE_PROC:
+        if (getRecordingHintValue() == true) {
+            // live snapshot
+            getLiveSnapshotSize(dim);
+        } else {
+            getPictureSize(&dim.width, &dim.height);
+        }
         break;
     case CAM_STREAM_TYPE_ANALYSIS:
         cam_dimension_t prv_dim, max_dim;
@@ -11711,6 +11719,28 @@ void QCameraParameters::setReprocCount()
         mTotalPPCount++;
     }
 }
+
+/*===========================================================================
+ * FUNCTION   : isPostProcScaling
+ *
+ * DESCRIPTION: is scaling will be done by CPP?
+ *
+ * PARAMETERS : none
+ *
+ * RETURN     : TRUE : If CPP scaling enabled
+ *                    FALSE : If VFE scaling enabled
+ *==========================================================================*/
+bool QCameraParameters::isPostProcScaling()
+{
+    char value[PROPERTY_VALUE_MAX];
+    bool cpp_scaling = FALSE;
+
+    property_get("persist.camera.pp_scaling", value, "0");
+    cpp_scaling = atoi(value) > 0 ? TRUE : FALSE;
+
+    return cpp_scaling;
+}
+
 
 /*===========================================================================
  * FUNCTION   : setBufBatchCount
