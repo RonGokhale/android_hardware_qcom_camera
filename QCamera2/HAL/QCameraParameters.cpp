@@ -861,6 +861,7 @@ QCameraParameters::QCameraParameters()
     mParmZoomLevel = 0;
     mCurPPCount = 0;
     mBufBatchCnt = 0;
+    mRotation = 0;
 }
 
 /*===========================================================================
@@ -934,7 +935,8 @@ QCameraParameters::QCameraParameters(const String8 &params)
     mOfflineRAW(false),
     m_bTruePortraitOn(false),
     m_bIsLowMemoryDevice(false),
-    mCds_mode(CAM_CDS_MODE_OFF)
+    mCds_mode(CAM_CDS_MODE_OFF),
+    mParmEffect(CAM_EFFECT_MODE_OFF)
 {
     memset(&m_LiveSnapshotSize, 0, sizeof(m_LiveSnapshotSize));
     memset(&m_default_fps_range, 0, sizeof(m_default_fps_range));
@@ -946,6 +948,7 @@ QCameraParameters::QCameraParameters(const String8 &params)
     mZoomLevel = 0;
     mParmZoomLevel = 0;
     mCurPPCount = 0;
+    mRotation = 0;
 }
 
 /*===========================================================================
@@ -2888,6 +2891,7 @@ int32_t QCameraParameters::setRotation(const QCameraParameters& params)
 
             ADD_SET_PARAM_ENTRY_TO_BATCH(m_pParamBuf, CAM_INTF_META_JPEG_ORIENTATION,
                     rotation);
+            mRotation = rotation;
         } else {
             ALOGE("Invalid rotation value: %d", rotation);
             return BAD_VALUE;
@@ -3845,7 +3849,7 @@ int32_t QCameraParameters::setZslMode(const QCameraParameters& params)
     const char *prev_val  = get(KEY_QC_ZSL);
     int32_t rc = NO_ERROR;
 
-    if(m_bForceZslMode) {
+    if(m_bForceZslMode && !m_bZslMode) {
         // Force ZSL mode to ON
         set(KEY_QC_ZSL, VALUE_ON);
         m_bZslMode_new = true;
@@ -3855,7 +3859,6 @@ int32_t QCameraParameters::setZslMode(const QCameraParameters& params)
         if (ADD_SET_PARAM_ENTRY_TO_BATCH(m_pParamBuf, CAM_INTF_PARM_ZSL_MODE, value)) {
             rc = BAD_VALUE;
         }
-
     } else if (str_val != NULL) {
         if (prev_val == NULL || strcmp(str_val, prev_val) != 0) {
             int32_t value = lookupAttr(ON_OFF_MODES_MAP, PARAM_MAP_SIZE(ON_OFF_MODES_MAP),
@@ -5765,6 +5768,7 @@ int32_t QCameraParameters::setEffect(const char *effect)
             CDBG_HIGH("%s: Setting effect %s", __func__, effect);
             updateParamEntry(KEY_EFFECT, effect);
             uint8_t prmEffect = static_cast<uint8_t>(value);
+            mParmEffect = prmEffect;
             if (ADD_SET_PARAM_ENTRY_TO_BATCH(m_pParamBuf, CAM_INTF_PARM_EFFECT, prmEffect)) {
                 return BAD_VALUE;
             }
@@ -9518,7 +9522,7 @@ uint32_t QCameraParameters::getJpegRotation() {
 
     //If exif rotation is set, do not rotate captured image
     if (!useJpegExifRotation()) {
-        rotation = getInt(KEY_ROTATION);
+        rotation = mRotation;
         if (rotation < 0) {
             rotation = 0;
         }
@@ -9538,7 +9542,7 @@ uint32_t QCameraParameters::getJpegRotation() {
 uint32_t QCameraParameters::getDeviceRotation() {
     int rotation = 0;
 
-    rotation = getInt(KEY_ROTATION);
+    rotation = mRotation;
     if (rotation < 0) {
         rotation = 0;
     }
@@ -9559,7 +9563,7 @@ uint32_t QCameraParameters::getJpegExifRotation() {
     int rotation = 0;
 
     if (useJpegExifRotation()) {
-        rotation = getInt(KEY_ROTATION);
+        rotation = mRotation;
         if (rotation < 0) {
             rotation = 0;
         }
