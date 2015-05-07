@@ -2411,6 +2411,38 @@ int QCamera2HardwareInterface::startRecording()
         rc = startChannel(QCAMERA_CH_TYPE_VIDEO);
     }
 
+    if (mParameters.isTNRSnapshotEnabled()) {
+        QCameraChannel *pChannel = m_channels[QCAMERA_CH_TYPE_SNAPSHOT];
+        if (!mParameters.is4k2kVideoResolution()) {
+            // Find and try to link a metadata stream from preview channel
+            QCameraChannel *pMetaChannel = NULL;
+            QCameraStream *pMetaStream = NULL;
+
+            if (m_channels[QCAMERA_CH_TYPE_PREVIEW] != NULL) {
+                pMetaChannel = m_channels[QCAMERA_CH_TYPE_PREVIEW];
+                uint32_t streamNum = pMetaChannel->getNumOfStreams();
+                QCameraStream *pStream = NULL;
+                for (uint32_t i = 0 ; i < streamNum ; i++ ) {
+                    pStream = pMetaChannel->getStreamByIndex(i);
+                    if ((NULL != pStream) &&
+                            (CAM_STREAM_TYPE_METADATA == pStream->getMyType())) {
+                        pMetaStream = pStream;
+                        break;
+                    }
+                }
+            }
+
+            if ((NULL != pMetaChannel) && (NULL != pMetaStream)) {
+                rc = pChannel->linkStream(pMetaChannel, pMetaStream);
+                if (NO_ERROR != rc) {
+                    ALOGE("%s : Metadata stream link failed %d", __func__, rc);
+                }
+            }
+        }
+        CDBG_HIGH("%s : START snapshot Channel for TNR processing", __func__);
+        rc = pChannel->start();
+    }
+
 #ifdef HAS_MULTIMEDIA_HINTS
     if (rc == NO_ERROR) {
         if (m_pPowerModule) {
@@ -2438,6 +2470,13 @@ int QCamera2HardwareInterface::startRecording()
 int QCamera2HardwareInterface::stopRecording()
 {
     CDBG_HIGH("%s: E", __func__);
+
+    // stop snapshot channel
+    if (mParameters.isTNRSnapshotEnabled()) {
+        CDBG_HIGH("%s : STOP snapshot Channel for TNR processing", __func__);
+        stopChannel(QCAMERA_CH_TYPE_SNAPSHOT);
+    }
+
     int rc = stopChannel(QCAMERA_CH_TYPE_VIDEO);
 
 #ifdef HAS_MULTIMEDIA_HINTS
@@ -3838,6 +3877,21 @@ int QCamera2HardwareInterface::takeLiveSnapshot_internal()
             return rc;
         }
     }
+
+    if ((NULL != pChannel) && (mParameters.isTNRSnapshotEnabled())) {
+        CDBG_HIGH("%s: send REQUEST_FRAMES event for TNR snapshot", __func__);
+        QCameraStream *pStream = pChannel->getStreamByIndex(0);
+        cam_stream_parm_buffer_t param;
+        memset(&param, 0, sizeof(cam_stream_parm_buffer_t));
+        param.type = CAM_STREAM_PARAM_TYPE_REQUEST_FRAMES;
+        param.frameRequest.enableStream = 1;
+        rc = pStream->setParameter(param);
+        if (rc != NO_ERROR) {
+            ALOGE("%s: stream setParameter for set bundle failed", __func__);
+        }
+        goto end;
+    }
+
     // start snapshot channel
     if ((rc == NO_ERROR) && (NULL != pChannel)) {
         // Do not link metadata stream for 4K2k resolution
@@ -3869,7 +3923,6 @@ int QCamera2HardwareInterface::takeLiveSnapshot_internal()
                 }
             }
         }
-
         rc = pChannel->start();
     }
 
@@ -3907,7 +3960,23 @@ int QCamera2HardwareInterface::cancelLiveSnapshot()
     m_postprocessor.stop();
 
     // stop snapshot channel
-    rc = stopChannel(QCAMERA_CH_TYPE_SNAPSHOT);
+    if (!mParameters.isTNRSnapshotEnabled()) {
+        CDBG_HIGH("%s: send Cancel REQUEST_FRAMES event for TNR snapshot", __func__);
+        rc = stopChannel(QCAMERA_CH_TYPE_SNAPSHOT);
+    } else {
+        QCameraChannel *pChannel = m_channels[QCAMERA_CH_TYPE_SNAPSHOT];
+        if (NULL != pChannel) {
+            QCameraStream *pStream = pChannel->getStreamByIndex(0);
+            cam_stream_parm_buffer_t param;
+            memset(&param, 0, sizeof(cam_stream_parm_buffer_t));
+            param.type = CAM_STREAM_PARAM_TYPE_REQUEST_FRAMES;
+            param.frameRequest.enableStream = 0;
+            rc = pStream->setParameter(param);
+            if (rc != NO_ERROR) {
+                ALOGE("%s: stream setParameter for set bundle failed", __func__);
+            }
+        }
+    }
 
     return rc;
 }
