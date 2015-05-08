@@ -52,11 +52,6 @@
 #define CAMERA_MIN_CALLBACK_BUFFERS      5
 #define CAMERA_LONGSHOT_STAGES           4
 #define CAMERA_MIN_VIDEO_BATCH_BUFFERS   6
-
-//This multiplier signifies extra buffers that we need to allocate
-//for the output of pproc
-#define CAMERA_PPROC_OUT_BUFFER_MULTIPLIER 2
-
 #define CAMERA_ISP_PING_PONG_BUFFERS     2
 
 #define HDR_CONFIDENCE_THRESHOLD 0.4
@@ -1481,6 +1476,7 @@ int QCamera2HardwareInterface::prepareTorchCamera()
             !m_stateMachine.isPreviewReady() &&
             ( m_channels[QCAMERA_CH_TYPE_PREVIEW] == NULL ) ) {
         rc = addChannel(QCAMERA_CH_TYPE_PREVIEW);
+        waitDefferedWork(mMetadataJob);
     }
 
     return rc;
@@ -1583,7 +1579,8 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
         break;
     case CAM_STREAM_TYPE_POSTVIEW:
         {
-            bufferCnt = minCaptureBuffers*CAMERA_PPROC_OUT_BUFFER_MULTIPLIER +
+            bufferCnt = minCaptureBuffers +
+                        mParameters.getMaxUnmatchedFramesInQueue() +
                         mParameters.getNumOfExtraHDRInBufsIfNeeded() -
                         mParameters.getNumOfExtraHDROutBufsIfNeeded() +
                         mParameters.getNumOfExtraBuffersForImageProc();
@@ -1613,7 +1610,7 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
                     bufferCnt -= CAMERA_ISP_PING_PONG_BUFFERS;
                 }
             } else {
-                bufferCnt = minCaptureBuffers*CAMERA_PPROC_OUT_BUFFER_MULTIPLIER +
+                bufferCnt = minCaptureBuffers +
                             mParameters.getNumOfExtraHDRInBufsIfNeeded() -
                             mParameters.getNumOfExtraHDROutBufsIfNeeded() +
                             mParameters.getNumOfExtraBuffersForImageProc();
@@ -1640,7 +1637,7 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
             }
 
         } else {
-            bufferCnt = minCaptureBuffers*CAMERA_PPROC_OUT_BUFFER_MULTIPLIER +
+            bufferCnt = minCaptureBuffers +
                         mParameters.getNumOfExtraHDRInBufsIfNeeded() -
                         mParameters.getNumOfExtraHDROutBufsIfNeeded() +
                         mParameters.getNumOfExtraBuffersForImageProc();
