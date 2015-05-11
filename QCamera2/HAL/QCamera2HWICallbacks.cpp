@@ -2141,7 +2141,7 @@ void QCamera2HardwareInterface::dumpFrameToFile(QCameraStream *stream,
                         break;
                     case QCAMERA_DUMP_FRM_SNAPSHOT:
                         {
-                            mParameters.getStreamDimension(CAM_STREAM_TYPE_SNAPSHOT, dim);
+                            stream->getFrameDimension(dim);
                             snprintf(buf, sizeof(buf), "%ds_%dx%d_%d.yuv",
                                     dumpFrmCnt, dim.width, dim.height, frame->frame_idx);
                         }
@@ -2154,14 +2154,14 @@ void QCamera2HardwareInterface::dumpFrameToFile(QCameraStream *stream,
                         break;
                     case QCAMERA_DUMP_FRM_RAW:
                         {
-                            mParameters.getStreamDimension(CAM_STREAM_TYPE_RAW, dim);
+                            stream->getFrameDimension(dim);
                             snprintf(buf, sizeof(buf), "%dr_%dx%d_%d.raw",
                                     dumpFrmCnt, dim.width, dim.height, frame->frame_idx);
                         }
                         break;
                     case QCAMERA_DUMP_FRM_JPEG:
                         {
-                            mParameters.getStreamDimension(CAM_STREAM_TYPE_SNAPSHOT, dim);
+                            stream->getFrameDimension(dim);
                             snprintf(buf, sizeof(buf), "%dj_%dx%d_%d.yuv",
                                     dumpFrmCnt, dim.width, dim.height, frame->frame_idx);
                         }
