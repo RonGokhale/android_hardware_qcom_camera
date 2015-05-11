@@ -55,9 +55,6 @@ using namespace android;
 
 namespace qcamera {
 
-#define MAX(a, b) ((a) > (b) ? (a) : (b))
-#define MIN(a, b) ((a) < (b) ? (a) : (b))
-
 #define DATA_PTR(MEM_OBJ,INDEX) MEM_OBJ->getPtr( INDEX )
 
 #define EMPTY_PIPELINE_DELAY 2
@@ -2300,8 +2297,11 @@ int QCamera3HardwareInterface::processCaptureRequest(
 
         /*set the capture intent, hal version, tintless, stream info,
          *and disenable parameters to the backend*/
-        mCameraHandle->ops->set_parms(mCameraHandle->camera_handle,
+        rc = mCameraHandle->ops->set_parms(mCameraHandle->camera_handle,
                     mParameters);
+        if (rc < 0) {
+            ALOGE("%s: set_parms failed for hal version, stream info", __func__);
+        }
 
         for (size_t i = 0; i < request->num_output_buffers; i++) {
             const camera3_stream_buffer_t& output = request->output_buffers[i];
@@ -2621,7 +2621,10 @@ int QCamera3HardwareInterface::processCaptureRequest(
 
     if(request->input_buffer == NULL) {
         /*set the parameters to backend*/
-        mCameraHandle->ops->set_parms(mCameraHandle->camera_handle, mParameters);
+        rc = mCameraHandle->ops->set_parms(mCameraHandle->camera_handle, mParameters);
+        if (rc < 0) {
+            ALOGE("%s: set_parms failed", __func__);
+        }
     }
 
     mFirstRequest = false;
