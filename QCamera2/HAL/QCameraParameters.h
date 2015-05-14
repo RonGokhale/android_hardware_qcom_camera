@@ -618,6 +618,7 @@ public:
     bool isTNRPreviewEnabled() {return m_bTNRPreviewOn;};
     bool isTNRVideoEnabled() {return m_bTNRVideoOn;};
     bool isTNRSnapshotEnabled() {return m_bTNRSnapshotOn;};
+    bool isCDSEnabled() {return (mCds_mode != CAM_CDS_MODE_OFF);};
     bool isHfrMode() {return m_bHfrMode;};
     void getHfrFps(cam_fps_range_t &pFpsRange) { pFpsRange = m_hfrFpsRange;};
     uint8_t getNumOfSnapshots();

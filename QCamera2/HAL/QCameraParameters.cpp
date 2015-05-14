@@ -11694,6 +11694,11 @@ int32_t QCameraParameters::updatePpFeatureMask(cam_stream_type_t stream_type) {
         feature_mask |= CAM_QCOM_FEATURE_CPP_TNR;
     }
 
+    if (isCDSEnabled() && ((CAM_STREAM_TYPE_PREVIEW == stream_type) ||
+            (CAM_STREAM_TYPE_VIDEO == stream_type))) {
+         feature_mask |= CAM_QCOM_FEATURE_CDS;
+    }
+
     //Rotation could also have an effect on pp feature mask
     cam_pp_feature_config_t config;
     cam_dimension_t dim;
