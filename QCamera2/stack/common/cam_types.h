@@ -151,10 +151,6 @@ typedef enum {
     CAM_FORMAT_YUV_420_NV12_VENUS,
     CAM_FORMAT_YUV_420_NV12_UBWC,
 
-    /* Please note below are the defintions for raw image.
-     * Any format other than raw image format should be declared
-     * before this line!!!!!!!!!!!!! */
-
     /* Note: For all raw formats, each scanline needs to be 16 bytes aligned */
 
     /* Packed YUV/YVU raw format, 16 bpp: 8 bits Y and 8 bits UV.
@@ -295,6 +291,9 @@ typedef enum {
 
     CAM_FORMAT_YUV_444_NV24,
     CAM_FORMAT_YUV_444_NV42,
+
+    /* Y plane only, used for FD */
+    CAM_FORMAT_Y_ONLY,
 
     CAM_FORMAT_MAX
 } cam_format_t;
@@ -1060,6 +1059,8 @@ typedef struct {
     cam_face_detection_info_t faces[MAX_ROI];  /* detailed information of faces detected */
     qcamera_face_detect_type_t fd_type;        /* face detect for preview or snapshot frame*/
     cam_dimension_t fd_frame_dim;              /* frame dims on which fd is applied */
+    uint8_t update_flag;                       /* flag to inform whether HAL needs to send cb
+                                                * to app or not */
 } cam_face_detection_data_t;
 
 #define CAM_HISTOGRAM_STATS_SIZE 256
@@ -1133,8 +1134,23 @@ typedef enum {
     CAM_AF_INACTIVE
 } cam_autofocus_state_t;
 
+typedef enum {
+    /* Inactive state signfies that AF algo is not running */
+    CAM_AF_STATE_INACTIVE,
+
+    /* Passive events received in CAF (continuous picture/video) modes*/
+    CAM_AF_STATE_PASSIVE_SCAN,
+    CAM_AF_STATE_PASSIVE_FOCUSED,
+    CAM_AF_STATE_PASSIVE_UNFOCUSED,
+
+    /* Active events received only when AutoFocus() is called explicitly */
+    CAM_AF_STATE_ACTIVE_SCAN,
+    CAM_AF_STATE_FOCUSED_LOCKED,
+    CAM_AF_STATE_NOT_FOCUSED_LOCKED,
+} cam_af_state_t;
+
 typedef struct {
-    cam_autofocus_state_t focus_state;           /* state of focus */
+    cam_af_state_t focus_state;           /* state of focus */
     cam_focus_distances_info_t focus_dist;       /* focus distance */
     cam_focus_mode_type focus_mode;        /* focus mode from backend */
     uint32_t focused_frame_idx;
@@ -1366,6 +1382,12 @@ typedef struct
   uint32_t focused_x;     /* Focus location X inside ROI with distance estimation */
   uint32_t focused_y;     /* Focus location Y inside ROI with distance estimation */
 } cam_dcrf_result_t;
+
+typedef struct {
+    uint32_t frame_id;
+    uint32_t num_streams;
+    uint32_t stream_id[MAX_NUM_STREAMS];
+} cam_buf_divert_info_t;
 
 typedef  struct {
     uint8_t is_stats_valid;               /* if histgram data is valid */
@@ -1786,9 +1808,11 @@ typedef enum {
     CAM_INTF_PARM_DCRF,
     /* metadata tag for DCRF info */
     CAM_INTF_META_DCRF,
-    /* FLIP mode parameter */
-    CAM_INTF_PARM_FLIP, /* 190 */
-    CAM_INTF_PARM_MAX
+    /* FLIP mode parameter*/
+    CAM_INTF_PARM_FLIP,
+    /*Frame divert info from ISP*/
+    CAM_INTF_BUF_DIVERT_INFO, /* 190 */
+    CAM_INTF_PARM_MAX /* 191 */
 } cam_intf_parm_type_t;
 
 typedef struct {
@@ -2009,7 +2033,6 @@ typedef struct {
 #define CAM_QCOM_FEATURE_PP_PASS_1      CAM_QCOM_FEATURE_PP_SUPERSET
 #define CAM_QCOM_FEATURE_PP_PASS_2      CAM_QCOM_FEATURE_SCALE | CAM_QCOM_FEATURE_CROP;
 
-
 // Counter clock wise
 typedef enum {
     ROTATE_0 = 1<<0,
@@ -2216,16 +2239,6 @@ typedef enum {
     CAM_FILTER_ARRANGEMENT_UYVY,
     CAM_FILTER_ARRANGEMENT_YUYV,
 } cam_color_filter_arrangement_t;
-
-typedef enum {
-    CAM_AF_STATE_INACTIVE,
-    CAM_AF_STATE_PASSIVE_SCAN,
-    CAM_AF_STATE_PASSIVE_FOCUSED,
-    CAM_AF_STATE_ACTIVE_SCAN,
-    CAM_AF_STATE_FOCUSED_LOCKED,
-    CAM_AF_STATE_NOT_FOCUSED_LOCKED,
-    CAM_AF_STATE_PASSIVE_UNFOCUSED
-} cam_af_state_t;
 
 typedef enum {
   CAM_AF_LENS_STATE_STATIONARY,

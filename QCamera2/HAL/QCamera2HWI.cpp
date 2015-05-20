@@ -1058,12 +1058,12 @@ QCamera2HardwareInterface::QCamera2HardwareInterface(uint32_t cameraId)
       m_cbNotifier(this),
       m_bPreviewStarted(false),
       m_bRecordStarted(false),
-      m_currentFocusState(CAM_AF_SCANNING),
+      m_currentFocusState(CAM_AF_STATE_INACTIVE),
       m_pPowerModule(NULL),
       mDumpFrmCnt(0U),
       mDumpSkipCnt(0U),
       mThermalLevel(QCAMERA_THERMAL_NO_ADJUSTMENT),
-      mCancelAutoFocus(false),
+      mActiveAF(false),
       m_HDRSceneEnabled(false),
       mLongshotEnabled(false),
       m_max_pic_width(0),
@@ -1303,10 +1303,8 @@ int QCamera2HardwareInterface::openCamera()
         gCamCaps[mCameraId]->padding_info.plane_padding = padding_info.plane_padding;
     }
 
-    mParameters.setMinPpMask(gCamCaps[mCameraId]->min_required_pp_mask);
-
+    mParameters.setMinPpMask(gCamCaps[mCameraId]->qcom_supported_feature_mask);
     mCameraOpened = true;
-
     return NO_ERROR;
 }
 
@@ -2209,9 +2207,9 @@ QCameraHeapMemory *QCamera2HardwareInterface::allocateStreamInfoBuf(
 
     if (!((needReprocess()) && (CAM_STREAM_TYPE_SNAPSHOT == stream_type ||
             CAM_STREAM_TYPE_RAW == stream_type))) {
-        if (gCamCaps[mCameraId]->min_required_pp_mask & CAM_QCOM_FEATURE_CROP)
+        if (gCamCaps[mCameraId]->qcom_supported_feature_mask & CAM_QCOM_FEATURE_CROP)
             streamInfo->pp_config.feature_mask |= CAM_QCOM_FEATURE_CROP;
-        if (gCamCaps[mCameraId]->min_required_pp_mask & CAM_QCOM_FEATURE_SCALE)
+        if (gCamCaps[mCameraId]->qcom_supported_feature_mask & CAM_QCOM_FEATURE_SCALE)
             streamInfo->pp_config.feature_mask |= CAM_QCOM_FEATURE_SCALE;
     }
 
@@ -2510,6 +2508,7 @@ int QCamera2HardwareInterface::stopPreview()
     ATRACE_CALL();
     CDBG_HIGH("%s: E", __func__);
     mNumPreviewFaces = -1;
+    mActiveAF = false;
     // stop preview stream
     stopChannel(QCAMERA_CH_TYPE_CALLBACK);
     stopChannel(QCAMERA_CH_TYPE_ZSL);
@@ -2649,16 +2648,16 @@ int QCamera2HardwareInterface::releaseRecordingFrame(const void * opaque)
 int QCamera2HardwareInterface::autoFocus()
 {
     int rc = NO_ERROR;
-    setCancelAutoFocus(false);
     cam_focus_mode_type focusMode = mParameters.getFocusMode();
-    CDBG_HIGH("[AF_DBG] %s: focusMode=%d, m_currentFocusState=%d, m_bAFRunning=%d",
-          __func__, focusMode, m_currentFocusState, isAFRunning());
+    CDBG_HIGH("[AF_DBG] %s: focusMode=%d, m_currentFocusState=%d",
+            __func__, focusMode, m_currentFocusState);
 
     switch (focusMode) {
     case CAM_FOCUS_MODE_AUTO:
     case CAM_FOCUS_MODE_MACRO:
     case CAM_FOCUS_MODE_CONTINOUS_VIDEO:
     case CAM_FOCUS_MODE_CONTINOUS_PICTURE:
+        mActiveAF = true;
         rc = mCameraHandle->ops->do_auto_focus(mCameraHandle->camera_handle);
         break;
     case CAM_FOCUS_MODE_INFINITY:
@@ -2668,6 +2667,10 @@ int QCamera2HardwareInterface::autoFocus()
         ALOGE("%s: No ops in focusMode (%d)", __func__, focusMode);
         rc = sendEvtNotify(CAMERA_MSG_FOCUS, true, 0);
         break;
+    }
+
+    if (NO_ERROR != rc) {
+        mActiveAF = false;
     }
     return rc;
 }
@@ -2686,7 +2689,6 @@ int QCamera2HardwareInterface::autoFocus()
 int QCamera2HardwareInterface::cancelAutoFocus()
 {
     int rc = NO_ERROR;
-    setCancelAutoFocus(true);
     cam_focus_mode_type focusMode = mParameters.getFocusMode();
 
     switch (focusMode) {
@@ -2694,6 +2696,7 @@ int QCamera2HardwareInterface::cancelAutoFocus()
     case CAM_FOCUS_MODE_MACRO:
     case CAM_FOCUS_MODE_CONTINOUS_VIDEO:
     case CAM_FOCUS_MODE_CONTINOUS_PICTURE:
+        mActiveAF = false;
         rc = mCameraHandle->ops->cancel_auto_focus(mCameraHandle->camera_handle);
         break;
     case CAM_FOCUS_MODE_INFINITY:
@@ -4676,35 +4679,44 @@ int32_t QCamera2HardwareInterface::processAutoFocusEvent(cam_auto_focus_data_t &
     int32_t ret = NO_ERROR;
     CDBG_HIGH("%s: E",__func__);
 
-    m_currentFocusState = focus_data.focus_state;
-
     cam_focus_mode_type focusMode = mParameters.getFocusMode();
-    CDBG_HIGH("[AF_DBG] %s: focusMode=%d, m_currentFocusState=%d, m_bAFRunning=%d",
-         __func__, focusMode, m_currentFocusState, isAFRunning());
+    CDBG_HIGH("[AF_DBG] %s: focusMode=%d, focusState=%d",
+            __func__, focusMode, focus_data.focus_state);
 
     switch (focusMode) {
     case CAM_FOCUS_MODE_AUTO:
     case CAM_FOCUS_MODE_MACRO:
-        if (getCancelAutoFocus()) {
-            // auto focus has canceled, just ignore it
+        // ignore AF event if AF was already cancelled meanwhile
+        if (!mActiveAF) {
             break;
         }
         // If the HAL focus mode is AUTO and AF focus mode is INFINITY, send event to app
         if ((focusMode == CAM_FOCUS_MODE_AUTO) &&
                 (focus_data.focus_mode == CAM_FOCUS_MODE_INFINITY) &&
-                (focus_data.focus_state == CAM_AF_INACTIVE)) {
+                (focus_data.focus_state == CAM_AF_STATE_INACTIVE)) {
             ret = sendEvtNotify(CAMERA_MSG_FOCUS, true, 0);
             break;
         }
-        if (focus_data.focus_state == CAM_AF_SCANNING ||
-            focus_data.focus_state == CAM_AF_INACTIVE) {
-            // in the middle of focusing, just ignore it
+
+        //while transitioning from CAF->Auto/Macro, we might receive CAF related
+        //events (PASSIVE_*) due to timing. Ignore such events if any.
+        if ((focus_data.focus_state == CAM_AF_STATE_PASSIVE_SCAN) ||
+                (focus_data.focus_state == CAM_AF_STATE_PASSIVE_FOCUSED) ||
+                (focus_data.focus_state == CAM_AF_STATE_PASSIVE_UNFOCUSED)) {
+            break;
+        }
+
+        //This is just an intermediate update to HAL indicating focus is in progress. No need
+        //to send this event to app. Same applies to INACTIVE state as well.
+        if ((focus_data.focus_state == CAM_AF_STATE_ACTIVE_SCAN) ||
+                (focus_data.focus_state == CAM_AF_STATE_INACTIVE)) {
             break;
         }
         // update focus distance
         mParameters.updateFocusDistances(&focus_data.focus_dist);
 
-        if ((CAM_AF_FOCUSED == focus_data.focus_state) &&
+        //flush any old snapshot frames in ZSL Q which are not focused.
+        if ((CAM_AF_STATE_FOCUSED_LOCKED == focus_data.focus_state) &&
                 mParameters.isZSLMode()) {
             QCameraPicChannel *pZSLChannel =
                     (QCameraPicChannel *)m_channels[QCAMERA_CH_TYPE_ZSL];
@@ -4716,9 +4728,9 @@ int32_t QCamera2HardwareInterface::processAutoFocusEvent(cam_auto_focus_data_t &
             }
         }
 
+        //send event to app finally
         ret = sendEvtNotify(CAMERA_MSG_FOCUS,
-                            (focus_data.focus_state == CAM_AF_FOCUSED)? true : false,
-                            0);
+                            (focus_data.focus_state == CAM_AF_STATE_FOCUSED_LOCKED), 0);
         break;
     case CAM_FOCUS_MODE_CONTINOUS_VIDEO:
     case CAM_FOCUS_MODE_CONTINOUS_PICTURE:
@@ -4726,18 +4738,32 @@ int32_t QCamera2HardwareInterface::processAutoFocusEvent(cam_auto_focus_data_t &
         // If the HAL focus mode is AUTO and AF focus mode is INFINITY, send event to app
         if ((focusMode == CAM_FOCUS_MODE_CONTINOUS_PICTURE) &&
                 (focus_data.focus_mode == CAM_FOCUS_MODE_INFINITY) &&
-                (focus_data.focus_state == CAM_AF_INACTIVE)) {
+                (focus_data.focus_state == CAM_AF_STATE_INACTIVE)) {
             ret = sendEvtNotify(CAMERA_MSG_FOCUS, false, 0);
             break;
         }
 
-        if (focus_data.focus_state == CAM_AF_FOCUSED ||
-            focus_data.focus_state == CAM_AF_NOT_FOCUSED) {
+        //If AutoFocus() is triggered while in CAF mode, ignore all CAF events (PASSIVE_*) and
+        //process/wait for only ACTIVE_* events.
+        if (((focus_data.focus_state == CAM_AF_STATE_PASSIVE_FOCUSED) ||
+                (focus_data.focus_state == CAM_AF_STATE_PASSIVE_UNFOCUSED) ||
+                (focus_data.focus_state == CAM_AF_STATE_PASSIVE_SCAN)) && mActiveAF) {
+            break;
+        }
+
+        //These are the AF states for which we need to send notification to app in CAF mode.
+        //This includes both regular CAF (PASSIVE) events as well as ACTIVE events ( in case
+        //AF is triggered while in CAF mode)
+        if ((focus_data.focus_state == CAM_AF_STATE_PASSIVE_FOCUSED) ||
+                (focus_data.focus_state == CAM_AF_STATE_PASSIVE_UNFOCUSED) ||
+                (focus_data.focus_state == CAM_AF_STATE_FOCUSED_LOCKED) ||
+                (focus_data.focus_state == CAM_AF_STATE_NOT_FOCUSED_LOCKED)) {
+
             // update focus distance
             mParameters.updateFocusDistances(&focus_data.focus_dist);
 
             if ((focusMode == CAM_FOCUS_MODE_CONTINOUS_PICTURE) &&
-                    (CAM_AF_FOCUSED == focus_data.focus_state) &&
+                    (CAM_AF_STATE_FOCUSED_LOCKED == focus_data.focus_state) &&
                     mParameters.isZSLMode()) {
                 QCameraPicChannel *pZSLChannel =
                         (QCameraPicChannel *)m_channels[QCAMERA_CH_TYPE_ZSL];
@@ -4750,12 +4776,11 @@ int32_t QCamera2HardwareInterface::processAutoFocusEvent(cam_auto_focus_data_t &
             }
 
             ret = sendEvtNotify(CAMERA_MSG_FOCUS,
-                  (focus_data.focus_state == CAM_AF_FOCUSED)? true : false,
-                  0);
+                    ((focus_data.focus_state == CAM_AF_STATE_PASSIVE_FOCUSED) ||
+                    (focus_data.focus_state == CAM_AF_STATE_FOCUSED_LOCKED)), 0);
         }
         ret = sendEvtNotify(CAMERA_MSG_FOCUS_MOVE,
-                (focus_data.focus_state == CAM_AF_SCANNING)? true : false,
-                0);
+                (focus_data.focus_state == CAM_AF_STATE_PASSIVE_SCAN), 0);
         break;
     case CAM_FOCUS_MODE_INFINITY:
     case CAM_FOCUS_MODE_FIXED:
@@ -4763,6 +4788,12 @@ int32_t QCamera2HardwareInterface::processAutoFocusEvent(cam_auto_focus_data_t &
     default:
         CDBG_HIGH("%s: no ops for autofocus event in focusmode %d", __func__, focusMode);
         break;
+    }
+
+    //Reset mActiveAF once we receive focus done event
+    if ((focus_data.focus_state == CAM_AF_STATE_FOCUSED_LOCKED) ||
+            (focus_data.focus_state == CAM_AF_STATE_NOT_FOCUSED_LOCKED)) {
+        mActiveAF = false;
     }
 
     CDBG_HIGH("%s: X",__func__);
@@ -5982,50 +6013,51 @@ int32_t QCamera2HardwareInterface::getPPConfig(cam_pp_feature_config_t &pp_confi
                 mParameters.getReprocCount(), curCount);
     }
 
-    CDBG_HIGH("%s: Minimum pproc feature mask required = %x", __func__,
-            gCamCaps[mCameraId]->min_required_pp_mask);
-    uint32_t required_mask = gCamCaps[mCameraId]->min_required_pp_mask;
-    int32_t zoomLevel = 0;
+    CDBG_HIGH("%s: Supported pproc feature mask = %x", __func__,
+            gCamCaps[mCameraId]->qcom_supported_feature_mask);
+    uint32_t feature_mask = gCamCaps[mCameraId]->qcom_supported_feature_mask;
+    int32_t zoomLevel = mParameters.getParmZoomLevel();
+    uint32_t rotation = mParameters.getJpegRotation();
+    int32_t effect = mParameters.getEffectValue();
 
     switch(curCount) {
         case 1:
             //Configure feature mask for first pass of reprocessing
-            if (mParameters.isZSLMode() || required_mask & CAM_QCOM_FEATURE_PP_SUPERSET) {
-                if (gCamCaps[mCameraId]->min_required_pp_mask & CAM_QCOM_FEATURE_EFFECT) {
-                    pp_config.feature_mask |= CAM_QCOM_FEATURE_EFFECT;
-                    pp_config.effect = mParameters.getEffectValue();
-                }
-                if ((gCamCaps[mCameraId]->min_required_pp_mask & CAM_QCOM_FEATURE_SHARPNESS) &&
-                        !mParameters.isOptiZoomEnabled()) {
-                    pp_config.feature_mask |= CAM_QCOM_FEATURE_SHARPNESS;
-                    pp_config.sharpness = mParameters.getInt(QCameraParameters::KEY_QC_SHARPNESS);
-                }
+            //check if any effects are enabled
+            if ((CAM_EFFECT_MODE_OFF != effect) &&
+                (feature_mask & CAM_QCOM_FEATURE_EFFECT)) {
+                pp_config.feature_mask |= CAM_QCOM_FEATURE_EFFECT;
+                pp_config.effect = effect;
+            }
 
-                if (gCamCaps[mCameraId]->min_required_pp_mask & CAM_QCOM_FEATURE_CROP) {
-                    pp_config.feature_mask |= CAM_QCOM_FEATURE_CROP;
-                }
+            //check for features that need to be enabled by default like sharpness
+            //(if supported by hw).
+            if ((feature_mask & CAM_QCOM_FEATURE_SHARPNESS) &&
+                !mParameters.isOptiZoomEnabled()) {
+                pp_config.feature_mask |= CAM_QCOM_FEATURE_SHARPNESS;
+                pp_config.sharpness = mParameters.getInt(QCameraParameters::KEY_QC_SHARPNESS);
+            }
 
-                if (mParameters.isWNREnabled()) {
-                    pp_config.feature_mask |= CAM_QCOM_FEATURE_DENOISE2D;
-                    pp_config.denoise2d.denoise_enable = 1;
-                    pp_config.denoise2d.process_plates =
-                            mParameters.getDenoiseProcessPlate(CAM_INTF_PARM_WAVELET_DENOISE);
-                }
-                if (required_mask & CAM_QCOM_FEATURE_ROTATION) {
-                    pp_config.feature_mask |= CAM_QCOM_FEATURE_ROTATION;
-                }
-                if (gCamCaps[mCameraId]->min_required_pp_mask & CAM_QCOM_FEATURE_SCALE) {
-                    pp_config.feature_mask |= CAM_QCOM_FEATURE_SCALE;
-                }
+            //check if zoom is enabled
+            if ((zoomLevel > 0) && (feature_mask & CAM_QCOM_FEATURE_CROP)) {
+                pp_config.feature_mask |= CAM_QCOM_FEATURE_CROP;
+            }
+
+            if (mParameters.isWNREnabled() &&
+                (feature_mask & CAM_QCOM_FEATURE_DENOISE2D)) {
+                pp_config.feature_mask |= CAM_QCOM_FEATURE_DENOISE2D;
+                pp_config.denoise2d.denoise_enable = 1;
+                pp_config.denoise2d.process_plates =
+                        mParameters.getDenoiseProcessPlate(CAM_INTF_PARM_WAVELET_DENOISE);
             }
 
             if (isCACEnabled()) {
                 pp_config.feature_mask |= CAM_QCOM_FEATURE_CAC;
             }
 
-            if (needRotationReprocess()) {
+            //check if rotation is required
+            if ((feature_mask & CAM_QCOM_FEATURE_ROTATION) && (rotation > 0)) {
                 pp_config.feature_mask |= CAM_QCOM_FEATURE_ROTATION;
-                uint32_t rotation = mParameters.getJpegRotation();
                 if (rotation == 0) {
                     pp_config.rotation = ROTATE_0;
                 } else if (rotation == 90) {
@@ -6047,7 +6079,10 @@ int32_t QCamera2HardwareInterface::getPPConfig(cam_pp_feature_config_t &pp_confi
                 pp_config.hdr_param.hdr_enable = 0;
             }
 
-            if(needScaleReprocess()){
+            //check if scaling is enabled
+            if ((feature_mask & CAM_QCOM_FEATURE_SCALE) &&
+                mParameters.m_reprocScaleParam.isScaleEnabled() &&
+                mParameters.m_reprocScaleParam.isUnderScaling()){
                 pp_config.feature_mask |= CAM_QCOM_FEATURE_SCALE;
                 mParameters.m_reprocScaleParam.getPicSizeFromAPK(
                         pp_config.scale_param.output_width,
@@ -6074,7 +6109,6 @@ int32_t QCamera2HardwareInterface::getPPConfig(cam_pp_feature_config_t &pp_confi
                 pp_config.feature_mask &= ~CAM_QCOM_FEATURE_CHROMA_FLASH;
             }
 
-            zoomLevel = mParameters.getParmZoomLevel();
             if(mParameters.isOptiZoomEnabled() && (0 <= zoomLevel)) {
                 pp_config.feature_mask |= CAM_QCOM_FEATURE_OPTIZOOM;
                 pp_config.zoom_level = (uint8_t) zoomLevel;
@@ -6103,7 +6137,6 @@ int32_t QCamera2HardwareInterface::getPPConfig(cam_pp_feature_config_t &pp_confi
             if (curCount != mParameters.getReprocCount()) {
                 pp_config.feature_mask &= ~CAM_QCOM_FEATURE_PP_PASS_2;
                 pp_config.feature_mask &= ~CAM_QCOM_FEATURE_ROTATION;
-                pp_config.rotation = ROTATE_0;
                 pp_config.feature_mask |= CAM_QCOM_FEATURE_CROP;
             } else {
                 pp_config.feature_mask |= CAM_QCOM_FEATURE_SCALE;
@@ -6125,9 +6158,8 @@ int32_t QCamera2HardwareInterface::getPPConfig(cam_pp_feature_config_t &pp_confi
         case 2:
             //Configure feature mask for second pass of reprocessing
             pp_config.feature_mask |= CAM_QCOM_FEATURE_PP_PASS_2;
-            if (needRotationReprocess()) {
+            if ((feature_mask & CAM_QCOM_FEATURE_ROTATION) && (rotation > 0)) {
                 pp_config.feature_mask |= CAM_QCOM_FEATURE_ROTATION;
-                uint32_t rotation = mParameters.getJpegRotation();
                 if (rotation == 0) {
                     pp_config.rotation = ROTATE_0;
                 } else if (rotation == 90) {
@@ -6678,6 +6710,11 @@ int32_t QCamera2HardwareInterface::processFaceDetectionResult(cam_face_detection
 #endif
         ) {
         CDBG_HIGH("%s: metadata msgtype not enabled, no ops here", __func__);
+        return NO_ERROR;
+    }
+
+    if ((fd_type == QCAMERA_FD_PREVIEW) && (fd_data->update_flag == FALSE)) {
+        // Don't send callback to app if this is skipped by fd at backend
         return NO_ERROR;
     }
 
@@ -7288,26 +7325,6 @@ bool QCamera2HardwareInterface::is4k2kResolution(cam_dimension_t* resolution)
    return enabled;
 }
 
-
-/*===========================================================================
- * FUNCTION   : isAFRunning
- *
- * DESCRIPTION: if AF is in progress while in Auto/Macro focus modes
- *
- * PARAMETERS : none
- *
- * RETURN     : true: AF in progress
- *              false: AF not in progress
- *==========================================================================*/
-bool QCamera2HardwareInterface::isAFRunning()
-{
-    bool isAFInProgress = (m_currentFocusState == CAM_AF_SCANNING &&
-            (mParameters.getFocusMode() == CAM_FOCUS_MODE_AUTO ||
-            mParameters.getFocusMode() == CAM_FOCUS_MODE_MACRO));
-
-    return isAFInProgress;
-}
-
 /*===========================================================================
  * FUNCTION   : isPreviewRestartEnabled
  *
@@ -7340,12 +7357,9 @@ bool QCamera2HardwareInterface::isPreviewRestartEnabled()
  *==========================================================================*/
 bool QCamera2HardwareInterface::needReprocess()
 {
+    bool needReprocess = false;
     pthread_mutex_lock(&m_parm_lock);
 
-    if (mParameters.getofflineRAW()) {
-        pthread_mutex_unlock(&m_parm_lock);
-        return true;
-    }
     if (!mParameters.isJpegPictureFormat() &&
         !mParameters.isNV21PictureFormat()) {
         // RAW image, no need to reprocess
@@ -7353,78 +7367,30 @@ bool QCamera2HardwareInterface::needReprocess()
         return false;
     }
 
-    if (mParameters.isHDREnabled()) {
-        CDBG_HIGH("%s: need do reprocess for HDR", __func__);
-        pthread_mutex_unlock(&m_parm_lock);
-        return true;
-    }
     //Disable reprocess for 4K liveshot case
     if (mParameters.is4k2kVideoResolution()&& mParameters.getRecordingHintValue()) {
         //Disable reprocess for 4K liveshot case
         pthread_mutex_unlock(&m_parm_lock);
         return false;
     }
-    if ((gCamCaps[mCameraId]->qcom_supported_feature_mask & CAM_QCOM_FEATURE_ROTATION) > 0 &&
-            (mParameters.getJpegRotation() > 0)) {
-            // current rotation is not zero, and pp has the capability to process rotation
-            CDBG_HIGH("%s: need to do reprocess for rotation=%d",
-                    __func__, mParameters.getJpegRotation());
-            pthread_mutex_unlock(&m_parm_lock);
-            return true;
+
+    // pp feature config
+    cam_pp_feature_config_t pp_config;
+    memset(&pp_config, 0, sizeof(cam_pp_feature_config_t));
+
+    //Decide whether to do reprocess or not based on
+    //ppconfig obtained in the first pass.
+    getPPConfig(pp_config, 1);
+
+    if (pp_config.feature_mask > 0) {
+        needReprocess = true;
     }
 
-    if (isZSLMode()) {
-        if (((gCamCaps[mCameraId]->min_required_pp_mask > 0) ||
-             mParameters.isWNREnabled() || isCACEnabled())) {
-            // TODO: add for ZSL HDR later
-            CDBG_HIGH("%s: need do reprocess for ZSL WNR or min PP reprocess", __func__);
-            pthread_mutex_unlock(&m_parm_lock);
-            return true;
-        }
-
-        int snapshot_flipMode =
-            mParameters.getFlipMode(CAM_STREAM_TYPE_SNAPSHOT);
-        if (snapshot_flipMode > 0) {
-            CDBG_HIGH("%s: Need do flip for snapshot in ZSL mode", __func__);
-            pthread_mutex_unlock(&m_parm_lock);
-            return true;
-        }
-    } else {
-        if (gCamCaps[mCameraId]->min_required_pp_mask & CAM_QCOM_FEATURE_PP_SUPERSET) {
-            CDBG_HIGH("%s: Need CPP in non-ZSL mode", __func__);
-            pthread_mutex_unlock(&m_parm_lock);
-            return true;
-        }
-    }
-
-    if ((gCamCaps[mCameraId]->qcom_supported_feature_mask & CAM_QCOM_FEATURE_SCALE) > 0 &&
-        mParameters.m_reprocScaleParam.isScaleEnabled() &&
-        mParameters.m_reprocScaleParam.isUnderScaling()) {
-        // Reproc Scale is enaled and also need Scaling to current Snapshot
-        CDBG_HIGH("%s: need do reprocess for scale", __func__);
-        pthread_mutex_unlock(&m_parm_lock);
-        return true;
-    }
-
-    if (mParameters.isUbiFocusEnabled() |
-            mParameters.isUbiRefocus() |
-            mParameters.isChromaFlashEnabled() |
-            mParameters.isHDREnabled() |
-            mParameters.isOptiZoomEnabled() |
-            mParameters.isStillMoreEnabled()) {
-        CDBG_HIGH("%s: need reprocess for |UbiFocus=%d|ChramaFlash=%d|OptiZoom=%d|StillMore=%d|",
-                 __func__,
-                mParameters.isUbiFocusEnabled(),
-                mParameters.isChromaFlashEnabled(),
-                mParameters.isOptiZoomEnabled(),
-                mParameters.isStillMoreEnabled());
-        pthread_mutex_unlock(&m_parm_lock);
-        return true;
-    }
-
+    CDBG_HIGH("%s: needReprocess %s", __func__, needReprocess ? "true" : "false");
     pthread_mutex_unlock(&m_parm_lock);
-    return false;
+    return needReprocess;
 }
+
 
 /*===========================================================================
  * FUNCTION   : needRotationReprocess
@@ -7457,39 +7423,6 @@ bool QCamera2HardwareInterface::needRotationReprocess()
         // current rotation is not zero, and pp has the capability to process rotation
         CDBG_HIGH("%s: need to do reprocess for rotation=%d",
                 __func__, mParameters.getJpegRotation());
-        pthread_mutex_unlock(&m_parm_lock);
-        return true;
-    }
-
-    pthread_mutex_unlock(&m_parm_lock);
-    return false;
-}
-
-/*===========================================================================
- * FUNCTION   : needScaleReprocess
- *
- * DESCRIPTION: if scale needs to be done by reprocess in pp
- *
- * PARAMETERS : none
- *
- * RETURN     : true: needed
- *              false: no need
- *==========================================================================*/
-bool QCamera2HardwareInterface::needScaleReprocess()
-{
-    pthread_mutex_lock(&m_parm_lock);
-    if (!mParameters.isJpegPictureFormat() &&
-        !mParameters.isNV21PictureFormat()) {
-        // RAW image, no need to reprocess
-        pthread_mutex_unlock(&m_parm_lock);
-        return false;
-    }
-
-    if ((gCamCaps[mCameraId]->qcom_supported_feature_mask & CAM_QCOM_FEATURE_SCALE) > 0 &&
-        mParameters.m_reprocScaleParam.isScaleEnabled() &&
-        mParameters.m_reprocScaleParam.isUnderScaling()) {
-        // Reproc Scale is enaled and also need Scaling to current Snapshot
-        CDBG_HIGH("%s: need do reprocess for scale", __func__);
         pthread_mutex_unlock(&m_parm_lock);
         return true;
     }

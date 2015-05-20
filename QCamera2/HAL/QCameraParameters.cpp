@@ -786,6 +786,7 @@ QCameraParameters::QCameraParameters()
       m_bDebugFps(false),
       mFocusMode(CAM_FOCUS_MODE_MAX),
       mPreviewFormat(CAM_FORMAT_YUV_420_NV21),
+      mAppPreviewFormat(CAM_FORMAT_YUV_420_NV21),
       mPictureFormat(CAM_FORMAT_JPEG),
       m_bNeedRestart(false),
       m_bNoDisplayMode(false),
@@ -897,6 +898,7 @@ QCameraParameters::QCameraParameters(const String8 &params)
     m_bDebugFps(false),
     mFocusMode(CAM_FOCUS_MODE_MAX),
     mPreviewFormat(CAM_FORMAT_YUV_420_NV21),
+    mAppPreviewFormat(CAM_FORMAT_YUV_420_NV21),
     mPictureFormat(CAM_FORMAT_JPEG),
     m_bNeedRestart(false),
     m_bNoDisplayMode(false),
@@ -8956,10 +8958,19 @@ int32_t QCameraParameters::getStreamFormat(cam_stream_type_t streamType,
         format = mPreviewFormat;
         break;
     case CAM_STREAM_TYPE_POSTVIEW:
-    case CAM_STREAM_TYPE_ANALYSIS:
     case CAM_STREAM_TYPE_CALLBACK:
         format = mAppPreviewFormat;
         break;
+    case CAM_STREAM_TYPE_ANALYSIS:
+        if (m_pCapability->analysis_recommended_format ==
+                CAM_FORMAT_Y_ONLY) {
+            format = m_pCapability->analysis_recommended_format;
+        } else {
+            ALOGE("%s:%d invalid analysis_recommended_format %d\n",
+                    m_pCapability->analysis_recommended_format);
+            format = mAppPreviewFormat;
+        }
+      break;
     case CAM_STREAM_TYPE_SNAPSHOT:
         if ( mPictureFormat == CAM_FORMAT_YUV_422_NV16 ) {
             format = CAM_FORMAT_YUV_422_NV16;

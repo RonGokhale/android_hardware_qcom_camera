@@ -1131,7 +1131,7 @@ void QCamera3RawChannel::convertLegacyToRaw16(mm_camera_buf_def_t *frame)
       memset(&offset, 0, sizeof(cam_frame_len_offset_t));
       stream->getFrameOffset(offset);
 
-      uint32_t raw16_stride = (uint32_t)PAD_TO_SIZE(dim.width, 32);
+      uint32_t raw16_stride = ((uint32_t)dim.width + 15U) & ~15U;
       uint16_t* raw16_buffer = (uint16_t *)frame->buffer;
 
       // In-place format conversion.
@@ -1174,7 +1174,7 @@ void QCamera3RawChannel::convertMipiToRaw16(mm_camera_buf_def_t *frame)
         memset(&offset, 0, sizeof(cam_frame_len_offset_t));
         stream->getFrameOffset(offset);
 
-        uint32_t raw16_stride = (uint32_t)PAD_TO_SIZE(dim.width, 32);
+        uint32_t raw16_stride = ((uint32_t)dim.width + 15U) & ~15U;
         uint16_t* raw16_buffer = (uint16_t *)frame->buffer;
 
         // In-place format conversion.
@@ -1493,36 +1493,37 @@ void QCamera3PicChannel::jpegEvtHandle(jpeg_job_status_t status,
             //Append at the end of jpeg image of buf_filled_len size
 
             jpegHeader.jpeg_blob_id = CAMERA3_JPEG_BLOB_ID;
-            jpegHeader.jpeg_size = (uint32_t)p_output->buf_filled_len;
+            if (JPEG_JOB_STATUS_DONE == status) {
+                jpegHeader.jpeg_size = (uint32_t)p_output->buf_filled_len;
+                char* jpeg_buf = (char *)p_output->buf_vaddr;
 
+                ssize_t maxJpegSize = -1;
 
-            char* jpeg_buf = (char *)p_output->buf_vaddr;
-            ssize_t maxJpegSize = -1;
+                // Gralloc buffer may have additional padding for 4K page size
+                // Follow size guidelines based on spec since framework relies
+                // on that to reach end of buffer and with it the header
 
-            // Gralloc buffer may have additional padding for 4K page size
-            // Follow size guidelines based on spec since framework relies
-            // on that to reach end of buffer and with it the header
+                //Handle same as resultBuffer, but for readablity
+                jpegBufferHandle =
+                        (buffer_handle_t *)obj->mMemory.getBufferHandle(bufIdx);
 
-            //Handle same as resultBuffer, but for readablity
-            jpegBufferHandle =
-                    (buffer_handle_t *)obj->mMemory.getBufferHandle(bufIdx);
+                if (NULL != jpegBufferHandle) {
+                    maxJpegSize = ((private_handle_t*)(*jpegBufferHandle))->width;
+                    if (maxJpegSize > obj->mMemory.getSize(bufIdx)) {
+                        maxJpegSize = obj->mMemory.getSize(bufIdx);
+                    }
 
-            if (NULL != jpegBufferHandle) {
-                maxJpegSize = ((private_handle_t*)(*jpegBufferHandle))->width;
-                if (maxJpegSize > obj->mMemory.getSize(bufIdx)) {
-                    maxJpegSize = obj->mMemory.getSize(bufIdx);
+                    size_t jpeg_eof_offset =
+                            (size_t)(maxJpegSize - (ssize_t)sizeof(jpegHeader));
+                    char *jpeg_eof = &jpeg_buf[jpeg_eof_offset];
+                    memcpy(jpeg_eof, &jpegHeader, sizeof(jpegHeader));
+                    obj->mMemory.cleanInvalidateCache(bufIdx);
+                } else {
+                    ALOGE("%s: JPEG buffer not found and index: %d",
+                            __func__,
+                            bufIdx);
+                    resultStatus = CAMERA3_BUFFER_STATUS_ERROR;
                 }
-
-                size_t jpeg_eof_offset =
-                        (size_t)(maxJpegSize - (ssize_t)sizeof(jpegHeader));
-                char *jpeg_eof = &jpeg_buf[jpeg_eof_offset];
-                memcpy(jpeg_eof, &jpegHeader, sizeof(jpegHeader));
-                obj->mMemory.cleanInvalidateCache(bufIdx);
-            } else {
-                ALOGE("%s: JPEG buffer not found and index: %d",
-                        __func__,
-                        bufIdx);
-                resultStatus = CAMERA3_BUFFER_STATUS_ERROR;
             }
 
             ////Use below data to issue framework callback
@@ -3463,14 +3464,16 @@ QCamera3SupportChannel::QCamera3SupportChannel(uint32_t cam_handle,
                     uint32_t postprocess_mask,
                     cam_stream_type_t streamType,
                     cam_dimension_t *dim,
+                    cam_format_t streamFormat,
                     void *userData, uint32_t numBuffers) :
                         QCamera3Channel(cam_handle, cam_ops,
                                 NULL, paddingInfo, postprocess_mask,
                                 userData, numBuffers),
                         mMemory(NULL)
 {
-   memcpy(&mDim, dim, sizeof(cam_dimension_t));
-   mStreamType = streamType;
+    memcpy(&mDim, dim, sizeof(cam_dimension_t));
+    mStreamType = streamType;
+    mStreamFormat = streamFormat;
 }
 
 QCamera3SupportChannel::~QCamera3SupportChannel()
@@ -3501,7 +3504,7 @@ int32_t QCamera3SupportChannel::initialize(cam_is_type_t isType)
     }
     mIsType = isType;
     rc = QCamera3Channel::addStream(mStreamType,
-        CAM_FORMAT_YUV_420_NV21, mDim, MIN_STREAMING_BUFFER_NUM,
+        mStreamFormat, mDim, MIN_STREAMING_BUFFER_NUM,
         mPostProcMask, mIsType);
     if (rc < 0) {
         ALOGE("%s: addStream failed", __func__);

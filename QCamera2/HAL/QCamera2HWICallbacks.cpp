@@ -1604,24 +1604,39 @@ void QCamera2HardwareInterface::metadata_stream_cb_routine(mm_camera_super_buf_t
         }
     }
 
-    IF_META_AVAILABLE(cam_auto_focus_data_t, focus_data,
-            CAM_INTF_META_AUTOFOCUS_DATA, pMetaData) {
-        qcamera_sm_internal_evt_payload_t *payload =
-            (qcamera_sm_internal_evt_payload_t *)malloc(sizeof(qcamera_sm_internal_evt_payload_t));
-        if (NULL != payload) {
-            memset(payload, 0, sizeof(qcamera_sm_internal_evt_payload_t));
-            payload->evt_type = QCAMERA_INTERNAL_EVT_FOCUS_UPDATE;
-            payload->focus_data = *focus_data;
-            payload->focus_data.focused_frame_idx = frame->frame_idx;
-            int32_t rc = pme->processEvt(QCAMERA_SM_EVT_EVT_INTERNAL, payload);
-            if (rc != NO_ERROR) {
-                ALOGE("%s: processEvt focus failed", __func__);
-                free(payload);
-                payload = NULL;
-
+    IF_META_AVAILABLE(uint32_t, afState, CAM_INTF_META_AF_STATE, pMetaData) {
+        if (pme->m_currentFocusState != (*afState)) {
+            pme->m_currentFocusState = (cam_af_state_t)(*afState);
+            qcamera_sm_internal_evt_payload_t *payload = (qcamera_sm_internal_evt_payload_t *)
+                    malloc(sizeof(qcamera_sm_internal_evt_payload_t));
+            if (NULL != payload) {
+                memset(payload, 0, sizeof(qcamera_sm_internal_evt_payload_t));
+                payload->evt_type = QCAMERA_INTERNAL_EVT_FOCUS_UPDATE;
+                payload->focus_data.focus_state = (cam_af_state_t)(*afState);
+                payload->focus_data.focused_frame_idx = frame->frame_idx;
+                IF_META_AVAILABLE(float, focusDistance,
+                        CAM_INTF_META_LENS_FOCUS_DISTANCE, pMetaData) {
+                    payload->focus_data.focus_dist.
+                    focus_distance[CAM_FOCUS_DISTANCE_OPTIMAL_INDEX] = *focusDistance;
+                }
+                IF_META_AVAILABLE(float, focusRange, CAM_INTF_META_LENS_FOCUS_RANGE, pMetaData) {
+                    payload->focus_data.focus_dist.
+                            focus_distance[CAM_FOCUS_DISTANCE_NEAR_INDEX] = focusRange[0];
+                    payload->focus_data.focus_dist.
+                            focus_distance[CAM_FOCUS_DISTANCE_FAR_INDEX] = focusRange[1];
+                }
+                IF_META_AVAILABLE(uint32_t, focusMode, CAM_INTF_PARM_FOCUS_MODE, pMetaData) {
+                    payload->focus_data.focus_mode = (cam_focus_mode_type)(*focusMode);
+                }
+                int32_t rc = pme->processEvt(QCAMERA_SM_EVT_EVT_INTERNAL, payload);
+                if (rc != NO_ERROR) {
+                    ALOGE("%s: processEvt focus failed", __func__);
+                    free(payload);
+                    payload = NULL;
+                }
+            } else {
+                ALOGE("%s: No memory for focus qcamera_sm_internal_evt_payload_t", __func__);
             }
-        } else {
-            ALOGE("%s: No memory for focus qcamera_sm_internal_evt_payload_t", __func__);
         }
     }
 
@@ -2016,7 +2031,7 @@ void QCamera2HardwareInterface::dumpJpegToFile(const void *data,
                 }
 
                 int file_fd = open(buf, O_RDWR | O_CREAT, 0777);
-                if (file_fd > 0) {
+                if (file_fd >= 0) {
                     ssize_t written_len = write(file_fd, data, size);
                     fchmod(file_fd, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
                     CDBG_HIGH("%s: written number of bytes %zd\n",
@@ -2079,7 +2094,7 @@ void QCamera2HardwareInterface::dumpMetadataToFile(QCameraStream *stream,
             snprintf(buf, sizeof(buf), "%um_%s_%d.bin", dumpFrmCnt, type, frame->frame_idx);
             filePath.append(buf);
             int file_fd = open(filePath.string(), O_RDWR | O_CREAT, 0777);
-            if (file_fd > 0) {
+            if (file_fd >= 0) {
                 ssize_t written_len = 0;
                 metadata->tuning_params.tuning_data_version = TUNING_DATA_VERSION;
                 void *data = (void *)((uint8_t *)&metadata->tuning_params.tuning_data_version);
@@ -2250,7 +2265,7 @@ void QCamera2HardwareInterface::dumpFrameToFile(QCameraStream *stream,
                     filePath.append(buf);
                     int file_fd = open(filePath.string(), O_RDWR | O_CREAT, 0777);
                     ssize_t written_len = 0;
-                    if (file_fd > 0) {
+                    if (file_fd >= 0) {
                         void *data = NULL;
 
                         fchmod(file_fd, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);

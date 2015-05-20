@@ -204,9 +204,6 @@ typedef struct{
                                            * such as CAM_QCOM_FEATURE_SUPPORTED_FACE_DETECTION*/
     cam_padding_info_t padding_info;      /* padding information from PP */
     uint32_t min_num_pp_bufs;             /* minimum number of buffers needed by postproc module */
-    uint32_t min_required_pp_mask;        /* min required pp feature masks for ZSL.
-                                           * depends on hardware limitation, i.e. for 8974,
-                                           * sharpness is required for all ZSL snapshot frames */
     cam_format_t rdi_mode_stream_fmt;  /* stream format supported in rdi mode */
 
     /* capabilities specific to HAL 3 */
@@ -378,6 +375,9 @@ typedef struct{
 
     /* Analysis recommended size */
     cam_dimension_t analysis_recommended_res;
+
+    /* Analysis recommended format */
+    cam_format_t analysis_recommended_format;
 
     /* This is set to 'true' if sensor cannot guarantee per frame control */
     /* Default value of this capability is 'false' indicating per-frame */
@@ -697,6 +697,7 @@ typedef struct {
     INCLUDE(CAM_INTF_META_CHROMATIX_LITE_AWB,           cam_chromatix_lite_awb_stats_t, 1);
     INCLUDE(CAM_INTF_META_CHROMATIX_LITE_AF,            cam_chromatix_lite_af_stats_t,  1);
     INCLUDE(CAM_INTF_META_CHROMATIX_LITE_ASD,           cam_chromatix_lite_asd_stats_t, 1);
+    INCLUDE(CAM_INTF_BUF_DIVERT_INFO,                   cam_buf_divert_info_t,          1);
 
     /* Specific to HAL3 */
     INCLUDE(CAM_INTF_META_FRAME_NUMBER_VALID,           int32_t,                     1);

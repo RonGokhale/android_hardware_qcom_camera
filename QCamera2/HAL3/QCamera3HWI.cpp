@@ -796,6 +796,61 @@ bool QCamera3HardwareInterface::isSupportChannelNeeded(camera3_stream_configurat
     return true;
 }
 
+/*==============================================================================
+ * FUNCTION   : getSensorOutputSize
+ *
+ * DESCRIPTION: Get sensor output size based on current stream configuratoin
+ *
+ * PARAMETERS :
+ *   @sensor_dim : sensor output dimension (output)
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *
+ *==========================================================================*/
+int32_t QCamera3HardwareInterface::getSensorOutputSize(cam_dimension_t &sensor_dim)
+{
+    int32_t rc = NO_ERROR;
+
+    cam_dimension_t max_dim = {0, 0};
+    for (uint32_t i = 0; i < mStreamConfigInfo.num_streams; i++) {
+        if (mStreamConfigInfo.stream_sizes[i].width > max_dim.width)
+            max_dim.width = mStreamConfigInfo.stream_sizes[i].width;
+        if (mStreamConfigInfo.stream_sizes[i].height > max_dim.height)
+            max_dim.height = mStreamConfigInfo.stream_sizes[i].height;
+    }
+
+    clear_metadata_buffer(mParameters);
+
+    rc = ADD_SET_PARAM_ENTRY_TO_BATCH(mParameters, CAM_INTF_PARM_MAX_DIMENSION,
+            max_dim);
+    if (rc != NO_ERROR) {
+        ALOGE("%s:Failed to update table for CAM_INTF_PARM_MAX_DIMENSION", __func__);
+        return rc;
+    }
+
+    rc = mCameraHandle->ops->set_parms(mCameraHandle->camera_handle, mParameters);
+    if (rc != NO_ERROR) {
+        ALOGE("%s: Failed to set CAM_INTF_PARM_MAX_DIMENSION", __func__);
+        return rc;
+    }
+
+    clear_metadata_buffer(mParameters);
+    ADD_GET_PARAM_ENTRY_TO_BATCH(mParameters, CAM_INTF_PARM_RAW_DIMENSION);
+
+    rc = mCameraHandle->ops->get_parms(mCameraHandle->camera_handle,
+            mParameters);
+    if (rc != NO_ERROR) {
+        ALOGE("%s: Failed to get CAM_INTF_PARM_RAW_DIMENSION", __func__);
+        return rc;
+    }
+
+    READ_PARAM_ENTRY(mParameters, CAM_INTF_PARM_RAW_DIMENSION, sensor_dim);
+    ALOGI("%s: sensor output dimension = %d x %d", __func__, sensor_dim.width, sensor_dim.height);
+
+    return rc;
+}
 
 /*===========================================================================
  * FUNCTION   : configureStreams
@@ -1133,6 +1188,9 @@ int QCamera3HardwareInterface::configureStreams(
                 CAM_QCOM_FEATURE_PP_SUPERSET_HAL3,
                 CAM_STREAM_TYPE_ANALYSIS,
                 &gCamCapability[mCameraId]->analysis_recommended_res,
+                (gCamCapability[mCameraId]->analysis_recommended_format
+                == CAM_FORMAT_Y_ONLY ? CAM_FORMAT_Y_ONLY
+                : CAM_FORMAT_YUV_420_NV21),
                 this);
         if (!mAnalysisChannel) {
             ALOGE("%s: H/W Analysis channel cannot be created", __func__);
@@ -1149,6 +1207,7 @@ int QCamera3HardwareInterface::configureStreams(
                 CAM_QCOM_FEATURE_PP_SUPERSET_HAL3,
                 CAM_STREAM_TYPE_CALLBACK,
                 &QCamera3SupportChannel::kDim,
+                CAM_FORMAT_YUV_420_NV21,
                 this);
         if (!mSupportChannel) {
             ALOGE("%s: dummy channel cannot be created", __func__);
@@ -2303,6 +2362,19 @@ int QCamera3HardwareInterface::processCaptureRequest(
             ALOGE("%s: set_parms failed for hal version, stream info", __func__);
         }
 
+        cam_dimension_t sensor_dim;
+        memset(&sensor_dim, 0, sizeof(sensor_dim));
+        rc = getSensorOutputSize(sensor_dim);
+        if (rc != NO_ERROR) {
+            ALOGE("%s: Failed to get sensor output size", __func__);
+            pthread_mutex_unlock(&mMutex);
+            return rc;
+        }
+
+        mCropRegionMapper.update(gCamCapability[mCameraId]->active_array_size.width,
+                gCamCapability[mCameraId]->active_array_size.height,
+                sensor_dim.width, sensor_dim.height);
+
         for (size_t i = 0; i < request->num_output_buffers; i++) {
             const camera3_stream_buffer_t& output = request->output_buffers[i];
             QCamera3Channel *channel = (QCamera3Channel *)output.stream->priv;
@@ -3271,6 +3343,12 @@ QCamera3HardwareInterface::translateFromHalMetadata(
         scalerCropRegion[1] = hScalerCropRegion->top;
         scalerCropRegion[2] = hScalerCropRegion->width;
         scalerCropRegion[3] = hScalerCropRegion->height;
+
+        // Adjust crop region from sensor output coordinate system to active
+        // array coordinate system.
+        mCropRegionMapper.toActiveArray(scalerCropRegion[0], scalerCropRegion[1],
+                scalerCropRegion[2], scalerCropRegion[3]);
+
         camMetadata.update(ANDROID_SCALER_CROP_REGION, scalerCropRegion, 4);
     }
 
@@ -4803,6 +4881,7 @@ int QCamera3HardwareInterface::initStaticMetadata(uint32_t cameraId)
         switch (scalar_formats[j]) {
         case ANDROID_SCALER_AVAILABLE_FORMATS_RAW16:
         case ANDROID_SCALER_AVAILABLE_FORMATS_RAW_OPAQUE:
+        case HAL_PIXEL_FORMAT_RAW10:
             for (size_t i = 0; i < gCamCapability[cameraId]->supported_raw_dim_cnt; i++) {
                 available_min_durations[idx] = scalar_formats[j];
                 available_min_durations[idx+1] =
@@ -4828,7 +4907,7 @@ int QCamera3HardwareInterface::initStaticMetadata(uint32_t cameraId)
             break;
         }
     }
-    staticInfo.update(ANDROID_SCALER_AVAILABLE_PROCESSED_MIN_DURATIONS,
+    staticInfo.update(ANDROID_SCALER_AVAILABLE_MIN_FRAME_DURATIONS,
                       &available_min_durations[0], idx);
 
     int32_t max_jpeg_size = (int32_t)calcMaxJpegSize(cameraId);
@@ -5117,24 +5196,6 @@ int QCamera3HardwareInterface::initStaticMetadata(uint32_t cameraId)
     staticInfo.update(ANDROID_STATISTICS_INFO_AVAILABLE_HOT_PIXEL_MAP_MODES,
             available_hot_pixel_map_modes,
             sizeof(available_hot_pixel_map_modes)/sizeof(available_hot_pixel_map_modes[0]));
-
-    count = MIN(gCamCapability[cameraId]->picture_sizes_tbl_cnt, MAX_SIZES_CNT);
-    size_t avail_min_frame_durations_size = count *
-            sizeof(scalar_formats)/sizeof(int32_t) * 4;
-    int64_t avail_min_frame_durations[avail_min_frame_durations_size];
-    size_t pos = 0;
-    for (size_t j = 0; j < scalar_formats_count; j++) {
-        for (size_t i = 0; i < count; i++) {
-           avail_min_frame_durations[pos]   = scalar_formats[j];
-           avail_min_frame_durations[pos+1] = gCamCapability[cameraId]->picture_sizes_tbl[i].width;
-           avail_min_frame_durations[pos+2] = gCamCapability[cameraId]->picture_sizes_tbl[i].height;
-           avail_min_frame_durations[pos+3] = gCamCapability[cameraId]->picture_min_duration[i];
-           pos+=4;
-        }
-    }
-    staticInfo.update(ANDROID_SCALER_AVAILABLE_MIN_FRAME_DURATIONS,
-                      avail_min_frame_durations,
-                      avail_min_frame_durations_size);
 
     val = lookupFwkName(REFERENCE_ILLUMINANT_MAP, METADATA_MAP_SIZE(REFERENCE_ILLUMINANT_MAP),
             gCamCapability[cameraId]->reference_illuminant1);
@@ -6602,6 +6663,11 @@ int QCamera3HardwareInterface::translateToHalMetadata
         scalerCropRegion.top = frame_settings.find(ANDROID_SCALER_CROP_REGION).data.i32[1];
         scalerCropRegion.width = frame_settings.find(ANDROID_SCALER_CROP_REGION).data.i32[2];
         scalerCropRegion.height = frame_settings.find(ANDROID_SCALER_CROP_REGION).data.i32[3];
+
+        // Map coordinate system from active array to sensor output.
+        mCropRegionMapper.toSensor(scalerCropRegion.left, scalerCropRegion.top,
+                scalerCropRegion.width, scalerCropRegion.height);
+
         if (ADD_SET_PARAM_ENTRY_TO_BATCH(hal_metadata, CAM_INTF_META_SCALER_CROP_REGION,
                 scalerCropRegion)) {
             rc = BAD_VALUE;
@@ -7248,7 +7314,7 @@ bool QCamera3HardwareInterface::needRotationReprocess()
  *==========================================================================*/
 bool QCamera3HardwareInterface::needReprocess(uint32_t postprocess_mask)
 {
-    if (gCamCapability[mCameraId]->min_required_pp_mask > 0) {
+    if (gCamCapability[mCameraId]->qcom_supported_feature_mask > 0) {
         // TODO: add for ZSL HDR later
         // pp module has min requirement for zsl reprocess, or WNR in ZSL mode
         if(postprocess_mask == CAM_QCOM_FEATURE_NONE){

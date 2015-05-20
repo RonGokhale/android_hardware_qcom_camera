@@ -1048,13 +1048,15 @@ int32_t mm_stream_write_user_buf(mm_stream_t * my_obj,
             cont_buf->buf_cnt = my_obj->buf[buf->buf_idx].user_buf.bufs_used;
             for (i = 0; i < (int32_t)cont_buf->buf_cnt; i++) {
                 cont_buf->buf_idx[i] = my_obj->buf[buf->buf_idx].user_buf.buf_idx[i];
-                my_obj->buf[buf->buf_idx].user_buf.buf_idx[i] = -1;
             }
             rc = mm_stream_qbuf(my_obj, buf);
             if(rc < 0) {
                 CDBG_ERROR("%s: mm_camera_stream_qbuf(idx=%d) err=%d\n",
                            __func__, buf->buf_idx, rc);
             } else {
+                for (i = 0; i < (int32_t)cont_buf->buf_cnt; i++) {
+                    my_obj->buf[buf->buf_idx].user_buf.buf_idx[i] = -1;
+                }
                 my_obj->buf_status[buf->buf_idx].in_kernel = 1;
                 my_obj->buf[buf->buf_idx].user_buf.buf_in_use = 1;
             }
@@ -1103,13 +1105,15 @@ int32_t mm_stream_write_user_buf(mm_stream_t * my_obj,
             cont_buf->buf_cnt = my_obj->buf[index].user_buf.bufs_used;
             for (i = 0; i < (int32_t)cont_buf->buf_cnt; i++) {
                 cont_buf->buf_idx[i] = my_obj->buf[index].user_buf.buf_idx[i];
-                my_obj->buf[index].user_buf.buf_idx[i] = -1;
             }
             rc = mm_stream_qbuf(my_obj, &my_obj->buf[index]);
             if(rc < 0) {
                 CDBG_ERROR("%s: mm_camera_stream_qbuf(idx=%d) err=%d\n",
                            __func__, index, rc);
             } else {
+                for (i = 0; i < (int32_t)cont_buf->buf_cnt; i++) {
+                    my_obj->buf[index].user_buf.buf_idx[i] = -1;
+                }
                 my_obj->buf_status[index].in_kernel = 1;
                 my_obj->buf[index].user_buf.buf_in_use = 1;
                 my_obj->cur_bufs_staged = 0;
@@ -1655,7 +1659,7 @@ int32_t mm_stream_unmap_buf(mm_stream_t * my_obj,
     return mm_camera_util_sendmsg(my_obj->ch_obj->cam_obj,
                                   &packet,
                                   sizeof(cam_sock_packet_t),
-                                  0);
+                                  -1);
 }
 
 /*===========================================================================
@@ -3007,8 +3011,8 @@ int32_t mm_stream_calc_offset_raw(cam_format_t fmt,
     case CAM_FORMAT_BAYER_IDEAL_RAW_MIPI_10BPP_RGGB:
     case CAM_FORMAT_BAYER_IDEAL_RAW_MIPI_10BPP_BGGR:
         /* Every 64 pixels occupy 80 bytes */
-        stride = PAD_TO_SIZE(dim->width, CAM_PAD_TO_64);
-        stride_in_bytes = stride * 5 / 4;
+        stride = PAD_TO_SIZE(dim->width, CAM_PAD_TO_4);
+        stride_in_bytes = PAD_TO_SIZE(stride * 5 / 4, CAM_PAD_TO_16);
         buf_planes->plane_info.num_planes = 1;
         buf_planes->plane_info.mp[0].offset = 0;
         buf_planes->plane_info.mp[0].len =
@@ -3442,6 +3446,24 @@ int32_t mm_stream_calc_offset_analysis(cam_format_t fmt,
             buf_planes->plane_info.mp[0].len + buf_planes->plane_info.mp[1].len,
             CAM_PAD_TO_4K);
         break;
+    case CAM_FORMAT_Y_ONLY:
+        buf_planes->plane_info.num_planes = 1;
+
+        buf_planes->plane_info.mp[0].len =
+                PAD_TO_SIZE((uint32_t)(stride * scanline),
+                padding->plane_padding);
+        buf_planes->plane_info.mp[0].offset =
+                PAD_TO_SIZE((uint32_t)(offset_x + stride * offset_y),
+                padding->plane_padding);
+        buf_planes->plane_info.mp[0].offset_x = offset_x;
+        buf_planes->plane_info.mp[0].offset_y = offset_y;
+        buf_planes->plane_info.mp[0].stride = stride;
+        buf_planes->plane_info.mp[0].scanline = scanline;
+        buf_planes->plane_info.mp[0].width = dim->width;
+        buf_planes->plane_info.mp[0].height = dim->height;
+        buf_planes->plane_info.frame_len =
+                PAD_TO_SIZE(buf_planes->plane_info.mp[0].len, CAM_PAD_TO_4K);
+      break;
     default:
         CDBG_ERROR("%s: Invalid cam_format for snapshot %d",
                    __func__, fmt);
