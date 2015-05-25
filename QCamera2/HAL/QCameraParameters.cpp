@@ -791,6 +791,8 @@ QCameraParameters::QCameraParameters()
       m_bNeedRestart(false),
       m_bNoDisplayMode(false),
       m_bWNROn(false),
+      m_bTNRPreviewOn(false),
+      m_bTNRVideoOn(false),
       m_bInited(false),
       m_nBurstNum(1),
       m_nRetroBurstNum(0),
@@ -1316,8 +1318,10 @@ template <class mapType> const char *lookupNameByValue(const mapType *arr,
  *==========================================================================*/
 int32_t QCameraParameters::setPreviewSize(const QCameraParameters& params)
 {
-    int width, height;
+    int width = 0, height = 0;
+    int old_width = 0, old_height = 0;
     params.getPreviewSize(&width, &height);
+    CameraParameters::getPreviewSize(&old_width, &old_height);
     ALOGI("Requested preview size %d x %d", width, height);
 
     // Validate the preview size
@@ -1325,18 +1329,28 @@ int32_t QCameraParameters::setPreviewSize(const QCameraParameters& params)
         if (width ==  m_pCapability->preview_sizes_tbl[i].width
            && height ==  m_pCapability->preview_sizes_tbl[i].height) {
             // check if need to restart preview in case of preview size change
-            int old_width, old_height;
-            CameraParameters::getPreviewSize(&old_width, &old_height);
             if (width != old_width || height != old_height) {
                 m_bNeedRestart = true;
             }
-
             // set the new value
             CDBG_HIGH("%s: Requested preview size %d x %d", __func__, width, height);
             CameraParameters::setPreviewSize(width, height);
             return NO_ERROR;
         }
     }
+    if (m_relCamSyncInfo.mode == CAM_MODE_SECONDARY) {
+        // Set the default preview size for secondary camera
+        width = m_pCapability->preview_sizes_tbl[0].width;
+        height = m_pCapability->preview_sizes_tbl[0].height;
+        // check if need to restart preview in case of preview size change
+        if (width != old_width || height != old_height) {
+            m_bNeedRestart = true;
+        }
+        CameraParameters::setPreviewSize(width, height);
+        CDBG_HIGH("%s: Secondary Camera: preview size %d x %d", __func__, width, height);
+        return NO_ERROR;
+    }
+
     ALOGE("Invalid preview size requested: %dx%d", width, height);
     return BAD_VALUE;
 }
@@ -1357,6 +1371,8 @@ int32_t QCameraParameters::setPictureSize(const QCameraParameters& params)
 {
     int width, height;
     params.getPictureSize(&width, &height);
+    int old_width, old_height;
+    CameraParameters::getPictureSize(&old_width, &old_height);
     ALOGI("Requested picture size %d x %d", width, height);
 
     // Validate the picture size
@@ -1365,13 +1381,10 @@ int32_t QCameraParameters::setPictureSize(const QCameraParameters& params)
             if (width ==  m_pCapability->picture_sizes_tbl[i].width
                && height ==  m_pCapability->picture_sizes_tbl[i].height) {
                 // check if need to restart preview in case of picture size change
-                int old_width, old_height;
-                CameraParameters::getPictureSize(&old_width, &old_height);
                 if ((m_bZslMode || m_bRecordingHint) &&
                     (width != old_width || height != old_height)) {
                     m_bNeedRestart = true;
                 }
-
                 // set the new value
                 CDBG_HIGH("%s: Requested picture size %d x %d", __func__, width, height);
                 CameraParameters::setPictureSize(width, height);
@@ -1382,20 +1395,31 @@ int32_t QCameraParameters::setPictureSize(const QCameraParameters& params)
         //should use scaled picture size table to validate
         if(m_reprocScaleParam.setValidatePicSize(width, height) == NO_ERROR){
             // check if need to restart preview in case of picture size change
-            int old_width, old_height;
-            CameraParameters::getPictureSize(&old_width, &old_height);
             if ((m_bZslMode || m_bRecordingHint) &&
                 (width != old_width || height != old_height)) {
                 m_bNeedRestart = true;
             }
-
             // set the new value
             char val[32];
             snprintf(val, sizeof(val), "%dx%d", width, height);
             updateParamEntry(KEY_PICTURE_SIZE, val);
-            CDBG("%s: %s", __func__, val);
+            CDBG_HIGH("%s: %s", __func__, val);
             return NO_ERROR;
         }
+    }
+    if (m_relCamSyncInfo.mode == CAM_MODE_SECONDARY) {
+        // Set the default preview size for secondary camera
+        width = m_pCapability->picture_sizes_tbl[0].width;
+        height = m_pCapability->picture_sizes_tbl[0].height;
+        // check if need to restart preview in case of preview size change
+        if (width != old_width || height != old_height) {
+            m_bNeedRestart = true;
+        }
+        char val[32];
+        snprintf(val, sizeof(val), "%dx%d", width, height);
+        set(KEY_PICTURE_SIZE, val);
+        CDBG_HIGH("%s: Secondary Camera: picture size %s", __func__, val);
+        return NO_ERROR;
     }
     ALOGE("Invalid picture size requested: %dx%d", width, height);
     return BAD_VALUE;
@@ -1418,6 +1442,8 @@ int32_t QCameraParameters::setVideoSize(const QCameraParameters& params)
     const char *str= NULL;
     int width, height;
     str = params.get(KEY_VIDEO_SIZE);
+    int old_width, old_height;
+    CameraParameters::getVideoSize(&old_width, &old_height);
     if(!str) {
         //If application didn't set this parameter string, use the values from
         //getPreviewSize() as video dimensions.
@@ -1426,13 +1452,12 @@ int32_t QCameraParameters::setVideoSize(const QCameraParameters& params)
     } else {
         params.getVideoSize(&width, &height);
     }
+
     // Validate the video size
     for (size_t i = 0; i < m_pCapability->video_sizes_tbl_cnt; ++i) {
         if (width ==  m_pCapability->video_sizes_tbl[i].width
                 && height ==  m_pCapability->video_sizes_tbl[i].height) {
             // check if need to restart preview in case of video size change
-            int old_width, old_height;
-            CameraParameters::getVideoSize(&old_width, &old_height);
             if (m_bRecordingHint &&
                (width != old_width || height != old_height)) {
                 m_bNeedRestart = true;
@@ -1444,8 +1469,22 @@ int32_t QCameraParameters::setVideoSize(const QCameraParameters& params)
             return NO_ERROR;
         }
     }
+    if (m_relCamSyncInfo.mode == CAM_MODE_SECONDARY) {
+        // Set the default preview size for secondary camera
+        width = m_pCapability->video_sizes_tbl[0].width;
+        height = m_pCapability->video_sizes_tbl[0].height;
+        // check if need to restart preview in case of preview size change
+        if (width != old_width || height != old_height) {
+            m_bNeedRestart = true;
+        }
 
-    ALOGE("Invalid video size requested: %dx%d", width, height);
+        CameraParameters::setVideoSize(width, height);
+        CDBG_HIGH("%s: Secondary Camera: video size %d x %d",
+                __func__, width, height);
+        return NO_ERROR;
+    }
+
+    ALOGE("Error !! Invalid video size requested: %dx%d", width, height);
     return BAD_VALUE;
 }
 
@@ -1640,7 +1679,8 @@ int32_t QCameraParameters::setPreviewFormat(const QCameraParameters& params)
         char prop[PROPERTY_VALUE_MAX];
         int pFormat;
         memset(prop, 0, sizeof(prop));
-        property_get("persist.camera.preview.ubwc", prop, "0");
+        property_get("persist.camera.preview.ubwc", prop, "1");
+
         pFormat = atoi(prop);
         if (pFormat == 1) {
             mPreviewFormat = CAM_FORMAT_YUV_420_NV12_UBWC;
@@ -3823,6 +3863,15 @@ int32_t QCameraParameters::setNoDisplayMode(const QCameraParameters& params)
     const char *str_val  = params.get(KEY_QC_NO_DISPLAY_MODE);
     const char *prev_str = get(KEY_QC_NO_DISPLAY_MODE);
     char prop[PROPERTY_VALUE_MAX];
+    CDBG("%s: str_val: %s, prev_str: %s", __func__, str_val, prev_str);
+
+    // Aux Camera Mode, set no display mode
+    if (m_relCamSyncInfo.mode == CAM_MODE_SECONDARY) {
+        m_bNoDisplayMode = true;
+        set(KEY_QC_NO_DISPLAY_MODE, 1);
+        m_bNeedRestart = true;
+        return NO_ERROR;
+    }
 
     if(str_val && strlen(str_val) > 0) {
         if (prev_str == NULL || strcmp(str_val, prev_str) != 0) {
@@ -3944,8 +3993,10 @@ int32_t QCameraParameters::setTemporalDenoise(const QCameraParameters& params)
             if ((video_prev_str == NULL) || (strcmp(video_str, video_prev_str) != 0)) {
                 if (!strcmp(video_str, VALUE_ON)) {
                     m_bTNRVideoOn = true;
+                    m_bTNRPreviewOn = true;
                 } else {
                     m_bTNRVideoOn = false;
+                    m_bTNRPreviewOn = false;
                 }
                 updateParamEntry(KEY_QC_VIDEO_TNR_MODE, video_str);
             } else {
@@ -3961,10 +4012,21 @@ int32_t QCameraParameters::setTemporalDenoise(const QCameraParameters& params)
                 m_bTNRVideoOn = false;
             }
             updateParamEntry(KEY_QC_VIDEO_TNR_MODE, video_value);
+
+            char preview_value[PROPERTY_VALUE_MAX];
+            memset(preview_value, 0, sizeof(preview_value));
+            property_get("persist.camera.tnr.preview", preview_value, video_value);
+            if (!strcmp(preview_value, VALUE_ON)) {
+                m_bTNRPreviewOn = true;
+            } else {
+                m_bTNRPreviewOn = false;
+            }
+            updateParamEntry(KEY_QC_TNR_MODE, preview_value);
         }
+
         cam_denoise_param_t temp;
         memset(&temp, 0, sizeof(temp));
-        if (m_bTNRVideoOn) {
+        if (m_bTNRVideoOn || m_bTNRPreviewOn) {
             temp.denoise_enable = 1;
             temp.process_plates = getDenoiseProcessPlate(CAM_INTF_PARM_TEMPORAL_DENOISE);
 
@@ -8993,7 +9055,7 @@ int32_t QCameraParameters::getStreamFormat(cam_stream_type_t streamType,
             char prop[PROPERTY_VALUE_MAX];
             int pFormat;
             memset(prop, 0, sizeof(prop));
-            property_get("persist.camera.video.ubwc", prop, "0");
+            property_get("persist.camera.video.ubwc", prop, "1");
             pFormat = atoi(prop);
             if (pFormat == 1) {
                 format = CAM_FORMAT_YUV_420_NV12_UBWC;
@@ -10673,7 +10735,6 @@ int32_t QCameraParameters::bundleRelatedCameras(bool sync,
         m_pRelCamSyncBuf->mode = m_relCamSyncInfo.mode;
         m_pRelCamSyncBuf->type = m_relCamSyncInfo.type;
         m_pRelCamSyncBuf->related_sensor_session_id = sessionid;
-
         rc = m_pCamOpsTbl->ops->sync_related_sensors(
                 m_pCamOpsTbl->camera_handle, m_pRelCamSyncBuf);
     } else {
@@ -11753,7 +11814,8 @@ bool QCameraParameters::needThumbnailReprocess(uint32_t *pFeatureMask)
     if (isUbiFocusEnabled() || isChromaFlashEnabled() ||
             isOptiZoomEnabled() || isUbiRefocus() ||
             isStillMoreEnabled() ||
-            (isHDREnabled() && !isHDRThumbnailProcessNeeded())) {
+            (isHDREnabled() && !isHDRThumbnailProcessNeeded())
+            || isUBWCEnabled()) {
         *pFeatureMask &= ~CAM_QCOM_FEATURE_CHROMA_FLASH;
         *pFeatureMask &= ~CAM_QCOM_FEATURE_UBIFOCUS;
         *pFeatureMask &= ~CAM_QCOM_FEATURE_REFOCUS;
