@@ -130,7 +130,6 @@ int mm_app_allocate_ion_memory(mm_camera_app_buf_t *buf, unsigned int ion_type)
     alloc.len = (alloc.len + 4095U) & (~4095U);
     alloc.align = 4096;
     alloc.flags = ION_FLAG_CACHED;
-    //alloc.heap_id_mask = ion_type;
     alloc.heap_id_mask = ION_HEAP(ION_SYSTEM_HEAP_ID);
     rc = ioctl(main_ion_fd, ION_IOC_ALLOC, &alloc);
     if (rc < 0) {
@@ -577,7 +576,7 @@ int mm_app_open(mm_camera_app_t *cam_app,
     memset(&pic_size, 0, sizeof(mm_dimension));
     pic_size.w = 4000;
     pic_size.h = 3000;
-    test_obj->jpeg_hdl = cam_app->hal_lib.jpeg_open(&test_obj->jpeg_ops,pic_size);
+    test_obj->jpeg_hdl = cam_app->hal_lib.jpeg_open(&test_obj->jpeg_ops, NULL, pic_size, NULL);
     if (test_obj->jpeg_hdl == 0) {
         CDBG_ERROR("%s: jpeg lib open err", __func__);
         rc = -MM_CAMERA_E_GENERAL;
