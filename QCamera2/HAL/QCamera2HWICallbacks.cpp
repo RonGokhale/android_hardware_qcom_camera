@@ -1838,6 +1838,17 @@ void QCamera2HardwareInterface::metadata_stream_cb_routine(mm_camera_super_buf_t
         }
     }
 
+    /*Update ASF trigger regions */
+    IF_META_AVAILABLE(cam_asf_trigger_regions_t, osd_region,
+            CAM_INTF_META_ASF_TRIGGER_REGION, pMetaData) {
+        pme->mOSDRegion = *osd_region;
+
+        if (pme->mParameters.isASFOSDEnabled()) {
+            ALOGE("Enabled ASF OSD region 1 = %d Region2 = %d",
+                    pme->mOSDRegion.region1,pme->mOSDRegion.region2);
+        }
+    }
+
     //Function to upadte metadata for frame based parameter
     pme->updateMetadata(pMetaData);
 
