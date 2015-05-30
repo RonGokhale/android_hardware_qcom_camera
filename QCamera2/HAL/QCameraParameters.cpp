@@ -13344,4 +13344,25 @@ int32_t QCameraParameters::setManualCaptureMode(QCameraManualCaptureModes mode)
     CDBG_HIGH("%s: Manual capture mode - %d", __func__, m_ManualCaptureMode);
     return rc;
 }
+
+/*==========================================================================
+ * FUNCTION   : isASFOSDEnabled
+ *
+ * DESCRIPTION: Check if the ASF enable property is set
+ *
+ * PARAMETERS : None
+ *
+ *
+ * RETURN     : True - if enabled
+ *              False   - if disabled
+ *==========================================================================*/
+bool QCameraParameters::isASFOSDEnabled()
+{
+    char prop[PROPERTY_VALUE_MAX];
+    memset(prop, 0, sizeof(prop));
+    property_get("persist.camera.asf_osd", prop, "0");
+    bool enableASF = atoi(prop);
+    return enableASF;
+}
+
 }; // namespace qcamera
