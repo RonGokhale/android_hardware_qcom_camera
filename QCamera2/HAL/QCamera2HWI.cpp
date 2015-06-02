@@ -39,6 +39,10 @@
 #include <utils/Trace.h>
 #include <gralloc_priv.h>
 #include <gui/Surface.h>
+#include <binder/Parcel.h>
+#include <binder/IServiceManager.h>
+#include <utils/RefBase.h>
+#include <QServiceUtils.h>
 
 #include "QCamera2HWI.h"
 #include "QCameraMem.h"
@@ -59,8 +63,9 @@
 namespace qcamera {
 
 cam_capability_t *gCamCaps[MM_CAMERA_MAX_NUM_SENSORS];
-static pthread_mutex_t g_camlock = PTHREAD_MUTEX_INITIALIZER;
+extern pthread_mutex_t gCamLock;
 volatile uint32_t gCamHalLogLevel = 1;
+extern uint8_t gNumCameraSessions;
 
 camera_device_ops_t QCamera2HardwareInterface::mCameraOps = {
     set_preview_window:         QCamera2HardwareInterface::set_preview_window,
@@ -1254,6 +1259,8 @@ QCamera2HardwareInterface::QCamera2HardwareInterface(uint32_t cameraId)
 
     memset(mDeffOngoingJobs, 0, sizeof(mDeffOngoingJobs));
     memset(&mRelCamCalibData, 0, sizeof(cam_related_system_calibration_data_t));
+    memset(&mJpegHandle, 0, sizeof(mJpegHandle));
+    memset(&mJpegMpoHandle, 0, sizeof(mJpegMpoHandle));
 
     mDefferedWorkThread.launch(defferedWorkRoutine, this);
     mDefferedWorkThread.sendCmd(CAMERA_CMD_TYPE_START_DATA_PROC, FALSE, FALSE);
@@ -1411,7 +1418,8 @@ int QCamera2HardwareInterface::openCamera()
     }
     CDBG_HIGH("%s: mJpegClientHandle : %d", __func__, mJpegClientHandle);
 
-    rc = m_postprocessor.setJpegHandle(&mJpegHandle, mJpegClientHandle);
+    rc = m_postprocessor.setJpegHandle(&mJpegHandle, &mJpegMpoHandle,
+            mJpegClientHandle);
     if (rc != 0) {
         ALOGE("%s: Error!! set JPEG handle failed", __func__);
         goto error_exit;
@@ -1436,6 +1444,13 @@ int QCamera2HardwareInterface::openCamera()
 
     mParameters.setMinPpMask(gCamCaps[mCameraId]->qcom_supported_feature_mask);
     mCameraOpened = true;
+
+    //Notify display HAL that a camera session is active
+    pthread_mutex_lock(&gCamLock);
+    if (gNumCameraSessions++ == 0) {
+        setCameraLaunchStatus(true);
+    }
+    pthread_mutex_unlock(&gCamLock);
 
     return NO_ERROR;
 error_exit:
@@ -1528,12 +1543,18 @@ const cam_sync_related_sensors_event_info_t*
  * PARAMETERS :
  *   @info  : ptr to related cam info parameters
  *
- * RETURN     :none
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
  *==========================================================================*/
-void QCamera2HardwareInterface::setRelatedCamSyncInfo(
+int32_t QCamera2HardwareInterface::setRelatedCamSyncInfo(
         cam_sync_related_sensors_event_info_t* info)
 {
-    mParameters.setRelatedCamSyncInfo(info);
+    if(info) {
+        return mParameters.setRelatedCamSyncInfo(info);
+    } else {
+        return BAD_TYPE;
+    }
 }
 
 /*===========================================================================
@@ -1604,6 +1625,14 @@ int QCamera2HardwareInterface::closeCamera()
 
     rc = mCameraHandle->ops->close_camera(mCameraHandle->camera_handle);
     mCameraHandle = NULL;
+
+    //Notify display HAL that there is no active camera session
+    pthread_mutex_lock(&gCamLock);
+    if (--gNumCameraSessions == 0) {
+        setCameraLaunchStatus(false);
+    }
+    pthread_mutex_unlock(&gCamLock);
+
     ALOGI("[KPI Perf] %s: X PROFILE_CLOSE_CAMERA camera id %d, rc: %d",
         __func__, mCameraId, rc);
 
@@ -1695,12 +1724,12 @@ int QCamera2HardwareInterface::getCapabilities(uint32_t cameraId,
     ATRACE_CALL();
     int rc = NO_ERROR;
     struct  camera_info *p_info = NULL;
-    pthread_mutex_lock(&g_camlock);
+    pthread_mutex_lock(&gCamLock);
     p_info = get_cam_info(cameraId, p_cam_type);
     p_info->device_version = CAMERA_DEVICE_API_VERSION_1_0;
     p_info->static_camera_characteristics = NULL;
     memcpy(info, p_info, sizeof (struct camera_info));
-    pthread_mutex_unlock(&g_camlock);
+    pthread_mutex_unlock(&gCamLock);
     return rc;
 }
 
@@ -4853,6 +4882,11 @@ int32_t QCamera2HardwareInterface::processAutoFocusEvent(cam_auto_focus_data_t &
     int32_t ret = NO_ERROR;
     CDBG_HIGH("%s: E",__func__);
 
+    if (getRelatedCamSyncInfo()->mode == CAM_MODE_SECONDARY) {
+        // Ignore focus updates
+        CDBG_HIGH("%s: X Secondary Camera, no need to process!! ", __func__);
+        return ret;
+    }
     cam_focus_mode_type focusMode = mParameters.getFocusMode();
     CDBG_HIGH("[AF_DBG] %s: focusMode=%d, focusState=%d",
             __func__, focusMode, focus_data.focus_state);
@@ -5543,6 +5577,16 @@ int32_t QCamera2HardwareInterface::addStreamToChannel(QCameraChannel *pChannel,
     if (rc != NO_ERROR) {
         ALOGE("%s: add stream type (%d) failed, ret = %d",
               __func__, streamType, rc);
+        pStreamInfo->deallocate();
+        delete pStreamInfo;
+        // Returning error will delete corresponding channel but at the same time some of
+        // deffered streams in same channel might be still in process of allocating buffers
+        // by CAM_defrdWrk thread.
+        waitDefferedWork(mMetadataJob);
+        waitDefferedWork(mPostviewJob);
+        waitDefferedWork(mSnapshotJob);
+        waitDefferedWork(mRawdataJob);
+        return rc;
     }
 
     return rc;
@@ -7302,6 +7346,14 @@ int QCamera2HardwareInterface::calcThermalLevel(
         break;
     }
     if (level >= QCAMERA_THERMAL_NO_ADJUSTMENT && level <= QCAMERA_THERMAL_MAX_ADJUSTMENT) {
+        if (mParameters.getRecordingHintValue() == true) {
+            adjustedRange.min_fps = minFPS / 1000.0f;
+            adjustedRange.max_fps = maxFPS / 1000.0f;
+            adjustedRange.video_min_fps = minVideoFps / 1000.0f;
+            adjustedRange.video_max_fps = maxVideoFps / 1000.0f;
+            skipPattern = NO_SKIP;
+            CDBG_HIGH("%s: No FPS mitigation in camcorder mode", __func__);
+        }
         CDBG_HIGH("%s: Thermal level %d, FPS [%3.2f,%3.2f, %3.2f,%3.2f], frameskip %d",
                 __func__, level, adjustedRange.min_fps, adjustedRange.max_fps,
                 adjustedRange.video_min_fps, adjustedRange.video_max_fps,skipPattern);
@@ -8125,7 +8177,8 @@ int32_t QCamera2HardwareInterface::queueDefferedWork(DefferedWorkCmd cmd,
 /*===========================================================================
  * FUNCTION   : initJpegHandle
  *
- * DESCRIPTION: Opens JPEG client and gets a handle
+ * DESCRIPTION: Opens JPEG client and gets a handle.
+ *                     Sends Dual cam calibration info if present
  *
  * RETURN     : int32_t type of status
  *              NO_ERROR  -- success
@@ -8139,7 +8192,10 @@ int32_t QCamera2HardwareInterface::initJpegHandle() {
         //set max pic size
         max_size.w = m_max_pic_width;
         max_size.h = m_max_pic_height;
-        mJpegClientHandle = jpeg_open(&mJpegHandle, NULL, max_size, NULL);
+        // TODO- Check sanity of calibration data, needs header updates, will be done as
+        // part of new gerrit
+        mJpegClientHandle = jpeg_open(&mJpegHandle, &mJpegMpoHandle, max_size,
+                &mRelCamCalibData);
         if(!mJpegClientHandle) {
             ALOGE("%s: Error !! jpeg_open failed!! ", __func__);
             return UNKNOWN_ERROR;
@@ -8173,6 +8229,7 @@ int32_t QCamera2HardwareInterface::deinitJpegHandle() {
                     __func__, mJpegClientHandle);
         }
         memset(&mJpegHandle, 0, sizeof(mJpegHandle));
+        memset(&mJpegMpoHandle, 0, sizeof(mJpegMpoHandle));
         mJpegHandleOwner = false;
     }
     mJpegClientHandle = 0;
@@ -8187,24 +8244,27 @@ int32_t QCamera2HardwareInterface::deinitJpegHandle() {
  *
  * PARAMETERS:
  *                  @ops                    : JPEG ops
+ *                  @mpo_ops             : Jpeg MPO ops
  *                  @pJpegClientHandle : o/p Jpeg Client Handle
  *
- *
- * RETURN     : none
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
  *==========================================================================*/
-int32_t QCamera2HardwareInterface::setJpegHandleInfo(
-        mm_jpeg_ops_t *ops, uint32_t pJpegClientHandle) {
+int32_t QCamera2HardwareInterface::setJpegHandleInfo(mm_jpeg_ops_t *ops,
+        mm_jpeg_mpo_ops_t *mpo_ops, uint32_t pJpegClientHandle) {
 
-    if (pJpegClientHandle) {
-        CDBG_HIGH("%s: Setting JPEG client handle %d",
-                __func__, pJpegClientHandle);
+    if (pJpegClientHandle && ops && mpo_ops) {
+        CDBG_HIGH("%s: Setting JPEG client handle %d", __func__,
+                pJpegClientHandle);
         memcpy(&mJpegHandle, ops, sizeof(mm_jpeg_ops_t));
+        memcpy(&mJpegMpoHandle, mpo_ops, sizeof(mm_jpeg_mpo_ops_t));
         mJpegClientHandle = pJpegClientHandle;
         return NO_ERROR;
     }
     else {
-        CDBG_HIGH("%s: Error!! No Handle found: %d",
-                __func__, pJpegClientHandle);
+        CDBG_HIGH("%s: Error!! No Handle found: %d", __func__,
+                pJpegClientHandle);
         return BAD_VALUE;
     }
 }
@@ -8216,19 +8276,26 @@ int32_t QCamera2HardwareInterface::setJpegHandleInfo(
  *
  * PARAMETERS:
  *                  @ops                    : JPEG ops
+ *                  @mpo_ops             : Jpeg MPO ops
  *                  @pJpegClientHandle : o/p Jpeg Client Handle
  *
- *
- * RETURN     : none
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
  *==========================================================================*/
-void QCamera2HardwareInterface::getJpegHandleInfo(
-        mm_jpeg_ops_t *ops, uint32_t *pJpegClientHandle) {
+int32_t QCamera2HardwareInterface::getJpegHandleInfo(mm_jpeg_ops_t *ops,
+        mm_jpeg_mpo_ops_t *mpo_ops, uint32_t *pJpegClientHandle) {
     // Copy JPEG ops if present
-    if (ops) {
+    if (ops && mpo_ops && pJpegClientHandle) {
         memcpy(ops, &mJpegHandle, sizeof(mm_jpeg_ops_t));
+        memcpy(mpo_ops, &mJpegMpoHandle, sizeof(mm_jpeg_mpo_ops_t));
+        *pJpegClientHandle = mJpegClientHandle;
+        CDBG_HIGH("%s: Getting JPEG client handle %d", __func__,
+                pJpegClientHandle);
+        return NO_ERROR;
+    } else {
+        return BAD_VALUE;
     }
-    *pJpegClientHandle = mJpegClientHandle;
-    return;
 }
 
 /*===========================================================================
