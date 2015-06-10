@@ -192,6 +192,8 @@ const char QCameraParameters::FOCUS_MODE_MANUAL_POSITION[] = "manual";
 const char QCameraParameters::EFFECT_EMBOSS[] = "emboss";
 const char QCameraParameters::EFFECT_SKETCH[] = "sketch";
 const char QCameraParameters::EFFECT_NEON[] = "neon";
+const char QCameraParameters::EFFECT_BEAUTY[] = "beauty";
+
 
 // Values for auto exposure settings.
 const char QCameraParameters::TOUCH_AF_AEC_OFF[] = "touch-off";
@@ -552,7 +554,8 @@ const QCameraParameters::QCameraMap<cam_effect_mode_type>
     { EFFECT_AQUA,       CAM_EFFECT_MODE_AQUA },
     { EFFECT_EMBOSS,     CAM_EFFECT_MODE_EMBOSS },
     { EFFECT_SKETCH,     CAM_EFFECT_MODE_SKETCH },
-    { EFFECT_NEON,       CAM_EFFECT_MODE_NEON }
+    { EFFECT_NEON,       CAM_EFFECT_MODE_NEON },
+    { EFFECT_BEAUTY,     CAM_EFFECT_MODE_BEAUTY }
 };
 
 const QCameraParameters::QCameraMap<cam_scene_mode_type>
@@ -2120,7 +2123,17 @@ int32_t QCameraParameters::setEffect(const QCameraParameters& params)
 {
     const char *str = params.get(KEY_EFFECT);
     const char *prev_str = get(KEY_EFFECT);
-    if (str != NULL) {
+
+    char prop[PROPERTY_VALUE_MAX];
+    memset(prop,0,sizeof(prop));
+    property_get("persist.camera.effect",prop,"none");
+
+    if(strcmp(prop,"none")){
+        if (prev_str == NULL ||
+          strcmp(prop, prev_str) != 0){
+             return setEffect(prop);
+         }
+    }else if (str != NULL) {
         if (prev_str == NULL ||
             strcmp(str, prev_str) != 0 ||
             m_bUpdateEffects == true ) {
