@@ -1749,6 +1749,8 @@ typedef enum {
     CAM_INTF_META_EXIF_DEBUG_PDAF,
     /* FLIP mode parameter*/
     CAM_INTF_PARM_FLIP,
+    /*ASF Regions*/
+    CAM_INTF_META_ASF_TRIGGER_REGION,
     CAM_INTF_PARM_MAX
 } cam_intf_parm_type_t;
 
@@ -2279,5 +2281,20 @@ typedef enum {
     SHOOTINGMODE_MAX
 } cam_shootmode_type_t;
 
+typedef enum {
+    CPP_PARAM_ASF_REGION1,
+    CPP_PARAM_ASF_REGION2,
+    CPP_PARAM_ASF_REGION3,
+    CPP_PARAM_ASF_REGION4,
+    CPP_PARAM_ASF_REGION5,
+    CPP_PARAM_ASF_REGION6,
+    CPP_PARAM_ASF_REGION7,
+    CPP_PARAM_ASF_REGION8,
+} cam_cpp_params_asf_region;
+
+typedef struct {
+    cam_cpp_params_asf_region region1;
+    cam_cpp_params_asf_region region2;
+} cam_asf_trigger_regions_t;
 
 #endif /* __QCAMERA_TYPES_H__ */

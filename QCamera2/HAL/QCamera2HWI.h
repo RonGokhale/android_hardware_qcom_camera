@@ -645,6 +645,7 @@ private:
     bool mAdvancedCaptureConfigured;
     bool mHDRBracketingEnabled;
     bool mCACDoneReceived;
+    cam_asf_trigger_regions_t mOSDRegion;
 };
 
 }; // namespace qcamera

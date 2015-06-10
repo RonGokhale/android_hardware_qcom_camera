@@ -783,6 +783,7 @@ public:
     void setTintless(bool enable);
     void setBufBatchCount(int8_t buf_cnt);
     int8_t  getBufBatchCount() {return mBufBatchCnt;};
+    bool isASFOSDEnabled();
 
     cam_capture_frame_config_t getCaptureFrameConfig()
             { return m_captureFrameConfig; };

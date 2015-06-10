@@ -12172,4 +12172,26 @@ int32_t QCameraParameters::setCDSMode(int32_t cds_mode, bool initCommit)
     return rc;
 }
 
+/*===========================================================================
+ * FUNCTION   : isASFOSDEnabled
+ *
+ * DESCRIPTION: Check if the ASF enable property is set
+ *
+ * PARAMETERS : None
+ *
+ *
+ * RETURN     : True - if enabled
+ *              False  -- otherwise
+ *
+ *==========================================================================*/
+bool QCameraParameters::isASFOSDEnabled()
+{
+    char prop[PROPERTY_VALUE_MAX];
+    memset(prop, 0, sizeof(prop));
+    property_get("persist.camera.asf_osd", prop, "0");
+    bool enableASF = atoi(prop);
+    return enableASF;
+}
+
+
 }; // namespace qcamera
