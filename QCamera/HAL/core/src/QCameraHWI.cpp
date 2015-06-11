@@ -2724,6 +2724,7 @@ void QCameraHardwareInterface::stopPreview()
         default:
             break;
     }
+    setRecordingHintValue(mRecordingHint);
     ALOGI("stopPreview: X, mPreviewState = %d", mPreviewState);
 }
 
@@ -3276,6 +3277,16 @@ status_t  QCameraHardwareInterface::takePicture()
             if(MM_CAMERA_OK != ret) {
                 ALOGE("%s: X :set mode MM_CAMERA_OP_MODE_CAPTURE err=%d\n", __func__, ret);
                 return BAD_VALUE;
+            }
+
+            if (mRecordingHint == TRUE) {
+                ALOGE("%s: hint is set to true but there is no active recording, so set hint to false", __func__);
+                // Set recording hint to FALSE
+                if (setRecordingHintValue(FALSE) == NO_ERROR){
+                    mRecordingHint = FALSE;
+                } else {
+                    ALOGE("%s: set recording hint to false failed", __func__);
+                }
             }
 
             ret = setDimension();
