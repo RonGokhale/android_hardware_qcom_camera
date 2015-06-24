@@ -571,6 +571,11 @@ public:
     static const char VIDEO_ROTATION_180[];
     static const char VIDEO_ROTATION_270[];
 
+#ifdef TARGET_TS_MAKEUP
+    static const char KEY_TS_MAKEUP[];
+    static const char KEY_TS_MAKEUP_WHITEN[];
+    static const char KEY_TS_MAKEUP_CLEAN[];
+#endif
     enum {
         CAMERA_ORIENTATION_UNKNOWN = 0,
         CAMERA_ORIENTATION_PORTRAIT = 1,
@@ -623,6 +628,7 @@ public:
     bool isWNREnabled() {return m_bWNROn;};
     bool isTNRPreviewEnabled() {return m_bTNRPreviewOn;};
     bool isTNRVideoEnabled() {return m_bTNRVideoOn;};
+    bool isCDSEnabled() {return (mCds_mode != CAM_CDS_MODE_OFF);};
     bool isHfrMode() {return m_bHfrMode;};
     void getHfrFps(cam_fps_range_t &pFpsRange) { pFpsRange = m_hfrFpsRange;};
     uint8_t getNumOfSnapshots();
@@ -636,7 +642,7 @@ public:
     int setRecordingHintValue(int32_t value); // set local copy of video hint and send to server
                                               // no change in parameters value
     uint32_t getJpegQuality();
-    uint32_t getJpegRotation();
+    uint32_t getRotation();
     uint32_t getDeviceRotation();
     uint32_t getJpegExifRotation();
     bool useJpegExifRotation();
@@ -791,6 +797,8 @@ public:
 
     cam_capture_frame_config_t getCaptureFrameConfig()
             { return m_captureFrameConfig; };
+    void setJpegRotation(int rotation);
+    uint32_t getJpegRotation() { return mJpegRotation;};
 
     /* Dual camera specific */
     int32_t setRelatedCamSyncInfo(
@@ -1096,6 +1104,7 @@ private:
     int8_t mBufBatchCnt;
 
     uint32_t mRotation;
+    uint32_t mJpegRotation;
 };
 
 }; // namespace qcamera

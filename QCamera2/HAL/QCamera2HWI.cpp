@@ -1224,6 +1224,10 @@ QCamera2HardwareInterface::QCamera2HardwareInterface(uint32_t cameraId)
       mJpegClientHandle(0),
       mJpegHandleOwner(false)
 {
+#ifdef TARGET_TS_MAKEUP
+    mMakeUpBuf = NULL;
+    memset(&mFaceRect, -1, sizeof(mFaceRect));
+#endif
     getLogLevel();
     ATRACE_CALL();
     mCameraDevice.common.tag = HARDWARE_DEVICE_TAG;
@@ -1358,10 +1362,10 @@ int QCamera2HardwareInterface::openCamera()
         ALOGE("Failure: Camera already opened");
         return ALREADY_EXISTS;
     }
-    mCameraHandle = camera_open((uint8_t)mCameraId);
-    if (!mCameraHandle) {
-        ALOGE("camera_open failed.");
-        return UNKNOWN_ERROR;
+    rc = camera_open((uint8_t)mCameraId, &mCameraHandle);
+    if (rc) {
+        ALOGE("camera_open failed. rc = %d, mCameraHandle = %p", rc, mCameraHandle);
+        return rc;
     }
     if (NULL == gCamCaps[mCameraId]) {
         if(NO_ERROR != initCapabilities(mCameraId,mCameraHandle)) {
@@ -1816,6 +1820,7 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
     int minCaptureBuffers = mParameters.getNumOfSnapshots();
     char value[PROPERTY_VALUE_MAX];
     bool raw_yuv = false;
+    int persist_cnt = 0;
 
     int zslQBuffers = mParameters.getZSLQueueDepth();
 
@@ -1869,6 +1874,13 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
                         mParameters.getNumOfExtraBuffersForPreview();
             }
             bufferCnt += minUndequeCount;
+
+            property_get("persist.camera.preview_yuv", value, "0");
+            persist_cnt = atoi(value);
+            if ((persist_cnt < CAM_MAX_NUM_BUFS_PER_STREAM)
+                    && (bufferCnt < persist_cnt)) {
+                bufferCnt = persist_cnt;
+            }
         }
         break;
     case CAM_STREAM_TYPE_POSTVIEW:
@@ -1940,6 +1952,20 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
                 bufferCnt = maxStreamBuf;
             }
         }
+
+        property_get("persist.camera.preview_raw", value, "0");
+        persist_cnt = atoi(value);
+        if ((persist_cnt < CAM_MAX_NUM_BUFS_PER_STREAM)
+                && (bufferCnt < persist_cnt)) {
+            bufferCnt = persist_cnt;
+        }
+        property_get("persist.camera.video_raw", value, "0");
+        persist_cnt = atoi(value);
+        if ((persist_cnt < CAM_MAX_NUM_BUFS_PER_STREAM)
+                && (bufferCnt < persist_cnt)) {
+            bufferCnt = persist_cnt;
+        }
+
         break;
     case CAM_STREAM_TYPE_VIDEO:
         {
@@ -2007,6 +2033,7 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
         break;
     }
 
+    CDBG("%s: Buffer count = %d for stream type = %d",__func__, bufferCnt, stream_type);
     if (CAM_MAX_NUM_BUFS_PER_STREAM < bufferCnt) {
         ALOGE("%s: Buffer count %d for stream type %d exceeds limit %d",
                 __func__, bufferCnt, stream_type, CAM_MAX_NUM_BUFS_PER_STREAM);
@@ -2701,11 +2728,21 @@ int QCamera2HardwareInterface::startPreview()
     }
 
     updatePostPreviewParameters();
+#ifdef TARGET_TS_MAKEUP
+    if (mMakeUpBuf == NULL) {
+        int pre_width, pre_height;
+        mParameters.getPreviewSize(&pre_width, &pre_height);
+        mMakeUpBuf = new unsigned char[pre_width*pre_height*3/2];
+        CDBG_HIGH("prewidht=%d,preheight=%d",pre_width, pre_height);
+    }
+#endif
     CDBG_HIGH("%s: X", __func__);
     return rc;
 }
 
 int32_t QCamera2HardwareInterface::updatePostPreviewParameters() {
+    //Reset focus state to INACTIVE
+    m_currentFocusState = CAM_AF_STATE_INACTIVE;
     // Enable OIS only in Camera mode and 4k2k camcoder mode
     int32_t rc = NO_ERROR;
     rc = mParameters.updateOisValue(1);
@@ -2735,6 +2772,14 @@ int QCamera2HardwareInterface::stopPreview()
     stopChannel(QCAMERA_CH_TYPE_PREVIEW);
 
     m_cbNotifier.flushPreviewNotifications();
+    //add for ts makeup
+#ifdef TARGET_TS_MAKEUP
+    if (mMakeUpBuf) {
+        delete []mMakeUpBuf;
+        mMakeUpBuf=NULL;
+    }
+    ts_makeup_finish();
+#endif
     // delete all channels from preparePreview
     unpreparePreview();
     CDBG_HIGH("%s: X", __func__);
@@ -3433,6 +3478,10 @@ int QCamera2HardwareInterface::takePicture()
     uint8_t numRetroSnapshots = mParameters.getNumOfRetroSnapshots();
     CDBG_HIGH("%s: E", __func__);
 
+    //Set rotation value from user settings as Jpeg rotation
+    //to configure back-end modules.
+    mParameters.setJpegRotation(mParameters.getRotation());
+
     // Check if retro-active snapshots are not enabled
     if (!isRetroPicture() || !mParameters.isZSLMode()) {
       numRetroSnapshots = 0;
@@ -4067,6 +4116,10 @@ int QCamera2HardwareInterface::takeBackendPic_internal(bool *JpegMemOpt, char *r
     qcamera_api_result_t apiResult;
 
     lockAPI();
+    //Set rotation value from user settings as Jpeg rotation
+    //to configure back-end modules.
+    mParameters.setJpegRotation(mParameters.getRotation());
+
     setRetroPicture(0);
     /* Prepare snapshot in case LED needs to be flashed */
     if (mFlashNeeded == 1 || mParameters.isChromaFlashEnabled()) {
@@ -4187,6 +4240,10 @@ int QCamera2HardwareInterface::takeLiveSnapshot_internal()
     int rc = NO_ERROR;
 
     QCameraChannel *pChannel = NULL;
+
+    //Set rotation value from user settings as Jpeg rotation
+    //to configure back-end modules.
+    mParameters.setJpegRotation(mParameters.getRotation());
 
     // Configure advanced capture
     if (mParameters.isUbiFocusEnabled() ||
@@ -5624,6 +5681,9 @@ int32_t QCamera2HardwareInterface::addPreviewChannel()
 {
     int32_t rc = NO_ERROR;
     QCameraChannel *pChannel = NULL;
+    char value[PROPERTY_VALUE_MAX];
+    bool raw_yuv = false;
+
 
     if (m_channels[QCAMERA_CH_TYPE_PREVIEW] != NULL) {
         // Using the no preview torch WA it is possible
@@ -5675,6 +5735,18 @@ int32_t QCamera2HardwareInterface::addPreviewChannel()
         } else {
             rc = addStreamToChannel(pChannel, CAM_STREAM_TYPE_PREVIEW,
                                     preview_stream_cb_routine, this);
+        }
+    }
+
+    property_get("persist.camera.raw_yuv", value, "0");
+    raw_yuv = atoi(value) > 0 ? true : false;
+    if ( raw_yuv ) {
+        rc = addStreamToChannel(pChannel,CAM_STREAM_TYPE_RAW,
+                preview_raw_stream_cb_routine,this);
+        if ( rc != NO_ERROR ) {
+            ALOGE("%s: add raw stream failed, ret = %d", __FUNCTION__, rc);
+            delete pChannel;
+            return rc;
         }
     }
 
@@ -6369,9 +6441,14 @@ int32_t QCamera2HardwareInterface::getPPConfig(cam_pp_feature_config_t &pp_confi
                 pp_config.feature_mask &= ~CAM_QCOM_FEATURE_STILLMORE;
             }
 
+            if (mParameters.isCDSEnabled()) {
+                pp_config.feature_mask |= CAM_QCOM_FEATURE_CDS;
+            }
+
             if (curCount != mParameters.getReprocCount()) {
                 pp_config.feature_mask &= ~CAM_QCOM_FEATURE_PP_PASS_2;
                 pp_config.feature_mask &= ~CAM_QCOM_FEATURE_ROTATION;
+                pp_config.feature_mask &= ~CAM_QCOM_FEATURE_CDS;
                 pp_config.feature_mask |= CAM_QCOM_FEATURE_CROP;
             } else {
                 pp_config.feature_mask |= CAM_QCOM_FEATURE_SCALE;
@@ -6404,6 +6481,9 @@ int32_t QCamera2HardwareInterface::getPPConfig(cam_pp_feature_config_t &pp_confi
                 } else if (rotation == 270) {
                     pp_config.rotation = ROTATE_270;
                 }
+            }
+            if (mParameters.isCDSEnabled()) {
+                pp_config.feature_mask |= CAM_QCOM_FEATURE_CDS;
             }
             break;
 
@@ -7076,6 +7156,12 @@ int32_t QCamera2HardwareInterface::processFaceDetectionResult(cam_face_detection
                 MAP_TO_DRIVER_COORDINATE(fd_data->faces[i].mouth_center.y, display_dim.height, 2000, -1000);
 
 #ifndef VANILLA_HAL
+#ifdef TARGET_TS_MAKEUP
+            mFaceRect.left = fd_data->faces[i].face_boundary.left;
+            mFaceRect.top = fd_data->faces[i].face_boundary.top;
+            mFaceRect.right = fd_data->faces[i].face_boundary.width+mFaceRect.left;
+            mFaceRect.bottom = fd_data->faces[i].face_boundary.height+mFaceRect.top;
+#endif
             faces[i].smile_degree = fd_data->faces[i].smile_degree;
             faces[i].smile_score = fd_data->faces[i].smile_confidence;
             faces[i].blink_detected = fd_data->faces[i].blink_detected;
@@ -7095,7 +7181,11 @@ int32_t QCamera2HardwareInterface::processFaceDetectionResult(cam_face_detection
 
         }
     }
-
+    else{
+#ifdef TARGET_TS_MAKEUP
+        memset(&mFaceRect,-1,sizeof(mFaceRect));
+#endif
+    }
     qcamera_callback_argm_t cbArg;
     memset(&cbArg, 0, sizeof(qcamera_callback_argm_t));
     cbArg.cb_type = QCAMERA_DATA_CALLBACK;

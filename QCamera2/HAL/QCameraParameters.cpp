@@ -425,6 +425,11 @@ const char QCameraParameters::KEY_QC_USER_SETTING[] = "user-setting";
 const char QCameraParameters::KEY_QC_WB_CCT_MODE[] = "color-temperature";
 const char QCameraParameters::KEY_QC_WB_GAIN_MODE[] = "rbgb-gains";
 
+#ifdef TARGET_TS_MAKEUP
+const char QCameraParameters::KEY_TS_MAKEUP[] = "tsmakeup";
+const char QCameraParameters::KEY_TS_MAKEUP_WHITEN[] = "tsmakeup_whiten";
+const char QCameraParameters::KEY_TS_MAKEUP_CLEAN[] = "tsmakeup_clean";
+#endif
 static const char* portrait = "portrait";
 static const char* landscape = "landscape";
 
@@ -436,6 +441,9 @@ const cam_dimension_t QCameraParameters::THUMBNAIL_SIZES_MAP[] = {
     { 320, 320 }, //1.0
     { 320, 240 }, //1.33333
     { 176, 144 }, //1.222222
+    /*Thumbnail sizes to match portrait picture size aspect ratio*/
+    { 240, 320 }, //to match 480X640 & 240X320 picture size
+    { 144, 176 }, //to match 144X176  picture size
     { 0, 0 }      // required by Android SDK
 };
 
@@ -868,6 +876,7 @@ QCameraParameters::QCameraParameters()
     mCurPPCount = 0;
     mBufBatchCnt = 0;
     mRotation = 0;
+    mJpegRotation = 0;
 }
 
 /*===========================================================================
@@ -959,6 +968,7 @@ QCameraParameters::QCameraParameters(const String8 &params)
     mParmZoomLevel = 0;
     mCurPPCount = 0;
     mRotation = 0;
+    mJpegRotation = 0;
 }
 
 /*===========================================================================
@@ -4660,7 +4670,20 @@ int32_t QCameraParameters::updateParameters(QCameraParameters& params,
 
     if ((rc = updateFlash(false)))                      final_rc = rc;
     if ((rc = setLongshotParam(params)))                final_rc = rc;
-
+#ifdef TARGET_TS_MAKEUP
+    if (params.get(KEY_TS_MAKEUP) != NULL) {
+        set(KEY_TS_MAKEUP,params.get(KEY_TS_MAKEUP));
+        final_rc = rc;
+    }
+    if (params.get(KEY_TS_MAKEUP_WHITEN) != NULL) {
+        set(KEY_TS_MAKEUP_WHITEN,params.get(KEY_TS_MAKEUP_WHITEN));
+        final_rc = rc;
+    }
+    if (params.get(KEY_TS_MAKEUP_CLEAN) != NULL) {
+        set(KEY_TS_MAKEUP_CLEAN,params.get(KEY_TS_MAKEUP_CLEAN));
+        final_rc = rc;
+    }
+#endif
 UPDATE_PARAM_DONE:
     needRestart = m_bNeedRestart;
     return final_rc;
@@ -7133,6 +7156,7 @@ int32_t QCameraParameters::setCDSMode(const QCameraParameters& params)
                     } else {
                         CDBG("%s: Set CDS in video mode = %d", __func__, cds_mode);
                         mCds_mode = cds_mode;
+                        m_bNeedRestart = true;
                     }
                 } else {
                     ALOGE("%s: Invalid argument for video CDS MODE %d", __func__,  cds_mode);
@@ -7172,6 +7196,7 @@ int32_t QCameraParameters::setCDSMode(const QCameraParameters& params)
                     } else {
                         CDBG("%s: Set CDS in capture mode = %d", __func__, cds_mode);
                         mCds_mode = cds_mode;
+                        m_bNeedRestart = true;
                     }
                 } else {
                     ALOGE("%s: Invalid argument for snapshot CDS MODE %d", __func__,  cds_mode);
@@ -9667,15 +9692,15 @@ uint32_t QCameraParameters::getJpegQuality()
 }
 
 /*===========================================================================
- * FUNCTION   : getJpegRotation
+ * FUNCTION   : getRotation
  *
- * DESCRIPTION: get jpeg rotation value
+ * DESCRIPTION: get application configured rotation
  *
  * PARAMETERS : none
  *
- * RETURN     : jpeg rotation value
+ * RETURN     : rotation value
  *==========================================================================*/
-uint32_t QCameraParameters::getJpegRotation() {
+uint32_t QCameraParameters::getRotation() {
     int rotation = 0;
 
     //If exif rotation is set, do not rotate captured image
@@ -9686,6 +9711,22 @@ uint32_t QCameraParameters::getJpegRotation() {
         }
     }
     return (uint32_t)rotation;
+}
+
+/*===========================================================================
+ * FUNCTION   : setJpegRotation
+ *
+ * DESCRIPTION: set jpeg rotation value configured internally
+ *
+ * PARAMETERS : none
+ *
+ * RETURN     : jpeg rotation value
+ *==========================================================================*/
+void QCameraParameters::setJpegRotation(int rotation) {
+    if (rotation == 0 || rotation == 90 ||
+            rotation == 180 || rotation == 270) {
+        mJpegRotation = (uint32_t)rotation;
+    }
 }
 
 /*===========================================================================
@@ -12175,6 +12216,14 @@ int32_t QCameraParameters::updatePpFeatureMask(cam_stream_type_t stream_type) {
         feature_mask |= CAM_QCOM_FEATURE_CPP_TNR;
     }
 
+    if (isCDSEnabled() && ((CAM_STREAM_TYPE_PREVIEW == stream_type) ||
+            (CAM_STREAM_TYPE_VIDEO == stream_type) ||
+            (CAM_STREAM_TYPE_CALLBACK == stream_type) ||
+            ((CAM_STREAM_TYPE_SNAPSHOT == stream_type) &&
+            getRecordingHintValue() && is4k2kVideoResolution()))) {
+         feature_mask |= CAM_QCOM_FEATURE_CDS;
+    }
+
     //Rotation could also have an effect on pp feature mask
     cam_pp_feature_config_t config;
     cam_dimension_t dim;
@@ -12595,7 +12644,7 @@ int32_t QCameraParameters::setToneMapMode(uint32_t enable, bool initCommit)
  *
  * PARAMETERS : none
  *
- * RETURN	  : number of stages
+ * RETURN     : number of stages
  *==========================================================================*/
 uint8_t QCameraParameters::getLongshotStages()
 {

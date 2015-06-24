@@ -302,7 +302,10 @@ int32_t mm_camera_open(mm_camera_obj_t *my_obj)
     if (my_obj->ctrl_fd < 0) {
         CDBG_ERROR("%s: cannot open control fd of '%s' (%s)\n",
                  __func__, dev_name, strerror(errno));
-        rc = -1;
+        if (errno == EBUSY)
+            rc = -EUSERS;
+        else
+            rc = -1;
         goto on_error;
     }
 
@@ -793,6 +796,28 @@ int32_t mm_camera_stop_zsl_snapshot(mm_camera_obj_t *my_obj)
     int32_t value;
     rc = mm_camera_util_s_ctrl(my_obj->ctrl_fd,
              CAM_PRIV_STOP_ZSL_SNAPSHOT, &value);
+    return rc;
+}
+
+/*===========================================================================
+ * FUNCTION   : mm_camera_flush
+ *
+ * DESCRIPTION: flush the current camera state and buffers
+ *
+ * PARAMETERS :
+ *   @my_obj       : camera object
+ *
+ * RETURN     : int32_t type of status
+ *              0  -- success
+ *              -1 -- failure
+ *==========================================================================*/
+int32_t mm_camera_flush(mm_camera_obj_t *my_obj)
+{
+    int32_t rc = -1;
+    int32_t value;
+    rc = mm_camera_util_s_ctrl(my_obj->ctrl_fd,
+            CAM_PRIV_FLUSH, &value);
+    pthread_mutex_unlock(&my_obj->cam_lock);
     return rc;
 }
 
