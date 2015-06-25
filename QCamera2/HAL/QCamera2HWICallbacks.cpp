@@ -558,7 +558,7 @@ bool isNeedDelPadding(cam_frame_len_offset_t offset, int32_t width) {
 
 bool QCamera2HardwareInterface::TsMakeupProcess_Preview(mm_camera_buf_def_t *pFrame,
         QCameraStream * pStream) {
-    ALOGD("%s begin",__func__);
+    CDBG("%s begin",__func__);
     bool bRet = false;
     if (pStream == NULL || pFrame == NULL) {
         bRet = false;
@@ -566,17 +566,17 @@ bool QCamera2HardwareInterface::TsMakeupProcess_Preview(mm_camera_buf_def_t *pFr
     } else {
         bRet = TsMakeupProcess(pFrame,pStream,mMakeUpBuf,mFaceRect);
     }
-    ALOGD("%s end bRet = %d ",__func__,bRet);
+    CDBG("%s end bRet = %d ",__func__,bRet);
     return bRet;
 }
 
 bool QCamera2HardwareInterface::TsMakeupProcess_Snapshot(mm_camera_buf_def_t *pFrame,
         QCameraStream * pStream) {
-    ALOGD("%s begin",__func__);
+    CDBG("%s begin",__func__);
     bool bRet = false;
     if (pStream == NULL || pFrame == NULL) {
         bRet = false;
-        ALOGD("%s pStream == NULL || pFrame == NULL",__func__);
+        CDBG_HIGH("%s pStream == NULL || pFrame == NULL",__func__);
     } else {
         cam_frame_len_offset_t offset;
         memset(&offset, 0, sizeof(cam_frame_len_offset_t));
@@ -596,20 +596,20 @@ bool QCamera2HardwareInterface::TsMakeupProcess_Snapshot(mm_camera_buf_def_t *pF
         inMakeupData.frameHeight = dim.height;
         inMakeupData.yBuf  = yBuf;
         inMakeupData.uvBuf = uvBuf;
-        ALOGD("%s detect begin",__func__);
+        CDBG("%s detect begin",__func__);
         TSHandle fd_handle = ts_detectface_create_context();
         if (fd_handle != NULL) {
             cam_format_t fmt;
             pStream->getFormat(fmt);
             int iret = ts_detectface_detect(fd_handle, &inMakeupData);
-            ALOGD("%s ts_detectface_detect iret = %d",__func__,iret);
+            CDBG("%s ts_detectface_detect iret = %d",__func__,iret);
             if (iret <= 0) {
                 bRet = false;
             } else {
                 TSRect faceRect;
                 memset(&faceRect,-1,sizeof(TSRect));
                 iret = ts_detectface_get_face_info(fd_handle, 0, &faceRect, NULL,NULL,NULL);
-                ALOGD("%s ts_detectface_get_face_info iret=%d,faceRect.left=%ld,"
+                CDBG("%s ts_detectface_get_face_info iret=%d,faceRect.left=%ld,"
                         "faceRect.top=%ld,faceRect.right=%ld,faceRect.bottom=%ld"
                         ,__func__,iret,faceRect.left,faceRect.top,faceRect.right,faceRect.bottom);
                 bRet = TsMakeupProcess(pFrame,pStream,tempBuf,faceRect);
@@ -623,16 +623,16 @@ bool QCamera2HardwareInterface::TsMakeupProcess_Snapshot(mm_camera_buf_def_t *pF
             delete[] tempBuf;
             tempBuf = NULL;
         }
-        ALOGD("%s detect end",__func__);
+        CDBG("%s detect end",__func__);
     }
-    ALOGD("%s end bRet = %d ",__func__,bRet);
+    CDBG("%s end bRet = %d ",__func__,bRet);
     return bRet;
 }
 
 bool QCamera2HardwareInterface::TsMakeupProcess(mm_camera_buf_def_t *pFrame,
         QCameraStream * pStream,unsigned char *pMakeupOutBuf,TSRect& faceRect) {
     bool bRet = false;
-    ALOGD("%s begin",__func__);
+    CDBG("%s begin",__func__);
     if (pStream == NULL || pFrame == NULL || pMakeupOutBuf == NULL) {
         bRet = false;
         CDBG_HIGH("%s pStream == NULL || pFrame == NULL || pMakeupOutBuf == NULL",__func__);
@@ -645,7 +645,7 @@ bool QCamera2HardwareInterface::TsMakeupProcess(mm_camera_buf_def_t *pFrame,
         return bRet = false;
     }
     bool enableMakeUp = (strcmp(pch_makeup_enable,"On") == 0)&& faceRect.left > -1 ;
-    ALOGD("%s pch_makeup_enable = %s ",__func__,pch_makeup_enable);
+    CDBG("%s pch_makeup_enable = %s ",__func__,pch_makeup_enable);
     if (enableMakeUp) {
         cam_dimension_t dim;
         cam_frame_len_offset_t offset;
@@ -679,7 +679,7 @@ bool QCamera2HardwareInterface::TsMakeupProcess(mm_camera_buf_def_t *pFrame,
         outMakeupData.yBuf =  tmpBuf; //  Y buffer pointer
         outMakeupData.uvBuf = tmpBuf+(dim.width*dim.height); // VU buffer pointer
 
-        ALOGD("%s: faceRect:left 2:%ld,,right:%ld,,top:%ld,,bottom:%ld,,Level:%dx%d",
+        CDBG("%s: faceRect:left 2:%ld,,right:%ld,,top:%ld,,bottom:%ld,,Level:%dx%d",
             __func__,
             faceRect.left,faceRect.right,faceRect.top,faceRect.bottom,cleanLevel,whiteLevel);
         ts_makeup_skin_beauty(&inMakeupData, &outMakeupData, &(faceRect),cleanLevel,whiteLevel);
@@ -693,7 +693,7 @@ bool QCamera2HardwareInterface::TsMakeupProcess(mm_camera_buf_def_t *pFrame,
         QCameraMemory *memory = (QCameraMemory *)pFrame->mem_info;
         memory->cleanCache(pFrame->buf_idx);
     }
-    ALOGD("%s end bRet = %d ",__func__,bRet);
+    CDBG("%s end bRet = %d ",__func__,bRet);
     return bRet;
 }
 #endif
@@ -2763,6 +2763,10 @@ void * QCameraCbNotifier::cbNotifyRoutine(void * data)
                                     ALOGE("%s : notify callback not set!",
                                           __func__);
                                 }
+                                if (cb->release_cb) {
+                                    cb->release_cb(cb->user_data, cb->cookie,
+                                            cbStatus);
+                                }
                             }
                             break;
                         case QCAMERA_DATA_CALLBACK:
@@ -2777,6 +2781,10 @@ void * QCameraCbNotifier::cbNotifyRoutine(void * data)
                                     ALOGE("%s : data callback not set!",
                                           __func__);
                                 }
+                                if (cb->release_cb) {
+                                    cb->release_cb(cb->user_data, cb->cookie,
+                                            cbStatus);
+                                }
                             }
                             break;
                         case QCAMERA_DATA_TIMESTAMP_CALLBACK:
@@ -2790,6 +2798,10 @@ void * QCameraCbNotifier::cbNotifyRoutine(void * data)
                                 } else {
                                     ALOGE("%s:data cb with tmp not set!",
                                           __func__);
+                                }
+                                if (cb->release_cb) {
+                                    cb->release_cb(cb->user_data, cb->cookie,
+                                            cbStatus);
                                 }
                             }
                             break;
@@ -2810,14 +2822,30 @@ void * QCameraCbNotifier::cbNotifyRoutine(void * data)
                                         }
                                     }
                                     if (pme->mJpegCb) {
-                                        ALOGI("%s: Calling JPEG Callback!! for camera %d",
-                                            __func__, pme->mParent->getCameraId() );
-                                        pme->mJpegCb(cb->msg_type, cb->data, cb->index,
-                                                cb->metadata, pme->mJpegCallbackCookie);
+                                        ALOGI("%s: Calling JPEG Callback!! for camera %d"
+                                                "release_data %p",
+                                                "frame_idx %d",
+                                                __func__, pme->mParent->getCameraId(),
+                                                cb->user_data,
+                                                cb->frame_index);
+                                        pme->mJpegCb(cb->msg_type, cb->data,
+                                                cb->index, cb->metadata,
+                                                pme->mJpegCallbackCookie,
+                                                cb->frame_index, cb->release_cb,
+                                                cb->cookie, cb->user_data);
+                                        // incase of non-null Jpeg cb we transfer
+                                        // ownership of buffer to muxer. hence
+                                        // release_cb should not be called
+                                        // muxer will release after its done with
+                                        // processing the buffer
                                     }
                                     else {
                                         pme->mDataCb(cb->msg_type, cb->data, cb->index,
                                                 cb->metadata, pme->mCallbackCookie);
+                                        if (cb->release_cb) {
+                                            cb->release_cb(cb->user_data, cb->cookie,
+                                                    cbStatus);
+                                        }
                                     }
                                 }
                             }
@@ -2828,6 +2856,10 @@ void * QCameraCbNotifier::cbNotifyRoutine(void * data)
                                       __func__,
                                       cb->cb_type);
                                 cbStatus = BAD_VALUE;
+                                if (cb->release_cb) {
+                                    cb->release_cb(cb->user_data, cb->cookie,
+                                            cbStatus);
+                                }
                             }
                             break;
                         };
@@ -2836,11 +2868,11 @@ void * QCameraCbNotifier::cbNotifyRoutine(void * data)
                               __func__,
                               cb->msg_type);
                         cbStatus = INVALID_OPERATION;
+                        if (cb->release_cb) {
+                            cb->release_cb(cb->user_data, cb->cookie, cbStatus);
+                        }
                     }
-                    if ( cb->release_cb ) {
-                        cb->release_cb(cb->user_data, cb->cookie, cbStatus);
-                    }
-                    delete cb;
+                delete cb;
                 } else {
                     ALOGE("%s: invalid cb type passed", __func__);
                 }
