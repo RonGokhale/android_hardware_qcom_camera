@@ -649,6 +649,7 @@ private:
         CMD_DEFF_PPROC_START,
         CMD_DEF_PPROC_INIT,
         CMD_DEFF_CREATE_JPEG_SESSION,
+        CMD_DEF_METADATA_ALLOC,
         CMD_DEFF_MAX
     };
 
@@ -662,10 +663,16 @@ private:
         void *user_data;
     } DeferPProcInitArgs;
 
+    typedef struct {
+        uint8_t bufferCnt;
+        size_t size;
+    } DeferMetadataAllocArgs;
+
     typedef union {
         DefferAllocBuffArgs allocArgs;
         QCameraChannel *pprocArgs;
         DeferPProcInitArgs pprocInitArgs;
+        DeferMetadataAllocArgs metadataAllocArgs;
     } DefferWorkArgs;
 
     bool mDeffOngoingJobs[MAX_ONGOING_JOBS];
@@ -702,6 +709,7 @@ private:
     int32_t mJpegJob;
     int32_t mRawdataJob;
     int32_t mInitPProcJob;
+    int32_t mMetadataAllocJob;
     uint32_t mOutputCount;
     uint32_t mInputCount;
     bool mAdvancedCaptureConfigured;
@@ -726,6 +734,8 @@ private:
     void *lib_surface_utils;
     int (*LINK_get_surface_pixel_alignment)();
     uint32_t mSurfaceStridePadding;
+
+    QCameraMemory *mMetadataMem;
 };
 
 }; // namespace qcamera
