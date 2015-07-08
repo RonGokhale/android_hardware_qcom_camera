@@ -1,6 +1,6 @@
 /*
 ** Copyright 2008, The Android Open Source Project
-** Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+** Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
 ** Not a Contribution. Apache license notifications and license are
 ** retained for attribution purposes only.
 **
@@ -572,6 +572,10 @@ public:
     static const char VIDEO_ROTATION_180[];
     static const char VIDEO_ROTATION_270[];
 
+    // Values for video hdr settings
+    static const char VALUE_VIDEO_HDR_MODE_SENSOR[];
+    static const char VALUE_VIDEO_HDR_MODE_STAGGERED[];
+
 #ifdef TARGET_TS_MAKEUP
     static const char KEY_TS_MAKEUP[];
     static const char KEY_TS_MAKEUP_WHITEN[];
@@ -1019,6 +1023,7 @@ private:
     static const QCameraMap<int> SEE_MORE_MODES_MAP[];
     static const QCameraMap<int> STILL_MORE_MODES_MAP[];
     static const QCameraMap<int> NOISE_REDUCTION_MODES_MAP[];
+    static const QCameraMap<cam_intf_video_hdr_mode_t> VIDEO_HDR_MODES_MAP[];
 
     cam_capability_t *m_pCapability;
     mm_camera_vtbl_t *m_pCamOpsTbl;

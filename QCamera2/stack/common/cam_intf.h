@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -843,7 +843,7 @@ typedef struct {
     INCLUDE(CAM_INTF_PARM_ZSL_MODE,                     int32_t,                     1);
     INCLUDE(CAM_INTF_PARM_HDR_NEED_1X,                  int32_t,                     1);
     INCLUDE(CAM_INTF_PARM_LOCK_CAF,                     int32_t,                     1);
-    INCLUDE(CAM_INTF_PARM_VIDEO_HDR,                    int32_t,                     1);
+    INCLUDE(CAM_INTF_PARM_VIDEO_HDR,                    cam_intf_video_hdr_mode_t,   1);
     INCLUDE(CAM_INTF_PARM_SENSOR_HDR,                   int32_t,                     1);
     INCLUDE(CAM_INTF_PARM_VT,                           int32_t,                     1);
     INCLUDE(CAM_INTF_PARM_SET_AUTOFOCUSTUNING,          tune_actuator_t,             1);

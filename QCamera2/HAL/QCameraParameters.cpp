@@ -435,6 +435,9 @@ const char QCameraParameters::KEY_QC_WB_GAIN_MODE[] = "rbgb-gains";
 const char QCameraParameters::KEY_QC_NOISE_REDUCTION_MODE[] = "noise-reduction-mode";
 const char QCameraParameters::KEY_QC_NOISE_REDUCTION_MODE_VALUES[] = "noise-reduction-mode-values";
 
+const char QCameraParameters::VALUE_VIDEO_HDR_MODE_SENSOR[] = "sensor";
+const char QCameraParameters::VALUE_VIDEO_HDR_MODE_STAGGERED[] = "staggered";
+
 #ifdef TARGET_TS_MAKEUP
 const char QCameraParameters::KEY_TS_MAKEUP[] = "tsmakeup";
 const char QCameraParameters::KEY_TS_MAKEUP_WHITEN[] = "tsmakeup_whiten";
@@ -780,6 +783,14 @@ const QCameraParameters::QCameraMap<int>
     { VALUE_OFF, CAM_NOISE_REDUCTION_MODE_OFF },
     { VALUE_FAST, CAM_NOISE_REDUCTION_MODE_FAST },
     { VALUE_HIGH_QUALITY, CAM_NOISE_REDUCTION_MODE_HIGH_QUALITY}
+};
+
+const QCameraParameters::QCameraMap<cam_intf_video_hdr_mode_t>
+        QCameraParameters::VIDEO_HDR_MODES_MAP[] = {
+    { VALUE_OFF, CAM_INTF_VIDEO_HDR_MODE_OFF },
+    { VALUE_ON, CAM_INTF_VIDEO_HDR_MODE_SENSOR },
+    { VALUE_VIDEO_HDR_MODE_SENSOR, CAM_INTF_VIDEO_HDR_MODE_SENSOR },
+    { VALUE_VIDEO_HDR_MODE_STAGGERED, CAM_INTF_VIDEO_HDR_MODE_STAGGERED }
 };
 
 #define DEFAULT_CAMERA_AREA "(0, 0, 0, 0, 0)"
@@ -1654,7 +1665,6 @@ int32_t QCameraParameters::setLiveSnapshotSize(const QCameraParameters& params)
     char value[PROPERTY_VALUE_MAX];
     property_get("persist.camera.opt.livepic", value, "1");
     bool useOptimal = atoi(value) > 0 ? true : false;
-    bool vHdrOn;
     int32_t liveSnapWidth = 0, liveSnapHeight = 0;
     // use picture size from user setting
     params.getPictureSize(&m_LiveSnapshotSize.width, &m_LiveSnapshotSize.height);
@@ -1681,8 +1691,9 @@ int32_t QCameraParameters::setLiveSnapshotSize(const QCameraParameters& params)
     const char *hsrStr = params.get(KEY_QC_VIDEO_HIGH_SPEED_RECORDING);
 
     const char *vhdrStr = params.get(KEY_QC_VIDEO_HDR);
-    vHdrOn = (vhdrStr != NULL && (0 == strcmp(vhdrStr,"on"))) ? true : false;
-    if (vHdrOn) {
+    cam_intf_video_hdr_mode_t vHdrOn = (cam_intf_video_hdr_mode_t)
+            lookupAttr(VIDEO_HDR_MODES_MAP, PARAM_MAP_SIZE(VIDEO_HDR_MODES_MAP), vhdrStr);
+    if (CAM_INTF_VIDEO_HDR_MODE_OFF != vHdrOn) {
         livesnapshot_sizes_tbl_cnt = m_pCapability->vhdr_livesnapshot_sizes_tbl_cnt;
         livesnapshot_sizes_tbl = &m_pCapability->vhdr_livesnapshot_sizes_tbl[0];
     }
@@ -2897,6 +2908,7 @@ int32_t QCameraParameters::setVideoHDR(const QCameraParameters& params)
     if (str != NULL) {
         if (prev_str == NULL ||
             strcmp(str, prev_str) != 0) {
+            m_bNeedRestart = true;
             return setVideoHDR(str);
         }
     }
@@ -5666,10 +5678,27 @@ int32_t QCameraParameters::initDefaultParameters()
     setSecureMode(VALUE_DISABLE);
 
     //Set video HDR
-    if ((m_pCapability->qcom_supported_feature_mask & CAM_QCOM_FEATURE_VIDEO_HDR) > 0) {
-        set(KEY_QC_SUPPORTED_VIDEO_HDR_MODES, onOffValues);
-        set(KEY_QC_VIDEO_HDR, VALUE_OFF);
+    String8 videoHdrValues;
+    int videoHdrValuesCount = 0;
+    if ((m_pCapability->qcom_supported_feature_mask & CAM_QCOM_FEATURE_STAGGERED_VIDEO_HDR) > 0) {
+      videoHdrValues.append(VALUE_VIDEO_HDR_MODE_STAGGERED);
+      videoHdrValuesCount++;
     }
+    if ((m_pCapability->qcom_supported_feature_mask & CAM_QCOM_FEATURE_VIDEO_HDR) > 0) {
+      if (videoHdrValuesCount > 0) {
+          videoHdrValues.append(",");
+      }
+      videoHdrValues.append(VALUE_VIDEO_HDR_MODE_SENSOR);
+      videoHdrValues.append(",");
+      videoHdrValues.append(VALUE_ON);
+      videoHdrValuesCount++;
+    }
+    if (videoHdrValuesCount > 0) {
+        videoHdrValues.append(",");
+    }
+    videoHdrValues.append(VALUE_OFF);
+    set(KEY_QC_SUPPORTED_VIDEO_HDR_MODES, videoHdrValues);
+    set(KEY_QC_VIDEO_HDR, VALUE_OFF);
 
     //Set HW Sensor Snapshot HDR
     if ((m_pCapability->qcom_supported_feature_mask & CAM_QCOM_FEATURE_SENSOR_HDR)> 0) {
@@ -6552,11 +6581,12 @@ int32_t QCameraParameters::setSensorSnapshotHDR(const char *snapshotHDR)
 int32_t QCameraParameters::setVideoHDR(const char *videoHDR)
 {
     if (videoHDR != NULL) {
-        int32_t value = lookupAttr(ON_OFF_MODES_MAP, PARAM_MAP_SIZE(ON_OFF_MODES_MAP), videoHDR);
+        int value = lookupAttr(VIDEO_HDR_MODES_MAP, PARAM_MAP_SIZE(VIDEO_HDR_MODES_MAP), videoHDR);
         if (value != NAME_NOT_FOUND) {
             CDBG_HIGH("%s: Setting Video HDR %s", __func__, videoHDR);
             updateParamEntry(KEY_QC_VIDEO_HDR, videoHDR);
-            if (ADD_SET_PARAM_ENTRY_TO_BATCH(m_pParamBuf, CAM_INTF_PARM_VIDEO_HDR, value)) {
+            if (ADD_SET_PARAM_ENTRY_TO_BATCH(m_pParamBuf, CAM_INTF_PARM_VIDEO_HDR,
+                    (cam_intf_video_hdr_mode_t)value)) {
                 return BAD_VALUE;
             }
             return NO_ERROR;

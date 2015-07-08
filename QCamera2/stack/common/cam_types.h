@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -2039,37 +2039,38 @@ typedef struct {
     int32_t step;
 } cam_control_range_t;
 
-#define CAM_QCOM_FEATURE_NONE            0U
-#define CAM_QCOM_FEATURE_FACE_DETECTION (1U<<0)
-#define CAM_QCOM_FEATURE_DENOISE2D      (1U<<1)
-#define CAM_QCOM_FEATURE_CROP           (1U<<2)
-#define CAM_QCOM_FEATURE_ROTATION       (1U<<3)
-#define CAM_QCOM_FEATURE_FLIP           (1U<<4)
-#define CAM_QCOM_FEATURE_HDR            (1U<<5)
-#define CAM_QCOM_FEATURE_REGISTER_FACE  (1U<<6)
-#define CAM_QCOM_FEATURE_SHARPNESS      (1U<<7)
-#define CAM_QCOM_FEATURE_VIDEO_HDR      (1U<<8)
-#define CAM_QCOM_FEATURE_CAC            (1U<<9)
-#define CAM_QCOM_FEATURE_SCALE          (1U<<10)
-#define CAM_QCOM_FEATURE_EFFECT         (1U<<11)
-#define CAM_QCOM_FEATURE_UBIFOCUS       (1U<<12)
-#define CAM_QCOM_FEATURE_CHROMA_FLASH   (1U<<13)
-#define CAM_QCOM_FEATURE_OPTIZOOM       (1U<<14)
-#define CAM_QCOM_FEATURE_SENSOR_HDR     (1U<<15)
-#define CAM_QCOM_FEATURE_REFOCUS        (1U<<16)
-#define CAM_QCOM_FEATURE_CPP_TNR        (1U<<17)
-#define CAM_QCOM_FEATURE_RAW_PROCESSING (1U<<18)
-#define CAM_QCOM_FEATURE_TRUEPORTRAIT   (1U<<19)
-#define CAM_QCOM_FEATURE_LLVD           (1U<<20)
-#define CAM_QCOM_FEATURE_DIS20          (1U<<21)
-#define CAM_QCOM_FEATURE_STILLMORE      (1U<<22)
-#define CAM_QCOM_FEATURE_DCRF           (1U<<23)
-#define CAM_QCOM_FEATURE_CDS            (1U<<24)
-#define CAM_QCOM_FEATURE_EZTUNE         (1U<<25)
-#define CAM_QCOM_FEATURE_DSDN           (1U<<26) //Special CDS in CPP block
-#define CAM_QCOM_FEATURE_SW2D           (1U<<27)
-#define CAM_QTI_FEATURE_SW_TNR          (1U<<28)
-#define CAM_QCOM_FEATURE_MAX            (1U<<29)
+#define CAM_QCOM_FEATURE_NONE                   0U
+#define CAM_QCOM_FEATURE_FACE_DETECTION         (1U<<0)
+#define CAM_QCOM_FEATURE_DENOISE2D              (1U<<1)
+#define CAM_QCOM_FEATURE_CROP                   (1U<<2)
+#define CAM_QCOM_FEATURE_ROTATION               (1U<<3)
+#define CAM_QCOM_FEATURE_FLIP                   (1U<<4)
+#define CAM_QCOM_FEATURE_HDR                    (1U<<5)
+#define CAM_QCOM_FEATURE_REGISTER_FACE          (1U<<6)
+#define CAM_QCOM_FEATURE_SHARPNESS              (1U<<7)
+#define CAM_QCOM_FEATURE_VIDEO_HDR              (1U<<8)
+#define CAM_QCOM_FEATURE_CAC                    (1U<<9)
+#define CAM_QCOM_FEATURE_SCALE                  (1U<<10)
+#define CAM_QCOM_FEATURE_EFFECT                 (1U<<11)
+#define CAM_QCOM_FEATURE_UBIFOCUS               (1U<<12)
+#define CAM_QCOM_FEATURE_CHROMA_FLASH           (1U<<13)
+#define CAM_QCOM_FEATURE_OPTIZOOM               (1U<<14)
+#define CAM_QCOM_FEATURE_SENSOR_HDR             (1U<<15)
+#define CAM_QCOM_FEATURE_REFOCUS                (1U<<16)
+#define CAM_QCOM_FEATURE_CPP_TNR                (1U<<17)
+#define CAM_QCOM_FEATURE_RAW_PROCESSING         (1U<<18)
+#define CAM_QCOM_FEATURE_TRUEPORTRAIT           (1U<<19)
+#define CAM_QCOM_FEATURE_LLVD                   (1U<<20)
+#define CAM_QCOM_FEATURE_DIS20                  (1U<<21)
+#define CAM_QCOM_FEATURE_STILLMORE              (1U<<22)
+#define CAM_QCOM_FEATURE_DCRF                   (1U<<23)
+#define CAM_QCOM_FEATURE_CDS                    (1U<<24)
+#define CAM_QCOM_FEATURE_EZTUNE                 (1U<<25)
+#define CAM_QCOM_FEATURE_DSDN                   (1U<<26) //Special CDS in CPP block
+#define CAM_QCOM_FEATURE_SW2D                   (1U<<27)
+#define CAM_QTI_FEATURE_SW_TNR                  (1U<<28)
+#define CAM_QCOM_FEATURE_STAGGERED_VIDEO_HDR    (1U<<29)
+#define CAM_QCOM_FEATURE_MAX                    (1U<<30)
 #define CAM_QCOM_FEATURE_PP_SUPERSET    (CAM_QCOM_FEATURE_DENOISE2D|CAM_QCOM_FEATURE_CROP|\
                                          CAM_QCOM_FEATURE_ROTATION|CAM_QCOM_FEATURE_SHARPNESS|\
                                          CAM_QCOM_FEATURE_SCALE|CAM_QCOM_FEATURE_CAC|\
@@ -2359,6 +2360,13 @@ typedef struct {
 typedef struct {
     cam_intf_meta_imglib_input_aec_t meta_imglib_input_aec;
 } cam_intf_meta_imglib_t;
+
+typedef enum {
+    CAM_INTF_VIDEO_HDR_MODE_OFF,
+    CAM_INTF_VIDEO_HDR_MODE_SENSOR,
+    CAM_INTF_VIDEO_HDR_MODE_STAGGERED,
+    CAM_INTF_VIDEO_HDR_MODE_MAX,
+} cam_intf_video_hdr_mode_t;
 
 /***********************************
 * ENUM definition for custom parameter type
