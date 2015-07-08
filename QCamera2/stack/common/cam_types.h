@@ -150,8 +150,6 @@ typedef enum {
     CAM_FORMAT_YUV_422_NV16,
     CAM_FORMAT_YUV_422_NV61,
     CAM_FORMAT_YUV_420_NV12_VENUS,
-    CAM_FORMAT_YUV_420_NV12_UBWC,
-
     /* Note: For all raw formats, each scanline needs to be 16 bytes aligned */
 
     /* Packed YUV/YVU raw format, 16 bpp: 8 bits Y and 8 bits UV.
@@ -295,6 +293,9 @@ typedef enum {
 
     /* Y plane only, used for FD */
     CAM_FORMAT_Y_ONLY,
+
+    /* UBWC format */
+    CAM_FORMAT_YUV_420_NV12_UBWC,
 
     CAM_FORMAT_MAX
 } cam_format_t;
@@ -1291,6 +1292,14 @@ typedef struct {
     char stats_buffer_private_debug_data[STATS_BUFFER_DEBUG_DATA_SIZE];
 } cam_stats_buffer_exif_debug_t;
 
+/* 3A version*/
+typedef struct {
+    uint16_t major_version;
+    uint16_t minor_version;
+    uint16_t patch_version;
+    uint16_t new_feature_des;
+} cam_q3a_version_t;
+
 typedef struct {
     uint32_t tuning_data_version;
     size_t tuning_sensor_data_size;
@@ -2033,10 +2042,12 @@ typedef struct {
 #define CAM_QCOM_FEATURE_STILLMORE      (1U<<22)
 #define CAM_QCOM_FEATURE_DCRF           (1U<<23)
 #define CAM_QCOM_FEATURE_CDS            (1U<<24)
-#define CAM_QCOM_FEATURE_MAX            (1U<<25)
+#define CAM_QCOM_FEATURE_EZTUNE         (1U<<25)
+#define CAM_QCOM_FEATURE_MAX            (1U<<26)
 #define CAM_QCOM_FEATURE_PP_SUPERSET    (CAM_QCOM_FEATURE_DENOISE2D|CAM_QCOM_FEATURE_CROP|\
                                          CAM_QCOM_FEATURE_ROTATION|CAM_QCOM_FEATURE_SHARPNESS|\
-                                         CAM_QCOM_FEATURE_SCALE|CAM_QCOM_FEATURE_CAC)
+                                         CAM_QCOM_FEATURE_SCALE|CAM_QCOM_FEATURE_CAC|\
+                                         CAM_QCOM_FEATURE_EZTUNE)
 
 #define CAM_QCOM_FEATURE_PP_PASS_1      CAM_QCOM_FEATURE_PP_SUPERSET
 #define CAM_QCOM_FEATURE_PP_PASS_2      CAM_QCOM_FEATURE_SCALE | CAM_QCOM_FEATURE_CROP;

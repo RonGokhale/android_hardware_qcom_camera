@@ -176,6 +176,8 @@ typedef struct{
        raw resolution */
     int64_t raw_min_duration[MAX_SIZES_CNT];
 
+    /* 3A version*/
+    cam_q3a_version_t q3a_version;
     /* supported focus algorithms */
     size_t supported_focus_algos_cnt;
     cam_focus_algorithm_type supported_focus_algos[CAM_FOCUS_ALGO_MAX];
@@ -428,7 +430,7 @@ typedef struct {
 
 typedef enum {
     /* start syncing for related cameras */
-    CAM_SYNC_RELATED_SENSORS_ON,
+    CAM_SYNC_RELATED_SENSORS_ON = 1,
     /* stop syncing for related cameras */
     CAM_SYNC_RELATED_SENSORS_OFF
 } cam_sync_related_sensors_control_t;

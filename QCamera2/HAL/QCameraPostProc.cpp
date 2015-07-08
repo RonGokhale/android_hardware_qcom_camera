@@ -1101,6 +1101,7 @@ int32_t QCameraPostProcessor::processPPData(mm_camera_super_buf_t *frame)
 {
     bool triggerEvent = TRUE;
 
+    CDBG_HIGH("QCameraPostProcessor::processPPData");
     bool needSuperBufMatch = m_parent->mParameters.generateThumbFromMain();
     if (m_bInited == FALSE) {
         ALOGE("%s: postproc not initialized yet", __func__);
@@ -1157,7 +1158,7 @@ int32_t QCameraPostProcessor::processPPData(mm_camera_super_buf_t *frame)
             }
         }
     }
-    if(pReprocFrame != NULL && m_parent->mParameters.isFaceDetectionEnabled()){
+    if (pReprocFrame != NULL && m_parent->mParameters.isFaceDetectionEnabled()) {
         m_parent->TsMakeupProcess_Snapshot(pReprocFrame,pSnapshotStream);
     } else {
         CDBG_HIGH("%s pReprocFrame == NULL || isFaceDetectionEnabled = %d",__func__,
@@ -2097,6 +2098,10 @@ int32_t QCameraPostProcessor::encodeData(qcamera_jpeg_data_t *jpeg_job_data,
     jpg_job.encode_job.main_dim.dst_dim = dst_dim;
     jpg_job.encode_job.main_dim.crop = crop;
 
+    // get 3a sw version info
+    cam_q3a_version_t sw_version =
+        m_parent->getCamHalCapabilities()->q3a_version;
+
     // get exif data
     QCameraExif *pJpegExifObj = m_parent->getExifData();
     jpeg_job_data->pJpegExifObj = pJpegExifObj;
@@ -2104,6 +2109,14 @@ int32_t QCameraPostProcessor::encodeData(qcamera_jpeg_data_t *jpeg_job_data,
         jpg_job.encode_job.exif_info.exif_data = pJpegExifObj->getEntries();
         jpg_job.encode_job.exif_info.numOfEntries =
             pJpegExifObj->getNumOfEntries();
+        jpg_job.encode_job.exif_info.debug_data.sw_3a_version[0] =
+            sw_version.major_version;
+        jpg_job.encode_job.exif_info.debug_data.sw_3a_version[1] =
+            sw_version.minor_version;
+        jpg_job.encode_job.exif_info.debug_data.sw_3a_version[2] =
+            sw_version.patch_version;
+        jpg_job.encode_job.exif_info.debug_data.sw_3a_version[3] =
+            sw_version.new_feature_des;
     }
 
     // set rotation only when no online rotation or offline pp rotation is done before
@@ -2244,7 +2257,7 @@ int32_t QCameraPostProcessor::encodeData(qcamera_jpeg_data_t *jpeg_job_data,
 
     const cam_sync_related_sensors_event_info_t* related_cam_info =
             m_parent->getRelatedCamSyncInfo();
-    if (related_cam_info != NULL) {
+    if (related_cam_info->sync_control == CAM_SYNC_RELATED_SENSORS_ON) {
         jpg_job.encode_job.multi_image_info.type = MM_JPEG_TYPE_MPO;
         if (related_cam_info->type == CAM_TYPE_MAIN ) {
             jpg_job.encode_job.multi_image_info.is_primary = TRUE;
