@@ -1851,7 +1851,11 @@ typedef enum {
     CAM_INTF_AF_STATE_TRANSITION, /* 191 */
     /* Noise reduction mode */
     CAM_INTF_NOISE_REDUCTION_MODE,
-    CAM_INTF_PARM_MAX /* 192 */
+    /* Param for enabling instant aec*/
+    CAM_INTF_PARM_INSTANT_AEC,
+    /* bayer proc reprocess debug section */
+    CAM_INTF_META_BAYER_PROC, /* cam_intf_meta_bayer_proc_t */
+    CAM_INTF_PARM_MAX
 } cam_intf_parm_type_t;
 
 typedef struct {
@@ -2367,6 +2371,15 @@ typedef enum {
     CAM_INTF_VIDEO_HDR_MODE_STAGGERED,
     CAM_INTF_VIDEO_HDR_MODE_MAX,
 } cam_intf_video_hdr_mode_t;
+
+typedef struct {
+    uint32_t frame_count;
+    cam_intf_aec_t aec_data[CAM_INTF_AEC_DATA_MAX];
+} cam_intf_meta_bayer_proc_input_aec_t;
+
+typedef struct {
+    cam_intf_meta_bayer_proc_input_aec_t meta_bayer_proc_input_aec;
+} cam_intf_meta_bayer_proc_t;
 
 /***********************************
 * ENUM definition for custom parameter type
