@@ -576,6 +576,8 @@ public:
     static const char KEY_TS_MAKEUP_WHITEN[];
     static const char KEY_TS_MAKEUP_CLEAN[];
 #endif
+    //param key for HFR batch size
+    static const char KEY_QC_VIDEO_BATCH_SIZE[];
     enum {
         CAMERA_ORIENTATION_UNKNOWN = 0,
         CAMERA_ORIENTATION_PORTRAIT = 1,
@@ -755,7 +757,7 @@ public:
     int32_t setDisplayFrame(bool enabled) {m_bDisplayFrame=enabled; return 0;};
     bool isAdvCamFeaturesEnabled() {return isUbiFocusEnabled() ||
             isChromaFlashEnabled() || m_bOptiZoomOn || isHDREnabled() ||
-            isHDREnabled() || isStillMoreEnabled();}
+            isAEBracketEnabled() || isStillMoreEnabled() || isUbiRefocus();}
     int32_t setAecLock(const char *aecStr);
     int32_t updateDebugLevel();
     bool is4k2kVideoResolution();
