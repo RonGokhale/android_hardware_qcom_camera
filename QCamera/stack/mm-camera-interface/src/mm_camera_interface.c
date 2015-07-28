@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+Copyright (c) 2011-2013, 2015, The Linux Foundation. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are
@@ -159,7 +159,7 @@ static int32_t mm_camera_intf_is_parm_supported(uint32_t camera_handler,
     return rc;
 }
 
-/* set a parm’s current value */
+/* set a parms current value */
 static int32_t mm_camera_intf_set_parm(uint32_t camera_handler,
                                    mm_camera_parm_type_t parm_type,
                                    void* p_value)
@@ -180,7 +180,7 @@ static int32_t mm_camera_intf_set_parm(uint32_t camera_handler,
     return rc;
 }
 
-/* get a parm’s current value */
+/* get a parms current value */
 static int32_t mm_camera_intf_get_parm(uint32_t camera_handler,
                                 mm_camera_parm_type_t parm_type,
                                 void* p_value)
@@ -1182,9 +1182,9 @@ mm_camera_info_t * camera_query(uint8_t *num_cameras)
             continue;
         }
 
-        char * mdev_cfg;
+        char * mdev_cfg, *prev_value;
         int cam_type = 0, mount_angle = 0, info_index = 0, sensor_type = 0;
-        mdev_cfg = strtok(mdev_info.serial, "-");
+        mdev_cfg = strtok_r(mdev_info.serial, "-", &prev_value);
         while(mdev_cfg != NULL) {
             if(info_index == 0) {
                 if(strcmp(mdev_cfg, QCAMERA_NAME))
@@ -1196,7 +1196,7 @@ mm_camera_info_t * camera_query(uint8_t *num_cameras)
             } else if(info_index == 3) {
                 sensor_type = atoi(mdev_cfg);
             }
-            mdev_cfg = strtok(NULL, "-");
+            mdev_cfg = strtok_r(NULL, "-", &prev_value);
             info_index++;
         }
 
@@ -1217,8 +1217,8 @@ mm_camera_info_t * camera_query(uint8_t *num_cameras)
                 break;
             }
             if(entity.type == MEDIA_ENT_T_DEVNODE_V4L && entity.group_id == QCAMERA_VNODE_GROUP_ID) {
-                strncpy(g_cam_ctrl.video_dev_name[*num_cameras],
-                     entity.name, sizeof(entity.name));
+                strlcpy(g_cam_ctrl.video_dev_name[*num_cameras],
+                     entity.name, sizeof(g_cam_ctrl.video_dev_name[*num_cameras]));
                 g_cam_ctrl.camera[*num_cameras].video_dev_name =
                     &g_cam_ctrl.video_dev_name[*num_cameras][0];
                 break;

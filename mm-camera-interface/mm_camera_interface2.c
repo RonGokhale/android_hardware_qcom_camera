@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+Copyright (c) 2011-2012, 2015, The Linux Foundation. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are
@@ -120,7 +120,7 @@ static uint8_t mm_camera_cfg_is_ch_supported (mm_camera_t * camera,
     return FALSE;
 }
 
-/* set a parm’s current value */
+/* set a parms current value */
 static int32_t mm_camera_cfg_set_parm (mm_camera_t * camera,
                                        mm_camera_parm_type_t parm_type,
                                        void *p_value)
@@ -141,7 +141,7 @@ static int32_t mm_camera_cfg_set_parm (mm_camera_t * camera,
     return rc;
 }
 
-/* get a parm’s current value */
+/* get a parms current value */
 static int32_t mm_camera_cfg_get_parm (mm_camera_t * camera,
                                        mm_camera_parm_type_t parm_type,
                                        void* p_value)
@@ -620,9 +620,9 @@ extern mm_camera_t * mm_camera_query (uint8_t *num_cameras)
         continue;
       }
 
-      char * mdev_cfg;
+      char * mdev_cfg, *prev_value;
       int cam_type = 0, mount_angle = 0, info_index = 0;
-      mdev_cfg = strtok(mdev_info.serial, "-");
+      mdev_cfg = strtok_r(mdev_info.serial, "-", &prev_value);
       while(mdev_cfg != NULL) {
           if(info_index == 0) {
               if(strcmp(mdev_cfg, QCAMERA_NAME))
@@ -632,7 +632,7 @@ extern mm_camera_t * mm_camera_query (uint8_t *num_cameras)
           } else if(info_index == 2) {
               cam_type = atoi(mdev_cfg);
           }
-          mdev_cfg = strtok(NULL, "-");
+          mdev_cfg = strtok_r(NULL, "-", &prev_value);
           info_index++;
       }
 
@@ -653,8 +653,8 @@ extern mm_camera_t * mm_camera_query (uint8_t *num_cameras)
             break;
         }
         if(entity.type == MEDIA_ENT_T_DEVNODE_V4L && entity.group_id == QCAMERA_VNODE_GROUP_ID) {
-             strncpy(g_cam_ctrl.camera[*num_cameras].video_dev_name,
-                     entity.name, sizeof(entity.name));
+             strlcpy(g_cam_ctrl.camera[*num_cameras].video_dev_name,
+                     entity.name, sizeof(g_cam_ctrl.camera[*num_cameras].video_dev_name));
              break;
         }
       }
@@ -739,7 +739,7 @@ uint8_t cam_config_is_ch_supported(
 
 }
 
-/* set a parm’s current value */
+/* set a parms current value */
 int32_t cam_config_set_parm(
   int cam_id,
   mm_camera_parm_type_t parm_type,
@@ -753,7 +753,7 @@ int32_t cam_config_set_parm(
   return rc;
 }
 
-/* get a parm’s current value */
+/* get a parms current value */
 int32_t cam_config_get_parm(
   int cam_id,
   mm_camera_parm_type_t parm_type,
