@@ -1,5 +1,5 @@
 /*
-** Copyright (c) 2011-2012 The Linux Foundation. All rights reserved.
+** Copyright (c) 2011-2012, 2015, The Linux Foundation. All rights reserved.
 **
 ** Not a Contribution, Apache license notifications and license are retained
 ** for attribution purposes only.
@@ -122,10 +122,10 @@ status_t QCameraStream_record::processRecordFrame(mm_camera_super_buf_t *frame)
     int video_buf_idx = frame->bufs[0]->buf_idx;
     nsecs_t timeStamp;
 
-	if(!mActive) {
-	  ALOGE("Recording Stopped. Returning callback");
+    if(!mActive) {
+      ALOGE("Recording Stopped. Returning callback");
       return NO_ERROR;
-	}
+    }
     if (UNLIKELY(mDebugFps)) {
         debugShowVideoFPS();
     }
@@ -244,10 +244,14 @@ status_t QCameraStream_record::getBuf(mm_camera_frame_len_offset *frame_offset_i
                 (struct encoder_media_buffer_type *)mHalCamCtrl->mRecordingMemory.metadata_memory[cnt]->data;
             packet->meta_handle = native_handle_create(1, 2); //1 fd, 1 offset and 1 size
             packet->buffer_type = kMetadataBufferTypeCameraSource;
-            native_handle_t * nh = const_cast<native_handle_t *>(packet->meta_handle);
-            nh->data[0] = mHalCamCtrl->mRecordingMemory.mem_info[cnt].fd;
-            nh->data[1] = 0;
-            nh->data[2] = mHalCamCtrl->mRecordingMemory.mem_info[cnt].size;
+            if (packet->meta_handle) {
+                native_handle_t * nh = const_cast<native_handle_t *>(packet->meta_handle);
+                nh->data[0] = mHalCamCtrl->mRecordingMemory.mem_info[cnt].fd;
+                nh->data[1] = 0;
+                nh->data[2] = mHalCamCtrl->mRecordingMemory.mem_info[cnt].size;
+            } else {
+                ALOGE("%s: FAILED native_handle_create", __func__);
+            }
         }
     }
 
@@ -299,7 +303,7 @@ void QCameraStream_record::releaseRecordingFrame(const void *opaque)
         }
       }
     }
-	ALOGE("%s: cannot find the matched frame with opaue = 0x%p", __func__, opaque);
+    ALOGE("%s: cannot find the matched frame with opaue = 0x%p", __func__, opaque);
 }
 
 void QCameraStream_record::debugShowVideoFPS() const

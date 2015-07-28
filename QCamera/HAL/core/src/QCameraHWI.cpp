@@ -1,5 +1,5 @@
 /*
-** Copyright (c) 2012-2013 The Linux Foundation. All rights reserved.
+** Copyright (c) 2012-2013, 2015, The Linux Foundation. All rights reserved.
 **
 ** Not a Contribution.
 **
@@ -2085,11 +2085,11 @@ void QCameraHardwareInterface::processChannelEvent(
                 if (!TempHeap || TempHeap->data == MAP_FAILED) {
                     ALOGE("ERR(%s): heap creation fail", __func__);
                     mNotifyCb(CAMERA_MSG_ERROR, -1, 0, mCallbackCookie);
-                }
-                memcpy(TempHeap->data, TempBuffer, strlen(TempBuffer));
-                ALOGE("[%s:%d] ERROR : notify error to encoder!!", __func__, __LINE__);
-                mDataCbTimestamp(0, CAMERA_MSG_ERROR | CAMERA_MSG_VIDEO_FRAME, TempHeap, 0, mCallbackCookie);
-                if (TempHeap) {
+                } else {
+                    memcpy(TempHeap->data, TempBuffer, strlen(TempBuffer));
+                    ALOGE("[%s:%d] ERROR : notify error to encoder!!", __func__, __LINE__);
+                    mDataCbTimestamp(0, CAMERA_MSG_ERROR | CAMERA_MSG_VIDEO_FRAME, TempHeap, 0, mCallbackCookie);
+
                     TempHeap->release(TempHeap);
                     TempHeap = 0;
                 }
@@ -4028,7 +4028,7 @@ bool QCameraHardwareInterface::getHdrInfoAndSetExp( int max_num_frm, int *num_fr
             temp.total_frames = 1;
         }
     }
-    ALOGE("%s, hdr - rc = %d, num_frame = %d", __func__, rc, *num_frame);
+    ALOGE("%s, hdr - rc = %d, num_frame = %d", __func__, rc, num_frame ? *num_frame : -1);
     return rc;
 }
 
@@ -4588,6 +4588,8 @@ QCameraHardwareInterface::allocateScratchMem(int32_t size)
   QCameraHalHeap_t * heap = NULL;
 
   f = (mm_camera_buf_def_t *)malloc(sizeof(mm_camera_buf_def_t));
+  if (!f)
+      return NULL;
   memset(f, 0, sizeof(mm_camera_buf_def_t));
   f->fd = -1;
   f->buffer = NULL;
@@ -4595,7 +4597,10 @@ QCameraHardwareInterface::allocateScratchMem(int32_t size)
 
 #ifdef USE_ION
   heap = (QCameraHalHeap_t *)malloc(sizeof(QCameraHalHeap_t));
-
+  if (!heap) {
+      free(f);
+      return NULL;
+  }
   const int ion_type =
     ((0x1 << CAMERA_ION_HEAP_ID) | (0x1 << CAMERA_ION_FALLBACK_HEAP_ID));
 
@@ -4624,6 +4629,7 @@ QCameraHardwareInterface::allocateScratchMem(int32_t size)
   m->heap = heap;
   mScratchMems.push_back(*m);
   return m;
+
 }
 
 void QCameraHardwareInterface::finalizeFlip()

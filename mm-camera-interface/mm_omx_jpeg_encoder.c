@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2015, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -395,6 +395,13 @@ int8_t omxJpegEncode(omx_jpeg_encode_params *encode_params)
     inputPort = malloc(sizeof(OMX_PARAM_PORTDEFINITIONTYPE));
     outputPort = malloc(sizeof(OMX_PARAM_PORTDEFINITIONTYPE));
     inputPort1 = malloc(sizeof(OMX_PARAM_PORTDEFINITIONTYPE));
+    if(!inputPort || !outputPort || !inputPort1) {
+        ALOGE("%s:ERORR - failed to allocate ports", __func__);
+        free(inputPort);
+        free(outputPort);
+        free(inputPort1);
+        return FALSE;
+    }
 
     pthread_mutex_lock(&jpege_mutex);
     encoding = 1;
