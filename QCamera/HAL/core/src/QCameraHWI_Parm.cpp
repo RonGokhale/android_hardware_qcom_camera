@@ -1634,15 +1634,16 @@ int QCameraHardwareInterface::getParameters(char **parms)
 {
     char* rc = NULL;
     String8 str;
+    size_t len;
     QCameraParameters param = getParameters();
     //param.dump();
     str = param.flatten( );
-    rc = (char *)malloc(sizeof(char)*(str.length()+1));
+    len = str.length()+1;
+    rc = (char *)malloc(sizeof(char)*len);
     if(rc != NULL){
-        memset(rc, 0, sizeof(char)*(str.length()+1));
-        strncpy(rc, str.string(), str.length());
-    rc[str.length()] = 0;
-    *parms = rc;
+        memset(rc, 0, sizeof(char)*len);
+        strlcpy(rc, str.string(), len);
+        *parms = rc;
     }
     return 0;
 }
@@ -3870,7 +3871,7 @@ status_t QCameraHardwareInterface::setPreviewSizeTable(void)
         preview_size_table++;
     }
     //set preferred preview size to maximum preview size
-    sprintf(str, "%dx%d", preview_size_table->width, preview_size_table->height);
+    snprintf(str, sizeof(str), "%dx%d", preview_size_table->width, preview_size_table->height);
     mParameters.set(QCameraParameters::KEY_PREFERRED_PREVIEW_SIZE_FOR_VIDEO, str);
     ALOGD("KEY_PREFERRED_PREVIEW_SIZE_FOR_VIDEO = %s", str);
 
@@ -4237,8 +4238,7 @@ void QCameraHardwareInterface::setExifTags()
     //set TimeStamp
     str = mParameters.get(QCameraParameters::KEY_QC_EXIF_DATETIME);
     if(str != NULL) {
-      strncpy(mExifValues.dateTime, str, 19);
-      mExifValues.dateTime[19] = '\0';
+      strlcpy(mExifValues.dateTime, str, sizeof(mExifValues.dateTime));
     }
 
     //Set focal length
@@ -4284,9 +4284,8 @@ void QCameraHardwareInterface::setExifTagsGPS()
     str = mParameters.get(QCameraParameters::KEY_GPS_PROCESSING_METHOD);
     if(str != NULL) {
        memcpy(mExifValues.gpsProcessingMethod, ExifAsciiPrefix, EXIF_ASCII_PREFIX_SIZE);
-       strncpy(mExifValues.gpsProcessingMethod + EXIF_ASCII_PREFIX_SIZE, str,
-           GPS_PROCESSING_METHOD_SIZE - 1);
-       mExifValues.gpsProcessingMethod[EXIF_ASCII_PREFIX_SIZE + GPS_PROCESSING_METHOD_SIZE-1] = '\0';
+       strlcpy(mExifValues.gpsProcessingMethod + EXIF_ASCII_PREFIX_SIZE, str,
+           GPS_PROCESSING_METHOD_SIZE);
        ALOGI("EXIFTAGID_GPS_PROCESSINGMETHOD = %s %s", mExifValues.gpsProcessingMethod,
                                                     mExifValues.gpsProcessingMethod+8);
        mExifValues.mGpsProcess  = true;
