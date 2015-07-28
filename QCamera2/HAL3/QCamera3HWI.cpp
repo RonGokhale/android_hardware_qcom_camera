@@ -965,10 +965,8 @@ void QCamera3HardwareInterface::deriveMinFrameDuration()
         if ((*it)->stream->format == HAL_PIXEL_FORMAT_BLOB) {
             if (dimension > maxJpegDimension)
                 maxJpegDimension = dimension;
-        } else if ((*it)->stream->format != HAL_PIXEL_FORMAT_RAW_SENSOR) {
-            if (dimension > maxProcessedDimension)
-                maxProcessedDimension = dimension;
         }
+
     }
 
     //Assume all jpeg dimensions are in processed dimensions.
@@ -2909,10 +2907,6 @@ int QCamera3HardwareInterface::initStaticMetadata(int cameraId)
     staticInfo.update(ANDROID_LENS_INFO_AVAILABLE_OPTICAL_STABILIZATION,
                       (uint8_t*)gCamCapability[cameraId]->optical_stab_modes,
                       gCamCapability[cameraId]->optical_stab_modes_count);
-
-    staticInfo.update(ANDROID_LENS_POSITION,
-                      gCamCapability[cameraId]->lens_position,
-                      sizeof(gCamCapability[cameraId]->lens_position)/ sizeof(float));
 
     int32_t lens_shading_map_size[] = {gCamCapability[cameraId]->lens_shading_map_size.width,
                                                     gCamCapability[cameraId]->lens_shading_map_size.height};
