@@ -1,4 +1,4 @@
-/* Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2011-2012, 2015, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -185,7 +185,7 @@ extern "C" int  camera_device_open(
           struct hw_device_t** hw_device)
 {
     int rc = -1;
-	int mode = 0; // TODO: need to add 3d/2d mode, etc
+    int mode = 0; // TODO: need to add 3d/2d mode, etc
     camera_device *device = NULL;
     if(module && id && hw_device) {
         int cameraId = atoi(id);
@@ -195,20 +195,23 @@ extern "C" int  camera_device_open(
                 (camera_hardware_t *) malloc(sizeof (camera_hardware_t));
             if(!camHal) {
                 *hw_device = NULL;
-				    ALOGE("%s:  end in no mem", __func__);
-				    return rc;
-		    }
+                    ALOGE("%s:  end in no mem", __func__);
+                    return rc;
+            }
             /* we have the camera_hardware obj malloced */
             memset(camHal, 0, sizeof (camera_hardware_t));
             camHal->hardware = new QCameraHardwareInterface(cameraId, mode); //HAL_openCameraHardware(cameraId);
             if (camHal->hardware && camHal->hardware->isCameraReady()) {
-				camHal->cameraId = cameraId;
-		        device = &camHal->hw_dev;
+                camHal->cameraId = cameraId;
+                device = &camHal->hw_dev;
                 device->common.close = close_camera_device;
                 device->ops = &camera_ops;
                 device->priv = (void *)camHal;
                 rc =  0;
                 HAL_cameraOpened = true;
+                /* pass actual hw_device ptr to framework.
+                 * This amkes that we actally be use memberof() macro */
+                *hw_device = (hw_device_t*)&device->common;
             } else {
                 if (camHal->hardware) {
                     delete camHal->hardware;
@@ -219,8 +222,7 @@ extern "C" int  camera_device_open(
             }
         }
     }
-	/* pass actual hw_device ptr to framework. This amkes that we actally be use memberof() macro */
-    *hw_device = (hw_device_t*)&device->common;
+
     if ((rc < 0) && HAL_cameraOpened) rc = -EUSERS;
     ALOGE("%s:  end rc %d", __func__, rc);
     return rc;
@@ -457,9 +459,9 @@ char* get_parameters(struct camera_device * device)
     ALOGE("Q%s: E", __func__);
     QCameraHardwareInterface *hardware = util_get_Hal_obj(device);
     if(hardware != NULL){
-		char *parms = NULL;
+        char *parms = NULL;
         hardware->getParameters(&parms);
-		return parms;
+        return parms;
     }
     return NULL;
 }

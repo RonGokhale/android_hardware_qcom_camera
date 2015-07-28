@@ -1,5 +1,5 @@
 /*
-** Copyright (c) 2012 The Linux Foundation. All rights reserved.
+** Copyright (c) 2012, 2015, The Linux Foundation. All rights reserved.
 **
 ** Not a Contribution, Apache license notifications and license are retained
 ** for attribution purposes only.
@@ -168,7 +168,7 @@ private:
 
   bool mDebugFps;
   mm_camera_super_buf_t          mRecordedFrames[MM_CAMERA_MAX_NUM_FRAMES];
-  mm_camera_buf_def_t            mRecordBuf[2*VIDEO_BUFFER_COUNT];
+  mm_camera_buf_def_t            mRecordBuf[MM_CAMERA_MAX_NUM_FRAMES];
   QCameraStream *mStreamSnap;
 
 };
@@ -225,10 +225,10 @@ private:
     int8_t                   my_id;
     mm_camera_op_mode_type_t op_mode;
     mm_camera_buf_def_t      *mLastQueuedFrame;
-    mm_camera_buf_def_t      mDisplayBuf[2*PREVIEW_BUFFER_COUNT];
+    mm_camera_buf_def_t      mDisplayBuf[MM_CAMERA_MAX_NUM_FRAMES];
     Mutex                   mDisplayLock;
     preview_stream_ops_t   *mPreviewWindow;
-    mm_camera_super_buf_t   mNotifyBuffer[2*PREVIEW_BUFFER_COUNT];
+    mm_camera_super_buf_t   mNotifyBuffer[MM_CAMERA_MAX_NUM_FRAMES];
     int8_t                  mNumFDRcvd;
     int                     mVFEOutputs;
     int                     mHFRFrameCnt;

@@ -458,7 +458,7 @@ status_t QCameraStream_preview::initDisplayBuffers()
   mHalCamCtrl->mPreviewMemoryLock.lock();
   for(int i=0; i < num_planes; i++)
       planes[i] = mFrameOffsetInfo.mp[i].len;
-  memset(mDisplayBuf, 0, sizeof(mm_camera_buf_def_t) * 2 * PREVIEW_BUFFER_COUNT);
+  memset(mDisplayBuf, 0, sizeof(mDisplayBuf));
   /*allocate memory for the buffers*/
   for(int i = 0; i < mNumBuffers; i++){
       if (mHalCamCtrl->mPreviewMemory.private_buffer_handle[i] == NULL)

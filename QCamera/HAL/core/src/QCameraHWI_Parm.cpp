@@ -2957,7 +2957,7 @@ int QCameraHardwareInterface::getISOSpeedValue()
     ALOGV("%s, E",__func__);
     const char *iso_str = mParameters.get(QCameraParameters::KEY_QC_ISO_MODE);
     int iso_index = attr_lookup(iso, sizeof(iso) / sizeof(str_map), iso_str);
-    int iso_value = iso_speed_values[iso_index];
+    int iso_value = (iso_index != NOT_FOUND) ? iso_speed_values[iso_index] : 0;
     int rc = 0;
     if (iso_value == 0 ) { // ISO_AUTO case
       rc = mCameraHandle->ops->get_parm(mCameraHandle->camera_handle,
@@ -3073,7 +3073,7 @@ status_t QCameraHardwareInterface::setStrTextures(const QCameraParameters& param
     const char *prev_str = mParameters.get("strtextures");
 
     if(str != NULL) {
-        if(!strcmp(str,prev_str)) {
+        if(prev_str && !strcmp(str,prev_str)) {
             return NO_ERROR;
         }
         int str_size = strlen(str);
@@ -3142,6 +3142,10 @@ status_t QCameraHardwareInterface::setAecAwbLock(const QCameraParameters & param
 
     //for AEC lock
     str = params.get(QCameraParameters::KEY_AUTO_EXPOSURE_LOCK);
+    if (!str) {
+        rc = UNKNOWN_ERROR;
+        goto failed;
+    }
     value = (strcmp(str, "true") == 0)? 1 : 0;
     mParameters.set(QCameraParameters::KEY_AUTO_EXPOSURE_LOCK, str);
     rc = (native_set_parms(MM_CAMERA_PARM_AEC_LOCK, sizeof(int32_t), (void *)(&value))) ?
@@ -3149,10 +3153,15 @@ status_t QCameraHardwareInterface::setAecAwbLock(const QCameraParameters & param
 
     //for AWB lock
     str = params.get(QCameraParameters::KEY_AUTO_WHITEBALANCE_LOCK);
+    if (!str) {
+        rc = UNKNOWN_ERROR;
+        goto failed;
+    }
     value = (strcmp(str, "true") == 0)? 1 : 0;
     mParameters.set(QCameraParameters::KEY_AUTO_WHITEBALANCE_LOCK, str);
     rc = (native_set_parms(MM_CAMERA_PARM_AWB_LOCK, sizeof(int32_t), (void *)(&value))) ?
                         NO_ERROR : UNKNOWN_ERROR;
+failed:
     ALOGD("%s : X", __func__);
     return rc;
 }
@@ -3214,7 +3223,7 @@ status_t QCameraHardwareInterface::setHighFrameRate(const QCameraParameters& par
             mHFRLevel = (int32_t)value;
             //Check for change in HFR value
             const char *oldHfr = mParameters.get(QCameraParameters::KEY_QC_VIDEO_HIGH_FRAME_RATE);
-            if(strcmp(oldHfr, str)){
+            if(!oldHfr || strcmp(oldHfr, str)){
                 mParameters.set(QCameraParameters::KEY_QC_VIDEO_HIGH_FRAME_RATE, str);
         mCameraRunning=isPreviewRunning();
                 if(mCameraRunning == true) {
@@ -3345,7 +3354,7 @@ status_t QCameraHardwareInterface::setAEBracket(const QCameraParameters& params)
     }
 
     const char *str1 = params.get(QCameraParameters::KEY_SCENE_MODE);
-    if (!strncmp(str1, QCameraParameters::SCENE_MODE_HDR,
+    if (!str1 || !strncmp(str1, QCameraParameters::SCENE_MODE_HDR,
            QCameraParameters::MAX_STR_LENGTH))
         str = QCameraParameters::AE_BRACKET_HDR;
     else
@@ -3467,7 +3476,7 @@ status_t QCameraHardwareInterface::setVideoHDR(const QCameraParameters& params)
             ALOGI("%s: setting Video HDR value of %s", __FUNCTION__, str);
             mVideoHDRMode = temp;
             const char *oldHDR = mParameters.get(QCameraParameters::KEY_QC_VIDEO_HDR);
-            if(strcmp(oldHDR, str)) {
+            if(!oldHDR || strcmp(oldHDR, str)) {
                 mParameters.set(QCameraParameters::KEY_QC_VIDEO_HDR, str);
                 if(QCAMERA_HAL_PREVIEW_STARTED == mPreviewState) {
                     stopPreviewInternal();
@@ -4214,18 +4223,21 @@ void QCameraHardwareInterface::initExifData(){
 
         unixTime = (time_t)mExifValues.mGPSTimestamp;
         UTCTimestamp = gmtime(&unixTime);
+        if (UTCTimestamp) {
+            strftime(mExifValues.gpsDateStamp, sizeof(mExifValues.gpsDateStamp), "%Y:%m:%d", UTCTimestamp);
+            addExifTag(EXIFTAGID_GPS_DATESTAMP, EXIF_ASCII,
+                    strlen(mExifValues.gpsDateStamp)+1 , 1, (void *)mExifValues.gpsDateStamp);
 
-        strftime(mExifValues.gpsDateStamp, sizeof(mExifValues.gpsDateStamp), "%Y:%m:%d", UTCTimestamp);
-        addExifTag(EXIFTAGID_GPS_DATESTAMP, EXIF_ASCII,
-                          strlen(mExifValues.gpsDateStamp)+1 , 1, (void *)mExifValues.gpsDateStamp);
+            mExifValues.gpsTimeStamp[0] = getRational(UTCTimestamp->tm_hour, 1);
+            mExifValues.gpsTimeStamp[1] = getRational(UTCTimestamp->tm_min, 1);
+            mExifValues.gpsTimeStamp[2] = getRational(UTCTimestamp->tm_sec, 1);
 
-        mExifValues.gpsTimeStamp[0] = getRational(UTCTimestamp->tm_hour, 1);
-        mExifValues.gpsTimeStamp[1] = getRational(UTCTimestamp->tm_min, 1);
-        mExifValues.gpsTimeStamp[2] = getRational(UTCTimestamp->tm_sec, 1);
-
-        addExifTag(EXIFTAGID_GPS_TIMESTAMP, EXIF_RATIONAL,
-                  3, 1, (void *)mExifValues.gpsTimeStamp);
-        ALOGI("EXIFTAGID_GPS_TIMESTAMP set");
+            addExifTag(EXIFTAGID_GPS_TIMESTAMP, EXIF_RATIONAL,
+                    3, 1, (void *)mExifValues.gpsTimeStamp);
+            ALOGI("EXIFTAGID_GPS_TIMESTAMP set");
+        } else {
+            ALOGE("EXIFTAGID_GPS_TIMESTAMP error getting gmtime()");
+        }
     }
 
 }
@@ -4267,7 +4279,8 @@ void QCameraHardwareInterface::setExifTags()
     timeinfo = localtime (&rawtime);
     //Write datetime according to EXIF Spec
     //"YYYY:MM:DD HH:MM:SS" (20 chars including \0)
-    snprintf(mExifValues.dateTime, 20, "%04d:%02d:%02d %02d:%02d:%02d",
+    if (timeinfo)
+        snprintf(mExifValues.dateTime, 20, "%04d:%02d:%02d %02d:%02d:%02d",
              timeinfo->tm_year + 1900, timeinfo->tm_mon + 1,
              timeinfo->tm_mday, timeinfo->tm_hour,
              timeinfo->tm_min, timeinfo->tm_sec);
@@ -4763,7 +4776,7 @@ status_t QCameraHardwareInterface::setFaceZoom(const QCameraParameters& params)
     const char *prev_str = mParameters.get("face_position");
 
     ALOGV("%s : str = %s, prev = %s",__func__,str,prev_str);
-    int str_cmp = strcmp(str,prev_str);
+    int str_cmp = (str && prev_str) ? strcmp(str,prev_str) : -1;
     if (str_cmp == 0) {
         ALOGE("%s: Face Zoom Enabled Already",__func__);
         return NO_ERROR;

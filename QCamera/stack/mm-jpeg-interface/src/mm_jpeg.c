@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2012, The Linux Foundation. All rights reserved.
+Copyright (c) 2012, 2015, The Linux Foundation. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are
@@ -370,6 +370,10 @@ int32_t mm_jpeg_omx_config_tables(mm_jpeg_obj* my_obj, mm_jpeg_encode_job* job) 
     memset(&tables, 0, sizeof(tables));
     tables.luma_quant_tbl =  (uint16_t*)malloc(64 * sizeof(uint16_t));
     tables.chroma_quant_tbl =  (uint16_t*)malloc(64 * sizeof(uint16_t));
+    if (!tables.luma_quant_tbl || tables.chroma_quant_tbl) {
+        CDBG_ERROR("%s:%d - FAILED TO ALLOC CHROMA/LUMMA QUANT TABLES! FATAL ERROR!", __func__,__LINE__);
+        return -1;
+    }
     for(i=0; i<64; i++){
         tables.luma_quant_tbl[i]=(uint16_t)src_buf->luma_qtable[i];
         tables.chroma_quant_tbl[i]=(uint16_t)src_buf->chroma_qtable[i];
@@ -587,7 +591,11 @@ int32_t mm_jpeg_omx_config_common(mm_jpeg_obj* my_obj, mm_jpeg_encode_job* job)
     if (job->encode_parm.buf_info.src_imgs.src_img[JPEG_SRC_IMAGE_TYPE_MAIN].
         user_defined_tables) {
         CDBG_ERROR("%s:%d", __func__,__LINE__);
-        mm_jpeg_omx_config_tables(my_obj, job);
+        rc = mm_jpeg_omx_config_tables(my_obj, job);
+        if (rc) {
+            CDBG_ERROR("%s:%d mm_jpeg_omx_config_tables failed", __func__,__LINE__);
+            return rc;
+        }
     }
     /* set rotation */
     memset(&rotate, 0, sizeof(rotate));

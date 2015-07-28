@@ -1,5 +1,5 @@
 /*
-** Copyright (c) 2011-2013 The Linux Foundation. All rights reserved.
+** Copyright (c) 2011-2013, 2015, The Linux Foundation. All rights reserved.
 **
 ** Not a Contribution, Apache license notifications and license are retained
 ** for attribution purposes only.
@@ -98,10 +98,14 @@ status_t QCameraStream_Rdi::processJpegData(const void *jpegInfo, const void *jp
             mJpegSuperBuf = NULL;
         }
         mJpegSuperBuf = (mm_camera_super_buf_t *)malloc(sizeof(mm_camera_super_buf_t));
-        memcpy(mJpegSuperBuf, jpeg_buf, sizeof(mm_camera_super_buf_t));
-        mJpegSuperBuf->split_jpeg = 0;
-        *((uint32_t *)jpegInfo + 1) = jpegLength;
-        ret = JPEG_RECEIVED;
+        if (!mJpegSuperBuf) {
+            ret = NO_MEMORY;
+        } else {
+            memcpy(mJpegSuperBuf, jpeg_buf, sizeof(mm_camera_super_buf_t));
+            mJpegSuperBuf->split_jpeg = 0;
+            *((uint32_t *)jpegInfo + 1) = jpegLength;
+            ret = JPEG_RECEIVED;
+        }
     } else if (jpegMode == SPLIT_JPEG_MODE) {
         // Meta + splitted JPEG_1 or JPEG_2
         ALOGD("%s: split jpeg case: jpegCount %x jpegLength %d, yuvFrameId %d ",
@@ -112,30 +116,35 @@ status_t QCameraStream_Rdi::processJpegData(const void *jpegInfo, const void *jp
                free(mJpegSuperBuf);
                mJpegSuperBuf = NULL;
            }
-           mJpegSuperBuf = (mm_camera_super_buf_t *)malloc(sizeof(mm_camera_super_buf_t));
-           mJpegSuperBuf->camera_handle = jpeg_buf->camera_handle;
-           mJpegSuperBuf->ch_id = jpeg_buf->ch_id;
-           mJpegSuperBuf->num_bufs = jpeg_buf->num_bufs;
-           mJpegSuperBuf->bufs[0] = (mm_camera_buf_def_t*)malloc(sizeof(mm_camera_buf_def_t));
-           mJpegSuperBuf->bufs[0]->buf_idx = jpeg_buf->bufs[0]->buf_idx;
-           mJpegSuperBuf->bufs[0]->fd = jpeg_buf->bufs[0]->fd;
-           mJpegSuperBuf->bufs[0]->frame_idx = jpeg_buf->bufs[0]->frame_idx;
-           mJpegSuperBuf->bufs[0]->frame_len = jpeg_buf->bufs[0]->frame_len;
-           mJpegSuperBuf->bufs[0]->mem_info = jpeg_buf->bufs[0]->mem_info;
-           mJpegSuperBuf->bufs[0]->num_planes = jpeg_buf->bufs[0]->num_planes;
-           memcpy(mJpegSuperBuf->bufs[0]->planes, jpeg_buf->bufs[0]->planes, sizeof(struct v4l2_plane *));
-           mJpegSuperBuf->bufs[0]->stream_id = jpeg_buf->bufs[0]->stream_id;
-           mJpegSuperBuf->bufs[0]->ts = jpeg_buf->bufs[0]->ts;
-           mJpegSuperBuf->split_jpeg = 1;
-           mJpegSuperBuf->bufs[0]->buffer = (void *)malloc(COMBINED_BUF_SIZE);
-           mJpegSuperBuf->bufs[0]->frame_len = COMBINED_BUF_SIZE;
-           memcpy(mJpegSuperBuf->bufs[0]->buffer, jpeg_buf->bufs[0]->buffer, JPEG_DATA_OFFSET);
-           memcpy((uint8_t*)(mJpegSuperBuf->bufs[0]->buffer) + JPEG_DATA_OFFSET, jpegData, jpegLength);
 
-           //need to qbuf the old 8MB buffer
-           //Since status is JPEG_PENDING, qbuf will be called 
-           //at the end of processRdiFrame()
-           ret = JPEG_PENDING;
+           mJpegSuperBuf = (mm_camera_super_buf_t *)malloc(sizeof(mm_camera_super_buf_t));
+           if (!mJpegSuperBuf) {
+               ret = NO_MEMORY;
+           } else {
+               mJpegSuperBuf->camera_handle = jpeg_buf->camera_handle;
+               mJpegSuperBuf->ch_id = jpeg_buf->ch_id;
+               mJpegSuperBuf->num_bufs = jpeg_buf->num_bufs;
+               mJpegSuperBuf->bufs[0] = (mm_camera_buf_def_t*)malloc(sizeof(mm_camera_buf_def_t));
+               mJpegSuperBuf->bufs[0]->buf_idx = jpeg_buf->bufs[0]->buf_idx;
+               mJpegSuperBuf->bufs[0]->fd = jpeg_buf->bufs[0]->fd;
+               mJpegSuperBuf->bufs[0]->frame_idx = jpeg_buf->bufs[0]->frame_idx;
+               mJpegSuperBuf->bufs[0]->frame_len = jpeg_buf->bufs[0]->frame_len;
+               mJpegSuperBuf->bufs[0]->mem_info = jpeg_buf->bufs[0]->mem_info;
+               mJpegSuperBuf->bufs[0]->num_planes = jpeg_buf->bufs[0]->num_planes;
+               memcpy(mJpegSuperBuf->bufs[0]->planes, jpeg_buf->bufs[0]->planes, sizeof(struct v4l2_plane *));
+               mJpegSuperBuf->bufs[0]->stream_id = jpeg_buf->bufs[0]->stream_id;
+               mJpegSuperBuf->bufs[0]->ts = jpeg_buf->bufs[0]->ts;
+               mJpegSuperBuf->split_jpeg = 1;
+               mJpegSuperBuf->bufs[0]->buffer = (void *)malloc(COMBINED_BUF_SIZE);
+               mJpegSuperBuf->bufs[0]->frame_len = COMBINED_BUF_SIZE;
+               memcpy(mJpegSuperBuf->bufs[0]->buffer, jpeg_buf->bufs[0]->buffer, JPEG_DATA_OFFSET);
+               memcpy((uint8_t*)(mJpegSuperBuf->bufs[0]->buffer) + JPEG_DATA_OFFSET, jpegData, jpegLength);
+
+               //need to qbuf the old 8MB buffer
+               //Since status is JPEG_PENDING, qbuf will be called
+               //at the end of processRdiFrame()
+               ret = JPEG_PENDING;
+           }
         } else if (jpegCount == 1) {
            // if this is second segemnt, copy after first, return JPEG_RECEIVED
            memcpy(((uint8_t*)mJpegSuperBuf->bufs[0]->buffer) + FIRST_JPEG_SIZE + JPEG_DATA_OFFSET, jpegData, jpegLength);
@@ -151,10 +160,14 @@ status_t QCameraStream_Rdi::processJpegData(const void *jpegInfo, const void *jp
             mJpegSuperBuf = NULL;
         }
         mJpegSuperBuf = (mm_camera_super_buf_t *)malloc(sizeof(mm_camera_super_buf_t));
-        memcpy(mJpegSuperBuf, jpeg_buf, sizeof(mm_camera_super_buf_t));
-        mJpegSuperBuf->split_jpeg = 0;
-        *((uint32_t *)jpegInfo + 1) = jpegLength;
-        ret = RAW_RECEIVED;
+        if (!mJpegSuperBuf) {
+            ret = NO_MEMORY;
+        } else {
+            memcpy(mJpegSuperBuf, jpeg_buf, sizeof(mm_camera_super_buf_t));
+            mJpegSuperBuf->split_jpeg = 0;
+            *((uint32_t *)jpegInfo + 1) = jpegLength;
+            ret = RAW_RECEIVED;
+        }
     } else {
         ALOGE("Error - %d mode This is not supported yet.", jpegMode);
         ret = BAD_VALUE;
@@ -310,6 +323,12 @@ status_t QCameraStream_Rdi::processRdiFrame(
         return NO_ERROR;
     }
 
+    if(mHalCamCtrl==NULL) {
+      ALOGE("%s: X: HAL control object not set",__func__);
+      /*Call buf done*/
+      return BAD_VALUE;
+    }
+
     if(mHalCamCtrl->mVisionModeFlag) {
         dumpFrameToFile(frame->bufs[0]);
         this->processVisionModeFrame(frame);
@@ -322,13 +341,6 @@ status_t QCameraStream_Rdi::processRdiFrame(
         return BAD_VALUE;
     }
 
-    if(mHalCamCtrl==NULL) {
-      ALOGE("%s: X: HAL control object not set",__func__);
-      /*Call buf done*/
-      ret = BAD_VALUE;
-      qbuf_helper(frame);
-      return ret;
-    }
     ALOGD("RDI2 frame idx %d", frame->bufs[0]->frame_idx);
 
     if (mHalCamCtrl->mDataCb != NULL) {

@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+Copyright (c) 2011-2013, 2015, The Linux Foundation. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are
@@ -904,9 +904,10 @@ uint32_t mm_camera_add_channel(mm_camera_obj_t *my_obj)
         ch_obj->state = MM_CHANNEL_STATE_STOPPED;
         ch_obj->cam_obj = my_obj;
         pthread_mutex_init(&ch_obj->ch_lock, NULL);
+
+        mm_channel_init(ch_obj);
     }
 
-    mm_channel_init(ch_obj);
     pthread_mutex_unlock(&my_obj->cam_lock);
 
     return ch_hdl;
