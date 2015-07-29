@@ -2390,10 +2390,10 @@ bool QCamera2HardwareInterface::processMTFDumps(qcamera_jpeg_evt_payload_t *evt)
         }
 
         if (allFocusImage)  {
-            strncpy(name, "AllFocusImage", CAM_FN_CNT - 1);
+            strlcpy(name, "AllFocusImage", CAM_FN_CNT);
             index = -1;
         } else {
-            strncpy(name, "0", CAM_FN_CNT - 1);
+            strlcpy(name, "0", CAM_FN_CNT);
         }
         CAM_DUMP_TO_FILE("/data/misc/camera/multiTouchFocus", name, index, "jpg",
                 dataPtr, dataLen);
