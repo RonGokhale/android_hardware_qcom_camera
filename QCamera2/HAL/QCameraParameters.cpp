@@ -12981,7 +12981,7 @@ uint8_t QCameraParameters::getNumOfExtraBuffersForVideo()
     uint8_t numOfBufs = 0;
 
     if (isSeeMoreEnabled()) {
-        numOfBufs = 1;
+        numOfBufs = 3;
     }
 
     return numOfBufs;
