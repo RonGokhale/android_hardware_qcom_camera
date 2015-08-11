@@ -370,7 +370,7 @@ int32_t mm_jpeg_omx_config_tables(mm_jpeg_obj* my_obj, mm_jpeg_encode_job* job) 
     memset(&tables, 0, sizeof(tables));
     tables.luma_quant_tbl =  (uint16_t*)malloc(64 * sizeof(uint16_t));
     tables.chroma_quant_tbl =  (uint16_t*)malloc(64 * sizeof(uint16_t));
-    if (!tables.luma_quant_tbl || tables.chroma_quant_tbl) {
+    if (!tables.luma_quant_tbl || !tables.chroma_quant_tbl) {
         CDBG_ERROR("%s:%d - FAILED TO ALLOC CHROMA/LUMMA QUANT TABLES! FATAL ERROR!", __func__,__LINE__);
         return -1;
     }
