@@ -1,5 +1,5 @@
 /*
-** Copyright (c) 2012-2013 The Linux Foundation. All rights reserved.
+** Copyright (c) 2012-2013, 2015, The Linux Foundation. All rights reserved.
 **
 ** Not a Contribution.
 **
@@ -3529,10 +3529,10 @@ void QCameraHardwareInterface::processprepareSnapshotEvent(cam_ctrl_status_t *st
 
 void QCameraHardwareInterface::roiEvent(fd_roi_t roi,app_notify_cb_t *app_cb)
 {
-    ALOGE("roiEvent: E");
+    ALOGI("roiEvent: E");
 
     if(mStreams[MM_CAMERA_PREVIEW]) mStreams[MM_CAMERA_PREVIEW]->notifyROIEvent(roi);
-    ALOGE("roiEvent: X");
+    ALOGI("roiEvent: X");
 }
 
 

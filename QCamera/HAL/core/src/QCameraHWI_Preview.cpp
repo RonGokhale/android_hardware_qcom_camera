@@ -1,5 +1,5 @@
 /*
-** Copyright (c) 2012-2013 The Linux Foundation. All rights reserved.
+** Copyright (c) 2012-2013, 2015, The Linux Foundation. All rights reserved.
 **
 ** Not a Contribution, Apache license notifications and license are retained
 ** for attribution purposes only.
@@ -327,7 +327,7 @@ void QCameraStream_preview::notifyROIEvent(fd_roi_t roi)
             if (mHalCamCtrl->mMetadata.number_of_faces == 0) {
                 // Clear previous faces
                 if (mHalCamCtrl->mDataCb && (mHalCamCtrl->mMsgEnabled & CAMERA_MSG_PREVIEW_METADATA)){
-                    ALOGE("%s: Face detection RIO callback", __func__);
+                    ALOGI("%s: Face detection RIO callback", __func__);
                     mHalCamCtrl->mDataCb(CAMERA_MSG_PREVIEW_METADATA, data, 0,
                         &mHalCamCtrl->mMetadata, mHalCamCtrl->mCallbackCookie);
                 }
@@ -404,7 +404,7 @@ void QCameraStream_preview::notifyROIEvent(fd_roi_t roi)
             mHalCamCtrl->mFace[idx].reye_blink = roi.d.data.face.right_blink;
             mHalCamCtrl->mFace[idx].left_right_gaze = roi.d.data.face.left_right_gaze;
             mHalCamCtrl->mFace[idx].top_bottom_gaze = roi.d.data.face.top_bottom_gaze;
-            ALOGE("%s: Face(%d, %d, %d, %d), leftEye(%d, %d), rightEye(%d, %d), mouth(%d, %d), smile(%d, %d), face_recg(%d)", __func__,
+            ALOGI("%s: Face(%d, %d, %d, %d), leftEye(%d, %d), rightEye(%d, %d), mouth(%d, %d), smile(%d, %d), face_recg(%d)", __func__,
                mHalCamCtrl->mFace[idx].rect[0],  mHalCamCtrl->mFace[idx].rect[1],
                mHalCamCtrl->mFace[idx].rect[2],  mHalCamCtrl->mFace[idx].rect[3],
                mHalCamCtrl->mFace[idx].left_eye[0], mHalCamCtrl->mFace[idx].left_eye[1],
@@ -412,7 +412,7 @@ void QCameraStream_preview::notifyROIEvent(fd_roi_t roi)
                mHalCamCtrl->mFace[idx].mouth[0], mHalCamCtrl->mFace[idx].mouth[1],
                mHalCamCtrl->mFace[idx].smile_degree, mHalCamCtrl->mFace[idx].smile_score,
                mHalCamCtrl->mFace[idx].face_recognised);
-            ALOGE("%s: gaze(%d, %d, %d), updown(%d), leftright(%d), roll(%d), blink(%d, %d, %d)", __func__,
+            ALOGI("%s: gaze(%d, %d, %d), updown(%d), leftright(%d), roll(%d), blink(%d, %d, %d)", __func__,
                mHalCamCtrl->mFace[idx].gaze_angle,  mHalCamCtrl->mFace[idx].left_right_gaze,
                mHalCamCtrl->mFace[idx].top_bottom_gaze,  mHalCamCtrl->mFace[idx].updown_dir,
                mHalCamCtrl->mFace[idx].leftright_dir, mHalCamCtrl->mFace[idx].roll_dir,
@@ -424,7 +424,7 @@ void QCameraStream_preview::notifyROIEvent(fd_roi_t roi)
 
              if(mNumFDRcvd == mHalCamCtrl->mMetadata.number_of_faces) {
                  if (mHalCamCtrl->mDataCb && (mHalCamCtrl->mMsgEnabled & CAMERA_MSG_PREVIEW_METADATA)){
-                     ALOGE("%s: Face detection RIO callback with %d faces detected (score=%d)", __func__, mNumFDRcvd, mHalCamCtrl->mFace[idx].score);
+                     ALOGI("%s: Face detection RIO callback with %d faces detected (score=%d)", __func__, mNumFDRcvd, mHalCamCtrl->mFace[idx].score);
                      mHalCamCtrl->mDataCb(CAMERA_MSG_PREVIEW_METADATA, data,
                                           0, &mHalCamCtrl->mMetadata, mHalCamCtrl->mCallbackCookie);
                  }

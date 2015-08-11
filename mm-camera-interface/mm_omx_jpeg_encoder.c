@@ -1,4 +1,4 @@
-/* Copyright (c) 2012, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012, 2015, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -259,7 +259,7 @@ int8_t mm_jpeg_encoder_get_buffer_offset(uint32_t width, uint32_t height,
 
 int8_t omxJpegOpen()
 {
-    OMX_DBG_INFO("%s:%d", __func__,__LINE__);
+    ALOGI("%s:%d", __func__,__LINE__);
     pthread_mutex_lock(&jpege_mutex);
     OMX_ERRORTYPE ret = OMX_GetHandle(&pHandle, "OMX.qcom.image.jpeg.encoder",
       NULL, &callbacks);
@@ -334,7 +334,7 @@ int8_t omxJpegEncodeNext(omx_jpeg_encode_params *encode_params)
       thumbnail.width, thumbnail.height);
 
     if(encode_params->hasmobicat) {
-        OMX_DBG_INFO("%s %d ", __func__,
+        ALOGI("%s %d ", __func__,
                 __LINE__);
         mobicat_d.mobicatData =(uint8_t *)encode_params->mobicat_data;
         mobicat_d.mobicatDataLength =  encode_params->mobicat_data_length;
@@ -579,10 +579,10 @@ int8_t omxJpegEncode(omx_jpeg_encode_params *encode_params)
       userpreferences.color_format,userpreferences.thumbnail_color_format,
       userpreferences.preference);
     OMX_SetParameter(pHandle,user_preferences,&userpreferences);
-    OMX_DBG_INFO("%s Mobicat:::::%d ", __func__,
+    ALOGI("%s Mobicat:::::%d ", __func__,
                 __LINE__);
     if(encode_params->hasmobicat) {
-        OMX_DBG_INFO("%s %d ", __func__,
+        ALOGI("%s %d ", __func__,
                 __LINE__);
         mobicat_d.mobicatData = (uint8_t *)encode_params->mobicat_data;
         mobicat_d.mobicatDataLength =  encode_params->mobicat_data_length;
