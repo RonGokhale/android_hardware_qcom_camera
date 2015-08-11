@@ -3417,7 +3417,7 @@ status_t QCameraHardwareInterface::setAEBracket(const QCameraParameters& params)
                 break;
         }
         str1 = params.get(QCameraParameters::KEY_SCENE_MODE);
-        if (strncmp(str1, QCameraParameters::SCENE_MODE_HDR,
+        if (!str1 || strncmp(str1, QCameraParameters::SCENE_MODE_HDR,
                 QCameraParameters::MAX_STR_LENGTH)) {
             /* Save the AE Bracket value only if user did not
              * select HDR from Scene mode */
