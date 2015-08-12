@@ -327,6 +327,9 @@ typedef struct{
     uint8_t low_power_mode_supported;
     /* support for YUV over PIX intf */
     uint8_t use_pix_for_SOC;
+    /* supported infrared modes */
+    cam_ir_camera_modes_t ir_camera_modes[CAM_IR_CAMERA_MODE_MAX];
+    uint8_t ir_camera_modes_count;
 } cam_capability_t;
 
 typedef enum {
@@ -571,6 +574,7 @@ typedef union {
     INCLUDE(CAM_INTF_PARM_FOCUS_BRACKETING,         cam_af_bracketing_t,         1);
     INCLUDE(CAM_INTF_PARM_MULTI_TOUCH_FOCUS_BRACKETING, cam_af_bracketing_t,     1);
     INCLUDE(CAM_INTF_PARM_FLASH_BRACKETING,         cam_flash_bracketing_t,      1);
+    INCLUDE(CAM_INTF_PARM_IR_CAMERA_MODE,           cam_ir_camera_modes_t,       1);
 } parm_type_t;
 
 typedef union {

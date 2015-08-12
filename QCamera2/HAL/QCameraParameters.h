@@ -540,6 +540,9 @@ public:
     static const char VALUE_OFF[];
     static const char VALUE_ON[];
 
+    // Value for generic auto setting.
+    static const char VALUE_AUTO[];
+
     // Values for feature enable/disable settings.
     static const char VALUE_ENABLE[];
     static const char VALUE_DISABLE[];
@@ -563,6 +566,11 @@ public:
     static const char VALUE_HIGH_QUALITY[];
 
     static const char KEY_SELECTED_AUTO_SCENE[];
+
+    // Infrared mode
+    static const char KEY_QC_IR_CAMERA_MODE[];
+    static const char KEY_QC_IR_CAMERA_MODE_SUPPORTED[];
+
 #ifdef TARGET_TS_MAKEUP
     static const char KEY_TS_MAKEUP[];
     static const char KEY_TS_MAKEUP_WHITEN[];
@@ -832,6 +840,7 @@ private:
     int32_t setLongshotParam(const QCameraParameters& params);
     int32_t setCacheVideoBuffers(const QCameraParameters& params);
     int32_t setLowPowerMode(const QCameraParameters& params);
+    int32_t setIRCameraMode(const QCameraParameters& params);
 
     int32_t setAutoExposure(const char *autoExp);
     int32_t setPreviewFpsRange(int min_fps,int max_fps,
@@ -886,6 +895,7 @@ private:
     int32_t setTintlessValue(const char *tintStr);
     int32_t setCacheVideoBuffers(const char *cacheVideoBufStr);
     int32_t setLowPowerMode(const char * mode);
+    int32_t setIRCameraMode(const char *irModeStr);
 
     int32_t parseGains(const char *gainStr, double &r_gain,
                        double &g_gain, double &b_gain);
@@ -951,6 +961,7 @@ private:
     static const QCameraMap<int> FSSR_MODES_MAP[];
     static const QCameraMap<int> MULTI_TOUCH_FOCUS_MODES_MAP[];
     static const QCameraMap<cam_cds_mode_type_t> CDS_MODES_MAP[];
+    static const QCameraMap<cam_ir_camera_modes_t> IR_CAMERA_MODES_MAP[];
     static const QCameraMap<int> NOISE_REDUCTION_MODES_MAP[];
 
     cam_capability_t *m_pCapability;

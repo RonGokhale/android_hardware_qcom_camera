@@ -1341,6 +1341,7 @@ typedef enum {
     CAM_INTF_PARM_MULTI_TOUCH_FOCUS_BRACKETING,
     CAM_INTF_PARM_FLASH_BRACKETING,
     CAM_INTF_PARM_GET_IMG_PROP,
+    CAM_INTF_PARM_IR_CAMERA_MODE,
 
     CAM_INTF_PARM_MAX
 } cam_intf_parm_type_t;
@@ -1712,5 +1713,12 @@ typedef enum {
     CAM_AWB_STATE_CONVERGED,
     CAM_AWB_STATE_LOCKED
 } cam_awb_state_t;
+
+typedef enum {
+    CAM_IR_CAMERA_MODE_OFF,
+    CAM_IR_CAMERA_MODE_ON,
+    CAM_IR_CAMERA_MODE_AUTO,
+    CAM_IR_CAMERA_MODE_MAX
+} cam_ir_camera_modes_t;
 
 #endif /* __QCAMERA_TYPES_H__ */
