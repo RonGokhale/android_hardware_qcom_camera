@@ -9036,7 +9036,7 @@ int32_t QCameraParameters::getExifGpsProcessingMethod(char *gpsProcessingMethod,
     if(str != NULL) {
         memcpy(gpsProcessingMethod, ExifAsciiPrefix, EXIF_ASCII_PREFIX_SIZE);
         count = EXIF_ASCII_PREFIX_SIZE;
-        strncpy(gpsProcessingMethod + EXIF_ASCII_PREFIX_SIZE, str, strlen(str));
+        strlcpy(gpsProcessingMethod + EXIF_ASCII_PREFIX_SIZE, str, strlen(str)+1);
         count += (uint32_t)strlen(str);
         gpsProcessingMethod[count++] = '\0'; // increase 1 for the last NULL char
         return NO_ERROR;
