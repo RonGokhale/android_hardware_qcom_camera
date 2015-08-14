@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are
@@ -951,7 +951,7 @@ int mm_app_close_fb(mm_camera_test_obj_t *test_obj)
     }
 
     close(test_obj->fb_fd);
-    test_obj->fb_fd = 0;
+    test_obj->fb_fd = -1;
 
     return rc;
 }

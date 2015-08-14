@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -2670,7 +2670,7 @@ OMX_ERRORTYPE mm_jpeg_fbd(OMX_HANDLETYPE hComponent,
     p_session->job_status = JPEG_JOB_STATUS_DONE;
     output_buf.buf_filled_len = (uint32_t)pBuffer->nFilledLen;
     output_buf.buf_vaddr = pBuffer->pBuffer;
-    output_buf.fd = 0;
+    output_buf.fd = -1;
     CDBG_HIGH("%s:%d] send jpeg callback %d buf 0x%p len %u JobID %u",
       __func__, __LINE__,
       p_session->job_status, pBuffer->pBuffer,
