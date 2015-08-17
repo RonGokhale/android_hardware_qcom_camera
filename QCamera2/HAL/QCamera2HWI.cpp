@@ -59,7 +59,6 @@ qcamera_saved_sizes_list savedSizes[MM_CAMERA_MAX_NUM_SENSORS];
 
 static pthread_mutex_t g_camlock = PTHREAD_MUTEX_INITIALIZER;
 volatile uint32_t gCamHalLogLevel = 0;
-unsigned int QCamera2HardwareInterface::mCameraSessionActive = 0;
 
 camera_device_ops_t QCamera2HardwareInterface::mCameraOps = {
     set_preview_window:         QCamera2HardwareInterface::set_preview_window,
@@ -918,9 +917,6 @@ int QCamera2HardwareInterface::close_camera_device(hw_device_t *hw_dev)
     }
     delete hw;
 
-    pthread_mutex_lock(&g_camlock);
-    mCameraSessionActive = 0;
-    pthread_mutex_unlock(&g_camlock);
     CDBG_HIGH("[KPI Perf] %s: X",__func__);
     return ret;
 }
@@ -985,6 +981,7 @@ QCamera2HardwareInterface::QCamera2HardwareInterface(uint32_t cameraId)
       mMsgEnabled(0),
       mStoreMetaDataInFrame(0),
       m_stateMachine(this),
+      m_smThreadActive(true),
       m_postprocessor(this),
       m_thermalAdapter(QCameraThermalAdapter::getInstance()),
       m_cbNotifier(this),
@@ -1087,8 +1084,11 @@ QCamera2HardwareInterface::~QCamera2HardwareInterface()
     mDefferedWorkThread.sendCmd(CAMERA_CMD_TYPE_STOP_DATA_PROC, TRUE, TRUE);
     mDefferedWorkThread.exit();
 
-    closeCamera();
+    lockAPI();
+    m_smThreadActive = false;
+    unlockAPI();
     m_stateMachine.releaseThread();
+    closeCamera();
     pthread_mutex_destroy(&m_lock);
     pthread_cond_destroy(&m_cond);
     pthread_mutex_destroy(&m_evtLock);
@@ -1114,15 +1114,10 @@ int QCamera2HardwareInterface::openCamera(struct hw_device_t **hw_device)
     ATRACE_CALL();
     int rc = NO_ERROR;
 
-    pthread_mutex_lock(&g_camlock);
-    // if mCameraSessionActive is 1 then return EUSERS to indicate MAX_CAMERAS_IN_USE to APP
-    // TODO: This needs to be replaced by checking SENSOR combination & Number of VFE's
-    if (mCameraSessionActive) {
+    if (!check_cam_access(mCameraId)) {
         ALOGE("%s: multiple simultaneous camera instance not supported", __func__);
-        pthread_mutex_unlock(&g_camlock);
         return -EUSERS;
     }
-    pthread_mutex_unlock(&g_camlock);
 
     if (mCameraOpened) {
         *hw_device = NULL;
@@ -1132,9 +1127,6 @@ int QCamera2HardwareInterface::openCamera(struct hw_device_t **hw_device)
     rc = openCamera();
     if (rc == NO_ERROR){
         *hw_device = &mCameraDevice.common;
-        pthread_mutex_lock(&g_camlock);
-        mCameraSessionActive = 1;
-        pthread_mutex_unlock(&g_camlock);
         if (m_thermalAdapter.init(this) != 0) {
           ALOGE("Init thermal adapter failed");
         }
@@ -2398,10 +2390,10 @@ bool QCamera2HardwareInterface::processMTFDumps(qcamera_jpeg_evt_payload_t *evt)
         }
 
         if (allFocusImage)  {
-            strncpy(name, "AllFocusImage", CAM_FN_CNT - 1);
+            strlcpy(name, "AllFocusImage", CAM_FN_CNT);
             index = -1;
         } else {
-            strncpy(name, "0", CAM_FN_CNT - 1);
+            strlcpy(name, "0", CAM_FN_CNT);
         }
         CAM_DUMP_TO_FILE("/data/misc/camera/multiTouchFocus", name, index, "jpg",
                 dataPtr, dataLen);
@@ -3517,7 +3509,7 @@ char* QCamera2HardwareInterface::getParameters()
     strParams = (char *)malloc(sizeof(char)*(str.length()+1));
     if(strParams != NULL){
         memset(strParams, 0, sizeof(char)*(str.length()+1));
-        strncpy(strParams, str.string(), str.length());
+        strlcpy(strParams, str.string(), str.length()+1);
         strParams[str.length()] = 0;
     }
 
@@ -3818,7 +3810,13 @@ int QCamera2HardwareInterface::dump(int /*fd*/)
  *==========================================================================*/
 int QCamera2HardwareInterface::processAPI(qcamera_sm_evt_enum_t api, void *api_payload)
 {
-    return m_stateMachine.procAPI(api, api_payload);
+    int ret = DEAD_OBJECT;
+
+    if (m_smThreadActive) {
+        ret = m_stateMachine.procAPI(api, api_payload);
+    }
+
+    return ret;
 }
 
 /*===========================================================================
