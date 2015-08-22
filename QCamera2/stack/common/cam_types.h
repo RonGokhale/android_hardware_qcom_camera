@@ -115,6 +115,8 @@ typedef enum {
     CAM_FORMAT_YUV_422_NV16,
     CAM_FORMAT_YUV_422_NV61,
     CAM_FORMAT_YUV_420_NV12_VENUS,
+    /* Y plane only */
+    CAM_FORMAT_IR_Y_ONLY,
 
     /* Please note below are the defintions for raw image.
      * Any format other than raw image format should be declared
