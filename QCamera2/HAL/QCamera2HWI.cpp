@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundataion. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundataion. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -6076,7 +6076,8 @@ int32_t QCamera2HardwareInterface::addPreviewChannel()
     }
 
     if (((mParameters.getDcrf() == true)
-            || (mParameters.getRecordingHintValue() != true))
+            || (mParameters.getRecordingHintValue() != true)
+            || (mParameters.isStaggeredVideoHDREnabled()))
             && (!mParameters.isSecureMode())) {
 
         rc = addStreamToChannel(pChannel, CAM_STREAM_TYPE_ANALYSIS,

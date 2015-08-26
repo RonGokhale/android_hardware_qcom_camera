@@ -686,6 +686,7 @@ public:
     int32_t setHDRAEBracket(cam_exp_bracketing_t hdrBracket);
     bool isHDREnabled();
     bool isAutoHDREnabled();
+    bool isStaggeredVideoHDREnabled();
     int32_t stopAEBracket();
     int32_t updateFlash(bool commitSettings);
     int32_t updateRAW(cam_dimension_t max_dim);
