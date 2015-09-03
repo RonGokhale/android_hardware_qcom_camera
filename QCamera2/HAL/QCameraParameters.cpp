@@ -853,7 +853,9 @@ QCameraParameters::QCameraParameters()
       mOfflineRAW(false),
       m_bTruePortraitOn(false),
       m_bIsLowMemoryDevice(false),
-      mCds_mode(CAM_CDS_MODE_OFF)
+      mCds_mode(CAM_CDS_MODE_OFF),
+      m_LLCaptureEnabled(FALSE),
+      m_LowLightLevel(CAM_LOW_LIGHT_OFF)
 {
     char value[PROPERTY_VALUE_MAX];
     // TODO: may move to parameter instead of sysprop
@@ -964,7 +966,9 @@ QCameraParameters::QCameraParameters(const String8 &params)
     m_bTruePortraitOn(false),
     m_bIsLowMemoryDevice(false),
     mCds_mode(CAM_CDS_MODE_OFF),
-    mParmEffect(CAM_EFFECT_MODE_OFF)
+    mParmEffect(CAM_EFFECT_MODE_OFF),
+    m_LLCaptureEnabled(FALSE),
+    m_LowLightLevel(CAM_LOW_LIGHT_OFF)
 {
     memset(&m_LiveSnapshotSize, 0, sizeof(m_LiveSnapshotSize));
     memset(&m_default_fps_range, 0, sizeof(m_default_fps_range));
@@ -4801,9 +4805,11 @@ int32_t QCameraParameters::updateParameters(QCameraParameters& params,
     if ((rc = setSeeMore(params)))                      final_rc = rc;
     if ((rc = setStillMore(params)))                    final_rc = rc;
     if ((rc = setCustomParams(params)))                 final_rc = rc;
-
-    if ((rc = updateFlash(false)))                      final_rc = rc;
     if ((rc = setLongshotParam(params)))                final_rc = rc;
+
+    setLowLightCapture();
+    if ((rc = updateFlash(false)))                      final_rc = rc;
+
 #ifdef TARGET_TS_MAKEUP
     if (params.get(KEY_TS_MAKEUP) != NULL) {
         set(KEY_TS_MAKEUP,params.get(KEY_TS_MAKEUP));
@@ -6816,7 +6822,7 @@ int32_t QCameraParameters::updateFlashMode(cam_flash_mode_t flash_mode)
  * DESCRIPTION: configure Flash Bracketing.
  *
  * PARAMETERS :
- *    @frame_config : output configaration structure to fill in.
+ *    @frame_config : output configuration structure to fill in.
  *
  * RETURN     : int32_t type of status
  *              NO_ERROR  -- success
@@ -6875,7 +6881,7 @@ int32_t QCameraParameters::configureFlash(cam_capture_frame_config_t &frame_conf
  * DESCRIPTION: configure HDR Bracketing.
  *
  * PARAMETERS :
- *    @frame_config : output configaration structure to fill in.
+ *    @frame_config : output configuration structure to fill in.
  *
  * RETURN     : int32_t type of status
  *              NO_ERROR  -- success
@@ -6922,7 +6928,7 @@ int32_t QCameraParameters::configureHDRBracketing(cam_capture_frame_config_t &fr
  * DESCRIPTION: configure AE Bracketing.
  *
  * PARAMETERS :
- *    @frame_config : output configaration structure to fill in.
+ *    @frame_config : output configuration structure to fill in.
  *
  * RETURN     : int32_t type of status
  *              NO_ERROR  -- success
@@ -6976,6 +6982,37 @@ int32_t QCameraParameters::configureAEBracketing(cam_capture_frame_config_t &fra
 }
 
 /*===========================================================================
+ * FUNCTION   : configureLowLight
+ *
+ * DESCRIPTION: configure low light frame capture use case.
+ *
+ * PARAMETERS :
+ *    @frame_config : output configuration structure to fill in.
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraParameters::configureLowLight(cam_capture_frame_config_t &frame_config)
+{
+    int32_t rc = NO_ERROR;
+    uint32_t i = 0;
+
+    rc = setCDSMode(CAM_CDS_MODE_OFF, false);
+    if (rc != NO_ERROR) {
+        ALOGE("%s: Failed to configure csd mode", __func__);
+        return rc;
+    }
+
+    frame_config.num_batch = 1;
+    frame_config.configs[0].num_frames = getNumOfSnapshots();
+    frame_config.configs[0].type = CAM_CAPTURE_LOW_LIGHT;
+    frame_config.configs[0].low_light_mode = CAM_LOW_LIGHT_ON;
+    CDBG_HIGH("%s: Snapshot Count: %d", __func__, frame_config.configs[0].num_frames);
+    return rc;
+}
+
+/*===========================================================================
  * FUNCTION   : configFrameCapture
  *
  * DESCRIPTION: configuration for ZSL special captures (FLASH/HDR etc)
@@ -7002,7 +7039,7 @@ int32_t QCameraParameters::configFrameCapture(bool commitSettings)
     }
 
     if (isHDREnabled() || m_bAeBracketingEnabled || m_bAFBracketingOn ||
-          m_bOptiZoomOn || m_bReFocusOn) {
+          m_bOptiZoomOn || m_bReFocusOn || m_LowLightLevel) {
         value = CAM_FLASH_MODE_OFF;
     } else if (isChromaFlashEnabled()) {
         value = CAM_FLASH_MODE_ON;
@@ -7016,6 +7053,8 @@ int32_t QCameraParameters::configFrameCapture(bool commitSettings)
         configureHDRBracketing (m_captureFrameConfig);
     } else if(isAEBracketEnabled()) {
         configureAEBracketing (m_captureFrameConfig);
+    } else if (m_LowLightLevel) {
+        configureLowLight (m_captureFrameConfig);
     }
 
     rc = ADD_SET_PARAM_ENTRY_TO_BATCH(m_pParamBuf, CAM_INTF_PARM_CAPTURE_FRAME_CONFIG,
@@ -7066,7 +7105,8 @@ int32_t QCameraParameters::resetFrameCapture(bool commitSettings)
             CDBG_HIGH("%s: Failed to enable tone map during HDR/AEBracketing", __func__);
         }
         rc = stopAEBracket();
-    } else if ((isChromaFlashEnabled()) || (mFlashValue != CAM_FLASH_MODE_OFF)) {
+    } else if ((isChromaFlashEnabled()) || (mFlashValue != CAM_FLASH_MODE_OFF)
+            || (getLowLightLevel() != CAM_LOW_LIGHT_OFF)) {
         rc = setToneMapMode(true, false);
         if (rc != NO_ERROR) {
             CDBG_HIGH("%s: Failed to enable tone map during chroma flash", __func__);
@@ -8817,7 +8857,7 @@ int32_t QCameraParameters::updateFlash(bool commitSettings)
     }
 
     if (isHDREnabled() || m_bAeBracketingEnabled || m_bAFBracketingOn ||
-          m_bOptiZoomOn || m_bReFocusOn) {
+          m_bOptiZoomOn || m_bReFocusOn || m_LowLightLevel) {
         value = CAM_FLASH_MODE_OFF;
     } else if (m_bChromaFlashOn) {
         value = CAM_FLASH_MODE_ON;
@@ -9740,6 +9780,7 @@ uint8_t QCameraParameters::getBurstCountForAdvancedCapture()
           }
       }
     }
+
     if (burstCount <= 0) {
         burstCount = getNumOfSnapshots();
     }
@@ -13038,4 +13079,20 @@ int32_t QCameraParameters::setCDSMode(int32_t cds_mode, bool initCommit)
     return rc;
 }
 
+/*===========================================================================
+ * FUNCTION   : setLowLightCapture
+ *
+ * DESCRIPTION: Function to enable low light capture
+ *==========================================================================*/
+void QCameraParameters::setLowLightCapture()
+{
+    char prop[PROPERTY_VALUE_MAX];
+    memset(prop, 0, sizeof(prop));
+    property_get("persist.camera.llc", prop, "0");
+    m_LLCaptureEnabled = (atoi(prop) > 0) ? TRUE : FALSE;
+
+    if (!m_LLCaptureEnabled) {
+        m_LowLightLevel = CAM_LOW_LIGHT_OFF;
+    }
+}
 }; // namespace qcamera

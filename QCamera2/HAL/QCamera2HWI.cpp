@@ -3148,7 +3148,9 @@ int32_t QCamera2HardwareInterface::unconfigureAdvancedCapture()
             }
             mHDRBracketingEnabled = false;
             rc = mParameters.stopAEBracket();
-        } else if (mParameters.isChromaFlashEnabled() || mFlashNeeded) {
+        } else if ((mParameters.isChromaFlashEnabled())
+                || (mFlashNeeded)
+                || (mParameters.getLowLightLevel() != CAM_LOW_LIGHT_OFF)) {
             rc = mParameters.resetFrameCapture(TRUE);
         } else if (mParameters.isUbiFocusEnabled() || mParameters.isUbiRefocus()) {
             rc = configureAFBracketing(false);
@@ -3223,7 +3225,8 @@ int32_t QCamera2HardwareInterface::configureAdvancedCapture()
         rc = configureAEBracketing();
     } else if (mParameters.isStillMoreEnabled()) {
         rc = configureStillMore();
-    } else if (mParameters.isChromaFlashEnabled() || mFlashNeeded) {
+    } else if (mParameters.isChromaFlashEnabled() || mFlashNeeded
+            || (mParameters.getLowLightLevel() != CAM_LOW_LIGHT_OFF)) {
         rc = mParameters.configFrameCapture(TRUE);
     } else {
         ALOGE("%s: No Advanced Capture feature enabled!! ", __func__);
@@ -3489,7 +3492,8 @@ int32_t QCamera2HardwareInterface::stopAdvancedCapture(
 
     if(mParameters.isUbiFocusEnabled() || mParameters.isUbiRefocus()) {
         rc = pChannel->stopAdvancedCapture(MM_CAMERA_AF_BRACKETING);
-    } else if (mParameters.isChromaFlashEnabled() || mFlashNeeded) {
+    } else if (mParameters.isChromaFlashEnabled() || mFlashNeeded
+            || (mParameters.getLowLightLevel() != CAM_LOW_LIGHT_OFF)) {
         rc = pChannel->stopAdvancedCapture(MM_CAMERA_FRAME_CAPTURE);
     } else if(mParameters.isHDREnabled()
             || mParameters.isAEBracketEnabled()) {
@@ -3532,7 +3536,8 @@ int32_t QCamera2HardwareInterface::startAdvancedCapture(
     } else if (mParameters.isHDREnabled()
             || mParameters.isAEBracketEnabled()) {
         rc = pChannel->startAdvancedCapture(MM_CAMERA_AE_BRACKETING);
-    } else if (mParameters.isChromaFlashEnabled() || mFlashNeeded) {
+    } else if (mParameters.isChromaFlashEnabled() || mFlashNeeded
+            || (mParameters.getLowLightLevel() != CAM_LOW_LIGHT_OFF)) {
         cam_capture_frame_config_t config = mParameters.getCaptureFrameConfig();
         rc = pChannel->startAdvancedCapture(MM_CAMERA_FRAME_CAPTURE, &config);
     } else {
