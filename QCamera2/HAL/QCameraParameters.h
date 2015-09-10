@@ -534,6 +534,8 @@ public:
     int32_t getExifGpsDateTimeStamp(char *gpsDateStamp, uint32_t bufLen, rat_t *gpsTimeStamp);
     int32_t updateFocusDistances(cam_focus_distances_info_t *focusDistances);
 
+    bool isAEBracketEnabled();
+    int32_t setAEBracketing();
     bool isFpsDebugEnabled() {return m_bDebugFps;};
     bool isHistogramEnabled() {return m_bHistogramEnabled;};
     bool isFaceDetectionEnabled() {return ((m_nFaceProcMask & CAM_FACE_PROCESS_MASK_DETECTION) != 0);};
@@ -545,8 +547,8 @@ public:
     int32_t setHDRAEBracket(cam_exp_bracketing_t hdrBracket);
     bool isHDREnabled();
     bool isAutoHDREnabled();
-    int32_t restoreAEBracket();
-    int32_t enableFlash(bool enableFlash);
+    int32_t stopAEBracket();
+    int32_t updateFlash(bool commitSettings);
     int32_t updateRAW(cam_dimension_t max_dim);
     bool isAVTimerEnabled();
     bool isMobicatEnabled();
@@ -590,7 +592,7 @@ public:
     int32_t commitFlashBracket(cam_flash_bracketing_t flashBracket);
     int32_t set3ALock(const char *lockStr);
     int32_t setAndCommitZoom(int zoom_level);
-    uint8_t getBurstCountForBracketing();
+    uint8_t getBurstCountForAdvancedCapture();
     inline bool isUbiRefocus() {return isUbiFocusEnabled() &&
         (m_pCapability->ubifocus_af_bracketing_need.output_count > 1);};
     inline uint32_t UfOutputCount() {
@@ -598,6 +600,10 @@ public:
     inline bool generateThumbFromMain() {return isUbiFocusEnabled() ||
         isChromaFlashEnabled() || isOptiZoomEnabled(); }
     int32_t  updateCurrentFocusPosition(int32_t pos);
+    bool isDisplayFrameNeeded() { return m_bDisplayFrame; };
+    int32_t setDisplayFrame(bool enabled) {m_bDisplayFrame=enabled; return 0;};
+    bool isAdvCamFeaturesEnabled() {return isUbiFocusEnabled() ||
+        isChromaFlashEnabled() || isOptiZoomEnabled() || isHDREnabled();}
 
 private:
     int32_t setPreviewSize(const QCameraParameters& );
@@ -633,8 +639,6 @@ private:
     int32_t setAwbLock(const QCameraParameters& );
     int32_t setMCEValue(const QCameraParameters& );
     int32_t setDISValue(const QCameraParameters& params);
-    int32_t setHighFrameRate(const QCameraParameters& );
-    int32_t setHighSpeedRecording(const QCameraParameters& );
     int32_t setLensShadeValue(const QCameraParameters& );
     int32_t setExposureCompensation(const QCameraParameters& );
     int32_t setWhiteBalance(const QCameraParameters& );
@@ -664,6 +668,7 @@ private:
     int32_t setBurstNum(const QCameraParameters& params);
     int32_t setSnapshotFDReq(const QCameraParameters& );
     int32_t setStatsDebugMask();
+    int32_t setAlgoOptimizationsMask();
     int32_t setTintlessValue(const QCameraParameters& params);
     int32_t setCDSMode(const QCameraParameters& params);
     int32_t setMobicat(const QCameraParameters& params);
@@ -691,7 +696,7 @@ private:
     int32_t setAwbLock(const char *awbStr);
     int32_t setMCEValue(const char *mceStr);
     int32_t setDISValue(const char *disStr);
-    int32_t setHighFrameRate(const char *hfrStr);
+    int32_t setHighFrameRate(const int32_t hfrMode);
     int32_t setLensShadeValue(const char *lensShadeStr);
     int32_t setExposureCompensation(int expComp);
     int32_t setWhiteBalance(const char *wbStr);
@@ -830,6 +835,12 @@ private:
     bool m_bUbiRefocus;
     cam_fps_range_t m_hfrFpsRange;
     bool m_bHfrMode;
+    int32_t mHfrMode;
+    bool m_bDisplayFrame;
+    bool m_bAeBracketingEnabled;
+    int32_t mFlashValue;
+    int32_t mFlashDaemonValue;
+
 };
 
 }; // namespace qcamera

@@ -214,6 +214,32 @@ int32_t QCameraChannel::addStream(QCameraAllocator &allocator,
     }
     return rc;
 }
+/*===========================================================================
+ * FUNCTION   : config
+ *
+ * DESCRIPTION: Configure any deffered channel streams
+ *
+ * PARAMETERS : None
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraChannel::config()
+{
+    int32_t rc = NO_ERROR;
+
+    for (int i = 0; i < m_numStreams; ++i) {
+        if ( mStreams[i]->isDeffered() ) {
+            rc = mStreams[i]->configStream();
+            if (rc != NO_ERROR) {
+                break;
+            }
+        }
+    }
+
+    return rc;
+}
 
 /*===========================================================================
  * FUNCTION   : start
@@ -229,11 +255,6 @@ int32_t QCameraChannel::addStream(QCameraAllocator &allocator,
 int32_t QCameraChannel::start()
 {
     int32_t rc = NO_ERROR;
-
-    for (int i = 0; i < m_numStreams; ++i) {
-        if ( mStreams[i]->isDeffered() )
-            mStreams[i]->configStream();
-    }
 
     if (m_numStreams > 1) {
         // there is more than one stream in the channel
@@ -555,26 +576,6 @@ QCameraPicChannel::~QCameraPicChannel()
 }
 
 /*===========================================================================
- * FUNCTION   : takePictureContinuous
- *
- * DESCRIPTION: send request for continuous snapshot frames
- *
- * PARAMETERS :
-*
- * RETURN     : int32_t type of status
- *              NO_ERROR  -- success
- *              none-zero failure code
- *==========================================================================*/
-int32_t QCameraPicChannel::takePictureContinuous()
-{
-    int32_t rc = m_camOps->configure_notify_mode(m_camHandle,
-                                        m_handle,
-                                        MM_CAMERA_SUPER_BUF_NOTIFY_CONTINUOUS);
-
-    return rc;
-}
-
-/*===========================================================================
  * FUNCTION   : takePicture
  *
  * DESCRIPTION: send request for queued snapshot frames
@@ -588,15 +589,9 @@ int32_t QCameraPicChannel::takePictureContinuous()
  *==========================================================================*/
 int32_t QCameraPicChannel::takePicture(uint8_t num_of_snapshot)
 {
-    int32_t rc = m_camOps->configure_notify_mode(m_camHandle,
-                                        m_handle,
-                                        MM_CAMERA_SUPER_BUF_NOTIFY_BURST);
-    if (rc == NO_ERROR) {
-        rc = m_camOps->request_super_buf(m_camHandle,
+    int32_t rc = m_camOps->request_super_buf(m_camHandle,
                                              m_handle,
                                              num_of_snapshot);
-    }
-
     return rc;
 }
 
@@ -613,31 +608,25 @@ int32_t QCameraPicChannel::takePicture(uint8_t num_of_snapshot)
  *==========================================================================*/
 int32_t QCameraPicChannel::cancelPicture()
 {
-    int32_t rc = m_camOps->configure_notify_mode(m_camHandle,
-                                    m_handle,
-                                    MM_CAMERA_SUPER_BUF_NOTIFY_BURST);
-    if (rc == NO_ERROR) {
-        rc = m_camOps->cancel_super_buf_request(m_camHandle, m_handle);
-    }
-
+    int32_t rc = m_camOps->cancel_super_buf_request(m_camHandle, m_handle);
     return rc;
 }
 
 /*===========================================================================
- * FUNCTION   : startBracketing
+ * FUNCTION   : startAdvancedCapture
  *
- * DESCRIPTION: start bracketing based on bracketing type.
+ * DESCRIPTION: start advanced capture based on advanced capture type.
  *
  * PARAMETERS :
- *   @type : bracketing type.
+ *   @type : advanced capture type.
  *
  * RETURN     : int32_t type of status
  *              NO_ERROR  -- success
  *              none-zero failure code
  *==========================================================================*/
-int32_t QCameraPicChannel::startBracketing(mm_camera_bracketing_t type)
+int32_t QCameraPicChannel::startAdvancedCapture(mm_camera_advanced_capture_t type)
 {
-    int32_t rc = m_camOps->process_bracketing(m_camHandle, type,
+    int32_t rc = m_camOps->process_advanced_capture(m_camHandle, type,
                                               m_handle, 1);
     return rc;
 }

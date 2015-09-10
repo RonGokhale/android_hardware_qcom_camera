@@ -37,6 +37,8 @@
 #include <linux/media.h>
 #include <signal.h>
 #include <media/msm_cam_sensor.h>
+#include <cutils/properties.h>
+#include <stdlib.h>
 
 #include "mm_camera_dbg.h"
 #include "mm_camera_interface.h"
@@ -1279,8 +1281,15 @@ uint8_t get_num_of_cameras()
     char subdev_name[32];
     int32_t sd_fd = 0;
     struct sensor_init_cfg_data cfg;
+    char prop[PROPERTY_VALUE_MAX];
 
     CDBG("%s : E", __func__);
+
+    property_get("vold.decrypt", prop, "0");
+    int decrypt = atoi(prop);
+    if (decrypt == 1)
+     return 0;
+
     /* lock the mutex */
     pthread_mutex_lock(&g_intf_lock);
 
@@ -1313,14 +1322,14 @@ uint8_t get_num_of_cameras()
             struct media_entity_desc entity;
             memset(&entity, 0, sizeof(entity));
             entity.id = num_entities++;
-            CDBG_ERROR("entity id %d", entity.id);
+            CDBG("entity id %d", entity.id);
             rc = ioctl(dev_fd, MEDIA_IOC_ENUM_ENTITIES, &entity);
             if (rc < 0) {
-                CDBG_ERROR("Done enumerating media entities");
+                CDBG("Done enumerating media entities");
                 rc = 0;
                 break;
             }
-            CDBG_ERROR("entity name %s type %d group id %d",
+            CDBG("entity name %s type %d group id %d",
                 entity.name, entity.type, entity.group_id);
             if (entity.type == MEDIA_ENT_T_V4L2_SUBDEV &&
                 entity.group_id == MSM_CAMERA_SUBDEV_SENSOR_INIT) {
@@ -1415,13 +1424,13 @@ struct camera_info *get_cam_info(int camera_id)
 }
 
 /*===========================================================================
- * FUNCTION   : mm_camera_intf_process_bracketing
+ * FUNCTION   : mm_camera_intf_process_advanced_capture
  *
- * DESCRIPTION: Configures channel 3a bracketing mode
+ * DESCRIPTION: Configures channel advanced capture mode
  *
  * PARAMETERS :
  *   @camera_handle: camera handle
- *   @bracketing_type : bracketing type
+ *   @advanced_capture_type : advanced capture type
  *   @ch_id        : channel handle
  *   @notify_mode  : notification mode
  *
@@ -1429,8 +1438,8 @@ struct camera_info *get_cam_info(int camera_id)
  *              0  -- success
  *              -1 -- failure
  *==========================================================================*/
-static int32_t mm_camera_intf_process_bracketing(uint32_t camera_handle,
-    mm_camera_bracketing_t bracketing_type,
+static int32_t mm_camera_intf_process_advanced_capture(uint32_t camera_handle,
+    mm_camera_advanced_capture_t advanced_capture_type,
     uint32_t ch_id,
     int8_t start_flag)
 {
@@ -1445,7 +1454,7 @@ static int32_t mm_camera_intf_process_bracketing(uint32_t camera_handle,
     if(my_obj) {
         pthread_mutex_lock(&my_obj->cam_lock);
         pthread_mutex_unlock(&g_intf_lock);
-        rc = mm_camera_channel_bracketing(my_obj, bracketing_type, ch_id, start_flag);
+        rc = mm_camera_channel_advanced_capture(my_obj, advanced_capture_type, ch_id, start_flag);
     } else {
         pthread_mutex_unlock(&g_intf_lock);
     }
@@ -1482,7 +1491,7 @@ static mm_camera_ops_t mm_camera_ops = {
     .cancel_super_buf_request = mm_camera_intf_cancel_super_buf_request,
     .flush_super_buf_queue = mm_camera_intf_flush_super_buf_queue,
     .configure_notify_mode = mm_camera_intf_configure_notify_mode,
-    .process_bracketing = mm_camera_intf_process_bracketing
+    .process_advanced_capture = mm_camera_intf_process_advanced_capture
 };
 
 /*===========================================================================

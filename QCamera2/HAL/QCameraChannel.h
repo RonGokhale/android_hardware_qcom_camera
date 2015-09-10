@@ -63,6 +63,7 @@ public:
     virtual int32_t bufDone(mm_camera_super_buf_t *recvd_frame);
     virtual int32_t processZoomDone(preview_stream_ops_t *previewWindow,
                                     cam_crop_data_t &crop_info);
+    int32_t config();
     QCameraStream *getStreamByHandle(uint32_t streamHandle);
     uint32_t getMyHandle() const {return m_handle;};
     uint8_t getNumOfStreams() const {return m_numStreams;};
@@ -93,9 +94,8 @@ public:
     QCameraPicChannel();
     virtual ~QCameraPicChannel();
     int32_t takePicture(uint8_t num_of_snapshot);
-    int32_t takePictureContinuous();
     int32_t cancelPicture();
-    int32_t startBracketing(mm_camera_bracketing_t type);
+    int32_t startAdvancedCapture(mm_camera_advanced_capture_t type);
 };
 
 // video channel class

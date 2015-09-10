@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -56,6 +56,8 @@
 #define FALSE 0
 #endif
 
+#define ARRAY_SIZE(a) (sizeof(a)/sizeof((a)[0]))
+
 struct mm_channel;
 struct mm_stream;
 struct mm_camera_obj;
@@ -87,6 +89,7 @@ typedef enum {
     MM_CAMERA_GENERIC_CMD_TYPE_AE_BRACKETING,
     MM_CAMERA_GENERIC_CMD_TYPE_AF_BRACKETING,
     MM_CAMERA_GENERIC_CMD_TYPE_FLASH_BRACKETING,
+    MM_CAMERA_GENERIC_CMD_TYPE_ZOOM_1X,
 } mm_camera_generic_cmd_type_t;
 
 typedef struct {
@@ -237,6 +240,8 @@ typedef struct mm_stream {
     uint8_t is_bundled; /* flag if stream is bundled */
 
     mm_camera_stream_mem_vtbl_t mem_vtbl; /* mem ops tbl */
+
+    int8_t queued_buffer_count;
 } mm_stream_t;
 
 /* mm_channel */
@@ -270,6 +275,7 @@ typedef enum {
     MM_CHANNEL_EVT_AF_BRACKETING,
     MM_CHANNEL_EVT_AE_BRACKETING,
     MM_CHANNEL_EVT_FLASH_BRACKETING,
+    MM_CHANNEL_EVT_ZOOM_1X,
 } mm_channel_evt_type_t;
 
 typedef struct {
@@ -363,6 +369,7 @@ typedef struct mm_channel {
 
     uint8_t need3ABracketing;
     uint8_t isFlashBracketingEnabled;
+    uint8_t isZoom1xFrameRequested;
 } mm_channel_t;
 
 /* struct to store information about pp cookie*/
@@ -412,6 +419,11 @@ typedef struct {
     mm_camera_obj_t *cam_obj[MM_CAMERA_MAX_NUM_SENSORS];
     struct camera_info info[MM_CAMERA_MAX_NUM_SENSORS];
 } mm_camera_ctrl_t;
+
+typedef enum {
+    mm_camera_async_call,
+    mm_camera_sync_call
+} mm_camera_call_type_t;
 
 /**********************************************************************************
 * external function declare
@@ -579,18 +591,20 @@ extern int32_t mm_camera_poll_thread_add_poll_fd(
                                 uint32_t handler,
                                 int32_t fd,
                                 mm_camera_poll_notify_t nofity_cb,
-                                void *userdata);
+                                void *userdata,
+                                mm_camera_call_type_t);
 extern int32_t mm_camera_poll_thread_del_poll_fd(
                                 mm_camera_poll_thread_t * poll_cb,
-                                uint32_t handler);
+                                uint32_t handler,
+                                mm_camera_call_type_t);
 extern int32_t mm_camera_cmd_thread_launch(
                                 mm_camera_cmd_thread_t * cmd_thread,
                                 mm_camera_cmd_cb_t cb,
                                 void* user_data);
 extern int32_t mm_camera_cmd_thread_release(mm_camera_cmd_thread_t * cmd_thread);
 
-extern int32_t mm_camera_channel_bracketing(mm_camera_obj_t *my_obj,
-                                               mm_camera_bracketing_t bracketingtype,
+extern int32_t mm_camera_channel_advanced_capture(mm_camera_obj_t *my_obj,
+                                               mm_camera_advanced_capture_t advanced_capturetype,
                                                uint32_t ch_id,
                                                int32_t start_flag);
 #endif /* __MM_CAMERA_H__ */

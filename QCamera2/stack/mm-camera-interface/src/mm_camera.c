@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2014, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -248,14 +248,14 @@ int32_t mm_camera_open(mm_camera_obj_t *my_obj)
     snprintf(dev_name, sizeof(dev_name), "/dev/%s",
              mm_camera_util_get_dev_name(my_obj->my_hdl));
     sscanf(dev_name, "/dev/video%u", &cam_idx);
-    CDBG_ERROR("%s: dev name = %s, cam_idx = %d", __func__, dev_name, cam_idx);
+    CDBG("%s: dev name = %s, cam_idx = %d", __func__, dev_name, cam_idx);
 
     do{
         n_try--;
         my_obj->ctrl_fd = open(dev_name, O_RDWR | O_NONBLOCK);
         CDBG("%s:  ctrl_fd = %d, errno == %d", __func__, my_obj->ctrl_fd, errno);
         if((my_obj->ctrl_fd > 0) || (errno != EIO) || (n_try <= 0 )) {
-            CDBG_ERROR("%s:  opened, break out while loop", __func__);
+            CDBG("%s:  opened, break out while loop", __func__);
             break;
         }
         CDBG("%s:failed with I/O error retrying after %d milli-seconds",
@@ -1430,7 +1430,8 @@ int32_t mm_camera_evt_sub(mm_camera_obj_t * my_obj,
         }
         /* remove evt fd from the polling thraed when unreg the last event */
         rc = mm_camera_poll_thread_del_poll_fd(&my_obj->evt_poll_thread,
-                                               my_obj->my_hdl);
+                                               my_obj->my_hdl,
+                                               mm_camera_sync_call);
     } else {
         rc = ioctl(my_obj->ctrl_fd, VIDIOC_SUBSCRIBE_EVENT, &sub);
         if (rc < 0) {
@@ -1442,7 +1443,8 @@ int32_t mm_camera_evt_sub(mm_camera_obj_t * my_obj,
                                                my_obj->my_hdl,
                                                my_obj->ctrl_fd,
                                                mm_camera_event_notify,
-                                               (void*)my_obj);
+                                               (void*)my_obj,
+                                               mm_camera_sync_call);
     }
     return rc;
 }
@@ -1647,13 +1649,13 @@ int32_t mm_camera_util_g_ctrl( int32_t fd, uint32_t id, int32_t *value)
 }
 
 /*===========================================================================
- * FUNCTION   : mm_camera_channel_bracketing
+ * FUNCTION   : mm_camera_channel_advanced_capture
  *
- * DESCRIPTION: sets the channel bracketing
+ * DESCRIPTION: sets the channel advanced capture
  *
  * PARAMETERS :
  *   @my_obj       : camera object
- *   @bracketing_type : bracketing type.
+ *   @advanced_capture_type : advanced capture type.
  *   @ch_id        : channel handle
  *   @start_flag  : flag to indicate start/stop
  *
@@ -1661,8 +1663,8 @@ int32_t mm_camera_util_g_ctrl( int32_t fd, uint32_t id, int32_t *value)
  *              0  -- success
  *              -1 -- failure
  *==========================================================================*/
-int32_t mm_camera_channel_bracketing(mm_camera_obj_t *my_obj,
-                                        mm_camera_bracketing_t bracketing_type,
+int32_t mm_camera_channel_advanced_capture(mm_camera_obj_t *my_obj,
+                                        mm_camera_advanced_capture_t advanced_capture_type,
                                         uint32_t ch_id,
                                         int32_t start_flag)
 {
@@ -1674,7 +1676,7 @@ int32_t mm_camera_channel_bracketing(mm_camera_obj_t *my_obj,
     if (NULL != ch_obj) {
         pthread_mutex_lock(&ch_obj->ch_lock);
         pthread_mutex_unlock(&my_obj->cam_lock);
-        switch (bracketing_type) {
+        switch (advanced_capture_type) {
             case MM_CAMERA_AF_BRACKETING:
                 rc = mm_channel_fsm_fn(ch_obj,
                                        MM_CHANNEL_EVT_AF_BRACKETING,
@@ -1690,6 +1692,12 @@ int32_t mm_camera_channel_bracketing(mm_camera_obj_t *my_obj,
             case MM_CAMERA_FLASH_BRACKETING:
                 rc = mm_channel_fsm_fn(ch_obj,
                                        MM_CHANNEL_EVT_FLASH_BRACKETING,
+                                       (void *)start_flag,
+                                       NULL);
+                break;
+            case MM_CAMERA_ZOOM_1X:
+                rc = mm_channel_fsm_fn(ch_obj,
+                                       MM_CHANNEL_EVT_ZOOM_1X,
                                        (void *)start_flag,
                                        NULL);
                 break;

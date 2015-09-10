@@ -60,6 +60,7 @@ void QCamera2HardwareInterface::zsl_channel_cb(mm_camera_super_buf_t *recvd_fram
     char value[PROPERTY_VALUE_MAX];
     bool dump_raw = false;
     bool dump_yuv = false;
+    bool log_matching = false;
     QCamera2HardwareInterface *pme = (QCamera2HardwareInterface *)userdata;
     if (pme == NULL ||
         pme->mCameraHandle == NULL ||
@@ -122,87 +123,46 @@ void QCamera2HardwareInterface::zsl_channel_cb(mm_camera_super_buf_t *recvd_fram
             }
         }
     }
-
+    //
     // whether need FD Metadata along with Snapshot frame in ZSL mode
-    if(pme->mParameters.isOptiZoomEnabled()
-            || pme->needFDMetadata(QCAMERA_CH_TYPE_ZSL)) {
-
-        uint32_t snapshotStreamId = 0;
-
+    if(pme->needFDMetadata(QCAMERA_CH_TYPE_ZSL)){
+        //Need Face Detection result for snapshot frames
         //Get the Meta Data frames
         mm_camera_buf_def_t *pMetaFrame = NULL;
-        for (int i = 0; i < frame->num_bufs; i++) {
-            QCameraStream *pStream =
-                    pChannel->getStreamByHandle(frame->bufs[i]->stream_id);
-            if (pStream != NULL){
-                if (pStream->isTypeOf(CAM_STREAM_TYPE_METADATA)) {
+        for(int i = 0; i < frame->num_bufs; i++){
+            QCameraStream *pStream = pChannel->getStreamByHandle(frame->bufs[i]->stream_id);
+            if(pStream != NULL){
+                if(pStream->isTypeOf(CAM_STREAM_TYPE_METADATA)){
                     pMetaFrame = frame->bufs[i]; //find the metadata
-                }
-                if (pStream->isTypeOf(CAM_STREAM_TYPE_SNAPSHOT)) {
-                    snapshotStreamId = pStream->getMyServerID();
+                    break;
                 }
             }
         }
 
         if(pMetaFrame != NULL){
-            cam_metadata_info_t *pMetaData =
-                    (cam_metadata_info_t *)pMetaFrame->buffer;
-
-            if (pme->needFDMetadata(QCAMERA_CH_TYPE_ZSL)) {
-                //HARD CODE here before MCT can support
-                pMetaData->faces_data.fd_type = QCAMERA_FD_SNAPSHOT;
-                if(!pMetaData->is_faces_valid){
-                    pMetaData->faces_data.num_faces_detected = 0;
-                }else if(pMetaData->faces_data.num_faces_detected > MAX_ROI){
-                    ALOGE("%s: Invalid number of faces %d",
-                        __func__, pMetaData->faces_data.num_faces_detected);
-                }
-
-                qcamera_sm_internal_evt_payload_t *payload =
-                        (qcamera_sm_internal_evt_payload_t *)malloc(
-                                sizeof(qcamera_sm_internal_evt_payload_t));
-                if (NULL != payload) {
-                    memset(payload, 0,
-                            sizeof(qcamera_sm_internal_evt_payload_t));
-                    payload->evt_type = QCAMERA_INTERNAL_EVT_FACE_DETECT_RESULT;
-                    payload->faces_data = pMetaData->faces_data;
-                    int32_t rc = pme->processEvt(QCAMERA_SM_EVT_EVT_INTERNAL,
-                            payload);
-                    if (rc != NO_ERROR) {
-                        ALOGE("%s: processEvt prep_snapshot failed", __func__);
-                        free(payload);
-                        payload = NULL;
-                    }
-                } else {
-                    ALOGE("%s: No memory for qcamera_sm_internal_evt_payload_t",
-                            __func__);
-                }
+            cam_metadata_info_t *pMetaData = (cam_metadata_info_t *)pMetaFrame->buffer;
+            pMetaData->faces_data.fd_type = QCAMERA_FD_SNAPSHOT; //HARD CODE here before MCT can support
+            if(!pMetaData->is_faces_valid){
+                pMetaData->faces_data.num_faces_detected = 0;
+            }else if(pMetaData->faces_data.num_faces_detected > MAX_ROI){
+                ALOGE("%s: Invalid number of faces %d",
+                    __func__, pMetaData->faces_data.num_faces_detected);
             }
 
-            if (pme->mParameters.isOptiZoomEnabled()) {
-                bool crop1xFound = false;
-                if (pMetaData->is_crop_valid) {
-                    for (int i=0; i<pMetaData->crop_data.num_of_streams; i++) {
-                        if (snapshotStreamId ==
-                                pMetaData->crop_data.crop_info[i].stream_id) {
-                            if (!pMetaData->crop_data.crop_info[i].crop.left &&
-                                    !pMetaData->crop_data.crop_info[i].crop.top) {
-                                crop1xFound = true;
-                            }
-                        }
-                    }
+            qcamera_sm_internal_evt_payload_t *payload =
+                (qcamera_sm_internal_evt_payload_t *)malloc(sizeof(qcamera_sm_internal_evt_payload_t));
+            if (NULL != payload) {
+                memset(payload, 0, sizeof(qcamera_sm_internal_evt_payload_t));
+                payload->evt_type = QCAMERA_INTERNAL_EVT_FACE_DETECT_RESULT;
+                payload->faces_data = pMetaData->faces_data;
+                int32_t rc = pme->processEvt(QCAMERA_SM_EVT_EVT_INTERNAL, payload);
+                if (rc != NO_ERROR) {
+                    ALOGE("%s: processEvt prep_snapshot failed", __func__);
+                    free(payload);
+                    payload = NULL;
                 }
-
-                if ((!crop1xFound) || (pme->mNumSnapshots <= 0)) {
-                    pChannel->bufDone(recvd_frame);
-                    return;
-                }
-                QCameraPicChannel *pZSLChannel =
-                    (QCameraPicChannel *)pme->m_channels[QCAMERA_CH_TYPE_ZSL];
-                pme->mNumSnapshots--;
-                if (pme->mNumSnapshots == 0) {
-                    pZSLChannel->cancelPicture();
-                }
+            } else {
+                ALOGE("%s: No memory for prep_snapshot qcamera_sm_internal_evt_payload_t", __func__);
             }
         }
     }
@@ -223,6 +183,25 @@ void QCamera2HardwareInterface::zsl_channel_cb(mm_camera_super_buf_t *recvd_fram
                     }
                     break;
                 }
+            }
+        }
+    }
+
+    property_get("persist.camera.zsl_matching", value, "0");
+    log_matching = atoi(value) > 0 ? true : false;
+    if (log_matching) {
+        ALOGD("%s : ZSL super buffer contains:", __func__);
+        QCameraStream *pStream = NULL;
+        for (int i = 0; i < frame->num_bufs; i++) {
+            pStream = pChannel->getStreamByHandle(frame->bufs[i]->stream_id);
+            if (pStream != NULL ) {
+                ALOGD("%s: Buffer with V4L index %d frame index %d of type %d Timestamp: %ld %ld ",
+                        __func__,
+                        frame->bufs[i]->buf_idx,
+                        frame->bufs[i]->frame_idx,
+                        pStream->getMyType(),
+                        frame->bufs[i]->ts.tv_sec,
+                        frame->bufs[i]->ts.tv_nsec);
             }
         }
     }
@@ -716,7 +695,7 @@ void QCamera2HardwareInterface::video_stream_cb_routine(mm_camera_super_buf_t *s
           frame->ts.tv_nsec);
     nsecs_t timeStamp;
     if(pme->mParameters.isAVTimerEnabled() == true) {
-        timeStamp = (((nsecs_t)frame->ts.tv_sec << 32) | frame->ts.tv_nsec) * 1000;
+        timeStamp = (nsecs_t)((frame->ts.tv_sec * 1000000LL) + frame->ts.tv_nsec) * 1000;
     } else {
         timeStamp = nsecs_t(frame->ts.tv_sec) * 1000000000LL + frame->ts.tv_nsec;
     }

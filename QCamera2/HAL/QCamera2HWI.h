@@ -307,7 +307,7 @@ private:
     int processEvt(qcamera_sm_evt_enum_t evt, void *evt_payload);
     int processSyncEvt(qcamera_sm_evt_enum_t evt, void *evt_payload);
     void lockAPI();
-    void waitAPIResult(qcamera_sm_evt_enum_t api_evt);
+    void waitAPIResult(qcamera_sm_evt_enum_t api_evt,qcamera_api_result_t *apiResult);
     void unlockAPI();
     void signalAPIResult(qcamera_api_result_t *result);
     void signalEvtResult(qcamera_api_result_t *result);
@@ -328,6 +328,7 @@ private:
     bool needDebugFps();
     bool isCACEnabled();
     bool isPreviewRestartEnabled();
+    bool isCaptureShutterEnabled();
     bool needReprocess();
     bool needRotationReprocess();
     bool needScaleReprocess();
@@ -348,6 +349,8 @@ private:
     inline int getFlash(){ return mFlash; }
     inline int getFlashPresence(){ return mFlashPresence; }
     inline int getRedeye(){ return mRedEye; }
+    inline bool getCancelAutoFocus(){ return mCancelAutoFocus; }
+    inline void setCancelAutoFocus(bool flag){ mCancelAutoFocus = flag; }
     QCameraExif *getExifData();
 
     int32_t processAutoFocusEvent(cam_auto_focus_data_t &focus_data);
@@ -396,7 +399,7 @@ private:
     int32_t setHistogram(bool histogram_en);
     int32_t setFaceDetection(bool enabled);
     int32_t prepareHardwareForSnapshot(int32_t afNeeded);
-    bool needProcessPreviewFrame() {return m_stateMachine.isPreviewRunning();};
+    bool needProcessPreviewFrame();
     bool isNoDisplayMode() {return mParameters.isNoDisplayMode();};
     bool isZSLMode() {return mParameters.isZSLMode();};
     bool isHFRMode() {return mParameters.isHfrMode();};
@@ -408,13 +411,14 @@ private:
     bool removeSizeFromList(cam_dimension_t* size_list,
                             uint8_t length,
                             cam_dimension_t size);
-    int32_t configureBracketing();
+    int32_t configureAdvancedCapture();
     int32_t configureAFBracketing(bool enable = true);
     int32_t configureFlashBracketing();
-    int32_t startBracketing(QCameraPicChannel *pZSLchannel);
+    int32_t startAdvancedCapture(QCameraPicChannel *pChannel);
     int32_t configureZSLHDRBracketing();
-    int32_t startZslBracketing(QCameraPicChannel *pZSLchannel);
+    int32_t startZslAdvancedCapture(QCameraPicChannel *pChannel);
     int32_t configureOptiZoom();
+    int32_t configureAEBracketing();
     inline void setOutputImageCount(uint32_t aCount) {mOutputCount = aCount;}
     inline uint32_t getOutputImageCount() {return mOutputCount;}
     bool processUFDumps(qcamera_jpeg_evt_payload_t *evt);
@@ -487,7 +491,6 @@ private:
     QCameraParameters mParameters;
     int32_t               mMsgEnabled;
     int                   mStoreMetaDataInFrame;
-    int                   mNumSnapshots;
 
     camera_notify_callback         mNotifyCb;
     camera_data_callback           mDataCb;
@@ -501,7 +504,7 @@ private:
     QCameraCbNotifier m_cbNotifier;
     pthread_mutex_t m_lock;
     pthread_cond_t m_cond;
-    qcamera_api_result_t m_apiResult;
+    api_result_list *m_apiResultList;
     QCameraMemoryPool m_memoryPool;
 
     pthread_mutex_t m_evtLock;
@@ -529,6 +532,7 @@ private:
     int mDumpSkipCnt; // frame skip count
     mm_jpeg_exif_params_t mExifParams;
     qcamera_thermal_level_enum_t mThermalLevel;
+    bool mCancelAutoFocus;
     bool m_HDRSceneEnabled;
     bool mLongshotEnabled;
     int32_t m_max_pic_width;

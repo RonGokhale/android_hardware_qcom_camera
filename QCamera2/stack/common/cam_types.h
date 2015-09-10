@@ -582,6 +582,7 @@ typedef enum {
 } cam_streaming_mode_t;
 
 typedef enum {
+    IS_TYPE_NONE,
     IS_TYPE_DIS,
     IS_TYPE_GA_DIS,
     IS_TYPE_EIS_1_0,
@@ -785,7 +786,8 @@ typedef enum {
 typedef enum {
     CAM_AF_SCANNING,
     CAM_AF_FOCUSED,
-    CAM_AF_NOT_FOCUSED
+    CAM_AF_NOT_FOCUSED,
+    CAM_AF_INACTIVE
 } cam_autofocus_state_t;
 
 typedef struct {
@@ -1167,6 +1169,7 @@ typedef enum {
     CAM_INTF_META_ASD_HDR_SCENE_DATA,
     CAM_INTF_META_PRIVATE_DATA,
     CAM_INTF_PARM_STATS_DEBUG_MASK,
+    CAM_INTF_PARM_ALGO_OPTIMIZATIONS_MASK,
     /* Indicates streams ID of all the requested buffers */
     CAM_INTF_META_STREAM_ID,
     CAM_INTF_PARM_FOCUS_BRACKETING,
