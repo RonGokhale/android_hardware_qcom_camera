@@ -10514,8 +10514,16 @@ int32_t QCameraParameters::setFaceDetection(bool enabled, bool initCommit)
     // set face detection mask
     if (enabled) {
         faceProcMask |= CAM_FACE_PROCESS_MASK_DETECTION;
+        if (getRecordingHintValue() > 0) {
+            faceProcMask = 0;
+            faceProcMask |= CAM_FACE_PROCESS_MASK_FOCUS;
+        } else {
+            faceProcMask |= CAM_FACE_PROCESS_MASK_FOCUS;
+            faceProcMask |= CAM_FACE_PROCESS_MASK_DETECTION;
+        }
     } else {
-        faceProcMask &= ~CAM_FACE_PROCESS_MASK_DETECTION;
+        faceProcMask &= ~(CAM_FACE_PROCESS_MASK_DETECTION
+                | CAM_FACE_PROCESS_MASK_FOCUS);
     }
 
     if(m_nFaceProcMask == faceProcMask) {
