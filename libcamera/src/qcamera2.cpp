@@ -40,6 +40,9 @@
 #include "camera_log.h"
 #include "camera.h"
 #include "camera_memory.h"
+#include "qcamera2.h"
+
+#include "QCamera2_Ext.h"
 
 using namespace std;
 
@@ -73,7 +76,7 @@ static camera_module_t* getCameraHalModule()
                 dlclose(handle);
             }
         } else {
-            CAM_ERR("dlopen failed for %s", CAMERA_HAL_LIB_NAME);
+            CAM_ERR("dlopen failed for %s, %s", CAMERA_HAL_LIB_NAME, dlerror());
         }
     }
     pthread_mutex_unlock(&halMutex);
@@ -106,7 +109,7 @@ int getNumberOfCameras()
     camera_module_t* mod = getCameraHalModule();
     if (!mod) {
         CAM_ERR("failed");
-        return ELIBACC;
+        return -ELIBACC;
     }
     return mod->get_number_of_cameras();
 }
@@ -146,134 +149,82 @@ inline static int32_t toDeviceMsgType(uint32_t eventMask)
     return msgType;
 }
 
-class QCamera2Frame : public ICameraFrame
+/* QCamera2Frame implementation */
+QCamera2Frame::QCamera2Frame(struct camera_device* dev, int64_t timestamp,
+              int32_t msg_type, const camera_memory_t* mem) :
+    dev_(dev)
 {
-private:
-    struct camera_device* dev_;
-public:
-    QCamera2Frame(struct camera_device* dev, int64_t timestamp,
-                  int32_t msg_type, const camera_memory_t* mem) :
-        dev_(dev)
-    {
-        timeStamp = timestamp;
-        data      = static_cast<uint8_t*>(mem->data);
-        size      = mem->size;
+    timeStamp = timestamp;
+    data      = static_cast<uint8_t*>(mem->data);
+    size      = mem->size;
 
-        /* TODO: support for snapshot */
-        switch (msg_type) {
-          case CAMERA_MSG_PREVIEW_FRAME:
-              type = CAMERA_FRAME_PREVIEW;
-              break;
-          case CAMERA_MSG_VIDEO_FRAME:
-              type = CAMERA_FRAME_VIDEO;
-              break;
-          default:
-              CAM_ERR("unsupported msg type, msg=%d", msg_type);
-        }
+    switch (msg_type) {
+      case CAMERA_MSG_PREVIEW_FRAME:
+          type = CAMERA_FRAME_PREVIEW;
+          break;
+      case CAMERA_MSG_VIDEO_FRAME:
+          type = CAMERA_FRAME_VIDEO;
+          break;
+      default:
+          CAM_ERR("unsupported msg type, msg=%d", msg_type);
     }
+}
 
-    virtual ~QCamera2Frame()
-    {
-        dev_ = 0;
-    }
-
-    virtual uint32_t acquireRef()
-    {
-        return ++refs_;
-    }
-
-    virtual uint32_t releaseRef()
-    {
-        uint32_t refs = --refs_;
-
-        if (0 == refs) {
-            /* currently in camera HAL, release is only required for
-               video frames. preview frames are released automatically when
-               the listener callback returns */
-            if (type == CAMERA_FRAME_VIDEO) {
-                dev_->ops->release_recording_frame(dev_, data);
-            }
-            delete this;
-        }
-        return refs;
-    }
-
-    static void dispatchFrame(ICameraListener* listener,
-                              struct camera_device* dev, int64_t timestamp,
-                              int32_t msg_type, const camera_memory_t* mem)
-    {
-        /* todo:  use pre-allocated frame pool */
-        QCamera2Frame* frame = new QCamera2Frame(dev, timestamp, msg_type, mem);
-        if (NULL != frame) {
-            switch (frame->type) {
-              case CAMERA_FRAME_PREVIEW:
-                  listener->onPreviewFrame(static_cast<ICameraFrame*>(frame));
-                  break;
-              case CAMERA_FRAME_VIDEO:
-                  listener->onVideoFrame(static_cast<ICameraFrame*>(frame));
-                  break;
-              default:
-                  listener->onMetadataFrame(static_cast<ICameraFrame*>(frame));
-            }
-            frame->releaseRef();
-        }
-    }
-};
-
-class QCamera2 : public ICameraDevice
+QCamera2Frame::~QCamera2Frame()
 {
-    struct camera_device* dev_;
-    int id_;
-    ICameraParameters* params_;
-    vector<ICameraListener *> listeners_;
+    dev_ = 0;
+}
 
-    bool isPreviewRequested_;
-    bool isPreviewRunning_;
-    bool isVideoRunning_;
+uint32_t QCamera2Frame::acquireRef()
+{
+    return refs_++;
+}
 
-    static void notify_callback(int32_t msg_type, int32_t ext1, int32_t ext2,
-                                void* user);
+uint32_t QCamera2Frame::releaseRef()
+{
+    if (refs_ <= 0) {
+        return 0;
+    }
+    refs_--;
+    if (0 == refs_) {
+        if (type == CAMERA_FRAME_VIDEO) {
+            dev_->ops->release_recording_frame(dev_, data);
+        } else if (type == CAMERA_FRAME_PREVIEW) {
+            camera_device_ops_ext *extOps =
+               static_cast<camera_device_ops_ext*> (dev_->ops);
+            CAM_INFO("release preview frame");
+            extOps->release_preview_frame(dev_, data);
+        }
+    }
+    return refs_;
+}
 
-    static void data_callback(int32_t msg_type, const camera_memory_t* data,
-                              unsigned int index,
-                              camera_frame_metadata_t* metadata, void* user);
+void QCamera2Frame::dispatchFrame(ICameraListener* listener,
+                          struct camera_device* dev, int64_t timestamp,
+                          int32_t msg_type, const camera_memory_t* mem)
+{
+    QCamera2Frame *frame = &((CameraMemory *)mem->handle)->frame;
 
-    static void data_timestamp_callback(int64_t timestamp, int32_t msg_type,
-                                        const camera_memory_t* data,
-                                        unsigned int index, void* user);
-public:
-    QCamera2();
+    frame->dev_ = dev;
+    frame->timeStamp = timestamp;
 
-    virtual ~QCamera2();
-
-    int init(int index);
-
-    int getID() { return id_; }
-
-    /* Implementation of virtual methods of ICameraDevice interface */
-    virtual void addListener(ICameraListener* listener);
-    virtual void removeListener(ICameraListener* listener);
-
-    virtual void subscribe(uint32_t eventMask);
-
-    virtual void unsubscribe(uint32_t eventMask);
-
-    virtual int setParameters(const ICameraParameters& params);
-    virtual int getParameters(uint8_t* buf, uint32_t bufSize,
-                              int* bufSizeRequired);
-
-    virtual int startPreview();
-    virtual void stopPreview();
-
-    virtual int startRecording();
-    virtual void stopRecording();
-
-    virtual int startAutoFocus() { return dev_->ops->auto_focus(dev_); }
-    virtual void stopAutoFocus() { dev_->ops->cancel_auto_focus(dev_); }
-
-    virtual int takePicture() { return dev_->ops->take_picture(dev_); }
-    virtual void cancelPicture() { dev_->ops->cancel_picture(dev_); }
-};
+    frame->acquireRef();
+    switch (msg_type) {
+      case CAMERA_MSG_PREVIEW_FRAME:
+          frame->type = CAMERA_FRAME_PREVIEW;
+          listener->onPreviewFrame(static_cast<ICameraFrame*>(frame));
+          break;
+      case CAMERA_MSG_VIDEO_FRAME:
+          frame->type = CAMERA_FRAME_VIDEO;
+          listener->onVideoFrame(static_cast<ICameraFrame*>(frame));
+          break;
+      default:
+          CAM_ERR("unsupported msg_type %d", msg_type);
+          // TODO: add support for other messages using metadata callback
+          //  listener->onMetadataFrame(static_cast<ICameraFrame*>(frame));
+    }
+    frame->releaseRef();
+}
 
 QCamera2::QCamera2() :
     dev_(NULL),
@@ -303,8 +254,6 @@ int QCamera2::init(int idx)
         nret = EBADR;
         goto bail;
     }
-
-    dev_->ops->store_meta_data_in_buffers(dev_,1);
 
     dev_->ops->set_callbacks(dev_, QCamera2::notify_callback,
                              QCamera2::data_callback,
@@ -384,6 +333,7 @@ void QCamera2::data_timestamp_callback(int64_t timestamp, int32_t msg_type,
         CAM_ERR("failed");
         return;
     }
+
     /* notify each listener */
     for (int i=0; i < me->listeners_.size(); i++) {
         QCamera2Frame::dispatchFrame(me->listeners_[i], me->dev_, timestamp,
@@ -454,6 +404,10 @@ void QCamera2::unsubscribe(uint32_t eventMask)
 int QCamera2::startPreview()
 {
     int rc = 0;
+    if (isPreviewRequested_ && isPreviewRunning_) {
+        CAM_ERR("preview is already started.");
+        return -1;
+    }
     isPreviewRequested_ = true;
     dev_->ops->enable_msg_type(dev_, CAMERA_MSG_PREVIEW_FRAME);
     if (isPreviewRunning_ == false) {
@@ -462,7 +416,7 @@ int QCamera2::startPreview()
             isPreviewRunning_ = true;
         }
     }
-    return rc;
+    return 0;
 }
 
 void QCamera2::stopPreview()
@@ -541,6 +495,9 @@ bail:
 void ICameraDevice::deleteInstance(ICameraDevice** device)
 {
     QCamera2* me = static_cast<QCamera2*>(*device);
+    if (me == NULL) {
+        return;
+    }
 
     /* erase entry from openCamera vector */
     pthread_mutex_lock(&halMutex);

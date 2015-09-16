@@ -58,11 +58,27 @@ CameraMemory::CameraMemory(int fd, uint32_t size)
             CAM_ERR("mmap() failed\n");
         }
         type_ = MEM_MAPPED;
+
+        /* populate buffer metadata */
+        metadata_.buffer_type = android::kMetadataBufferTypeCameraSource;
+        native_handle_t *nh =  (native_handle_t *)nh_mem_;
+        nh->numFds = NH_NUM_FDS;
+        nh->numInts = NH_NUM_INTS;
+        nh->data[0] = fd;
+        nh->data[1] = 0; /* offset */
+        nh->data[2] = size;
+        metadata_.meta_handle = nh;
+        frame.metadata = &metadata_;
     }
     valid_ = true;
     mem_->handle = this;
     mem_->size = size;
     mem_->release = releaseMemory;
+
+    /* initialize frame */
+    frame.data = (uint8_t *)mem_->data;
+    frame.fd = fd;
+    frame.size = size;
 }
 
 /* unmap/free the buffer and destroy the memory object */

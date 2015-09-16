@@ -37,6 +37,13 @@
 #include "camera_log.h"
 #include "camera_parameters.h"
 
+#define DEFAULT_EXPOSURE_VALUE_STR "2500"
+#define MIN_EXPOSURE_VALUE 0
+#define MAX_EXPOSURE_VALUE 65535
+#define DEFAULT_GAIN_VALUE_STR "100"
+#define MIN_GAIN_VALUE 0
+#define MAX_GAIN_VALUE 255
+
 using namespace std;
 using namespace camera;
 
@@ -47,6 +54,7 @@ struct CameraCaps
     Range brightness, sharpness, contrast;
     vector<Range> previewFpsRanges;
     vector<VideoFPS> videoFpsValues;
+    vector<string> previewFormats;
 };
 
 enum OutputFormatType{
@@ -64,6 +72,8 @@ struct TestConfig
     bool dumpFrames;
     bool infoMode;
     int runTime;
+    string exposureValue;  /* 0 -3000 Supported. -1 Indicates default setting of the setting  */
+    string gainValue;
     CamFunction func;
     OutputFormatType outputFormat;
 };
@@ -106,7 +116,8 @@ CameraTest::CameraTest() :
     vFpsAvg_(0.0f),
     pFpsAvg_(0.0f),
     vTimeStampPrev_(0),
-    pTimeStampPrev_(0)
+    pTimeStampPrev_(0),
+    camera_(NULL)
 {
 }
 
@@ -149,15 +160,14 @@ int CameraTest::initialize(int camId)
     caps_.contrast = params_.getSupportedContrast();
     caps_.previewFpsRanges = params_.getSupportedPreviewFpsRanges();
     caps_.videoFpsValues = params_.getSupportedVideoFps();
+    caps_.previewFormats = params_.getSupportedPreviewFormats();
 }
 
 CameraTest::~CameraTest()
 {
-    /* release camera device */
-    ICameraDevice::deleteInstance(&camera_);
 }
 
-static int dumpToFile(uint8_t* data, uint32_t size, char* name)
+static int dumpToFile(uint8_t* data, uint32_t size, char* name, uint64_t timestamp)
 {
     FILE* fp;
     fp = fopen(name, "wb");
@@ -166,7 +176,7 @@ static int dumpToFile(uint8_t* data, uint32_t size, char* name)
         return -1;
     }
     fwrite(data, size, 1, fp);
-    printf("saved %s\n", name);
+    printf("saved filename %s, timestamp %llu nSecs\n", name, timestamp);
     fclose(fp);
 }
 
@@ -179,20 +189,19 @@ void CameraTest::onError()
 void CameraTest::onPreviewFrame(ICameraFrame* frame)
 {
     if (pFrameCount_ > 0 && pFrameCount_ % 30 == 0) {
-        char name[32];
+        char name[50];
 
         if ( config_.outputFormat == RAW_FORMAT )
         {
-            snprintf(name, 32, "P_%dx%d_%04d.raw",
-                 pSize_.width, pSize_.height, pFrameCount_);
+            snprintf(name, 50, "P_%dx%d_%04d_%llu.raw",
+                 pSize_.width, pSize_.height, pFrameCount_,frame->timeStamp);
         }else{
-             snprintf(name, 32, "P_%dx%d_%04d.yuv",
-                 pSize_.width, pSize_.height, pFrameCount_);
+             snprintf(name, 50, "P_%dx%d_%04d_%llu.yuv",
+                 pSize_.width, pSize_.height, pFrameCount_,frame->timeStamp);
         }
 
-        
         if (config_.dumpFrames == true) {
-            dumpToFile(frame->data, frame->size, name);
+            dumpToFile(frame->data, frame->size, name, frame->timeStamp);
         }
         //printf("Preview FPS = %.2f\n", pFpsAvg_);
     }
@@ -206,11 +215,11 @@ void CameraTest::onPreviewFrame(ICameraFrame* frame)
 void CameraTest::onVideoFrame(ICameraFrame* frame)
 {
     if (vFrameCount_ > 0 && vFrameCount_ % 30 == 0) {
-        char name[32];
-        snprintf(name, 32, "V_%dx%d_%04d.yuv",
-                 vSize_.width, vSize_.height, vFrameCount_);
+        char name[50];
+        snprintf(name, 50, "V_%dx%d_%04d_%llu.yuv",
+                 vSize_.width, vSize_.height, vFrameCount_,frame->timeStamp);
         if (config_.dumpFrames == true) {
-            dumpToFile(frame->data, frame->size, name);
+            dumpToFile(frame->data, frame->size, name, frame->timeStamp);
         }
         //printf("Video FPS = %.2f\n", vFpsAvg_);
     }
@@ -232,6 +241,10 @@ int CameraTest::printCapabilities()
     printf("available video sizes:\n");
     for (int i = 0; i < caps_.vSizes.size(); i++) {
         printf("%d: %d x %d\n", i, caps_.vSizes[i].width, caps_.vSizes[i].height);
+    }
+    printf("available preview formats:\n");
+    for (int i = 0; i < caps_.previewFormats.size(); i++) {
+        printf("%d: %s\n", i, caps_.previewFormats[i].c_str());
     }
     printf("available focus modes:\n");
     for (int i = 0; i < caps_.focusModes.size(); i++) {
@@ -272,13 +285,14 @@ int CameraTest::setParameters()
 {
     /* temp: using hard-coded values to test the api
        need to add a user interface or script to get the values to test*/
-    int pSizeIdx = 2;
+    int pSizeIdx = 3;
     int vSizeIdx = 2;
     int focusModeIdx = 3;
     int wbModeIdx = 2;
     int isoModeIdx = 3;
     int pFpsIdx = 3;
     int vFpsIdx = 3;
+    int prevFmtIdx = 0;
 
     pSize_ = caps_.pSizes[pSizeIdx];
     vSize_ = caps_.pSizes[vSizeIdx];
@@ -293,8 +307,9 @@ int CameraTest::setParameters()
     printf("setting video size: %dx%d\n", vSize_.width, vSize_.height);
     params_.setVideoSize(vSize_);
 
-    if ( config_.func != CAM_FUNC_OPTIC_FLOW ){
-      printf("setting focus mode: %s\n", caps_.focusModes[focusModeIdx].c_str());
+    if (config_.func != CAM_FUNC_OPTIC_FLOW ) {
+      printf("setting focus mode: %s\n",
+             caps_.focusModes[focusModeIdx].c_str());
       params_.setFocusMode(caps_.focusModes[focusModeIdx]);
       printf("setting WB mode: %s\n", caps_.wbModes[wbModeIdx].c_str());
       params_.setWhiteBalance(caps_.wbModes[wbModeIdx]);
@@ -308,6 +323,10 @@ int CameraTest::setParameters()
 
       printf("setting video fps: %d\n", caps_.videoFpsValues[vFpsIdx]);
       params_.setVideoFPS(caps_.videoFpsValues[vFpsIdx]);
+
+      printf("setting preview format: %s\n",
+             caps_.previewFormats[prevFmtIdx].c_str());
+      params_.setPreviewFormat(caps_.previewFormats[prevFmtIdx]);
     }
     if (config_.outputFormat == RAW_FORMAT)
     {
@@ -315,6 +334,7 @@ int CameraTest::setParameters()
         params_.set("picture-format", "bayer-mipi-10gbrg");
         params_.set("raw-size", "640x480");
     }
+
     return params_.commit();
 }
 
@@ -323,6 +343,11 @@ int CameraTest::run()
     int rc = EXIT_SUCCESS;
 
     int n = getNumberOfCameras();
+
+    if (n < 0) {
+        printf("getNumberOfCameras() failed, rc=%d\n", n);
+        return EXIT_FAILURE;
+    }
 
     printf("num_cameras = %d\n", n);
 
@@ -361,6 +386,14 @@ int CameraTest::run()
 
     printf("start preview\n");
     camera_->startPreview();
+    if ( config_.func == CAM_FUNC_OPTIC_FLOW )
+    {
+        params_.set("qc-exposure-manual", config_.exposureValue.c_str() );
+        params_.set("qc-gain-manual", config_.gainValue.c_str() );
+        printf("Setting exposure value =  %s , gain value = %s \n", config_.exposureValue.c_str(), config_.gainValue.c_str());
+    }
+
+    params_.commit();
 
     if( config_.outputFormat != RAW_FORMAT )
     {
@@ -381,6 +414,9 @@ int CameraTest::run()
 
     printf("Average preview FPS = %.2f\n", pFpsAvg_);
     printf("Average video FPS = %.2f\n", vFpsAvg_);
+
+    /* release camera device */
+    ICameraDevice::deleteInstance(&camera_);
     return rc;
 }
 
@@ -397,9 +433,15 @@ const char usageStr[] =
     "  -f <type>       camera type\n"
     "                    - hires\n"
     "                    - optic\n"
-    "  -o Output format\n"
-    "                   0 :YUV format (default)\n"
-    "                   1 : RAW format \n"
+    "  -e <value>      set exposure control (only for ov7251)\n"
+    "                     min - 0\n"
+    "                     max - 65535\n"
+    "  -g <value>      set gain value (only for ov7251)\n"
+    "                     min - 0\n"
+    "                     max - 255\n"
+    "  -o <value>      Output format\n"
+    "                     0 :YUV format (default)\n"
+    "                     1 : RAW format \n"
     "  -h              print this message\n"
 ;
 
@@ -420,9 +462,14 @@ static TestConfig parseCommandline(int argc, char* argv[])
     cfg.dumpFrames = false;
     cfg.runTime = 10;
     cfg.func = CAM_FUNC_HIRES;
+    cfg.infoMode = false;
+    cfg.exposureValue = DEFAULT_EXPOSURE_VALUE_STR;  /* Default exposure value */
+    int exposureValueInt = 0;
+    cfg.gainValue = DEFAULT_GAIN_VALUE_STR;  /* Default gain value */
+    int gainValueInt = 0;
     int c;
-    while ((c = getopt(argc, argv, "hdt:if:o:")) != -1) {
-        switch (c) {;
+    while ((c = getopt(argc, argv, "hdt:if:o:e:g:")) != -1) {
+        switch (c) {
           case 't':
               cfg.runTime = atoi(optarg);
               break;
@@ -442,13 +489,33 @@ static TestConfig parseCommandline(int argc, char* argv[])
           case 'i':
               cfg.infoMode = true;
               break;
+        case  'e':
+              exposureValueInt =  atoi(optarg);              
+              if ( exposureValueInt < MIN_EXPOSURE_VALUE || exposureValueInt > MAX_EXPOSURE_VALUE )
+              {
+                  printf("Invalid exposure value. Using default\n");
+                  cfg.exposureValue = DEFAULT_EXPOSURE_VALUE_STR;
+              }else{
+                  cfg.exposureValue = optarg;
+              }
+			  break;	
+		 case  'g':
+              gainValueInt =  atoi(optarg);              
+              if ( gainValueInt < MIN_GAIN_VALUE || gainValueInt > MAX_GAIN_VALUE)
+              {
+                  printf("Invalid exposure value. Using default\n");
+                  cfg.gainValue = DEFAULT_GAIN_VALUE_STR;
+              }else{
+                  cfg.gainValue = optarg;
+              }
+              break;
          case 'o':
             outputFormat = atoi(optarg);
             switch ( outputFormat )
             {
                 case 0: /* IMX135 , IMX214 */
                    cfg.outputFormat = YUV_FORMAT;
-                   break; 
+                   break;
                 case 1: /* IMX214 */
                     cfg.outputFormat = RAW_FORMAT;
                     break;
@@ -456,8 +523,8 @@ static TestConfig parseCommandline(int argc, char* argv[])
                     printf("Invalid format. Setting to default YUV_FORMAT");
                     cfg.outputFormat = YUV_FORMAT;
                     break;
-            }        
-	        break;  
+            }
+	        break;
           case 'h':
           case '?':
               printUsageExit(0);

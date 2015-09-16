@@ -89,7 +89,13 @@ class ICameraFrame
 protected:
     uint32_t refs_;
 
-    ICameraFrame() : refs_(1) {}
+    ICameraFrame() :
+        refs_(0),
+        timeStamp(0),
+        fd(0),
+        data(NULL)
+    {}
+
     virtual ~ICameraFrame() {}
 
 public:
@@ -125,6 +131,18 @@ public:
      * pointer to start of image data
      */
     uint8_t* data;
+
+    /**
+     * file descriptor for the frame memory
+     * If value is -1, it indicates the memory is not shared
+     */
+    int fd;
+
+    /**
+     * opaque metadata about the frame memory. This is used for
+     * sharing memory between camera and video encoder
+     */
+    void *metadata;
 
     /**
      * frame type

@@ -72,6 +72,8 @@ public:
     int32_t UpdateStreamBasedParameters(QCameraParameters &param);
     void deleteChannel();
 
+    virtual int32_t releaseFrame(const void *opaque, bool isMetaData);
+
 protected:
     uint32_t m_camHandle;
     mm_camera_ops_t *m_camOps;
@@ -106,7 +108,7 @@ public:
                         mm_camera_ops_t *cam_ops);
     QCameraVideoChannel();
     virtual ~QCameraVideoChannel();
-    int32_t releaseFrame(const void *opaque, bool isMetaData);
+    virtual int32_t releaseFrame(const void *opaque, bool isMetaData);
 };
 
 // reprocess channel class

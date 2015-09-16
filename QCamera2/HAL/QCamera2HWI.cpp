@@ -46,7 +46,7 @@
 #include "QCameraMem.h"
 
 #define MAP_TO_DRIVER_COORDINATE(val, base, scale, offset) (val * scale / base + offset)
-#define CAMERA_MIN_STREAMING_BUFFERS     3
+#define CAMERA_MIN_STREAMING_BUFFERS     7
 #define EXTRA_ZSL_PREVIEW_STREAM_BUF     2
 #define CAMERA_MIN_JPEG_ENCODING_BUFFERS 2
 #define CAMERA_MIN_VIDEO_BUFFERS         9
@@ -60,38 +60,7 @@ qcamera_saved_sizes_list savedSizes[MM_CAMERA_MAX_NUM_SENSORS];
 
 static pthread_mutex_t g_camlock = PTHREAD_MUTEX_INITIALIZER;
 
-camera_device_ops_t QCamera2HardwareInterface::mCameraOps = {
-    set_preview_window:         QCamera2HardwareInterface::set_preview_window,
-    set_callbacks:              QCamera2HardwareInterface::set_CallBacks,
-    enable_msg_type:            QCamera2HardwareInterface::enable_msg_type,
-    disable_msg_type:           QCamera2HardwareInterface::disable_msg_type,
-    msg_type_enabled:           QCamera2HardwareInterface::msg_type_enabled,
-
-    start_preview:              QCamera2HardwareInterface::start_preview,
-    stop_preview:               QCamera2HardwareInterface::stop_preview,
-    preview_enabled:            QCamera2HardwareInterface::preview_enabled,
-    store_meta_data_in_buffers: QCamera2HardwareInterface::store_meta_data_in_buffers,
-
-    start_recording:            QCamera2HardwareInterface::start_recording,
-    stop_recording:             QCamera2HardwareInterface::stop_recording,
-    recording_enabled:          QCamera2HardwareInterface::recording_enabled,
-    release_recording_frame:    QCamera2HardwareInterface::release_recording_frame,
-
-    auto_focus:                 QCamera2HardwareInterface::auto_focus,
-    cancel_auto_focus:          QCamera2HardwareInterface::cancel_auto_focus,
-
-    take_picture:               QCamera2HardwareInterface::take_picture,
-    cancel_picture:             QCamera2HardwareInterface::cancel_picture,
-
-    set_parameters:             QCamera2HardwareInterface::set_parameters,
-    get_parameters:             QCamera2HardwareInterface::get_parameters,
-    put_parameters:             QCamera2HardwareInterface::put_parameters,
-    send_command:               QCamera2HardwareInterface::send_command,
-
-    release:                    QCamera2HardwareInterface::release,
-    dump:                       QCamera2HardwareInterface::dump,
-};
-
+camera_device_ops_ext QCamera2HardwareInterface::mCameraOps;
 
 int32_t QCamera2HardwareInterface::getEffectValue(const char *effect)
 {
@@ -533,6 +502,26 @@ void QCamera2HardwareInterface::release_recording_frame(
     int32_t ret = hw->processAPI(QCAMERA_SM_EVT_RELEASE_RECORIDNG_FRAME, (void *)opaque);
     if (ret == NO_ERROR) {
         hw->waitAPIResult(QCAMERA_SM_EVT_RELEASE_RECORIDNG_FRAME,&apiResult);
+    }
+    hw->unlockAPI();
+    ALOGD("%s: X", __func__);
+}
+
+void QCamera2HardwareInterface::release_preview_frame(
+            struct camera_device *device, const void *opaque)
+{
+    QCamera2HardwareInterface *hw =
+        reinterpret_cast<QCamera2HardwareInterface *>(device->priv);
+    if (!hw) {
+        ALOGE("NULL camera device");
+        return;
+    }
+    ALOGD("%s: E", __func__);
+    hw->lockAPI();
+    qcamera_api_result_t apiResult;
+    int32_t ret = hw->processAPI(QCAMERA_SM_EVT_RELEASE_PREVIEW_FRAME, (void *)opaque);
+    if (ret == NO_ERROR) {
+        hw->waitAPIResult(QCAMERA_SM_EVT_RELEASE_PREVIEW_FRAME,&apiResult);
     }
     hw->unlockAPI();
     ALOGD("%s: X", __func__);
@@ -1006,7 +995,34 @@ QCamera2HardwareInterface::QCamera2HardwareInterface(int cameraId)
     mCameraDevice.common.tag = HARDWARE_DEVICE_TAG;
     mCameraDevice.common.version = HARDWARE_DEVICE_API_VERSION(1, 0);
     mCameraDevice.common.close = close_camera_device;
-    mCameraDevice.ops = &mCameraOps;
+
+    /* Initialize the ops */
+    mCameraOps.set_preview_window =        set_preview_window;
+    mCameraOps.set_callbacks =             set_CallBacks;
+    mCameraOps.enable_msg_type =           enable_msg_type;
+    mCameraOps.disable_msg_type =          disable_msg_type;
+    mCameraOps.msg_type_enabled =          msg_type_enabled;
+    mCameraOps.start_preview =             start_preview;
+    mCameraOps.stop_preview =              stop_preview;
+    mCameraOps.preview_enabled =           preview_enabled;
+    mCameraOps.store_meta_data_in_buffers= store_meta_data_in_buffers;
+    mCameraOps.start_recording =           start_recording;
+    mCameraOps.stop_recording =            stop_recording;
+    mCameraOps.recording_enabled =         recording_enabled;
+    mCameraOps.release_recording_frame =   release_recording_frame;
+    mCameraOps.release_preview_frame =     release_preview_frame;
+    mCameraOps.auto_focus =                auto_focus;
+    mCameraOps.cancel_auto_focus =         cancel_auto_focus;
+    mCameraOps.take_picture =              take_picture;
+    mCameraOps.cancel_picture =            cancel_picture;
+    mCameraOps.set_parameters =            set_parameters;
+    mCameraOps.get_parameters =            get_parameters;
+    mCameraOps.put_parameters =            put_parameters;
+    mCameraOps.send_command =              send_command;
+    mCameraOps.release =                   release;
+    mCameraOps.dump =                      dump;
+
+    mCameraDevice.ops = (camera_device_ops *) &mCameraOps;
     mCameraDevice.priv = this;
 
     pthread_mutex_init(&mDeffLock, NULL);
@@ -1479,7 +1495,7 @@ uint8_t QCamera2HardwareInterface::getBufNumRequired(cam_stream_type_t stream_ty
 #ifdef _ANDROID_
             //preview window might not be set at this point. So, query directly
             //from BufferQueue implementation of gralloc buffers.
-            
+
             minUndequeCount = BufferQueue::MIN_UNDEQUEUED_BUFFERS;
 #endif
         }
@@ -2180,6 +2196,18 @@ int QCamera2HardwareInterface::releaseRecordingFrame(const void * opaque)
     int32_t rc = UNKNOWN_ERROR;
     QCameraVideoChannel *pChannel =
         (QCameraVideoChannel *)m_channels[QCAMERA_CH_TYPE_VIDEO];
+    ALOGD("%s: opaque data = %p", __func__,opaque);
+    if(pChannel != NULL) {
+        rc = pChannel->releaseFrame(opaque, mStoreMetaDataInFrame > 0);
+    }
+    return rc;
+}
+
+int QCamera2HardwareInterface::releasePreviewFrame(const void * opaque)
+{
+    int32_t rc = UNKNOWN_ERROR;
+    QCameraChannel *pChannel =
+        (QCameraChannel *)m_channels[QCAMERA_CH_TYPE_PREVIEW];
     ALOGD("%s: opaque data = %p", __func__,opaque);
     if(pChannel != NULL) {
         rc = pChannel->releaseFrame(opaque, mStoreMetaDataInFrame > 0);

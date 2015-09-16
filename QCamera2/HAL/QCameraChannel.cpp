@@ -530,6 +530,24 @@ int32_t QCameraChannel::UpdateStreamBasedParameters(QCameraParameters &param)
     return rc;
 }
 
+int32_t QCameraChannel::releaseFrame(const void * opaque, bool isMetaData)
+{
+    QCameraStream *pStream = NULL;
+    for (int i = 0; i < m_numStreams; i++) {
+        if (mStreams[i] != NULL && mStreams[i]->isTypeOf(CAM_STREAM_TYPE_PREVIEW)) {
+            pStream = mStreams[i];
+            break;
+        }
+    }
+
+    if (NULL == pStream) {
+        ALOGE("%s: No preview stream in the channel", __func__);
+        return BAD_VALUE;
+    }
+
+    return pStream->bufDone(opaque, false);
+}
+
 /*===========================================================================
  * FUNCTION   : QCameraPicChannel
  *

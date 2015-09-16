@@ -626,9 +626,6 @@ void QCamera2HardwareInterface::nodisplay_preview_stream_cb_routine(
             cbArg.msg_type = CAMERA_MSG_PREVIEW_FRAME;
             cbArg.data = preview_mem;
             cbArg.timestamp = timeStamp;
-            cbArg.user_data = ( void * ) user_data;
-            cbArg.cookie = stream;
-            cbArg.release_cb = returnStreamBuffer;
             int32_t rc = pme->m_cbNotifier.notifyCallback(cbArg);
             if (rc != NO_ERROR) {
                 ALOGE("%s: fail sending data notify", __func__);

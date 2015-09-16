@@ -55,6 +55,9 @@
 #include "QCameraThermalAdapter.h"
 #include "QCameraMem.h"
 
+
+#include "QCamera2_Ext.h"
+
 extern "C" {
 #include <mm_camera_interface.h>
 #include <mm_jpeg_interface.h>
@@ -200,7 +203,8 @@ class QCamera2HardwareInterface : public QCameraAllocator,
 {
 public:
     /* static variable and functions accessed by camera service */
-    static camera_device_ops_t mCameraOps;
+
+    static camera_device_ops_ext mCameraOps;
 
     static int set_preview_window(struct camera_device *,
         struct preview_stream_ops *window);
@@ -221,6 +225,7 @@ public:
     static void stop_recording(struct camera_device *);
     static int recording_enabled(struct camera_device *);
     static void release_recording_frame(struct camera_device *, const void *opaque);
+    static void release_preview_frame(struct camera_device *, const void *opaque);
     static int auto_focus(struct camera_device *);
     static int cancel_auto_focus(struct camera_device *);
     static int take_picture(struct camera_device *);
@@ -291,6 +296,7 @@ private:
     int startRecording();
     int stopRecording();
     int releaseRecordingFrame(const void *opaque);
+    int releasePreviewFrame(const void *opaque);
     int autoFocus();
     int cancelAutoFocus();
     int takePicture();

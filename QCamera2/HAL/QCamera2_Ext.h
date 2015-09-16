@@ -26,50 +26,14 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
-#include <stdint.h>
+#ifndef __QCAMERA2_EXT_H__
+#define __QCAMERA2_EXT_H__
+
 #include <hardware/camera.h>
-#include "qcamera2.h"
-#include <QComOMXMetadata.h>
 
-namespace camera
+struct camera_device_ops_ext : public camera_device_ops
 {
-
-enum MemType
-{
-    MEM_MAPPED,
-    MEM_ALLOCATED,
-    MEM_INVALID,
+    void (*release_preview_frame)(struct camera_device *,
+                const void *opaque);
 };
-
-const int NH_NUM_FDS = 1;
-const int NH_NUM_INTS = 2;
-
-class CameraMemory
-{
-
- public:
-    /* create a new memory object and map/allocate the buffer */
-    CameraMemory(int fd, uint32_t size);
-
-    /* unmap/free the buffer and destroy the memory object */
-    ~CameraMemory();
-
-    /* function to serve the request_memory_callback from camera HAL */
-    static camera_memory_t* requestMemory(int fd, size_t buf_size,
-                                          unsigned int num_bufs,
-                                          void* user);
-    /* function to serve the release_memory_callback from camera HAL */
-    static void releaseMemory(struct camera_memory* mem);
-
-    QCamera2Frame frame;
- private:
-    bool valid_;
-    android::encoder_media_buffer_type metadata_;
-    /* pre-allocated memory for native_handle_t with data */
-    uint8_t nh_mem_[sizeof(native_handle_t) +
-        (NH_NUM_FDS + NH_NUM_INTS) * sizeof(int)];
-    camera_memory_t* mem_;
-    MemType type_;
-};
-
-} /* namespace camera */
+#endif
