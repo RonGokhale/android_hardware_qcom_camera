@@ -33,6 +33,9 @@
 #ifndef __CAMLIST_H
 #define __CAMLIST_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 #include <stddef.h>
 
 #define member_of(ptr, type, member) ({ \
@@ -79,5 +82,9 @@ static inline void cam_list_del_node(struct cam_list *ptr)
   ptr->next = ptr;
   ptr->prev = ptr;
 }
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* __CAMLIST_H */

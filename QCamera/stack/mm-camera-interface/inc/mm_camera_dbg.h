@@ -30,7 +30,7 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #ifndef __MM_CAMERA_DBG_H__
 #define __MM_CAMERA_DBG_H__
 
-//#define LOG_DEBUG 1
+#define LOG_DEBUG 0
 
 #ifndef LOG_DEBUG
   #ifdef _ANDROID_
@@ -56,7 +56,7 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     #define CDBG(fmt, args...) ALOGE(fmt, ##args)
   #else
     #include <stdio.h>
-    #define CDBG(fmt, args...) fprintf(stderr, fmt, ##args)
+    #define CDBG(fmt, args...) do {} while (0)
     #define ALOGE(fmt, args...) fprintf(stderr, fmt, ##args)
   #endif
 #endif
@@ -65,7 +65,7 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
   #define CDBG_HIGH(fmt, args...)  ALOGE(fmt, ##args)
   #define CDBG_ERROR(fmt, args...)  ALOGE(fmt, ##args)
 #else
-  #define CDBG_HIGH(fmt, args...) fprintf(stderr, fmt, ##args)
+  #define CDBG_HIGH(fmt, args...) do {} while (0)
   #define CDBG_ERROR(fmt, args...) fprintf(stderr, fmt, ##args)
 #endif
 #endif /* __MM_CAMERA_DBG_H__ */

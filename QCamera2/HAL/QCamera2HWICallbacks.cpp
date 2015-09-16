@@ -34,6 +34,9 @@
 #include <utils/Errors.h>
 #include <utils/Timers.h>
 #include "QCamera2HWI.h"
+#include <sys/time.h>
+
+#include <cassert>
 
 namespace qcamera {
 
@@ -92,8 +95,12 @@ void QCamera2HardwareInterface::zsl_channel_cb(mm_camera_super_buf_t *recvd_fram
     }
 
     // DUMP RAW if available
+#ifdef _ANDROID_
     property_get("persist.camera.zsl_raw", value, "0");
     dump_raw = atoi(value) > 0 ? true : false;
+#else
+    dump_raw = false;
+#endif
     if ( dump_raw ) {
         for ( int i= 0 ; i < recvd_frame->num_bufs ; i++ ) {
             if ( recvd_frame->bufs[i]->stream_type == CAM_STREAM_TYPE_RAW ) {
@@ -109,8 +116,12 @@ void QCamera2HardwareInterface::zsl_channel_cb(mm_camera_super_buf_t *recvd_fram
     //
 
     // DUMP YUV before reprocess if needed
+#ifdef _ANDROID_
     property_get("persist.camera.zsl_yuv", value, "0");
     dump_yuv = atoi(value) > 0 ? true : false;
+#else
+    dump_yuv = false;
+#endif
     if ( dump_yuv ) {
         for ( int i= 0 ; i < recvd_frame->num_bufs ; i++ ) {
             if ( recvd_frame->bufs[i]->stream_type == CAM_STREAM_TYPE_SNAPSHOT ) {
@@ -167,8 +178,12 @@ void QCamera2HardwareInterface::zsl_channel_cb(mm_camera_super_buf_t *recvd_fram
         }
     }
 
+#ifdef _ANDROID_
     property_get("persist.camera.dumpmetadata", value, "0");
     int32_t enabled = atoi(value);
+#else
+    int32_t enabled = 0;
+#endif
     if (enabled) {
         mm_camera_buf_def_t *pMetaFrame = NULL;
         QCameraStream *pStream = NULL;
@@ -390,6 +405,7 @@ void QCamera2HardwareInterface::preview_stream_cb_routine(mm_camera_super_buf_t 
                                                           QCameraStream * stream,
                                                           void *userdata)
 {
+#ifdef _ANDROID_
     ALOGD("[KPI Perf] %s : BEGIN", __func__);
     int err = NO_ERROR;
     QCamera2HardwareInterface *pme = (QCamera2HardwareInterface *)userdata;
@@ -503,6 +519,10 @@ void QCamera2HardwareInterface::preview_stream_cb_routine(mm_camera_super_buf_t 
 
     free(super_frame);
     ALOGD("[KPI Perf] %s : END", __func__);
+#else
+    ALOGE("%s: Display mode not supported", __func__);
+    assert(0);
+#endif
     return;
 }
 
@@ -523,9 +543,9 @@ void QCamera2HardwareInterface::preview_stream_cb_routine(mm_camera_super_buf_t 
  *             responsibility to free super_frame once it's done.
  *==========================================================================*/
 void QCamera2HardwareInterface::nodisplay_preview_stream_cb_routine(
-                                                          mm_camera_super_buf_t *super_frame,
-                                                          QCameraStream *stream,
-                                                          void * userdata)
+                                          mm_camera_super_buf_t *super_frame,
+                                          QCameraStream *stream,
+                                          void * userdata)
 {
     ALOGD("[KPI Perf] %s E",__func__);
     QCamera2HardwareInterface *pme = (QCamera2HardwareInterface *)userdata;
@@ -544,6 +564,14 @@ void QCamera2HardwareInterface::nodisplay_preview_stream_cb_routine(
         return;
     }
 
+#ifndef _ANDROID_
+    nsecs_t timeStamp;
+    if(pme->mParameters.isAVTimerEnabled() == true) {
+        timeStamp = (nsecs_t)((frame->ts.tv_sec * 1000000LL) + frame->ts.tv_nsec) * 1000;
+    } else {
+        timeStamp = nsecs_t(frame->ts.tv_sec) * 1000000000LL + frame->ts.tv_nsec;
+    }
+#endif
     if (!pme->needProcessPreviewFrame()) {
         ALOGD("%s: preview is not running, no need to process", __func__);
         stream->bufDone(frame->buf_idx);
@@ -560,6 +588,7 @@ void QCamera2HardwareInterface::nodisplay_preview_stream_cb_routine(
     if (previewMemObj != NULL) {
         preview_mem = previewMemObj->getMemory(frame->buf_idx, false);
     }
+#ifdef _ANDROID_
     if (NULL != previewMemObj && NULL != preview_mem) {
         pme->dumpFrameToFile(stream, frame, QCAMERA_DUMP_FRM_PREVIEW);
 
@@ -583,9 +612,105 @@ void QCamera2HardwareInterface::nodisplay_preview_stream_cb_routine(
         } else {
             stream->bufDone(frame->buf_idx);
         }
+#else
+    /* send preview frames on dataTimeStamp Callback instead of
+           dataCallback */
+    if (NULL != previewMemObj && NULL != preview_mem) {
+        pme->dumpFrameToFile(stream, frame, QCAMERA_DUMP_FRM_PREVIEW);
+        if ((pme->mDataCbTimestamp != NULL) &&
+                pme->msgTypeEnabledWithLock(CAMERA_MSG_PREVIEW_FRAME) > 0) {
+            int user_data = frame->buf_idx;
+            qcamera_callback_argm_t cbArg;
+            memset(&cbArg, 0, sizeof(qcamera_callback_argm_t));
+            cbArg.cb_type = QCAMERA_DATA_TIMESTAMP_CALLBACK;
+            cbArg.msg_type = CAMERA_MSG_PREVIEW_FRAME;
+            cbArg.data = preview_mem;
+            cbArg.timestamp = timeStamp;
+            cbArg.user_data = ( void * ) user_data;
+            cbArg.cookie = stream;
+            cbArg.release_cb = returnStreamBuffer;
+            int32_t rc = pme->m_cbNotifier.notifyCallback(cbArg);
+            if (rc != NO_ERROR) {
+                ALOGE("%s: fail sending data notify", __func__);
+                stream->bufDone(frame->buf_idx);
+            }
+        } else {
+            stream->bufDone(frame->buf_idx);
+        }
+#endif
     }
     free(super_frame);
     ALOGD("[KPI Perf] %s X",__func__);
+}
+
+/*===========================================================================
+ * FUNCTION   : nodisplay_preview_stream_raw_cb_routine
+ *
+ * DESCRIPTION: helper function to handle post frame from preview_raw_stream
+ *
+ * PARAMETERS :
+ *   @super_frame : received super buffer
+ *   @stream      : stream object
+ *   @userdata    : user data ptr
+ *
+ * RETURN    : None
+ *
+ * NOTE      : caller passes the ownership of super_frame, it's our
+ *             responsibility to free super_frame once it's done.
+ *==========================================================================*/
+
+void QCamera2HardwareInterface::nodisplay_preview_stream_raw_cb_routine(
+                                                          mm_camera_super_buf_t *super_frame,
+                                                          QCameraStream *stream,
+                                                          void * userdata)
+{
+	ALOGE("[KPI Perf] %s E",__func__);
+	QCamera2HardwareInterface *pme = (QCamera2HardwareInterface *)userdata;
+	if (pme == NULL ||
+		pme->mCameraHandle == NULL ||
+		pme->mCameraHandle->camera_handle != super_frame->camera_handle){
+		ALOGE("%s: camera obj not valid", __func__);
+		// simply free super frame
+		free(super_frame);
+		return;
+	}
+	mm_camera_buf_def_t *frame = super_frame->bufs[0];
+	if (NULL == frame) {
+		ALOGE("%s: preview frame is NLUL", __func__);
+		free(super_frame);
+		return;
+	}
+
+	QCameraMemory *previewMemObj = (QCameraMemory *)frame->mem_info;
+	camera_memory_t *preview_mem = NULL;
+	if (previewMemObj != NULL) {
+		preview_mem = previewMemObj->getMemory(frame->buf_idx, false);
+	}
+	if (NULL != previewMemObj && NULL != preview_mem) {
+		pme->dumpFrameToFile(stream, frame, QCAMERA_DUMP_FRM_PREVIEW);
+
+		if ( pme->mDataCb != NULL ) {
+
+			qcamera_callback_argm_t cbArg;
+			memset(&cbArg, 0, sizeof(qcamera_callback_argm_t));
+			cbArg.cb_type = QCAMERA_DATA_CALLBACK;
+			cbArg.msg_type = CAMERA_MSG_PREVIEW_FRAME;
+			cbArg.data = preview_mem;
+			int user_data = frame->buf_idx;
+			cbArg.user_data = ( void * ) user_data;
+			cbArg.cookie = stream;
+			cbArg.release_cb = returnStreamBuffer;
+			int32_t rc = pme->m_cbNotifier.notifyCallback(cbArg);
+			if (rc != NO_ERROR) {
+				ALOGE("%s: fail sending data notify", __func__);
+				stream->bufDone(frame->buf_idx);
+			}
+		} else {
+			stream->bufDone(frame->buf_idx);
+		}
+	}
+	free(super_frame);
+	ALOGD("[KPI Perf] %s X",__func__);
 }
 
 /*===========================================================================
@@ -609,15 +734,18 @@ void QCamera2HardwareInterface::postview_stream_cb_routine(mm_camera_super_buf_t
 {
     int err = NO_ERROR;
     QCamera2HardwareInterface *pme = (QCamera2HardwareInterface *)userdata;
+#ifdef _ANDROID_
     QCameraGrallocMemory *memory = (QCameraGrallocMemory *)super_frame->bufs[0]->mem_info;
 
-    if (pme == NULL) {
-        ALOGE("%s: Invalid hardware object", __func__);
+    if (memory == NULL) {
+        ALOGE("%s: Invalid memory object", __func__);
         free(super_frame);
         return;
     }
-    if (memory == NULL) {
-        ALOGE("%s: Invalid memory object", __func__);
+#endif
+
+    if (pme == NULL) {
+        ALOGE("%s: Invalid hardware object", __func__);
         free(super_frame);
         return;
     }
@@ -635,7 +763,6 @@ void QCamera2HardwareInterface::postview_stream_cb_routine(mm_camera_super_buf_t
     if (NULL != memObj) {
         pme->dumpFrameToFile(stream, frame, QCAMERA_DUMP_FRM_THUMBNAIL);
     }
-
     // Return buffer back to driver
     err = stream->bufDone(frame->buf_idx);
     if ( err < 0) {
@@ -863,9 +990,12 @@ void QCamera2HardwareInterface::preview_raw_stream_cb_routine(mm_camera_super_bu
         free(super_frame);
         return;
     }
-
+#ifdef _ANDROID_
     property_get("persist.camera.preview_raw", value, "0");
     dump_raw = atoi(value) > 0 ? true : false;
+#else
+    dump_raw = false;
+#endif
 
     for ( i= 0 ; i < super_frame->num_bufs ; i++ ) {
         if ( super_frame->bufs[i]->stream_type == CAM_STREAM_TYPE_RAW ) {
@@ -916,9 +1046,12 @@ void QCamera2HardwareInterface::snapshot_raw_stream_cb_routine(mm_camera_super_b
         free(super_frame);
         return;
     }
-
+#ifdef _ANDROID_
     property_get("persist.camera.snapshot_raw", value, "0");
     dump_raw = atoi(value) > 0 ? true : false;
+#else
+    dump_raw = false;
+#endif
 
     for ( i= 0 ; i < super_frame->num_bufs ; i++ ) {
         if ( super_frame->bufs[i]->stream_type == CAM_STREAM_TYPE_RAW ) {
@@ -1283,8 +1416,13 @@ void QCamera2HardwareInterface::dumpMetadataToFile(QCameraStream *stream,
     char value[PROPERTY_VALUE_MAX];
     int frm_num = 0;
     cam_metadata_info_t *metadata = (cam_metadata_info_t *)frame->buffer;
+#ifdef _ANDROID_
     property_get("persist.camera.dumpmetadata", value, "0");
     int32_t enabled = atoi(value);
+#else
+    int32_t enabled = 0;
+#endif
+
     if (stream == NULL) {
         ALOGE("No op");
         return;
@@ -1314,11 +1452,11 @@ void QCamera2HardwareInterface::dumpMetadataToFile(QCameraStream *stream,
             time (&current_time);
             timeinfo = localtime (&current_time);
             strftime (timeBuf, sizeof(timeBuf),"/data/%Y%m%d%H%M%S", timeinfo);
-            String8 filePath(timeBuf);
+            string filePath(timeBuf);
             snprintf(buf, sizeof(buf), "%dm_%s_%d.bin",
                                          mDumpFrmCnt,type,frame->frame_idx);
             filePath.append(buf);
-            int file_fd = open(filePath.string(), O_RDWR | O_CREAT, 0777);
+            int file_fd = open(filePath.c_str(), O_RDWR | O_CREAT, 0777);
             if (file_fd > 0) {
                 int written_len = 0;
                 metadata->tuning_params.tuning_data_version = TUNING_DATA_VERSION;
@@ -1424,7 +1562,7 @@ void QCamera2HardwareInterface::dumpFrameToFile(QCameraStream *stream,
                     stream->getFrameOffset(offset);
 
                     strftime (timeBuf, sizeof(timeBuf),"/data/%Y%m%d%H%M%S", timeinfo);
-                    String8 filePath(timeBuf);
+                    string filePath(timeBuf);
                     switch (dump_type) {
                     case QCAMERA_DUMP_FRM_PREVIEW:
                         {
@@ -1464,7 +1602,7 @@ void QCamera2HardwareInterface::dumpFrameToFile(QCameraStream *stream,
                     }
 
                     filePath.append(buf);
-                    int file_fd = open(filePath.string(), O_RDWR | O_CREAT, 0777);
+                    int file_fd = open(filePath.c_str(), O_RDWR | O_CREAT, 0777);
                     if (file_fd > 0) {
                         void *data = NULL;
                         int written_len = 0;
@@ -1513,7 +1651,10 @@ void QCamera2HardwareInterface::debugShowVideoFPS()
     static nsecs_t n_vLastFpsTime = 0;
     static float n_vFps = 0;
     n_vFrameCount++;
-    nsecs_t now = systemTime();
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    nsecs_t now = tv.tv_usec * 1000;
+    //nsecs_t now = systemTime();
     nsecs_t diff = now - n_vLastFpsTime;
     if (diff > ms2ns(250)) {
         n_vFps =  ((n_vFrameCount - n_vLastFrameCount) * float(s2ns(1))) / diff;
@@ -1539,7 +1680,10 @@ void QCamera2HardwareInterface::debugShowPreviewFPS()
     static nsecs_t n_pLastFpsTime = 0;
     static float n_pFps = 0;
     n_pFrameCount++;
-    nsecs_t now = systemTime();
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    nsecs_t now = tv.tv_usec * 1000;
+    //nsecs_t now = systemTime();
     nsecs_t diff = now - n_pLastFpsTime;
     if (diff > ms2ns(250)) {
         n_pFps =  ((n_pFrameCount - n_pLastFrameCount) * float(s2ns(1))) / diff;

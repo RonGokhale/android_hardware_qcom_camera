@@ -38,6 +38,7 @@
 #include <fcntl.h>
 #include <poll.h>
 #include <linux/fb.h>
+#include <stdint.h>
 #include <linux/msm_mdp.h>
 #include <semaphore.h>
 
@@ -57,18 +58,18 @@
 #define CAPTURE_BUF_NUM 5
 
 #define DEFAULT_PREVIEW_FORMAT    CAM_FORMAT_YUV_420_NV21
-#define DEFAULT_PREVIEW_WIDTH     640
-#define DEFAULT_PREVIEW_HEIGHT    480
+#define DEFAULT_PREVIEW_WIDTH     1280
+#define DEFAULT_PREVIEW_HEIGHT    720
 #define DEFAULT_PREVIEW_PADDING   CAM_PAD_TO_WORD
 #define DEFAULT_VIDEO_FORMAT      CAM_FORMAT_YUV_420_NV12
-#define DEFAULT_VIDEO_WIDTH       800
-#define DEFAULT_VIDEO_HEIGHT      480
+#define DEFAULT_VIDEO_WIDTH       1920
+#define DEFAULT_VIDEO_HEIGHT      1080
 #define DEFAULT_VIDEO_PADDING     CAM_PAD_TO_2K
 #define DEFAULT_SNAPSHOT_FORMAT   CAM_FORMAT_YUV_420_NV21
 #define DEFAULT_RAW_FORMAT        CAM_FORMAT_BAYER_QCOM_RAW_10BPP_GBRG
 
-#define DEFAULT_SNAPSHOT_WIDTH    1024
-#define DEFAULT_SNAPSHOT_HEIGHT   768
+#define DEFAULT_SNAPSHOT_WIDTH    640
+#define DEFAULT_SNAPSHOT_HEIGHT   480
 #define DEFAULT_SNAPSHOT_PADDING  CAM_PAD_TO_WORD
 
 #define DEFAULT_OV_FORMAT         MDP_Y_CRCB_H2V2
@@ -112,6 +113,7 @@ typedef enum {
 } mm_camera_tune_prevcmd_t;
 
 typedef void (*prev_callback) (mm_camera_buf_def_t *preview_frame);
+typedef void (*vid_callback) (mm_camera_super_buf_t *super_buf);
 
 typedef struct {
   char *send_buf;
@@ -131,6 +133,11 @@ typedef struct {
     mm_camera_tune_func_t *func_tbl;
     void *lib_handle;
 }mm_camera_tuning_lib_params_t;
+
+typedef struct _mm_camera_stream_t mm_camera_stream_t;
+
+// callback for notifying buffer handles to the client
+typedef void (*mm_app_stream_buf_info_cb_t)(mm_camera_stream_t *stream);
 
 typedef enum {
     MM_CAMERA_OK,
@@ -170,7 +177,7 @@ typedef struct {
     mm_camera_app_meminfo_t mem_info;
 } mm_camera_app_buf_t;
 
-typedef struct {
+typedef struct _mm_camera_stream_t {
     uint32_t s_id;
     mm_camera_stream_config_t s_config;
     cam_frame_len_offset_t offset;
@@ -178,6 +185,8 @@ typedef struct {
     uint32_t multipleOf;
     mm_camera_app_buf_t s_bufs[MM_CAMERA_MAX_NUM_FRAMES];
     mm_camera_app_buf_t s_info_buf;
+    void* p_test_obj; // mm_camera_test_obj_t *
+    mm_camera_channel_type_t channel_type;
 } mm_camera_stream_t;
 
 typedef struct {
@@ -220,6 +229,8 @@ typedef struct {
     uint32_t current_job_id;
     mm_camera_app_buf_t jpeg_buf;
 
+    mm_app_stream_buf_info_cb_t buf_info_cb;
+
     int fb_fd;
     struct fb_var_screeninfo vinfo;
     struct mdp_overlay data_overlay;
@@ -233,9 +244,13 @@ typedef struct {
     int zsl_enabled;
     int8_t focus_supported;
     prev_callback user_preview_cb;
+    vid_callback user_video_cb;
     parm_buffer_new_t *params_buffer;
     USER_INPUT_DISPLAY_T preview_resolution;
 
+    uint32_t video_width, video_height;
+    uint32_t preview_width, preview_height;
+    cam_format_t preview_fmt, video_fmt;
     //Reprocess params&stream
     int8_t enable_reproc;
     int32_t reproc_sharpness;
@@ -506,6 +521,13 @@ extern int mm_qcamera_queue_enqueue(mm_camera_queue_t *queue, void *data);
 extern void* mm_qcamera_queue_dequeue(mm_camera_queue_t *queue,
                                       int bFromHead);
 extern void mm_qcamera_queue_flush(mm_camera_queue_t *queue);
+
+int mm_app_relese_video_frame(mm_camera_super_buf_t *super_buf,
+                                      void *userdata);
+
+int setFPSRange(mm_camera_test_obj_t *test_obj, cam_fps_range_t range);
+int setFocusMode(mm_camera_test_obj_t *test_obj, cam_focus_mode_type mode);
+int setHFRMode(mm_camera_test_obj_t *test_obj, cam_hfr_mode_t mode);
 
 #endif /* __MM_QCAMERA_APP_H__ */
 

@@ -40,6 +40,7 @@ using namespace android;
 
 namespace qcamera {
 
+const char* THERMAL_CLIENT_LIB_NAME = "libthermalclient.so.0";
 
 QCameraThermalAdapter& QCameraThermalAdapter::getInstance()
 {
@@ -63,7 +64,7 @@ int QCameraThermalAdapter::init(QCameraThermalCallback *thermalCb)
     int rc = NO_ERROR;
 
     ALOGV("%s E", __func__);
-    mHandle = dlopen("/vendor/lib/libthermalclient.so", RTLD_NOW);
+    mHandle = dlopen(THERMAL_CLIENT_LIB_NAME, RTLD_NOW);
     if (!mHandle) {
         error = dlerror();
         ALOGE("%s: dlopen failed with error %s",

@@ -33,6 +33,11 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sys/mman.h>
 #include <semaphore.h>
 
+#ifdef DUMP_PRV_IN_FILE
+	#define FRAME_MOD 30
+	#define MAX_NUM_FRAME_DUMP  (FRAME_MOD * 100)
+#endif
+
 static void mm_app_metadata_notify_cb(mm_camera_super_buf_t *bufs,
                                      void *user_data)
 {
@@ -99,13 +104,17 @@ static void mm_app_metadata_notify_cb(mm_camera_super_buf_t *bufs,
 static void mm_app_preview_notify_cb(mm_camera_super_buf_t *bufs,
                                      void *user_data)
 {
-    int i = 0;
+
+#ifdef DUMP_PRV_IN_FILE
+    static int frame_count=0;
+#endif
+	  int i = 0;
     mm_camera_channel_t *channel = NULL;
     mm_camera_stream_t *p_stream = NULL;
     mm_camera_buf_def_t *frame = bufs->bufs[0];
     mm_camera_test_obj_t *pme = (mm_camera_test_obj_t *)user_data;
 
-    CDBG_ERROR("%s: BEGIN - length=%d, frame idx = %d\n",
+    CDBG("%s: BEGIN - length=%d, frame idx = %d\n",
          __func__, frame->frame_len, frame->frame_idx);
 
     /* find channel */
@@ -138,15 +147,21 @@ static void mm_app_preview_notify_cb(mm_camera_super_buf_t *bufs,
     if ( 0 < pme->fb_fd ) {
         mm_app_overlay_display(pme, frame->fd);
     }
-#ifdef DUMP_PRV_IN_FILE
-    {
-      char file_name[64];
-      snprintf(file_name, sizeof(file_name), "P_C%d", pme->cam->camera_handle);
-      mm_app_dump_frame(frame, file_name, "yuv", frame->frame_idx);
-    }
+#if DUMP_PRV_IN_FILE
+	if ( (frame_count < MAX_NUM_FRAME_DUMP ) &&  (frame_count % FRAME_MOD == 0) )
+	{
+		    char file_name[64];
+		    snprintf(file_name, sizeof(file_name), "P_C%d", pme->cam->camera_handle);
+			  mm_app_dump_frame(frame, file_name, "yuv", frame->frame_idx);
+	 }else if (frame_count >= MAX_NUM_FRAME_DUMP ) {
+				frame_count =0 ;
+				printf("\nStopping Preview after 100 frames\n");
+				exit(0);
+	 }
+	frame_count++;
 #endif
     if (pme->user_preview_cb) {
-        CDBG_ERROR("[DBG] %s, user defined own preview cb. calling it...", __func__);
+        CDBG("[DBG] %s, user defined own preview cb. calling it...", __func__);
         pme->user_preview_cb(frame);
     }
     if (MM_CAMERA_OK != pme->cam->ops->qbuf(bufs->camera_handle,
@@ -410,13 +425,12 @@ mm_camera_stream_t * mm_app_add_preview_stream(mm_camera_test_obj_t *test_obj,
     stream->s_config.stream_info->streaming_mode = CAM_STREAMING_MODE_CONTINUOUS;
     stream->s_config.stream_info->fmt = DEFAULT_PREVIEW_FORMAT;
 
-    if ((test_obj->preview_resolution.user_input_display_width == 0) ||
-           ( test_obj->preview_resolution.user_input_display_height == 0)) {
+    if (test_obj->preview_width == 0 || test_obj->preview_height == 0) {
         stream->s_config.stream_info->dim.width = DEFAULT_PREVIEW_WIDTH;
         stream->s_config.stream_info->dim.height = DEFAULT_PREVIEW_HEIGHT;
     } else {
-        stream->s_config.stream_info->dim.width = test_obj->preview_resolution.user_input_display_width;
-        stream->s_config.stream_info->dim.height = test_obj->preview_resolution.user_input_display_height;
+        stream->s_config.stream_info->dim.width = test_obj->preview_width;
+        stream->s_config.stream_info->dim.height = test_obj->preview_height;
     }
 
     stream->s_config.padding_info = cam_cap->padding_info;

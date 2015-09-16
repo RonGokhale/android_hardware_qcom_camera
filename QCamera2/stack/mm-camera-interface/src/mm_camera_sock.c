@@ -34,7 +34,9 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/uio.h>
-#include <sys/un.h>
+#include <linux/un.h>
+
+#include "cam_intf.h"
 
 #include "mm_camera_dbg.h"
 #include "mm_camera_sock.h"
@@ -75,7 +77,8 @@ int mm_camera_socket_create(int cam_id, mm_camera_sock_type_t sock_type)
 
     memset(&sock_addr, 0, sizeof(sock_addr));
     sock_addr.sun_family = AF_UNIX;
-    snprintf(sock_addr.sun_path, UNIX_PATH_MAX, "/data/cam_socket%d", cam_id);
+    CDBG_ERROR("socket path = %s", CAM_SOCKET_PATH);
+    snprintf(sock_addr.sun_path, UNIX_PATH_MAX, CAM_SOCKET_PATH"%d", cam_id);
     if((rc = connect(socket_fd, (struct sockaddr *) &sock_addr,
       sizeof(sock_addr))) != 0) {
       close(socket_fd);

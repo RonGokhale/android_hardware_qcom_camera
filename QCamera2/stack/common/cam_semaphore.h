@@ -30,6 +30,8 @@
 #ifndef __QCAMERA_SEMAPHORE_H__
 #define __QCAMERA_SEMAPHORE_H__
 
+#include <pthread.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif

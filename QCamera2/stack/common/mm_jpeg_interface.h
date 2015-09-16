@@ -29,6 +29,7 @@
 
 #ifndef MM_JPEG_INTERFACE_H_
 #define MM_JPEG_INTERFACE_H_
+#include <stdint.h>
 #include "QOMX_JpegExtensions.h"
 #include "cam_intf.h"
 

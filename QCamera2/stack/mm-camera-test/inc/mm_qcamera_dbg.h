@@ -30,7 +30,7 @@
 #ifndef __MM_QCAMERA_DBG_H__
 #define __MM_QCAMERA_DBG_H__
 
-//#define LOG_DEBUG 1
+#define LOG_DEBUG 0
 
 #ifndef LOG_DEBUG
   #ifdef _ANDROID_
@@ -55,9 +55,9 @@
     #include <utils/Log.h>
     #define CDBG(fmt, args...) ALOGE(fmt, ##args)
   #else
-    #include <stdio.h>
-    #define CDBG(fmt, args...) fprintf(stderr, fmt, ##args)
-    #define ALOGE(fmt, args...) fprintf(stderr, fmt, ##args)
+    #include <syslog.h>
+    #define CDBG(fmt, args...) do {} while (0)
+    #define ALOGE(fmt, args...) syslog(LOG_ERR, fmt, ##args)
   #endif
 #endif
 
@@ -65,7 +65,12 @@
   #define CDBG_HIGH(fmt, args...)  ALOGE(fmt, ##args)
   #define CDBG_ERROR(fmt, args...)  ALOGE(fmt, ##args)
 #else
-  #define CDBG_HIGH(fmt, args...) fprintf(stderr, fmt, ##args)
-  #define CDBG_ERROR(fmt, args...) fprintf(stderr, fmt, ##args)
+  #include <syslog.h>
+  #define CDBG(fmt, args...) syslog(LOG_DEBUG, fmt, ##args)
+  #define CDBG_HIGH(fmt, args...) syslog(LOG_NOTICE, fmt, ##args)
+  #define CDBG_ERROR(fmt, args...) syslog(LOG_ERR, fmt, ##args)
 #endif
+
+#define DUMP_PRV_IN_FILE 0
+
 #endif /* __MM_QCAMERA_DBG_H__ */

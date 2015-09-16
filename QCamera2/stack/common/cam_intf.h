@@ -30,9 +30,18 @@
 #ifndef __QCAMERA_INTF_H__
 #define __QCAMERA_INTF_H__
 
+#include <stdint.h>
 #include <media/msmb_isp.h>
 #include <semaphore.h>
 #include "cam_types.h"
+
+#ifdef _ANDROID_
+#define CAM_SOCKET_PATH "/data/cam_socket"
+#define CAM_SOCKET_DIR "/data"
+#else
+#define CAM_SOCKET_PATH "/tmp/camera/cam_socket"
+#define CAM_SOCKET_DIR "/tmp/camera"
+#endif
 
 #define ONE_MB_OF_PARAMS (1024 * 1024)
 #define CAM_PRIV_IOCTL_BASE (V4L2_CID_PRIVATE_BASE + 14)

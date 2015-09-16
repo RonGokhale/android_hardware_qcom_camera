@@ -30,6 +30,8 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "mm_qcamera_dbg.h"
 #include "mm_qcamera_app.h"
 
+#define DUMP_VIDEO_FRAME 0
+
 static void mm_app_video_notify_cb(mm_camera_super_buf_t *bufs,
                                    void *user_data)
 {
@@ -37,20 +39,60 @@ static void mm_app_video_notify_cb(mm_camera_super_buf_t *bufs,
     mm_camera_buf_def_t *frame = bufs->bufs[0];
     mm_camera_test_obj_t *pme = (mm_camera_test_obj_t *)user_data;
 
+    mm_camera_super_buf_t *sbuf = (mm_camera_super_buf_t *)
+        malloc(sizeof(mm_camera_super_buf_t));
+    if (!sbuf) {
+        CDBG_ERROR("%s:%d, malloc failed\n", __func__, __LINE__);
+        return;
+    }
+    memcpy(sbuf, bufs, sizeof(mm_camera_super_buf_t));
+
     CDBG("%s: BEGIN - length=%d, frame idx = %d\n",
          __func__, frame->frame_len, frame->frame_idx);
+
+    if (pme->user_video_cb) {
+        pme->user_video_cb(sbuf);
+    }
+#if DUMP_VIDEO_FRAME
     snprintf(file_name, sizeof(file_name), "V_C%d", pme->cam->camera_handle);
     mm_app_dump_frame(frame, file_name, "yuv", frame->frame_idx);
+#endif
 
-    if (MM_CAMERA_OK != pme->cam->ops->qbuf(bufs->camera_handle,
+    CDBG("%s:%d, sbuf=%p handle=%u, ch-id=%u, frame=%p\n",
+                __func__, __LINE__, bufs, bufs->camera_handle,
                                             bufs->ch_id,
+                                            frame);
+    CDBG("%s: END\n", __func__);
+}
+
+int mm_app_relese_video_frame(mm_camera_super_buf_t *super_buf,
+                                      void *userdata)
+{
+    mm_camera_test_obj_t *pme = (mm_camera_test_obj_t *)userdata;
+
+    if (!super_buf || !super_buf->bufs[0] || !userdata) {
+        CDBG_ERROR("%s: invalid args %p %p %p\n", __func__,
+                    super_buf, super_buf->bufs[0], userdata);
+        return -1;
+    }
+    mm_camera_buf_def_t *frame = super_buf->bufs[0];
+
+    CDBG("%s:%d, sbuf=%p, handle=%u, ch-id=%u, frame=%p\n",
+                __func__, __LINE__, super_buf, super_buf->camera_handle,
+                                            super_buf->ch_id,
+                                            frame);
+
+    // Enqueue buffer to kernel
+    if (MM_CAMERA_OK != pme->cam->ops->qbuf(super_buf->camera_handle,
+                                            super_buf->ch_id,
                                             frame)) {
-        CDBG_ERROR("%s: Failed in Preview Qbuf\n", __func__);
+        CDBG_ERROR("%s: Failed in video Qbuf\n", __func__);
+        return -1;
     }
     mm_app_cache_ops((mm_camera_app_meminfo_t *)frame->mem_info,
                      ION_IOC_INV_CACHES);
-
-    CDBG("%s: END\n", __func__);
+    free(super_buf);
+    return 0;
 }
 
 mm_camera_stream_t * mm_app_add_video_stream(mm_camera_test_obj_t *test_obj,
@@ -68,7 +110,7 @@ mm_camera_stream_t * mm_app_add_video_stream(mm_camera_test_obj_t *test_obj,
         CDBG_ERROR("%s: add stream failed\n", __func__);
         return NULL;
     }
-
+    stream->channel_type = MM_CHANNEL_TYPE_VIDEO;
     stream->s_config.mem_vtbl.get_bufs = mm_app_stream_initbuf;
     stream->s_config.mem_vtbl.put_bufs = mm_app_stream_deinitbuf;
     stream->s_config.mem_vtbl.clean_invalidate_buf =
@@ -84,9 +126,15 @@ mm_camera_stream_t * mm_app_add_video_stream(mm_camera_test_obj_t *test_obj,
     stream->s_config.stream_info->stream_type = CAM_STREAM_TYPE_VIDEO;
     stream->s_config.stream_info->streaming_mode = CAM_STREAMING_MODE_CONTINUOUS;
     stream->s_config.stream_info->fmt = DEFAULT_VIDEO_FORMAT;
-    stream->s_config.stream_info->dim.width = DEFAULT_VIDEO_WIDTH;
-    stream->s_config.stream_info->dim.height = DEFAULT_VIDEO_HEIGHT;
     stream->s_config.padding_info = cam_cap->padding_info;
+
+    if (test_obj->video_width == 0 || test_obj->video_height == 0) {
+      stream->s_config.stream_info->dim.width = DEFAULT_VIDEO_WIDTH;
+      stream->s_config.stream_info->dim.height = DEFAULT_VIDEO_HEIGHT;
+    } else {
+      stream->s_config.stream_info->dim.width = test_obj->video_width;
+      stream->s_config.stream_info->dim.height = test_obj->video_height;
+    }
 
     rc = mm_app_config_stream(test_obj, channel, stream, &stream->s_config);
     if (MM_CAMERA_OK != rc) {
@@ -116,7 +164,7 @@ mm_camera_channel_t * mm_app_add_video_channel(mm_camera_test_obj_t *test_obj)
                                      channel,
                                      mm_app_video_notify_cb,
                                      (void *)test_obj,
-                                     1);
+                                     VIDEO_BUF_NUM);
     if (NULL == stream) {
         CDBG_ERROR("%s: add video stream failed\n", __func__);
         mm_app_del_channel(test_obj, channel);

@@ -41,6 +41,12 @@ static pthread_mutex_t app_mutex;
 static int thread_status = 0;
 static pthread_cond_t app_cond_v;
 
+#ifdef _ANDROID_
+#define CAMERA_DUMP_PATH "/data"
+#else
+#define CAMERA_DUMP_PATH "./camera-dump"
+#endif
+
 #define MM_QCAMERA_APP_NANOSEC_SCALE 1000000000
 
 int mm_camera_app_timedwait(uint8_t seconds)
@@ -243,7 +249,7 @@ void mm_app_dump_frame(mm_camera_buf_def_t *frame,
     int i;
     int offset = 0;
     if ( frame != NULL) {
-        snprintf(file_name, sizeof(file_name), "/data/test/%s_%04d.%s", name, frame_idx, ext);
+        snprintf(file_name, sizeof(file_name), CAMERA_DUMP_PATH"/%s_%04d.%s", name, frame_idx, ext);
         file_fd = open(file_name, O_RDWR | O_CREAT, 0777);
         if (file_fd < 0) {
             CDBG_ERROR("%s: cannot open file %s \n", __func__, file_name);
@@ -419,6 +425,12 @@ int mm_app_stream_initbuf(cam_frame_len_offset_t *frame_offset_info,
     *bufs = pBufs;
     *initial_reg_flag = reg_flags;
 
+    mm_camera_test_obj_t *test_obj = (mm_camera_test_obj_t *) stream->p_test_obj;
+
+    if (test_obj && test_obj->buf_info_cb) {
+        CDBG_ERROR("%s: calling the buffer info callback.", __func__);
+        test_obj->buf_info_cb(stream);
+    }
     CDBG("%s: X",__func__);
     return rc;
 }
@@ -664,6 +676,7 @@ mm_camera_channel_t * mm_app_add_channel(mm_camera_test_obj_t *test_obj,
     }
     channel = &test_obj->channels[ch_type];
     channel->ch_id = ch_id;
+    test_obj->num_channels++;
     return channel;
 }
 
@@ -673,6 +686,7 @@ int mm_app_del_channel(mm_camera_test_obj_t *test_obj,
     test_obj->cam->ops->delete_channel(test_obj->cam->camera_handle,
                                        channel->ch_id);
     memset(channel, 0, sizeof(mm_camera_channel_t));
+    test_obj->num_channels--;
     return MM_CAMERA_OK;
 }
 
@@ -692,6 +706,7 @@ mm_camera_stream_t * mm_app_add_stream(mm_camera_test_obj_t *test_obj,
     }
 
     stream->multipleOf = test_obj->slice_size;
+    stream->p_test_obj = (void *) test_obj;
 
     /* alloc ion mem for stream_info buf */
     memset(&offset_info, 0, sizeof(offset_info));
@@ -801,7 +816,7 @@ int commitSetBatch(mm_camera_test_obj_t *test_obj)
 
     if (param_buf->num_entry > 0) {
         rc = test_obj->cam->ops->set_parms(test_obj->cam->camera_handle, param_buf);
-        ALOGD("%s:waiting for commitSetBatch to complete",__func__);
+        CDBG("%s:waiting for commitSetBatch to complete",__func__);
         sem_wait(&param_buf->cam_sync_sem);
     }
 
@@ -816,7 +831,7 @@ int commitGetBatch(mm_camera_test_obj_t *test_obj)
 
     if (param_buf->num_entry > 0) {
         rc = test_obj->cam->ops->get_parms(test_obj->cam->camera_handle, param_buf);
-        ALOGD("%s:waiting for commitGetBatch to complete",__func__);
+        CDBG("%s:waiting for commitGetBatch to complete",__func__);
         sem_wait(&param_buf->cam_sync_sem);
     }
     return rc;
@@ -844,7 +859,7 @@ int AddSetParmEntryToBatch(mm_camera_test_obj_t *test_obj,
      */
     for (j = 0; j < num_entry; j++) {
       if (paramType == curr_param->entry_type) {
-        ALOGD("%s:Batch parameter overwrite for param: %d",
+        CDBG("%s:Batch parameter overwrite for param: %d",
                                                 __func__, paramType);
         break;
       }
@@ -870,7 +885,7 @@ int AddSetParmEntryToBatch(mm_camera_test_obj_t *test_obj,
     curr_param->size = (int32_t)paramLength;
     curr_param->aligned_size = aligned_size_req;
     memcpy(&curr_param->data[0], paramValue, paramLength);
-    ALOGD("%s: num_entry: %d, paramType: %d, paramLength: %d, aligned_size_req: %d",
+    CDBG("%s: num_entry: %d, paramType: %d, paramLength: %d, aligned_size_req: %d",
             __func__, param_buf->num_entry, paramType, paramLength, aligned_size_req);
 
     return MM_CAMERA_OK;
@@ -1205,6 +1220,38 @@ int setFocusMode(mm_camera_test_obj_t *test_obj, cam_focus_mode_type mode)
 
     rc = AddSetParmEntryToBatch(test_obj,
                                 CAM_INTF_PARM_FOCUS_MODE,
+                                sizeof(value),
+                                &value);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Focus mode parameter not added to batch\n", __func__);
+        goto ERROR;
+    }
+
+    rc = commitSetBatch(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch parameters commit failed\n", __func__);
+        goto ERROR;
+    }
+
+ERROR:
+    return rc;
+}
+
+
+int setHFRMode(mm_camera_test_obj_t *test_obj, cam_hfr_mode_t mode)
+{
+    int rc = MM_CAMERA_OK;
+
+    rc = initBatchUpdate(test_obj);
+    if (rc != MM_CAMERA_OK) {
+        CDBG_ERROR("%s: Batch camera parameter update failed\n", __func__);
+        goto ERROR;
+    }
+
+    uint32_t value = mode;
+
+    rc = AddSetParmEntryToBatch(test_obj,
+                                CAM_INTF_PARM_HFR,
                                 sizeof(value),
                                 &value);
     if (rc != MM_CAMERA_OK) {

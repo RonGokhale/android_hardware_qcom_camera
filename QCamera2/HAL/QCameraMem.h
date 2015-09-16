@@ -191,6 +191,7 @@ private:
 };
 ;
 
+#ifdef _ANDROID_
 // Gralloc Memory is acquired from preview window
 class QCameraGrallocMemory : public QCameraMemory {
     enum {
@@ -228,7 +229,7 @@ private:
     camera_memory_t *mCameraMemory[MM_CAMERA_MAX_NUM_FRAMES];
     int mMinUndequeuedBuffers;
 };
-
+#endif
 }; // namespace qcamera
 
 #endif /* __QCAMERA2HWI_MEM_H__ */

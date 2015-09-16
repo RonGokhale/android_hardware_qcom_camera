@@ -31,6 +31,7 @@
 #define __MM_JPEG_IONBUF_H__
 
 
+#include <stdint.h>
 #include <stdio.h>
 #include <linux/msm_ion.h>
 #include <sys/mman.h>

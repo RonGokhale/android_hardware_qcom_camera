@@ -55,9 +55,9 @@
     #include <utils/Log.h>
     #define CDBG(fmt, args...) ALOGE(fmt, ##args)
   #else
-    #include <stdio.h>
-    #define CDBG(fmt, args...) fprintf(stderr, fmt, ##args)
-    #define ALOGE(fmt, args...) fprintf(stderr, fmt, ##args)
+    #include <syslog.h>
+    #define CDBG(fmt, args...) fprintf(stderr, fmt"\n", ##args)
+    #define ALOGE(fmt, args...) fprintf(stderr, fmt"\n", ##args)
   #endif
 #endif
 
@@ -65,7 +65,10 @@
   #define CDBG_HIGH(fmt, args...)  ALOGD(fmt, ##args)
   #define CDBG_ERROR(fmt, args...)  ALOGE(fmt, ##args)
 #else
-  #define CDBG_HIGH(fmt, args...) fprintf(stderr, fmt, ##args)
-  #define CDBG_ERROR(fmt, args...) fprintf(stderr, fmt, ##args)
+  #include <syslog.h>
+  #define CDBG(fmt, args...) do {} while(0)
+  #define CDBG_HIGH(fmt, args...) syslog(LOG_NOTICE, fmt, ##args)
+  #define CDBG_ERROR(fmt, args...) syslog(LOG_ERR, fmt, ##args)
 #endif
+
 #endif /* __MM_CAMERA_DBG_H__ */

@@ -220,7 +220,6 @@ int32_t QCameraPostProcessor::start(QCameraChannel *pSrcChannel)
             return rc;
         }
     }
-
     property_get("persist.camera.longshot.save", prop, "0");
     mUseSaveProc = atoi(prop) > 0 ? true : false;
 
@@ -1046,9 +1045,9 @@ void QCameraPostProcessor::releaseNotifyData(void *user_data,
              app_cb->release_data.unlinkFile &&
              ( NO_ERROR != cb_status ) ) {
 
-            String8 unlinkPath((const char *) app_cb->release_data.data->data,
+            string unlinkPath((const char *) app_cb->release_data.data->data,
                                 app_cb->release_data.data->size);
-            int rc = unlink(unlinkPath.string());
+            int rc = unlink(unlinkPath.c_str());
             ALOGD("%s : Unlinking stored file rc = %d",
                   __func__,
                   rc);

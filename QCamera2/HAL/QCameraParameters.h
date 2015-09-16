@@ -19,14 +19,27 @@
 #ifndef ANDROID_HARDWARE_QCAMERA_PARAMETERS_H
 #define ANDROID_HARDWARE_QCAMERA_PARAMETERS_H
 
-#include <camera/CameraParameters.h>
-#include <cutils/properties.h>
 #include <hardware/camera.h>
 #include <stdlib.h>
 #include <utils/Errors.h>
 #include "cam_intf.h"
 #include "QCameraMem.h"
 #include "QCameraThermalAdapter.h"
+
+#ifdef _ANDROID_
+#include <cutils/properties.h>
+#include <camera/CameraParameters.h>
+#else
+#include "CameraParameters.h"
+#include "android_adapter.h"
+#endif
+
+#include <string>
+#include <map>
+using namespace std;
+
+#include "glib.h"
+#define strlcpy g_strlcpy
 
 extern "C" {
 #include <mm_jpeg_interface.h>
@@ -112,7 +125,7 @@ class QCameraParameters: public CameraParameters
 {
 public:
     QCameraParameters();
-    QCameraParameters(const String8 &params);
+    QCameraParameters(const string &params);
     ~QCameraParameters();
 
     // Supported PREVIEW/RECORDING SIZES IN HIGH FRAME RATE recording, sizes in pixels.
@@ -475,7 +488,7 @@ public:
     QCameraReprocScaleParam m_reprocScaleParam;
     static const QCameraMap EFFECT_MODES_MAP[];
 
-    void getSupportedHfrSizes(Vector<Size> &sizes);
+    void getSupportedHfrSizes(vector<Size> &sizes);
     void setPreviewFrameRateMode(const char *mode);
     const char *getPreviewFrameRateMode() const;
     void setTouchIndexAec(int x, int y);
@@ -492,7 +505,9 @@ public:
     int32_t initDefaultParameters();
     int32_t updateParameters(QCameraParameters&, bool &needRestart);
     int32_t commitParameters();
+#ifdef _ANDROID_
     int getPreviewHalPixelFormat() const;
+#endif
     int32_t getStreamRotation(cam_stream_type_t streamType,
                                cam_pp_feature_config_t &featureConfig,
                                cam_dimension_t &dim);
@@ -718,26 +733,26 @@ private:
 
     int32_t parse_pair(const char *str, int *first, int *second,
                        char delim, char **endptr);
-    void parseSizesList(const char *sizesStr, Vector<Size> &sizes);
+    void parseSizesList(const char *sizesStr, vector<Size> &sizes);
     int32_t parseNDimVector(const char *str, int *num, int N, char delim);
     int32_t parseCameraAreaString(const char *str, int max_num_areas,
                                   cam_area_t *pAreas, int& num_areas_found);
     bool validateCameraAreas(cam_area_t *areas, int num_areas);
     int parseGPSCoordinate(const char *coord_str, rat_t *coord);
     int32_t getRational(rat_t *rat, int num, int denom);
-    String8 createSizesString(const cam_dimension_t *sizes, int len);
-    String8 createValuesString(const int *values, int len,
+    string createSizesString(const cam_dimension_t *sizes, int len);
+    string createValuesString(const int *values, int len,
                                const QCameraMap *map, int map_len);
-    String8 createValuesStringFromMap(const QCameraMap *map,
+    string createValuesStringFromMap(const QCameraMap *map,
                                       int map_len);
-    String8 createHfrValuesString(const cam_hfr_info_t *values, int len,
+    string createHfrValuesString(const cam_hfr_info_t *values, int len,
                                   const QCameraMap *map, int map_len);
-    String8 createHfrSizesString(const cam_hfr_info_t *values, int len);
-    String8 createFpsRangeString(const cam_fps_range_t *fps,
+    string createHfrSizesString(const cam_hfr_info_t *values, int len);
+    string createFpsRangeString(const cam_fps_range_t *fps,
                                  int len,
                                  int &default_fps_index);
-    String8 createFpsString(cam_fps_range_t &fps);
-    String8 createZoomRatioValuesString(int *zoomRatios, int length);
+    string createFpsString(cam_fps_range_t &fps);
+    string createZoomRatioValuesString(int *zoomRatios, int length);
     int lookupAttr(const QCameraMap arr[], int len, const char *name);
     const char *lookupNameByValue(const QCameraMap arr[], int len, int value);
 
@@ -826,7 +841,7 @@ private:
     int32_t m_curCCT;
     int32_t m_curFocusPos;
 
-    DefaultKeyedVector<String8,String8> m_tempMap; // map for temororily store parameters to be set
+    map<string,string> m_tempMap; // map for temororily store parameters to be set
     cam_fps_range_t m_default_fps_range;
 
     bool m_bAFBracketingOn;

@@ -47,8 +47,14 @@
 #include <sys/time.h>
 #include <linux/socket.h>
 #include <arpa/inet.h>
-#include <utils/Log.h>
 
+#ifdef _ANDROID_
+#include <utils/Log.h>
+#endif
+
+/* Generates compilation errors in Linux. These macros are not used in the
+   code anywhere, disabling them. */
+#if 0
 #undef __FD_SET
 #define __FD_SET(fd, fdsetp) \
   (((fd_set *)(fdsetp))->fds_bits[(fd) >> 5] |= (1<<((fd) & 31)))
@@ -64,6 +70,7 @@
 #undef  __FD_ZERO
 #define __FD_ZERO(fdsetp) \
   (memset (fdsetp, 0, sizeof (*(fd_set *)(fdsetp))))
+#endif
 
 #define TUNESERVER_MAX_RECV 2048
 #define TUNESERVER_MAX(a, b)  (((a) > (b)) ? (a) : (b))

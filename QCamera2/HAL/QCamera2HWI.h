@@ -32,9 +32,17 @@
 
 #include <hardware/camera.h>
 #include <hardware/power.h>
+
+#ifdef _ANDROID_
 #include <utils/Log.h>
 #include <utils/Mutex.h>
 #include <utils/Condition.h>
+#include <mutex>
+#include <condition_variable>
+#else
+#include <pthread.h>
+#endif
+
 #include <QCameraParameters.h>
 
 #include "QCameraQueue.h"
@@ -445,6 +453,11 @@ private:
     static void nodisplay_preview_stream_cb_routine(mm_camera_super_buf_t *frame,
                                                     QCameraStream *stream,
                                                     void *userdata);
+
+    static void nodisplay_preview_stream_raw_cb_routine(mm_camera_super_buf_t *frame,
+                                                    QCameraStream *stream,
+                                                    void *userdata);
+
     static void preview_stream_cb_routine(mm_camera_super_buf_t *frame,
                                           QCameraStream *stream,
                                           void *userdata);
@@ -581,8 +594,13 @@ private:
     QCameraCmdThread      mDefferedWorkThread;
     QCameraQueue          mCmdQueue;
 
+#ifdef _ANDROID_
     Mutex                 mDeffLock;
     Condition             mDeffCond;
+#else
+    pthread_mutex_t         mDeffLock;
+    pthread_cond_t          mDeffCond;
+#endif
 
     int32_t queueDefferedWork(DefferedWorkCmd cmd,
                               DefferWorkArgs args);

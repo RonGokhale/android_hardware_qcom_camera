@@ -28,7 +28,16 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
 #define LOG_NDEBUG 0
 #define LOG_NIDEBUG 0
 #define LOG_TAG "qomx_image_core"
+
+#include <stdint.h>
+
+#ifdef _ANDROID_
 #include <utils/Log.h>
+#else
+#include <syslog.h>
+#define ALOGE(fmt, args...) syslog(LOG_ERR, fmt, ##args)
+#define ALOGD(fmt, args...) do {} while(0)
+#endif
 
 #include "qomx_core.h"
 

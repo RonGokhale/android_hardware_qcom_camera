@@ -28,8 +28,14 @@
 */
 
 #include <utils/Errors.h>
+#ifdef _ANDROID_
 #include <utils/Log.h>
+#else
+#include "android_adapter.h"
+#include "CameraParameters.h"
+#endif
 #include "QCameraCmdThread.h"
+#include <cstdlib>
 
 using namespace android;
 

@@ -27,9 +27,14 @@
 *
 */
 
+#ifdef _ANDROID_
 #include <utils/Errors.h>
 #include <utils/Log.h>
+#else
+#include "android_adapter.h"
+#endif
 #include "QCameraQueue.h"
+#include <cstdlib>
 
 namespace qcamera {
 

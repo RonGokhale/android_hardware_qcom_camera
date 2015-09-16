@@ -36,9 +36,16 @@
 #include <poll.h>
 #include <linux/media.h>
 #include <signal.h>
+#include <stdint.h>
 #include <media/msm_cam_sensor.h>
-#include <cutils/properties.h>
 #include <stdlib.h>
+#include <stdio.h>
+
+#ifdef _ANDROID_
+#include <cutils/properties.h>
+#else
+#include "android_adapter.h"
+#endif
 
 #include "mm_camera_dbg.h"
 #include "mm_camera_interface.h"
@@ -1240,7 +1247,7 @@ void get_sensor_info()
                 temp = entity.flags >> 8;
                 mount_angle = (temp & 0xFF) * 90;
                 facing = (temp >> 8);
-                ALOGD("index = %d flag = %x mount_angle = %d facing = %d\n"
+                CDBG("index = %d flag = %x mount_angle = %d facing = %d\n"
                     , num_cameras, (unsigned int)temp, (unsigned int)mount_angle,
                     (unsigned int)facing);
                 g_cam_ctrl.info[num_cameras].facing = facing;
