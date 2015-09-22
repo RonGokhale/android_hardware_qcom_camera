@@ -1266,7 +1266,7 @@ QCamera2HardwareInterface::QCamera2HardwareInterface(uint32_t cameraId)
 #endif
 
     memset(mDeffOngoingJobs, 0, sizeof(mDeffOngoingJobs));
-    memset(&mRelCamCalibData, 0, sizeof(cam_related_system_calibration_data_t));
+    memset(&mJpegMetadata, 0, sizeof(mJpegMetadata));
     memset(&mJpegHandle, 0, sizeof(mJpegHandle));
     memset(&mJpegMpoHandle, 0, sizeof(mJpegMpoHandle));
 
@@ -1407,9 +1407,9 @@ int QCamera2HardwareInterface::openCamera()
         return UNKNOWN_ERROR;
     }
 
-    rc = mParameters.getRelatedCamCalibration(&mRelCamCalibData);
+    rc = mParameters.getRelatedCamCalibration(&(mJpegMetadata.otp_calibration_data));
     CDBG("%s: Dumping Calibration Data Version Id %d rc %d", __func__,
-            mRelCamCalibData.calibration_format_version, rc);
+            mJpegMetadata.otp_calibration_data.calibration_format_version, rc);
     if (rc != 0) {
         ALOGE("getRelatedCamCalibration failed");
         mCameraHandle->ops->close_camera(mCameraHandle->camera_handle);
@@ -1417,6 +1417,10 @@ int QCamera2HardwareInterface::openCamera()
         return UNKNOWN_ERROR;
     } else {
         m_bRelCamCalibValid = true;
+
+        // fill the rest of the fields from capability or default values
+        mJpegMetadata.sensor_mount_angle  = gCamCaps[mCameraId]->sensor_mount_angle;
+        mJpegMetadata.default_sensor_flip = FLIP_NONE;
     }
 
     if(!mJpegClientHandle) {
@@ -8446,7 +8450,7 @@ int32_t QCamera2HardwareInterface::initJpegHandle() {
         if (getRelatedCamSyncInfo()->sync_control == CAM_SYNC_RELATED_SENSORS_ON) {
             if (m_bRelCamCalibValid) {
                 mJpegClientHandle = jpeg_open(&mJpegHandle, &mJpegMpoHandle,
-                        max_size, &mRelCamCalibData);
+                        max_size, &mJpegMetadata);
             } else {
                 mJpegClientHandle =  jpeg_open(&mJpegHandle, &mJpegMpoHandle,
                         max_size, NULL);
