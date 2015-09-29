@@ -1599,7 +1599,7 @@ bool QCamera2HardwareInterface::getMpoComposition(void)
 /*===========================================================================
  * FUNCTION   : setMpoComposition
  *
- * DESCRIPTION:sets the related cam sync info for this HWI instance
+ * DESCRIPTION:set if Mpo composition should be enabled for this HWI instance
  *
  * PARAMETERS :
  *   @enable  : indicates whether Mpo composition enabled or not
@@ -1610,7 +1610,18 @@ bool QCamera2HardwareInterface::getMpoComposition(void)
  *==========================================================================*/
 int32_t QCamera2HardwareInterface::setMpoComposition(bool enable)
 {
-    if (getRelatedCamSyncInfo()->sync_control == CAM_SYNC_RELATED_SENSORS_ON) {
+    // By default set Mpo composition to disable
+    m_bMpoEnabled = false;
+
+    // Enable Mpo composition only if
+    // 1) frame sync is ON between two cameras and
+    // 2) any advanced features are not enabled (AOST features) and
+    // 3) not in recording mode (for liveshot case)
+    // 4) flash is not needed
+    if ((getRelatedCamSyncInfo()->sync_control == CAM_SYNC_RELATED_SENSORS_ON) &&
+            !mParameters.isAdvCamFeaturesEnabled() &&
+            !mParameters.getRecordingHintValue() &&
+            !mFlashNeeded) {
         m_bMpoEnabled = enable;
         CDBG_HIGH("%s: MpoComposition:%d ", __func__, m_bMpoEnabled);
         return NO_ERROR;
@@ -3189,6 +3200,12 @@ int32_t QCamera2HardwareInterface::configureAdvancedCapture()
     setOutputImageCount(0);
     mInputCount = 0;
 
+    if (getRelatedCamSyncInfo()->mode == CAM_MODE_SECONDARY) {
+        // no Advance capture settings for Aux camera
+        CDBG_HIGH("%s: X Secondary Camera, no need to process!! ", __func__);
+        return rc;
+    }
+
     /* Temporarily stop display only if not in stillmore livesnapshot */
     if (!(mParameters.isStillMoreEnabled() &&
             mParameters.isSeeMoreEnabled())) {
@@ -3619,7 +3636,9 @@ int QCamera2HardwareInterface::takePicture()
             // It will be handled along with PRIMARY camera takePicture request
             mm_camera_req_buf_t buf;
             memset(&buf, 0x0, sizeof(buf));
-            if ((getRelatedCamSyncInfo()->is_frame_sync_enabled) &&
+            if ((!mParameters.isAdvCamFeaturesEnabled() &&
+                    !mFlashNeeded &&
+                    getRelatedCamSyncInfo()->is_frame_sync_enabled) &&
                     (getRelatedCamSyncInfo()->sync_control ==
                     CAM_SYNC_RELATED_SENSORS_ON)) {
                 if (getRelatedCamSyncInfo()->mode == CAM_MODE_PRIMARY) {
@@ -5831,7 +5850,7 @@ int32_t QCamera2HardwareInterface::addPreviewChannel()
         return rc;
     }
 
-    if (mParameters.getRecordingHintValue() != true && !mParameters.isSecureMode()) {
+    if (mParameters.getDcrf() == true && !mParameters.isSecureMode()) {
         rc = addStreamToChannel(pChannel, CAM_STREAM_TYPE_ANALYSIS,
                 NULL, this);
         if (rc != NO_ERROR) {
@@ -8435,12 +8454,16 @@ int32_t QCamera2HardwareInterface::initJpegHandle() {
         //set max pic size
         max_size.w = m_max_pic_width;
         max_size.h = m_max_pic_height;
-        if (m_bRelCamCalibValid) {
-            mJpegClientHandle = jpeg_open(&mJpegHandle, &mJpegMpoHandle,
-                    max_size, &mRelCamCalibData);
+        if (getRelatedCamSyncInfo()->sync_control == CAM_SYNC_RELATED_SENSORS_ON) {
+            if (m_bRelCamCalibValid) {
+                mJpegClientHandle = jpeg_open(&mJpegHandle, &mJpegMpoHandle,
+                        max_size, &mRelCamCalibData);
+            } else {
+                mJpegClientHandle =  jpeg_open(&mJpegHandle, &mJpegMpoHandle,
+                        max_size, NULL);
+            }
         } else {
-            mJpegClientHandle = jpeg_open(&mJpegHandle, &mJpegMpoHandle,
-                    max_size, NULL);
+            mJpegClientHandle = jpeg_open(&mJpegHandle, NULL, max_size, NULL);
         }
         if (!mJpegClientHandle) {
             ALOGE("%s: Error !! jpeg_open failed!! ", __func__);
