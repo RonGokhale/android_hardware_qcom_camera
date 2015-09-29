@@ -875,11 +875,25 @@ typedef struct {
 } cam_capture_bracketing_t;
 
 typedef enum {
+    CAM_SETTINGS_TYPE_OFF,
+    CAM_SETTINGS_TYPE_ON,
+    CAM_SETTINGS_TYPE_AUTO
+} cam_manual_setting_mode;
+
+typedef struct {
+    cam_manual_setting_mode exp_mode;
+    int64_t exp_time;
+    cam_manual_setting_mode iso_mode;
+    int32_t iso_value;
+} cam_capture_manual_3A_t;
+
+typedef enum {
     CAM_CAPTURE_NORMAL,
     CAM_CAPTURE_FLASH,
     CAM_CAPTURE_BRACKETING,
     CAM_CAPTURE_LOW_LIGHT,
     CAM_CAPTURE_RESET,
+    CAM_CAPTURE_MANUAL_3A,
     CAM_CAPTURE_MAX
 } cam_capture_type;
 
@@ -892,6 +906,7 @@ typedef struct {
         cam_flash_mode_t flash_mode;
         cam_capture_bracketing_t hdr_mode;
         cam_low_light_mode_t low_light_mode;
+        cam_capture_manual_3A_t manual_3A_mode;
     };
 } cam_capture_settings_t;
 
@@ -1902,6 +1917,9 @@ typedef enum {
     CAM_INTF_PARM_REQUEST_FRAMES,
     /* dynamic feature detection */
     CAM_INTF_META_IMG_DYN_FEAT,
+    /*Parameter entry to communicate manual
+    capture type*/
+    CAM_INTF_PARM_MANUAL_CAPTURE_TYPE, /*200*/
     CAM_INTF_PARM_MAX
 } cam_intf_parm_type_t;
 
@@ -2121,7 +2139,8 @@ typedef struct {
 #define CAM_QCOM_FEATURE_SW2D           (1U<<27)
 #define CAM_OEM_FEATURE_1               (1U<<28)
 #define CAM_OEM_FEATURE_2               (1U<<29)
-#define CAM_QCOM_FEATURE_MAX            (1U<<30)
+#define CAM_QCOM_FEATURE_METADATA_PROCESSING (1U<<30)
+#define CAM_QCOM_FEATURE_MAX            (1U<<31)
 #define CAM_QCOM_FEATURE_PP_SUPERSET    (CAM_QCOM_FEATURE_DENOISE2D|CAM_QCOM_FEATURE_CROP|\
                                          CAM_QCOM_FEATURE_ROTATION|CAM_QCOM_FEATURE_SHARPNESS|\
                                          CAM_QCOM_FEATURE_SCALE|CAM_QCOM_FEATURE_CAC|\
@@ -2413,6 +2432,19 @@ typedef struct {
 typedef struct {
     cam_intf_meta_imglib_input_aec_t meta_imglib_input_aec;
 } cam_intf_meta_imglib_t;
+
+typedef struct {
+    uint8_t previewOnly;
+    uint64_t value;
+} cam_intf_parm_manual_3a_t;
+
+typedef enum {
+    CAM_MANUAL_CAPTURE_TYPE_OFF, /*Manual capture mode disabled*/
+    CAM_MANUAL_CAPTURE_TYPE_1,   /*Normal ZSL capture with limited 3A settings*/
+    CAM_MANUAL_CAPTURE_TYPE_2,   /*Low light capture mode */
+    CAM_MANUAL_CAPTURE_TYPE_3,   /*Offline RAW processing */
+    CAM_MANUAL_CAPTURE_TYPE_4    /*Offline RAW processing with multiple RAW*/
+} cam_manual_capture_type;
 
 /***********************************
 * ENUM definition for custom parameter type
