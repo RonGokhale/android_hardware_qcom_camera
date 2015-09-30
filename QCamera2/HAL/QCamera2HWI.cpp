@@ -1222,7 +1222,7 @@ QCamera2HardwareInterface::QCamera2HardwareInterface(uint32_t cameraId)
       mReprocJob(-1),
       mJpegJob(-1),
       mRawdataJob(-1),
-      mInitPProcJob(0),
+      mInitPProcJob(-1),
       mOutputCount(0),
       mInputCount(0),
       mAdvancedCaptureConfigured(false),
@@ -1656,7 +1656,7 @@ int QCamera2HardwareInterface::closeCamera()
     m_postprocessor.stop();
     deinitJpegHandle();
     m_postprocessor.deinit();
-    mInitPProcJob = 0; // reset job id, so pproc can be reinited later
+    mInitPProcJob = -1; // reset job id, so pproc can be reinited later
 
     m_thermalAdapter.deinit();
 
@@ -2813,9 +2813,9 @@ int QCamera2HardwareInterface::startPreview()
 
     // if job id is non-zero, that means the postproc init job is already
     // pending or complete
-    if (mInitPProcJob == 0) {
+    if (mInitPProcJob == -1) {
         mInitPProcJob = deferPPInit();
-        if (mInitPProcJob == 0) {
+        if (mInitPProcJob == -1) {
             ALOGE("%s: Unable to initialize postprocessor, mCameraHandle = %p",
                     __func__, mCameraHandle);
             rc = UNKNOWN_ERROR;
