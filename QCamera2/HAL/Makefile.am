@@ -14,7 +14,6 @@ libqcamera2_la_CXXFLAGS += -I ../util
 libqcamera2_la_CXXFLAGS += -I ../..
 
 libqcamera2_la_SOURCES  = QCamera2Factory.cpp
-libqcamera2_la_SOURCES += CameraParameters.cpp
 libqcamera2_la_SOURCES += QCamera2Hal.cpp
 libqcamera2_la_SOURCES += QCamera2HWI.cpp
 libqcamera2_la_SOURCES += QCameraMem.cpp
@@ -30,6 +29,6 @@ libqcamera2_la_SOURCES += QCameraThermalAdapter.cpp
 
 libqcamera2_la_LDFLAGS = -shared
 
-libqcamera2_la_LIBADD  = -ldl -lpthread -lglib-2.0 -lcutils
+libqcamera2_la_LIBADD  = -ldl -lpthread -lglib-2.0 -lcutils -lcamparams
 libqcamera2_la_LIBADD += ../stack/mm-camera-interface/libmmcamera_interface.la
 libqcamera2_la_LIBADD += ../stack/mm-jpeg-interface/libmmjpeg_interface.la

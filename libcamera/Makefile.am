@@ -20,11 +20,9 @@ libcamera_la_CXXFLAGS += -I ../mm-image-codec/qexif
 libcamera_la_SOURCES  = src/qcamera2.cpp
 libcamera_la_SOURCES += src/camera_memory.cpp
 libcamera_la_SOURCES += src/camera_parameters.cpp
-# TODO: copy this file to src
-libcamera_la_SOURCES += ../QCamera2/HAL/CameraParameters.cpp
 
 libcamera_la_LDFLAGS = -shared
-libcamera_la_LIBADD = -ldl -lrt
+libcamera_la_LIBADD = -ldl -lrt -lcamparams
 
 ## build camera-test ##
 
