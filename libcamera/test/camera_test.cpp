@@ -65,6 +65,8 @@ enum OutputFormatType{
 enum CamFunction {
     CAM_FUNC_HIRES = 0,
     CAM_FUNC_OPTIC_FLOW = 1,
+    CAM_FUNC_LEFT_SENSOR = 2,
+    CAM_FUNC_STEREO = 3,
 };
 
 struct TestConfig
@@ -76,6 +78,8 @@ struct TestConfig
     string gainValue;
     CamFunction func;
     OutputFormatType outputFormat;
+    ImageSize pSize; 
+    ImageSize vSize;
 };
 
 class CameraTest : ICameraListener
@@ -279,14 +283,17 @@ int CameraTest::printCapabilities()
     }
     return 0;
 }
-
+ImageSize UHDSize(3840,2160);
+ImageSize FHDSize(1920,1080);
+ImageSize HDSize(1280,720);
 ImageSize VGASize(640,480);
+ImageSize QVGASize(320,240);
+ImageSize stereoQVGASize(640,240);
+
 int CameraTest::setParameters()
 {
     /* temp: using hard-coded values to test the api
        need to add a user interface or script to get the values to test*/
-    int pSizeIdx = 3;
-    int vSizeIdx = 2;
     int focusModeIdx = 3;
     int wbModeIdx = 2;
     int isoModeIdx = 3;
@@ -294,12 +301,23 @@ int CameraTest::setParameters()
     int vFpsIdx = 3;
     int prevFmtIdx = 0;
 
-    pSize_ = caps_.pSizes[pSizeIdx];
-    vSize_ = caps_.pSizes[vSizeIdx];
+    pSize_ = config_.pSize;
+    vSize_ = config_.vSize;
 
     if ( config_.func == CAM_FUNC_OPTIC_FLOW ){
 	pSize_ = VGASize;
 	vSize_ = VGASize;
+		printf("Setting default preview and video size for optic flow : 640x480 \n");
+    } else if (config_.func == CAM_FUNC_LEFT_SENSOR)
+    {
+        pSize_ = QVGASize;
+        vSize_ = QVGASize;
+		printf("Setting default preview and video size for left sensor : 320x240 \n");
+    }else if (config_.func == CAM_FUNC_STEREO )
+    {
+        pSize_ = stereoQVGASize;
+        vSize_ = stereoQVGASize;
+		printf("Setting default preview and video size for stereo : 640x240 \n");
     }
 
     printf("setting preview size: %dx%d\n", pSize_.width, pSize_.height);
@@ -307,7 +325,7 @@ int CameraTest::setParameters()
     printf("setting video size: %dx%d\n", vSize_.width, vSize_.height);
     params_.setVideoSize(vSize_);
 
-    if (config_.func != CAM_FUNC_OPTIC_FLOW ) {
+    if (config_.func == CAM_FUNC_HIRES ) {
       printf("setting focus mode: %s\n",
              caps_.focusModes[focusModeIdx].c_str());
       params_.setFocusMode(caps_.focusModes[focusModeIdx]);
@@ -356,18 +374,25 @@ int CameraTest::run()
         return EXIT_FAILURE;
     }
 
-    int camId=0;
+    int camId=-1;
 
     /* find camera based on function */
     for (int i=0; i<n; i++) {
         CameraInfo info;
         getCameraInfo(i, info);
+        printf(" i = %d , info.func = %d \n",i, info.func);
         if (info.func == config_.func) {
             camId = i;
         }
     }
 
-    printf("testing camera id=%d\n", camId);
+    if (camId == -1 ) 
+    {
+        printf("Camera not found \n");
+        exit(1);
+    }
+
+    printf("Testing camera id=%d\n", camId);
 
     initialize(camId);
 
@@ -391,10 +416,11 @@ int CameraTest::run()
         params_.set("qc-exposure-manual", config_.exposureValue.c_str() );
         params_.set("qc-gain-manual", config_.gainValue.c_str() );
         printf("Setting exposure value =  %s , gain value = %s \n", config_.exposureValue.c_str(), config_.gainValue.c_str());
+		params_.commit();
     }
 
-    params_.commit();
 
+	/* Do not enable recording for RAW format */
     if( config_.outputFormat != RAW_FORMAT )
     {
     printf("start recording\n");
@@ -404,6 +430,7 @@ int CameraTest::run()
 
     sleep(config_.runTime);
 
+	/* Do not enable recording for RAW format */
     if( config_.outputFormat != RAW_FORMAT )
     {
     printf("stop recording\n");
@@ -433,6 +460,22 @@ const char usageStr[] =
     "  -f <type>       camera type\n"
     "                    - hires\n"
     "                    - optic\n"
+    "                    - left \n"
+    "                    - stereo \n"
+    "  -p <size>       Set resolution for preview frame\n"
+    "                    - 4k             ( imx sensor only ) \n"     
+    "                    - 1080p          ( imx sensor only ) \n"     
+    "                    - 720p           ( imx sensor only ) \n"     
+    "                    - VGA            ( Max resolution of optic flow )\n"     
+    "                    - QVGA           ( 320x240 : Max resolution of left sensor in stereo )\n"
+    "                    - stereoQVGA     ( 640x240 : currently supported resolution of Stereo )\n"
+    "  -v <size>       Set resolution for video frame\n"
+    "                    - 4k             ( imx sensor only ) \n"     
+    "                    - 1080p          ( imx sensor only ) \n"     
+    "                    - 720p           ( imx sensor only ) \n"     
+    "                    - VGA            ( Max resolution of optic flow )\n"     
+    "                    - QVGA           ( 320x240 : Max resolution of left sensor in stereo )\n"
+    "                    - stereoQVGA     ( 640x240 : currently supported resolution of Stereo )\n"
     "  -e <value>      set exposure control (only for ov7251)\n"
     "                     min - 0\n"
     "                     max - 65535\n"
@@ -467,8 +510,10 @@ static TestConfig parseCommandline(int argc, char* argv[])
     int exposureValueInt = 0;
     cfg.gainValue = DEFAULT_GAIN_VALUE_STR;  /* Default gain value */
     int gainValueInt = 0;
+    cfg.pSize = FHDSize;
+    cfg.vSize = HDSize;
     int c;
-    while ((c = getopt(argc, argv, "hdt:if:o:e:g:")) != -1) {
+    while ((c = getopt(argc, argv, "hdt:if:o:e:g:p:v:")) != -1) {
         switch (c) {
           case 't':
               cfg.runTime = atoi(optarg);
@@ -480,9 +525,49 @@ static TestConfig parseCommandline(int argc, char* argv[])
                       cfg.func = CAM_FUNC_HIRES;
                   } else if (str == "optic") {
                       cfg.func = CAM_FUNC_OPTIC_FLOW;
+                  } else if (str == "left") {
+                      cfg.func = CAM_FUNC_LEFT_SENSOR;
+                  } else if (str == "stereo") {
+                      cfg.func = CAM_FUNC_STEREO;
                   }
                   break;
           }
+		  case 'p':
+          {
+                  string str(optarg);
+                  if (str == "4k") {
+                      cfg.pSize = UHDSize;
+                  } else if (str == "1080p") {
+                      cfg.pSize = FHDSize;
+                  } else if (str == "720p") {
+                      cfg.pSize = HDSize;
+                  } else if (str == "VGA") {
+                      cfg.pSize = VGASize;
+                  }else if (str == "QVGA") {
+                      cfg.pSize = QVGASize;
+                  } else if (str == "stereoQVGA") {
+                      cfg.pSize = stereoQVGASize;
+                  }
+                  break;
+          }
+          case 'v':
+          {
+                  string str(optarg);
+                  if (str == "4k") {
+                      cfg.vSize = UHDSize;
+                  } else if (str == "1080p") {
+                      cfg.vSize = FHDSize;
+                  } else if (str == "720p") {
+                      cfg.vSize = HDSize;
+                  } else if (str == "VGA") {
+                      cfg.vSize = VGASize;
+                  }else if (str == "QVGA") {
+                      cfg.vSize = QVGASize;
+                  } else if (str == "stereoQVGA") {
+                      cfg.vSize = stereoQVGASize;
+                  }
+                  break;
+          }		
           case 'd':
               cfg.dumpFrames = true;
               break;
