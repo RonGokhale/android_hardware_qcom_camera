@@ -7251,6 +7251,7 @@ int32_t QCamera2HardwareInterface::preparePreview()
         if(!isRdiMode() && recordingHint) {
             //stop face detection,longshot,etc if turned ON in Camera mode
             int32_t arg; //dummy arg
+#ifndef VANILLA_HAL
             if (isLongshotEnabled()) {
                 sendCommand(CAMERA_CMD_LONGSHOT_OFF, arg, arg);
             }
@@ -7260,6 +7261,7 @@ int32_t QCamera2HardwareInterface::preparePreview()
             if (mParameters.isHistogramEnabled()) {
                 sendCommand(CAMERA_CMD_HISTOGRAM_OFF, arg, arg);
             }
+#endif
             rc = addChannel(QCAMERA_CH_TYPE_SNAPSHOT);
             if (rc != NO_ERROR) {
                return rc;
@@ -7450,6 +7452,7 @@ int32_t QCamera2HardwareInterface::processFaceDetectionResult(cam_faces_data_t *
         faceResultSize = sizeof(camera_frame_metadata_t);
         faceResultSize += sizeof(camera_face_t) * MAX_ROI;
     }else if(fd_type == QCAMERA_FD_SNAPSHOT){
+#ifndef VANILLA_HAL
         // fd for snapshot frames
         //check if face is detected in this frame
         if(detect_data->num_faces_detected > 0){
@@ -7459,6 +7462,7 @@ int32_t QCamera2HardwareInterface::processFaceDetectionResult(cam_faces_data_t *
             //no face
             data_len = 0;
         }
+#endif
         faceResultSize = 1 *sizeof(int)    //meta data type
                        + 1 *sizeof(int)    // meta data len
                        + data_len;         //data
