@@ -678,6 +678,14 @@ void QCamera2HardwareInterface::nodisplay_preview_stream_raw_cb_routine(
 		return;
 	}
 
+#ifndef _ANDROID_
+	nsecs_t timeStamp;
+	if(pme->mParameters.isAVTimerEnabled() == true) {
+		timeStamp = (nsecs_t)((frame->ts.tv_sec * 1000000LL) + frame->ts.tv_nsec) * 1000;
+	} else {
+		timeStamp = nsecs_t(frame->ts.tv_sec) * 1000000000LL + frame->ts.tv_nsec;
+	}
+#endif
 	QCameraMemory *previewMemObj = (QCameraMemory *)frame->mem_info;
 	camera_memory_t *preview_mem = NULL;
 	if (previewMemObj != NULL) {
@@ -690,12 +698,19 @@ void QCamera2HardwareInterface::nodisplay_preview_stream_raw_cb_routine(
 
 			qcamera_callback_argm_t cbArg;
 			memset(&cbArg, 0, sizeof(qcamera_callback_argm_t));
+#ifndef _ANDROID_
+			cbArg.cb_type = QCAMERA_DATA_TIMESTAMP_CALLBACK;
+#else
 			cbArg.cb_type = QCAMERA_DATA_CALLBACK;
+#endif
 			cbArg.msg_type = CAMERA_MSG_PREVIEW_FRAME;
 			cbArg.data = preview_mem;
 			int user_data = frame->buf_idx;
 			cbArg.user_data = ( void * ) user_data;
 			cbArg.cookie = stream;
+#ifndef _ANDROID_
+			cbArg.timestamp = timeStamp;
+#endif
 			cbArg.release_cb = returnStreamBuffer;
 			int32_t rc = pme->m_cbNotifier.notifyCallback(cbArg);
 			if (rc != NO_ERROR) {
