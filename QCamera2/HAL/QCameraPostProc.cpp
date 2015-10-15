@@ -560,6 +560,7 @@ int32_t QCameraPostProcessor::getJpegEncodingConfig(mm_jpeg_encode_params_t& enc
     if (m_bThumbnailNeeded == TRUE) {
         uint32_t jpeg_rotation = m_parent->mParameters.getJpegRotation();
         m_parent->getThumbnailSize(encode_parm.thumb_dim.dst_dim);
+        m_parent->getSecondThumbnailSize(encode_parm.second_thumb_dim.dst_dim);
 
         if (thumb_stream == NULL) {
             thumb_stream = main_stream;
@@ -571,6 +572,9 @@ int32_t QCameraPostProcessor::getJpegEncodingConfig(mm_jpeg_encode_params_t& enc
             cam_dimension_t tmp_dim = encode_parm.thumb_dim.dst_dim;
             encode_parm.thumb_dim.dst_dim.width = tmp_dim.height;
             encode_parm.thumb_dim.dst_dim.height = tmp_dim.width;
+            tmp_dim = encode_parm.second_thumb_dim.dst_dim;
+            encode_parm.second_thumb_dim.dst_dim.width = tmp_dim.height;
+            encode_parm.second_thumb_dim.dst_dim.height = tmp_dim.width;
         }
         pStreamMem = thumb_stream->getStreamBufs();
         if (pStreamMem == NULL) {
@@ -606,11 +610,13 @@ int32_t QCameraPostProcessor::getJpegEncodingConfig(mm_jpeg_encode_params_t& enc
         memset(&src_dim, 0, sizeof(cam_dimension_t));
         thumb_stream->getFrameDimension(src_dim);
         encode_parm.thumb_dim.src_dim = src_dim;
+        encode_parm.second_thumb_dim.src_dim = src_dim;
 
         if (!m_parent->needRotationReprocess()) {
             encode_parm.thumb_rotation = m_parent->mParameters.getJpegRotation();
         }
         encode_parm.thumb_dim.crop = crop;
+        encode_parm.second_thumb_dim.crop = crop;
     }
 
     encode_parm.num_dst_bufs = 1;
@@ -2168,6 +2174,7 @@ int32_t QCameraPostProcessor::encodeData(qcamera_jpeg_data_t *jpeg_job_data,
     // thumbnail dim
     if (m_bThumbnailNeeded == TRUE) {
         m_parent->getThumbnailSize(jpg_job.encode_job.thumb_dim.dst_dim);
+        m_parent->getSecondThumbnailSize(jpg_job.encode_job.second_thumb_dim.dst_dim);
 
         if (thumb_stream == NULL) {
             // need jpeg thumbnail, but no postview/preview stream exists
@@ -2181,11 +2188,15 @@ int32_t QCameraPostProcessor::encodeData(qcamera_jpeg_data_t *jpeg_job_data,
             cam_dimension_t tmp_dim = jpg_job.encode_job.thumb_dim.dst_dim;
             jpg_job.encode_job.thumb_dim.dst_dim.width = tmp_dim.height;
             jpg_job.encode_job.thumb_dim.dst_dim.height = tmp_dim.width;
+            tmp_dim = jpg_job.encode_job.second_thumb_dim.dst_dim;
+            jpg_job.encode_job.second_thumb_dim.dst_dim.width = tmp_dim.height;
+            jpg_job.encode_job.second_thumb_dim.dst_dim.height = tmp_dim.width;
         }
 
         memset(&src_dim, 0, sizeof(cam_dimension_t));
         thumb_stream->getFrameDimension(src_dim);
         jpg_job.encode_job.thumb_dim.src_dim = src_dim;
+        jpg_job.encode_job.second_thumb_dim.src_dim = src_dim;
 
         // crop is the same if frame is the same
         if (thumb_frame != main_frame) {
@@ -2206,6 +2217,7 @@ int32_t QCameraPostProcessor::encodeData(qcamera_jpeg_data_t *jpeg_job_data,
 
 
         jpg_job.encode_job.thumb_dim.crop = crop;
+        jpg_job.encode_job.second_thumb_dim.crop = crop;
         if (thumb_frame != NULL) {
             jpg_job.encode_job.thumb_index = thumb_frame->buf_idx;
         }

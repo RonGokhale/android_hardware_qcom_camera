@@ -372,7 +372,7 @@ static int encode_init(jpeg_test_input_t *p_input, mm_jpeg_intf_test_t *p_obj)
   p_job_params->thumb_dim.crop.width = 0;
   p_job_params->thumb_dim.crop.height = 0;
 
-  p_params->thumb_dim  = p_job_params->thumb_dim;
+  p_params->thumb_dim = p_job_params->thumb_dim;
 
   p_job_params->exif_info.numOfEntries = 0;
   p_params->burst_mode = burst_mode;

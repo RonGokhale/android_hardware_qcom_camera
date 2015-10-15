@@ -478,6 +478,8 @@ public:
     static const char KEY_QC_SUPPORTED_RDI_MODES[];
     static const char KEY_QC_SECURE_MODE[];
     static const char KEY_QC_SUPPORTED_SECURE_MODES[];
+    static const char KEY_QC_JPEG_SECOND_THUMBNAIL_WIDTH[];
+    static const char KEY_QC_JPEG_SECOND_THUMBNAIL_HEIGHT[];
 
     // Values for SKIN TONE ENHANCEMENT
     static const char SKIN_TONE_ENHANCEMENT_ENABLE[] ;
@@ -617,6 +619,7 @@ public:
     int32_t getStreamDimension(cam_stream_type_t streamType,
                                 cam_dimension_t &dim);
     void getThumbnailSize(int *width, int *height) const;
+    void getSecondThumbnailSize(int *width, int *height) const;
 
     uint8_t getZSLBurstInterval();
     uint8_t getZSLQueueDepth();
@@ -824,6 +827,7 @@ private:
     int32_t setPictureFormat(const QCameraParameters& );
     int32_t setOrientation(const QCameraParameters& );
     int32_t setJpegThumbnailSize(const QCameraParameters& );
+    int32_t setJpegSecondThumbnailSize(const QCameraParameters& );
     int32_t setJpegQuality(const QCameraParameters& );
     int32_t setPreviewFpsRange(const QCameraParameters& );
     int32_t setPreviewFrameRate(const QCameraParameters& );

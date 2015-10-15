@@ -394,6 +394,7 @@ private:
     void releaseSuperBuf(mm_camera_super_buf_t *super_buf);
     void playShutter();
     void getThumbnailSize(cam_dimension_t &dim);
+    void getSecondThumbnailSize(cam_dimension_t &dim);
     uint32_t getJpegQuality();
     QCameraExif *getExifData();
     cam_sensor_t getSensorType();
