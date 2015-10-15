@@ -33,7 +33,6 @@ camera_test_CXXFLAGS += -I src
 camera_test_CXXFLAGS += -I test
 camera_test_CXXFLAGS += -I ../QCamera2/HAL
 
-#camera_test_SOURCES = test/libcamera_test.cpp
 camera_test_SOURCES = test/camera_test.cpp
 
-camera_test_LDADD = libcamera.la
+camera_test_LDADD = libcamera.la -lturbojpeg -lpthread

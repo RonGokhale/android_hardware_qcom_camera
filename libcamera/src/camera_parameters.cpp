@@ -263,6 +263,77 @@ ImageSize CameraParams::getVideoSize() const
     return size;
 }
 
+// Parse string like "640x480" or "10000,20000"
+static int parsePair(const char *str, int *first, int *second, char delim,
+                      char **endptr = NULL)
+{
+    // Find the first integer.
+    char *end;
+    int w = (int)strtol(str, &end, 10);
+    // If a delimeter does not immediately follow, give up.
+    if (*end != delim) {
+        CAM_ERR("Cannot find delimeter (%c) in str=%s", delim, str);
+        return -1;
+    }
+    // Find the second integer, immediately after the delimeter.
+    int h = (int)strtol(end+1, &end, 10);
+    *first = w;
+    *second = h;
+    if (endptr) {
+        *endptr = end;
+    }
+    return 0;
+}
+
+static void parseSizeList(const char *sizesStr, vector<ImageSize> &sizes)
+{
+    if (!sizesStr) {
+        CAM_ERR("failed");
+        return;
+    }
+
+    char *pStart = (char *)sizesStr;
+
+    while (true) {
+        int width, height;
+        int success = parsePair(pStart, &width, &height, 'x',
+                                &pStart);
+        if (success == -1 || (*pStart != ',' && *pStart != '\0')) {
+            CAM_ERR("invalid string %s", sizesStr);
+            return;
+        }
+        sizes.push_back(ImageSize(width, height));
+
+        if (*pStart == '\0') {
+            return;
+        }
+        pStart++;
+    }
+}
+
+vector<ImageSize> CameraParams::getSupportedPictureSizes() const
+{
+    vector<ImageSize> imgSizes;
+    /* To support live-snapshot in the API, we need to advertize picture sizes
+       which are available for live-snapshot */
+    const char *sizeStr =
+        params_cast(priv_)->get(KEY_QC_SUPPORTED_LIVESNAPSHOT_SIZES);
+    parseSizeList(sizeStr, imgSizes);
+    return imgSizes;
+}
+
+void CameraParams::setPictureSize(const ImageSize& size)
+{
+    params_cast(priv_)->setPictureSize(size.width, size.height);
+}
+
+ImageSize CameraParams::getPictureSize() const
+{
+    ImageSize size;
+    params_cast(priv_)->getPictureSize(&size.width, &size.height);
+    return size;
+}
+
 int CameraParams::commit()
 {
     /* set the current state of paramters in camera device */

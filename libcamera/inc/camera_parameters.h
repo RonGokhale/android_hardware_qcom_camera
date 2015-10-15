@@ -184,6 +184,28 @@ public:
     void setVideoSize(const ImageSize& size);
 
     /**
+     * get picture sizes supported by the camera
+     *
+     * @return std::vector<ImageSize> : list of picture sizes
+     */
+    std::vector<ImageSize> getSupportedPictureSizes() const;
+
+    /**
+     * get current picture size
+     *
+     * @return ImageSize
+     */
+    ImageSize getPictureSize() const;
+
+    /**
+     * set picture size
+     *
+     * @param size
+     */
+    void setPictureSize(const ImageSize& size);
+
+
+    /**
      * generic get function to get string representation of value of
      * a parameter using a key.
      *
