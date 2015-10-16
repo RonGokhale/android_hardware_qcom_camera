@@ -32,9 +32,6 @@
 #include <cstring>
 
 #include <unistd.h>
-#include <pthread.h>
-
-#include "turbojpeg.h"
 
 #include "camera.h"
 #include "camera_log.h"
@@ -47,15 +44,12 @@
 #define MIN_GAIN_VALUE 0
 #define MAX_GAIN_VALUE 255
 
-const int SNAPSHOT_WIDTH_ALIGN = 64;
-const int SNAPSHOT_HEIGHT_ALIGN = 64;
-
 using namespace std;
 using namespace camera;
 
 struct CameraCaps
 {
-    vector<ImageSize> pSizes, vSizes, picSizes;
+    vector<ImageSize> pSizes, vSizes;
     vector<string> focusModes, wbModes, isoModes;
     Range brightness, sharpness, contrast;
     vector<Range> previewFpsRanges;
@@ -99,12 +93,11 @@ public:
     virtual void onError();
     virtual void onPreviewFrame(ICameraFrame* frame);
     virtual void onVideoFrame(ICameraFrame* frame);
-    virtual void onPictureFrame(ICameraFrame* frame);
 
 private:
     ICameraDevice* camera_;
     CameraParams params_;
-    ImageSize pSize_, vSize_, picSize_;
+    ImageSize pSize_, vSize_;
     CameraCaps caps_;
     TestConfig config_;
 
@@ -113,14 +106,8 @@ private:
 
     uint64_t vTimeStampPrev_, pTimeStampPrev_;
 
-    pthread_cond_t cvPicDone;
-    pthread_mutex_t mutexPicDone;
-    bool isPicDone;
-
     int printCapabilities();
     int setParameters();
-    int compressJpegAndSave(ICameraFrame *frame, char *name);
-    int takePicture();
 };
 
 CameraTest::CameraTest() :
@@ -132,8 +119,6 @@ CameraTest::CameraTest() :
     pTimeStampPrev_(0),
     camera_(NULL)
 {
-    pthread_cond_init(&cvPicDone, NULL);
-    pthread_mutex_init(&mutexPicDone, NULL);
 }
 
 CameraTest::CameraTest(TestConfig config) :
@@ -145,8 +130,6 @@ CameraTest::CameraTest(TestConfig config) :
     pTimeStampPrev_(0)
 {
     config_ = config;
-    pthread_cond_init(&cvPicDone, NULL);
-    pthread_mutex_init(&mutexPicDone, NULL);
 }
 
 int CameraTest::initialize(int camId)
@@ -169,7 +152,6 @@ int CameraTest::initialize(int camId)
     /* query capabilities */
     caps_.pSizes = params_.getSupportedPreviewSizes();
     caps_.vSizes = params_.getSupportedVideoSizes();
-    caps_.picSizes = params_.getSupportedPictureSizes();
     caps_.focusModes = params_.getSupportedFocusModes();
     caps_.wbModes = params_.getSupportedWhiteBalance();
     caps_.isoModes = params_.getSupportedISO();
@@ -198,109 +180,6 @@ static int dumpToFile(uint8_t* data, uint32_t size, char* name, uint64_t timesta
     fclose(fp);
 }
 
-static inline uint32_t align_size(uint32_t size, uint32_t align)
-{
-    return ((size + align - 1) & ~(align-1));
-}
-
-int CameraTest::takePicture()
-{
-    int rc;
-    pthread_mutex_lock(&mutexPicDone);
-    isPicDone = false;
-    printf("take picture\n");
-    rc = camera_->takePicture();
-    if (rc) {
-        printf("takePicture failed\n");
-        pthread_mutex_unlock(&mutexPicDone);
-        return rc;
-    }
-    /* wait for picture done */
-    while (isPicDone == false) {
-        pthread_cond_wait(&cvPicDone, &mutexPicDone);
-    }
-    pthread_mutex_unlock(&mutexPicDone);
-    //camera_->startPreview();
-    return 0;
-}
-
-int CameraTest::compressJpegAndSave(ICameraFrame *frame, char* name)
-{
-    uint32_t jpegSize = 0;
-    int jpegQuality = 90;
-    uint8_t *dest = NULL;
-    int rc = 0;
-
-    tjhandle jpegCompressor = tjInitCompress();
-    if (jpegCompressor == NULL) {
-        printf("Could not open TurboJpeg compressor\n");
-        return -1;
-    }
-
-    uint32_t w = picSize_.width;
-    uint32_t h = picSize_.height;
-    uint32_t stride = align_size(w, SNAPSHOT_WIDTH_ALIGN);
-    uint32_t scanlines = align_size(h, SNAPSHOT_HEIGHT_ALIGN);
-
-    uint32_t cbSize =  tjPlaneSizeYUV(1, w, 0, h, TJSAMP_420);
-    uint32_t crSize =  tjPlaneSizeYUV(2, w, 0, h, TJSAMP_420);
-    printf("st=%d, sc=%d\n", stride, scanlines);
-
-    uint8_t *yPlane, *cbPlane, *crPlane;
-    uint8_t* planes[3];
-    int strides[3];
-
-    yPlane = frame->data;
-    cbPlane = (uint8_t*) malloc(cbSize);
-    crPlane = (uint8_t*) malloc(crSize);
-
-    uint8_t *pCbcrSrc;
-    uint8_t *pCbDest = cbPlane;
-    uint8_t *pCrDest = crPlane;
-
-    uint32_t line=0;
-
-    /* copy interleaved CbCr data to separate Cb and Cr planes */
-    for (line=0; line < h/2; line++) {
-        pCbcrSrc = frame->data + (stride * scanlines) + line*stride;
-        uint32_t count = w/2;
-        while (count != 0) {
-            *pCrDest = *(pCbcrSrc++);
-            *pCbDest = *(pCbcrSrc++);
-            pCrDest++;
-            pCbDest++;
-            count--;
-        }
-    }
-    planes[0] = yPlane;
-    planes[1] = cbPlane;
-    planes[2] = crPlane;
-    strides[0] = stride;
-    strides[1] = 0;
-    strides[2] = 0;
-
-    tjCompressFromYUVPlanes(jpegCompressor, planes, w, strides, h, TJSAMP_420,
-                            &dest, (long unsigned int *)&jpegSize, jpegQuality,
-                            TJFLAG_FASTDCT);
-
-    /* save the file to disk */
-    printf("saving JPEG image: %s\n", name);
-    FILE *fp = fopen(name, "w");
-    if (fp == NULL) {
-        printf("fopen() failed\n");
-        rc = -1;
-        goto exit1;
-    }
-    fwrite(dest, jpegSize, 1, fp);
-    fclose(fp);
-
-exit1:
-    tjDestroy(jpegCompressor);
-    free(cbPlane);
-    free(crPlane);
-    return 0;
-}
-
 void CameraTest::onError()
 {
     printf("camera error!, aborting\n");
@@ -324,30 +203,13 @@ void CameraTest::onPreviewFrame(ICameraFrame* frame)
         if (config_.dumpFrames == true) {
             dumpToFile(frame->data, frame->size, name, frame->timeStamp);
         }
-        printf("Preview FPS = %.2f\n", pFpsAvg_);
+        //printf("Preview FPS = %.2f\n", pFpsAvg_);
     }
 
     uint64_t diff = frame->timeStamp - pTimeStampPrev_;
     pFpsAvg_ = ((pFpsAvg_ * pFrameCount_) + (1e9 / diff)) / (pFrameCount_ + 1);
     pFrameCount_++;
     pTimeStampPrev_  = frame->timeStamp;
-}
-
-void CameraTest::onPictureFrame(ICameraFrame* frame)
-{
-    char yuvName[128], jpgName[128];
-    snprintf(yuvName, 128, "S_%dx%d_%04d_%llu.yuv",
-                 picSize_.width, picSize_.height, 0,frame->timeStamp);
-    dumpToFile(frame->data, frame->size, yuvName, frame->timeStamp);
-
-    snprintf(jpgName, 128, "Snapshot_%04d.jpg", 0);
-    compressJpegAndSave(frame, jpgName);
-
-    /* notify the waiting thread about picture done */
-    pthread_mutex_lock(&mutexPicDone);
-    isPicDone = true;
-    pthread_cond_signal(&cvPicDone);
-    pthread_mutex_unlock(&mutexPicDone);
 }
 
 void CameraTest::onVideoFrame(ICameraFrame* frame)
@@ -359,7 +221,7 @@ void CameraTest::onVideoFrame(ICameraFrame* frame)
         if (config_.dumpFrames == true) {
             dumpToFile(frame->data, frame->size, name, frame->timeStamp);
         }
-        printf("Video FPS = %.2f\n", vFpsAvg_);
+        //printf("Video FPS = %.2f\n", vFpsAvg_);
     }
 
     uint64_t diff = frame->timeStamp - vTimeStampPrev_;
@@ -379,10 +241,6 @@ int CameraTest::printCapabilities()
     printf("available video sizes:\n");
     for (int i = 0; i < caps_.vSizes.size(); i++) {
         printf("%d: %d x %d\n", i, caps_.vSizes[i].width, caps_.vSizes[i].height);
-    }
-    printf("available picture sizes:\n");
-    for (int i = 0; i < caps_.picSizes.size(); i++) {
-        printf("%d: %d x %d\n", i, caps_.picSizes[i].width, caps_.picSizes[i].height);
     }
     printf("available preview formats:\n");
     for (int i = 0; i < caps_.previewFormats.size(); i++) {
@@ -429,17 +287,15 @@ int CameraTest::setParameters()
        need to add a user interface or script to get the values to test*/
     int pSizeIdx = 3;
     int vSizeIdx = 2;
-    int picSizeIdx = 0;
     int focusModeIdx = 3;
     int wbModeIdx = 2;
-    int isoModeIdx = 0;
+    int isoModeIdx = 3;
     int pFpsIdx = 3;
     int vFpsIdx = 3;
     int prevFmtIdx = 0;
 
     pSize_ = caps_.pSizes[pSizeIdx];
-    vSize_ = caps_.vSizes[vSizeIdx];
-    picSize_ = caps_.picSizes[picSizeIdx];
+    vSize_ = caps_.pSizes[vSizeIdx];
 
     if ( config_.func == CAM_FUNC_OPTIC_FLOW ){
 	pSize_ = VGASize;
@@ -450,10 +306,6 @@ int CameraTest::setParameters()
     params_.setPreviewSize(pSize_);
     printf("setting video size: %dx%d\n", vSize_.width, vSize_.height);
     params_.setVideoSize(vSize_);
-    printf("setting picture size: %dx%d\n", picSize_.width, picSize_.height);
-    //ImageSize tempSize(4208,3120);
-    //picSize_ = tempSize;
-    params_.setPictureSize(picSize_);
 
     if (config_.func != CAM_FUNC_OPTIC_FLOW ) {
       printf("setting focus mode: %s\n",
@@ -524,11 +376,7 @@ int CameraTest::run()
         return rc;
     }
 
-    rc = setParameters();
-    if (rc) {
-        printf("setParameters failed\n");
-        goto del_camera;
-    }
+    setParameters();
 
     /* initialize perf counters */
     vFrameCount_ = 0;
@@ -536,31 +384,30 @@ int CameraTest::run()
     vFpsAvg_ = 0.0f;
     pFpsAvg_ = 0.0f;
 
+    printf("start preview\n");
+    camera_->startPreview();
     if ( config_.func == CAM_FUNC_OPTIC_FLOW )
     {
         params_.set("qc-exposure-manual", config_.exposureValue.c_str() );
         params_.set("qc-gain-manual", config_.gainValue.c_str() );
         printf("Setting exposure value =  %s , gain value = %s \n", config_.exposureValue.c_str(), config_.gainValue.c_str());
-        params_.commit();
     }
 
-    printf("start preview\n");
-    camera_->startPreview();
+    params_.commit();
 
-    if( config_.outputFormat != RAW_FORMAT ) {
-        printf("start recording\n");
-        camera_->startRecording();
+    if( config_.outputFormat != RAW_FORMAT )
+    {
+    printf("start recording\n");
+    camera_->startRecording();
     }
-    sleep(3);
-    printf("taking picture\n");
-    takePicture();
-
     printf("waiting for %d seconds ...\n", config_.runTime);
+
     sleep(config_.runTime);
 
-    if( config_.outputFormat != RAW_FORMAT ) {
-        printf("stop recording\n");
-        camera_->stopRecording();
+    if( config_.outputFormat != RAW_FORMAT )
+    {
+    printf("stop recording\n");
+    camera_->stopRecording();
     }
     printf("stop preview\n");
     camera_->stopPreview();
@@ -568,7 +415,6 @@ int CameraTest::run()
     printf("Average preview FPS = %.2f\n", pFpsAvg_);
     printf("Average video FPS = %.2f\n", vFpsAvg_);
 
-del_camera:
     /* release camera device */
     ICameraDevice::deleteInstance(&camera_);
     return rc;
@@ -644,7 +490,7 @@ static TestConfig parseCommandline(int argc, char* argv[])
               cfg.infoMode = true;
               break;
         case  'e':
-              exposureValueInt =  atoi(optarg);
+              exposureValueInt =  atoi(optarg);              
               if ( exposureValueInt < MIN_EXPOSURE_VALUE || exposureValueInt > MAX_EXPOSURE_VALUE )
               {
                   printf("Invalid exposure value. Using default\n");
@@ -652,9 +498,9 @@ static TestConfig parseCommandline(int argc, char* argv[])
               }else{
                   cfg.exposureValue = optarg;
               }
-			  break;
+			  break;	
 		 case  'g':
-              gainValueInt =  atoi(optarg);
+              gainValueInt =  atoi(optarg);              
               if ( gainValueInt < MIN_GAIN_VALUE || gainValueInt > MAX_GAIN_VALUE)
               {
                   printf("Invalid exposure value. Using default\n");

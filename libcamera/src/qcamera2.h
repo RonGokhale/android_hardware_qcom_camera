@@ -102,8 +102,6 @@ public:
     virtual int getParameters(uint8_t* buf, uint32_t bufSize,
                               int* bufSizeRequired);
 
-    virtual int takePicture();
-
     virtual int startPreview();
     virtual void stopPreview();
 
@@ -113,6 +111,7 @@ public:
     virtual int startAutoFocus() { return dev_->ops->auto_focus(dev_); }
     virtual void stopAutoFocus() { dev_->ops->cancel_auto_focus(dev_); }
 
+    virtual int takePicture() { return dev_->ops->take_picture(dev_); }
     virtual void cancelPicture() { dev_->ops->cancel_picture(dev_); }
 };
 

@@ -45,8 +45,6 @@
 #define ASPECT_TOLERANCE 0.001
 #define FLIP_V_H (FLIP_H | FLIP_V)
 
-#define DEFAULT_ZSL_MODE_ON 1
-
 namespace qcamera {
 // Parameter keys to communicate between camera application and driver.
 const char QCameraParameters::KEY_QC_SUPPORTED_HFR_SIZES[] = "hfr-size-values";
@@ -3925,12 +3923,8 @@ int32_t QCameraParameters::initDefaultParameters()
                 m_pCapability->picture_sizes_tbl, m_pCapability->picture_sizes_tbl_cnt);
         set(KEY_SUPPORTED_PICTURE_SIZES, pictureSizeValues.c_str());
         ALOGD("%s: supported pic sizes: %s", __func__, pictureSizeValues.c_str());
-
         // Set default picture size to the smallest resolution
         CameraParameters::setPictureSize(
-           m_pCapability->picture_sizes_tbl[m_pCapability->picture_sizes_tbl_cnt-1].width,
-           m_pCapability->picture_sizes_tbl[m_pCapability->picture_sizes_tbl_cnt-1].height);
-        ALOGD("%s: default pic size: %dx%d", __func__,
            m_pCapability->picture_sizes_tbl[m_pCapability->picture_sizes_tbl_cnt-1].width,
            m_pCapability->picture_sizes_tbl[m_pCapability->picture_sizes_tbl_cnt-1].height);
     } else {
@@ -4006,8 +4000,7 @@ int32_t QCameraParameters::initDefaultParameters()
 
     set(KEY_SUPPORTED_PICTURE_FORMATS, pictureTypeValues.c_str());
     // Set default picture Format
-    //CameraParameters::setPictureFormat(PIXEL_FORMAT_JPEG);
-    CameraParameters::setPictureFormat(PIXEL_FORMAT_YUV420SP);
+    CameraParameters::setPictureFormat(PIXEL_FORMAT_JPEG);
     // Set raw image size
     char raw_size_str[32];
     snprintf(raw_size_str, sizeof(raw_size_str), "%dx%d",
@@ -4379,7 +4372,6 @@ int32_t QCameraParameters::initDefaultParameters()
     //Set ZSL
     set(KEY_QC_SUPPORTED_ZSL_MODES, onOffValues);
 #ifdef DEFAULT_ZSL_MODE_ON
-    ALOGD("%s:%d zsl is on by default", __func__, __LINE__);
     set(KEY_QC_ZSL, VALUE_ON);
     m_bZslMode = true;
 #else

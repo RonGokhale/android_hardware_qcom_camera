@@ -218,10 +218,6 @@ void QCamera2Frame::dispatchFrame(ICameraListener* listener,
           frame->type = CAMERA_FRAME_VIDEO;
           listener->onVideoFrame(static_cast<ICameraFrame*>(frame));
           break;
-      case CAMERA_MSG_COMPRESSED_IMAGE:
-          frame->type = CAMERA_FRAME_PICTURE;
-          listener->onPictureFrame(static_cast<ICameraFrame*>(frame));
-          break;
       default:
           CAM_ERR("unsupported msg_type %d", msg_type);
           // TODO: add support for other messages using metadata callback
@@ -403,17 +399,6 @@ void QCamera2::subscribe(uint32_t eventMask)
 void QCamera2::unsubscribe(uint32_t eventMask)
 {
     dev_->ops->disable_msg_type(dev_, toDeviceMsgType(eventMask));
-}
-
-int QCamera2::takePicture()
-{
-    int rc = 0;
-    dev_->ops->enable_msg_type(dev_, CAMERA_MSG_COMPRESSED_IMAGE);
-    rc = dev_->ops->take_picture(dev_);
-
-    isPreviewRunning_ = false;
-
-    return rc;
 }
 
 int QCamera2::startPreview()
