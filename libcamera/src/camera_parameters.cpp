@@ -263,6 +263,34 @@ ImageSize CameraParams::getVideoSize() const
     return size;
 }
 
+vector<ImageSize> CameraParams::getSupportedPictureSizes() const
+{
+    vector<Size> sizes;
+    vector<ImageSize> imgSizes;
+    const char *sizeStr =
+        params_cast(priv_)->get(KEY_QC_SUPPORTED_LIVESNAPSHOT_SIZES);
+    parseSizesList(sizeStr, sizes);
+    imgSizes.resize(sizes.size());
+
+    for(vector<Size>::size_type i=0; i<sizes.size(); i++) {
+        imgSizes[i].width = sizes[i].width;
+        imgSizes[i].height = sizes[i].height;
+    }
+    return imgSizes;
+}
+
+void CameraParams::setPictureSize(const ImageSize& size)
+{
+    params_cast(priv_)->setPictureSize(size.width, size.height);
+}
+
+ImageSize CameraParams::getPictureSize() const
+{
+    ImageSize size;
+    params_cast(priv_)->getPictureSize(&size.width, &size.height);
+    return size;
+}
+
 int CameraParams::commit()
 {
     /* set the current state of paramters in camera device */

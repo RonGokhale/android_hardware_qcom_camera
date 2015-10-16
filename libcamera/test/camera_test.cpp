@@ -32,6 +32,11 @@
 #include <cstring>
 
 #include <unistd.h>
+#include <pthread.h>
+#include <sys/time.h>
+#include <errno.h>
+
+#include "turbojpeg.h"
 
 #include "camera.h"
 #include "camera_log.h"
@@ -44,12 +49,20 @@
 #define MIN_GAIN_VALUE 0
 #define MAX_GAIN_VALUE 255
 
+#define MS_PER_SEC 1000
+#define NS_PER_MS 1000000
+#define NS_PER_US 1000
+
+const int SNAPSHOT_WIDTH_ALIGN = 64;
+const int SNAPSHOT_HEIGHT_ALIGN = 64;
+const int TAKEPICTURE_TIMEOUT_MS = 2000;
+
 using namespace std;
 using namespace camera;
 
 struct CameraCaps
 {
-    vector<ImageSize> pSizes, vSizes;
+    vector<ImageSize> pSizes, vSizes, picSizes;
     vector<string> focusModes, wbModes, isoModes;
     Range brightness, sharpness, contrast;
     vector<Range> previewFpsRanges;
@@ -73,12 +86,13 @@ struct TestConfig
 {
     bool dumpFrames;
     bool infoMode;
+    bool testSnapshot;
     int runTime;
     string exposureValue;  /* 0 -3000 Supported. -1 Indicates default setting of the setting  */
     string gainValue;
     CamFunction func;
     OutputFormatType outputFormat;
-    ImageSize pSize; 
+    ImageSize pSize;
     ImageSize vSize;
 };
 
@@ -97,11 +111,12 @@ public:
     virtual void onError();
     virtual void onPreviewFrame(ICameraFrame* frame);
     virtual void onVideoFrame(ICameraFrame* frame);
+    virtual void onPictureFrame(ICameraFrame* frame);
 
 private:
     ICameraDevice* camera_;
     CameraParams params_;
-    ImageSize pSize_, vSize_;
+    ImageSize pSize_, vSize_, picSize_;
     CameraCaps caps_;
     TestConfig config_;
 
@@ -110,8 +125,14 @@ private:
 
     uint64_t vTimeStampPrev_, pTimeStampPrev_;
 
+    pthread_cond_t cvPicDone;
+    pthread_mutex_t mutexPicDone;
+    bool isPicDone;
+
     int printCapabilities();
     int setParameters();
+    int compressJpegAndSave(ICameraFrame *frame, char *name);
+    int takePicture();
 };
 
 CameraTest::CameraTest() :
@@ -123,6 +144,8 @@ CameraTest::CameraTest() :
     pTimeStampPrev_(0),
     camera_(NULL)
 {
+    pthread_cond_init(&cvPicDone, NULL);
+    pthread_mutex_init(&mutexPicDone, NULL);
 }
 
 CameraTest::CameraTest(TestConfig config) :
@@ -134,6 +157,8 @@ CameraTest::CameraTest(TestConfig config) :
     pTimeStampPrev_(0)
 {
     config_ = config;
+    pthread_cond_init(&cvPicDone, NULL);
+    pthread_mutex_init(&mutexPicDone, NULL);
 }
 
 int CameraTest::initialize(int camId)
@@ -156,6 +181,7 @@ int CameraTest::initialize(int camId)
     /* query capabilities */
     caps_.pSizes = params_.getSupportedPreviewSizes();
     caps_.vSizes = params_.getSupportedVideoSizes();
+    caps_.picSizes = params_.getSupportedPictureSizes();
     caps_.focusModes = params_.getSupportedFocusModes();
     caps_.wbModes = params_.getSupportedWhiteBalance();
     caps_.isoModes = params_.getSupportedISO();
@@ -182,6 +208,120 @@ static int dumpToFile(uint8_t* data, uint32_t size, char* name, uint64_t timesta
     fwrite(data, size, 1, fp);
     printf("saved filename %s, timestamp %llu nSecs\n", name, timestamp);
     fclose(fp);
+}
+
+static inline uint32_t align_size(uint32_t size, uint32_t align)
+{
+    return ((size + align - 1) & ~(align-1));
+}
+
+int CameraTest::takePicture()
+{
+    int rc;
+    pthread_mutex_lock(&mutexPicDone);
+    isPicDone = false;
+    printf("take picture\n");
+    rc = camera_->takePicture();
+    if (rc) {
+        printf("takePicture failed\n");
+        pthread_mutex_unlock(&mutexPicDone);
+        return rc;
+    }
+
+    struct timespec waitTime;
+    struct timeval now;
+
+    gettimeofday(&now, NULL);
+    waitTime.tv_sec = now.tv_sec + TAKEPICTURE_TIMEOUT_MS/MS_PER_SEC;
+    waitTime.tv_nsec = now.tv_usec * NS_PER_US + (TAKEPICTURE_TIMEOUT_MS % MS_PER_SEC) * NS_PER_MS;
+    /* wait for picture done */
+    while (isPicDone == false) {
+        rc = pthread_cond_timedwait(&cvPicDone, &mutexPicDone, &waitTime);
+        if (rc == ETIMEDOUT) {
+            printf("error: takePicture timed out\n");
+            break;
+        }
+    }
+    pthread_mutex_unlock(&mutexPicDone);
+    return 0;
+}
+
+int CameraTest::compressJpegAndSave(ICameraFrame *frame, char* name)
+{
+    uint32_t jpegSize = 0;
+    int jpegQuality = 90;
+    uint8_t *dest = NULL;
+    int rc = 0;
+
+    tjhandle jpegCompressor = tjInitCompress();
+    if (jpegCompressor == NULL) {
+        printf("Could not open TurboJpeg compressor\n");
+        return -1;
+    }
+
+    uint32_t w = picSize_.width;
+    uint32_t h = picSize_.height;
+    uint32_t stride = align_size(w, SNAPSHOT_WIDTH_ALIGN);
+    uint32_t scanlines = align_size(h, SNAPSHOT_HEIGHT_ALIGN);
+
+    uint32_t cbSize =  tjPlaneSizeYUV(1, w, 0, h, TJSAMP_420);
+    uint32_t crSize =  tjPlaneSizeYUV(2, w, 0, h, TJSAMP_420);
+    printf("st=%d, sc=%d\n", stride, scanlines);
+
+    uint8_t *yPlane, *cbPlane, *crPlane;
+    uint8_t* planes[3];
+    int strides[3];
+
+    yPlane = frame->data;
+    cbPlane = (uint8_t*) malloc(cbSize);
+    crPlane = (uint8_t*) malloc(crSize);
+
+    uint8_t *pCbcrSrc;
+    uint8_t *pCbDest = cbPlane;
+    uint8_t *pCrDest = crPlane;
+
+    uint32_t line=0;
+
+    /* copy interleaved CbCr data to separate Cb and Cr planes */
+    for (line=0; line < h/2; line++) {
+        pCbcrSrc = frame->data + (stride * scanlines) + line*stride;
+        uint32_t count = w/2;
+        while (count != 0) {
+            *pCrDest = *(pCbcrSrc++);
+            *pCbDest = *(pCbcrSrc++);
+            pCrDest++;
+            pCbDest++;
+            count--;
+        }
+    }
+    planes[0] = yPlane;
+    planes[1] = cbPlane;
+    planes[2] = crPlane;
+    strides[0] = stride;
+    strides[1] = 0;
+    strides[2] = 0;
+
+    tjCompressFromYUVPlanes(jpegCompressor, planes, w, strides, h, TJSAMP_420,
+                            &dest, (long unsigned int *)&jpegSize, jpegQuality,
+                            TJFLAG_FASTDCT);
+
+    /* save the file to disk */
+    printf("saving JPEG image: %s\n", name);
+    FILE *fp = fopen(name, "w");
+    if (fp == NULL) {
+        printf("fopen() failed\n");
+        rc = -1;
+        goto exit1;
+    }
+    fwrite(dest, jpegSize, 1, fp);
+    fclose(fp);
+
+exit1:
+    tjFree(dest);
+    tjDestroy(jpegCompressor);
+    free(cbPlane);
+    free(crPlane);
+    return 0;
 }
 
 void CameraTest::onError()
@@ -216,6 +356,23 @@ void CameraTest::onPreviewFrame(ICameraFrame* frame)
     pTimeStampPrev_  = frame->timeStamp;
 }
 
+void CameraTest::onPictureFrame(ICameraFrame* frame)
+{
+    char yuvName[128], jpgName[128];
+    snprintf(yuvName, 128, "S_%dx%d_%04d_%llu.yuv",
+                 picSize_.width, picSize_.height, 0,frame->timeStamp);
+    dumpToFile(frame->data, frame->size, yuvName, frame->timeStamp);
+
+    snprintf(jpgName, 128, "snapshot.jpg");
+    compressJpegAndSave(frame, jpgName);
+
+    /* notify the waiting thread about picture done */
+    pthread_mutex_lock(&mutexPicDone);
+    isPicDone = true;
+    pthread_cond_signal(&cvPicDone);
+    pthread_mutex_unlock(&mutexPicDone);
+}
+
 void CameraTest::onVideoFrame(ICameraFrame* frame)
 {
     if (vFrameCount_ > 0 && vFrameCount_ % 30 == 0) {
@@ -245,6 +402,10 @@ int CameraTest::printCapabilities()
     printf("available video sizes:\n");
     for (int i = 0; i < caps_.vSizes.size(); i++) {
         printf("%d: %d x %d\n", i, caps_.vSizes[i].width, caps_.vSizes[i].height);
+    }
+    printf("available picture sizes:\n");
+    for (int i = 0; i < caps_.picSizes.size(); i++) {
+        printf("%d: %d x %d\n", i, caps_.picSizes[i].width, caps_.picSizes[i].height);
     }
     printf("available preview formats:\n");
     for (int i = 0; i < caps_.previewFormats.size(); i++) {
@@ -292,17 +453,17 @@ ImageSize stereoQVGASize(640,240);
 
 int CameraTest::setParameters()
 {
-    /* temp: using hard-coded values to test the api
-       need to add a user interface or script to get the values to test*/
     int focusModeIdx = 3;
     int wbModeIdx = 2;
-    int isoModeIdx = 3;
+    int isoModeIdx = 0;
     int pFpsIdx = 3;
     int vFpsIdx = 3;
     int prevFmtIdx = 0;
+    int picSizeIdx = 0;
 
     pSize_ = config_.pSize;
     vSize_ = config_.vSize;
+    picSize_ = caps_.picSizes[picSizeIdx];
 
     if ( config_.func == CAM_FUNC_OPTIC_FLOW ){
 	pSize_ = VGASize;
@@ -324,6 +485,8 @@ int CameraTest::setParameters()
     params_.setPreviewSize(pSize_);
     printf("setting video size: %dx%d\n", vSize_.width, vSize_.height);
     params_.setVideoSize(vSize_);
+    printf("setting picture size: %dx%d\n", picSize_.width, picSize_.height);
+    params_.setPictureSize(picSize_);
 
     if (config_.func == CAM_FUNC_HIRES ) {
       printf("setting focus mode: %s\n",
@@ -386,7 +549,7 @@ int CameraTest::run()
         }
     }
 
-    if (camId == -1 ) 
+    if (camId == -1 )
     {
         printf("Camera not found \n");
         exit(1);
@@ -401,7 +564,11 @@ int CameraTest::run()
         return rc;
     }
 
-    setParameters();
+    rc = setParameters();
+    if (rc) {
+        printf("setParameters failed\n");
+        goto del_camera;
+    }
 
     /* initialize perf counters */
     vFrameCount_ = 0;
@@ -409,32 +576,46 @@ int CameraTest::run()
     vFpsAvg_ = 0.0f;
     pFpsAvg_ = 0.0f;
 
-    printf("start preview\n");
-    camera_->startPreview();
     if ( config_.func == CAM_FUNC_OPTIC_FLOW )
     {
         params_.set("qc-exposure-manual", config_.exposureValue.c_str() );
         params_.set("qc-gain-manual", config_.gainValue.c_str() );
         printf("Setting exposure value =  %s , gain value = %s \n", config_.exposureValue.c_str(), config_.gainValue.c_str());
-		params_.commit();
+        rc = params_.commit();
+        if (rc) {
+            printf("commit failed\n");
+            exit(EXIT_FAILURE);
+        }
     }
 
+    printf("start preview\n");
+    camera_->startPreview();
 
-	/* Do not enable recording for RAW format */
-    if( config_.outputFormat != RAW_FORMAT )
-    {
-    printf("start recording\n");
-    camera_->startRecording();
+    if( config_.outputFormat != RAW_FORMAT ) {
+        printf("start recording\n");
+        camera_->startRecording();
+
+        if (config_.testSnapshot == true) {
+            printf("waiting for exposure to settle...\n");
+            /* sleep required to settle the exposure before taking snapshot.
+               This app does not provide interactive feedback to user
+               about the exposure */
+            sleep(2);
+            printf("taking picture\n");
+            rc = takePicture();
+            if (rc) {
+                printf("takePicture failed\n");
+                exit(EXIT_FAILURE);
+            }
+        }
     }
+
     printf("waiting for %d seconds ...\n", config_.runTime);
-
     sleep(config_.runTime);
 
-	/* Do not enable recording for RAW format */
-    if( config_.outputFormat != RAW_FORMAT )
-    {
-    printf("stop recording\n");
-    camera_->stopRecording();
+    if( config_.outputFormat != RAW_FORMAT ) {
+        printf("stop recording\n");
+        camera_->stopRecording();
     }
     printf("stop preview\n");
     camera_->stopPreview();
@@ -442,6 +623,7 @@ int CameraTest::run()
     printf("Average preview FPS = %.2f\n", pFpsAvg_);
     printf("Average video FPS = %.2f\n", vFpsAvg_);
 
+del_camera:
     /* release camera device */
     ICameraDevice::deleteInstance(&camera_);
     return rc;
@@ -454,6 +636,7 @@ const char usageStr[] =
     "\n"
     "  -t <duration>   capture duration in seconds [10]\n"
     "  -d              dump frames\n"
+    "  -n              take a picture\n"
     "  -i              info mode\n"
     "                    - print camera capabilities\n"
     "                    - streaming will not be started\n"
@@ -463,17 +646,17 @@ const char usageStr[] =
     "                    - left \n"
     "                    - stereo \n"
     "  -p <size>       Set resolution for preview frame\n"
-    "                    - 4k             ( imx sensor only ) \n"     
-    "                    - 1080p          ( imx sensor only ) \n"     
-    "                    - 720p           ( imx sensor only ) \n"     
-    "                    - VGA            ( Max resolution of optic flow )\n"     
+    "                    - 4k             ( imx sensor only ) \n"
+    "                    - 1080p          ( imx sensor only ) \n"
+    "                    - 720p           ( imx sensor only ) \n"
+    "                    - VGA            ( Max resolution of optic flow )\n"
     "                    - QVGA           ( 320x240 : Max resolution of left sensor in stereo )\n"
     "                    - stereoQVGA     ( 640x240 : currently supported resolution of Stereo )\n"
     "  -v <size>       Set resolution for video frame\n"
-    "                    - 4k             ( imx sensor only ) \n"     
-    "                    - 1080p          ( imx sensor only ) \n"     
-    "                    - 720p           ( imx sensor only ) \n"     
-    "                    - VGA            ( Max resolution of optic flow )\n"     
+    "                    - 4k             ( imx sensor only ) \n"
+    "                    - 1080p          ( imx sensor only ) \n"
+    "                    - 720p           ( imx sensor only ) \n"
+    "                    - VGA            ( Max resolution of optic flow )\n"
     "                    - QVGA           ( 320x240 : Max resolution of left sensor in stereo )\n"
     "                    - stereoQVGA     ( 640x240 : currently supported resolution of Stereo )\n"
     "  -e <value>      set exposure control (only for ov7251)\n"
@@ -506,6 +689,7 @@ static TestConfig parseCommandline(int argc, char* argv[])
     cfg.runTime = 10;
     cfg.func = CAM_FUNC_HIRES;
     cfg.infoMode = false;
+    cfg.testSnapshot = false;
     cfg.exposureValue = DEFAULT_EXPOSURE_VALUE_STR;  /* Default exposure value */
     int exposureValueInt = 0;
     cfg.gainValue = DEFAULT_GAIN_VALUE_STR;  /* Default gain value */
@@ -513,10 +697,13 @@ static TestConfig parseCommandline(int argc, char* argv[])
     cfg.pSize = FHDSize;
     cfg.vSize = HDSize;
     int c;
-    while ((c = getopt(argc, argv, "hdt:if:o:e:g:p:v:")) != -1) {
+    while ((c = getopt(argc, argv, "hdt:if:o:e:g:p:v:n")) != -1) {
         switch (c) {
           case 't':
               cfg.runTime = atoi(optarg);
+              break;
+          case 'n':
+              cfg.testSnapshot = true;
               break;
           case 'f':
           {
@@ -567,7 +754,7 @@ static TestConfig parseCommandline(int argc, char* argv[])
                       cfg.vSize = stereoQVGASize;
                   }
                   break;
-          }		
+          }
           case 'd':
               cfg.dumpFrames = true;
               break;
@@ -575,7 +762,7 @@ static TestConfig parseCommandline(int argc, char* argv[])
               cfg.infoMode = true;
               break;
         case  'e':
-              exposureValueInt =  atoi(optarg);              
+              exposureValueInt =  atoi(optarg);
               if ( exposureValueInt < MIN_EXPOSURE_VALUE || exposureValueInt > MAX_EXPOSURE_VALUE )
               {
                   printf("Invalid exposure value. Using default\n");
@@ -583,9 +770,9 @@ static TestConfig parseCommandline(int argc, char* argv[])
               }else{
                   cfg.exposureValue = optarg;
               }
-			  break;	
+			  break;
 		 case  'g':
-              gainValueInt =  atoi(optarg);              
+              gainValueInt =  atoi(optarg);
               if ( gainValueInt < MIN_GAIN_VALUE || gainValueInt > MAX_GAIN_VALUE)
               {
                   printf("Invalid exposure value. Using default\n");
