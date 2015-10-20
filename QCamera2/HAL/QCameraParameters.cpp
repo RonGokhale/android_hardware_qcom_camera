@@ -772,9 +772,9 @@ const QCameraParameters::QCameraMap<int>
 
 const QCameraParameters::QCameraMap<int>
         QCameraParameters::NOISE_REDUCTION_MODES_MAP[] = {
-    { VALUE_OFF, 0 },
-    { VALUE_FAST,  1 },
-    { VALUE_HIGH_QUALITY,  2 }
+    { VALUE_OFF, CAM_NOISE_REDUCTION_MODE_OFF },
+    { VALUE_FAST, CAM_NOISE_REDUCTION_MODE_FAST },
+    { VALUE_HIGH_QUALITY, CAM_NOISE_REDUCTION_MODE_HIGH_QUALITY}
 };
 
 #define DEFAULT_CAMERA_AREA "(0, 0, 0, 0, 0)"
@@ -849,7 +849,6 @@ QCameraParameters::QCameraParameters()
       m_SelectedScene(CAM_SCENE_MODE_MAX),
       m_bSeeMoreOn(false),
       m_bStillMoreOn(false),
-      m_bHighQualityNoiseReductionMode(false),
       m_bHfrMode(false),
       m_bSensorHDREnabled(false),
       m_bRdiMode(false),
@@ -966,7 +965,6 @@ QCameraParameters::QCameraParameters(const String8 &params)
     m_SelectedScene(CAM_SCENE_MODE_MAX),
     m_bSeeMoreOn(false),
     m_bStillMoreOn(false),
-    m_bHighQualityNoiseReductionMode(false),
     m_bHfrMode(false),
     m_bSensorHDREnabled(false),
     m_bRdiMode(false),
@@ -3803,7 +3801,6 @@ int32_t QCameraParameters::setNoiseReductionMode(const QCameraParameters& params
     CDBG_HIGH("%s: str =%s & prev_str =%s", __func__, str, prev_str);
     if (str != NULL) {
         if (prev_str == NULL || strcmp(str, prev_str) != 0) {
-            m_bNeedRestart = true;
             return setNoiseReductionMode(str);
         }
     }
@@ -8321,11 +8318,18 @@ int32_t QCameraParameters::setNoiseReductionMode(const char *noiseReductionModeS
 {
     CDBG_HIGH("%s: noiseReductionModeStr = %s", __func__, noiseReductionModeStr);
     if (noiseReductionModeStr != NULL) {
-        int value = lookupAttr(NOISE_REDUCTION_MODES_MAP, PARAM_MAP_SIZE(NOISE_REDUCTION_MODES_MAP),
+        int value = lookupAttr(NOISE_REDUCTION_MODES_MAP,
+                PARAM_MAP_SIZE(NOISE_REDUCTION_MODES_MAP),
                 noiseReductionModeStr);
         if (value != NAME_NOT_FOUND) {
-            m_bHighQualityNoiseReductionMode =
-                    !strncmp(VALUE_HIGH_QUALITY, noiseReductionModeStr, strlen(VALUE_HIGH_QUALITY));
+
+            if (ADD_SET_PARAM_ENTRY_TO_BATCH(m_pParamBuf,
+                    CAM_INTF_NOISE_REDUCTION_MODE,
+                    (cam_noise_reduction_mode_t)value)) {
+                ALOGE("%s:Failed to update table", __func__);
+                return BAD_VALUE;
+            }
+
             updateParamEntry(KEY_QC_NOISE_REDUCTION_MODE, noiseReductionModeStr);
             return NO_ERROR;
         }
@@ -12541,8 +12545,7 @@ int32_t QCameraParameters::updatePpFeatureMask(cam_stream_type_t stream_type) {
        feature_mask |= CAM_QCOM_FEATURE_LLVD;
     }
 
-    if (isHighQualityNoiseReductionMode() &&
-            ((stream_type == CAM_STREAM_TYPE_VIDEO) ||
+    if (((stream_type == CAM_STREAM_TYPE_VIDEO) ||
             (stream_type == CAM_STREAM_TYPE_PREVIEW && getRecordingHintValue()))) {
         feature_mask |= CAM_QTI_FEATURE_SW_TNR;
     }
@@ -12977,7 +12980,7 @@ uint8_t QCameraParameters::getNumOfExtraBuffersForVideo()
 {
     uint8_t numOfBufs = 0;
 
-    if (isSeeMoreEnabled() || isHighQualityNoiseReductionMode()) {
+    if (isSeeMoreEnabled()) {
         numOfBufs = 1;
     }
 
@@ -12998,8 +13001,7 @@ uint8_t QCameraParameters::getNumOfExtraBuffersForPreview()
 {
     uint8_t numOfBufs = 0;
 
-    if ((isSeeMoreEnabled() || isHighQualityNoiseReductionMode())
-            && !isZSLMode() && getRecordingHintValue()) {
+    if (isSeeMoreEnabled() && !isZSLMode() && getRecordingHintValue()) {
         numOfBufs = 1;
     }
 

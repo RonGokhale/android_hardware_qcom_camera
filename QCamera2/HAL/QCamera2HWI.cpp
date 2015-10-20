@@ -2338,8 +2338,7 @@ QCameraMemory *QCamera2HardwareInterface::allocateStreamBuf(
     case CAM_STREAM_TYPE_VIDEO:
         {
             //Use uncached allocation by default
-            if (mParameters.isVideoBuffersCached() || mParameters.isSeeMoreEnabled() ||
-                    mParameters.isHighQualityNoiseReductionMode()) {
+            if (mParameters.isVideoBuffersCached() || mParameters.isSeeMoreEnabled()) {
                 bCachedMem = QCAMERA_ION_USE_CACHE;
             }
             else {

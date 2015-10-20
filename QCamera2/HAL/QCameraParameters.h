@@ -726,7 +726,6 @@ public:
     bool needThumbnailReprocess(uint32_t *pFeatureMask);
     inline bool isUbiFocusEnabled() {return m_bAFBracketingOn && !m_bReFocusOn;};
     inline bool isChromaFlashEnabled() {return m_bChromaFlashOn;};
-    inline bool isHighQualityNoiseReductionMode() {return m_bHighQualityNoiseReductionMode;};
     inline bool isTruePortraitEnabled() {return m_bTruePortraitOn;};
     inline size_t getTPMaxMetaSize() {
         return m_pCapability->true_portrait_settings_need.meta_max_size;};
@@ -1084,7 +1083,6 @@ private:
     cam_scene_mode_type m_SelectedScene;
     bool m_bSeeMoreOn;
     bool m_bStillMoreOn;
-    bool m_bHighQualityNoiseReductionMode;
     cam_fps_range_t m_hfrFpsRange;
     bool m_bHfrMode;
     bool m_bSensorHDREnabled;             // if HDR is enabled
