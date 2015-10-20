@@ -1039,12 +1039,10 @@ QCamera2HardwareInterface::QCamera2HardwareInterface(int cameraId)
 
     memset(m_channels, 0, sizeof(m_channels));
 
-#ifdef _ANDROID_
 #ifdef HAS_MULTIMEDIA_HINTS
     if (hw_get_module(POWER_HARDWARE_MODULE_ID, (const hw_module_t **)&m_pPowerModule)) {
         ALOGE("%s: %s module not found", __func__, POWER_HARDWARE_MODULE_ID);
     }
-#endif
 #endif
 
     memset(mDeffOngoingJobs, 0, sizeof(mDeffOngoingJobs));
