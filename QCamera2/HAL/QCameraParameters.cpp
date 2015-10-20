@@ -10922,8 +10922,15 @@ void QCameraParameters::setDcrf()
 {
     char prop[PROPERTY_VALUE_MAX];
     memset(prop, 0, sizeof(prop));
-    property_get("persist.camera.dcrf.enable", prop, "1");
-    m_bDcrfEnabled = atoi(prop);
+
+    // Set DCRF to off by default (assuming single-camera mode)
+    m_bDcrfEnabled = 0;
+
+    // In dual-cam mode, get sysprop and set it to on by default
+    if(m_relCamSyncInfo.sync_control == CAM_SYNC_RELATED_SENSORS_ON) {
+        property_get("persist.camera.dcrf.enable", prop, "1");
+        m_bDcrfEnabled = atoi(prop);
+    }
 }
 
 /*===========================================================================
@@ -11913,7 +11920,8 @@ bool QCameraParameters::setStreamConfigure(bool isCapture,
         }
 
         /* Analysis stream is needed by DCRF regardless of recording hint */
-        if (getDcrf() == true)  {
+        if ((getDcrf() == true) ||
+                (getRecordingHintValue() != true)) {
             stream_config_info.type[stream_config_info.num_streams] =
                     CAM_STREAM_TYPE_ANALYSIS;
             getStreamDimension(CAM_STREAM_TYPE_ANALYSIS,
