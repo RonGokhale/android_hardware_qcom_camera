@@ -12249,17 +12249,28 @@ int32_t QCameraParameters::addOnlineRotation(uint32_t rotation, uint32_t streamI
  *==========================================================================*/
 bool QCameraParameters::needThumbnailReprocess(uint32_t *pFeatureMask)
 {
+    *pFeatureMask &= ~CAM_QCOM_FEATURE_CHROMA_FLASH;
+    *pFeatureMask &= ~CAM_QCOM_FEATURE_UBIFOCUS;
+    *pFeatureMask &= ~CAM_QCOM_FEATURE_REFOCUS;
+    *pFeatureMask &= ~CAM_QCOM_FEATURE_OPTIZOOM;
+    *pFeatureMask &= ~CAM_QCOM_FEATURE_HDR;
+    *pFeatureMask &= ~CAM_QCOM_FEATURE_DENOISE2D;
+    *pFeatureMask &= ~CAM_QCOM_FEATURE_CAC;
+    *pFeatureMask &= ~CAM_QCOM_FEATURE_SHARPNESS;
+    *pFeatureMask &= ~CAM_QCOM_FEATURE_FLIP;
+    *pFeatureMask &= ~CAM_QCOM_FEATURE_TRUEPORTRAIT;
+    *pFeatureMask &= ~CAM_QCOM_FEATURE_STILLMORE;
+    *pFeatureMask &= ~CAM_QCOM_FEATURE_DCRF;
+    *pFeatureMask &= ~CAM_QCOM_FEATURE_CDS;
+    *pFeatureMask &= ~CAM_QCOM_FEATURE_DSDN;
+    *pFeatureMask &= ~CAM_QCOM_FEATURE_SW2D;
+    *pFeatureMask &= ~CAM_QTI_FEATURE_SW_TNR;
+
     if (isUbiFocusEnabled() || isChromaFlashEnabled() ||
             isOptiZoomEnabled() || isUbiRefocus() ||
             isStillMoreEnabled() ||
             (isHDREnabled() && !isHDRThumbnailProcessNeeded())
             || isUBWCEnabled()) {
-        *pFeatureMask &= ~CAM_QCOM_FEATURE_CHROMA_FLASH;
-        *pFeatureMask &= ~CAM_QCOM_FEATURE_UBIFOCUS;
-        *pFeatureMask &= ~CAM_QCOM_FEATURE_REFOCUS;
-        *pFeatureMask &= ~CAM_QCOM_FEATURE_OPTIZOOM;
-        *pFeatureMask &= ~CAM_QCOM_FEATURE_STILLMORE;
-        *pFeatureMask &= ~CAM_QCOM_FEATURE_HDR;
         return false;
     } else {
         cam_dimension_t thumb_dim;

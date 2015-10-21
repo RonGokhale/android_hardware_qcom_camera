@@ -931,6 +931,7 @@ int32_t QCameraReprocessChannel::addReprocStreamsFromSource(
     for (uint32_t i = 0; i < pSrcChannel->getNumOfStreams(); i++) {
         pStream = pSrcChannel->getStreamByIndex(i);
         if (pStream != NULL) {
+            uint32_t feature_mask = featureConfig.feature_mask;
             if (param.getofflineRAW() && !pStream->isTypeOf(CAM_STREAM_TYPE_RAW)) {
                 //Skip all the stream other than RAW incase of offline of RAW
                 continue;
@@ -952,21 +953,9 @@ int32_t QCameraReprocessChannel::addReprocStreamsFromSource(
                     pStream->isOrignalTypeOf(CAM_STREAM_TYPE_PREVIEW) ||
                     pStream->isOrignalTypeOf(CAM_STREAM_TYPE_POSTVIEW) ||
                     (param.getofflineRAW() && pStream->isTypeOf(CAM_STREAM_TYPE_RAW))) {
-                uint32_t feature_mask = featureConfig.feature_mask;
 
                 // skip thumbnail reprocessing if not needed
                 if (!param.needThumbnailReprocess(&feature_mask)) {
-                    continue;
-                }
-                // CAC, SHARPNESS, FLIP and WNR would have been already applied -
-                // on preview/postview stream in realtime. Need not apply again.
-                feature_mask &= ~(CAM_QCOM_FEATURE_DENOISE2D |
-                        CAM_QCOM_FEATURE_CAC |
-                        CAM_QCOM_FEATURE_SHARPNESS |
-                        CAM_QCOM_FEATURE_FLIP);
-                if (!feature_mask) {
-                    // Skip thumbnail stream reprocessing since no other
-                    //reprocessing is enabled.
                     continue;
                 }
             }
@@ -1031,31 +1020,7 @@ int32_t QCameraReprocessChannel::addReprocStreamsFromSource(
                     streamInfo->pp_config, streamInfo->dim);
             streamInfo->reprocess_config = rp_cfg;
             streamInfo->reprocess_config.pp_feature_config = featureConfig;
-
-            if (!(pStream->isTypeOf(CAM_STREAM_TYPE_SNAPSHOT) ||
-                pStream->isOrignalTypeOf(CAM_STREAM_TYPE_SNAPSHOT))) {
-                // CAC, SHARPNESS, FLIP and WNR would have been already applied -
-                // on preview/postview stream in realtime. Need not apply again.
-                streamInfo->reprocess_config.pp_feature_config.feature_mask &=
-                        ~CAM_QCOM_FEATURE_CAC;
-                streamInfo->reprocess_config.pp_feature_config.feature_mask &=
-                        ~CAM_QCOM_FEATURE_SHARPNESS;
-                streamInfo->reprocess_config.pp_feature_config.feature_mask &=
-                        ~CAM_QCOM_FEATURE_FLIP;
-                //Don't do WNR for thumbnail
-                streamInfo->reprocess_config.pp_feature_config.feature_mask &=
-                        ~CAM_QCOM_FEATURE_DENOISE2D;
-                streamInfo->reprocess_config.pp_feature_config.feature_mask &=
-                        ~CAM_QCOM_FEATURE_CDS;
-                streamInfo->reprocess_config.pp_feature_config.feature_mask &=
-                        ~CAM_QCOM_FEATURE_DSDN;
-
-                if (param.isHDREnabled()
-                  && !param.isHDRThumbnailProcessNeeded()){
-                    streamInfo->reprocess_config.pp_feature_config.feature_mask
-                      &= ~CAM_QCOM_FEATURE_HDR;
-                }
-            }
+            streamInfo->reprocess_config.pp_feature_config.feature_mask = feature_mask;
 
             cam_stream_type_t type = CAM_STREAM_TYPE_DEFAULT;
             if (offline) {
