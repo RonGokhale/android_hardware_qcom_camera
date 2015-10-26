@@ -62,12 +62,17 @@
 
 #define HDR_CONFIDENCE_THRESHOLD 0.4
 
+// Very long wait, just to be sure we don't deadlock
+#define CAMERA_DEFERRED_THREAD_TIMEOUT 5000000000 // 5 seconds
+#define CAMERA_MIN_METADATA_BUFFERS 10 // Need at least 10 for ZSL snapshot
+
 namespace qcamera {
 
-cam_capability_t *gCamCaps[MM_CAMERA_MAX_NUM_SENSORS];
+extern cam_capability_t *gCamCapability[MM_CAMERA_MAX_NUM_SENSORS];
 extern pthread_mutex_t gCamLock;
 volatile uint32_t gCamHalLogLevel = 1;
 extern uint8_t gNumCameraSessions;
+uint32_t QCamera2HardwareInterface::sNextJobId = 1;
 
 camera_device_ops_t QCamera2HardwareInterface::mCameraOps = {
     set_preview_window:         QCamera2HardwareInterface::set_preview_window,
@@ -1214,20 +1219,22 @@ QCamera2HardwareInterface::QCamera2HardwareInterface(uint32_t cameraId)
       mPFps(0),
       m_bIntJpegEvtPending(false),
       m_bIntRawEvtPending(false),
-      mSnapshotJob(-1),
-      mPostviewJob(-1),
-      mMetadataJob(-1),
-      mReprocJob(-1),
-      mJpegJob(-1),
-      mRawdataJob(-1),
-      mInitPProcJob(-1),
+      mSnapshotJob(0),
+      mPostviewJob(0),
+      mMetadataJob(0),
+      mReprocJob(0),
+      mJpegJob(0),
+      mRawdataJob(0),
+      mInitPProcJob(0),
+      mMetadataAllocJob(0),
       mOutputCount(0),
       mInputCount(0),
       mAdvancedCaptureConfigured(false),
       mHDRBracketingEnabled(false),
       mNumPreviewFaces(-1),
       mJpegClientHandle(0),
-      mJpegHandleOwner(false)
+      mJpegHandleOwner(false),
+      mMetadataMem(NULL)
 {
 #ifdef TARGET_TS_MAKEUP
     memset(&mFaceRect, -1, sizeof(mFaceRect));
@@ -1265,13 +1272,13 @@ QCamera2HardwareInterface::QCamera2HardwareInterface(uint32_t cameraId)
     }
 #endif
 
-    memset(mDeffOngoingJobs, 0, sizeof(mDeffOngoingJobs));
+    memset(mDefOngoingJobs, 0, sizeof(mDefOngoingJobs));
     memset(&mRelCamCalibData, 0, sizeof(cam_related_system_calibration_data_t));
     memset(&mJpegHandle, 0, sizeof(mJpegHandle));
     memset(&mJpegMpoHandle, 0, sizeof(mJpegMpoHandle));
 
-    mDefferedWorkThread.launch(defferedWorkRoutine, this);
-    mDefferedWorkThread.sendCmd(CAMERA_CMD_TYPE_START_DATA_PROC, FALSE, FALSE);
+    mDeferredWorkThread.launch(deferredWorkRoutine, this);
+    mDeferredWorkThread.sendCmd(CAMERA_CMD_TYPE_START_DATA_PROC, FALSE, FALSE);
 
     //Load and read GPU library.
     lib_surface_utils = NULL;
@@ -1300,8 +1307,13 @@ QCamera2HardwareInterface::QCamera2HardwareInterface(uint32_t cameraId)
 QCamera2HardwareInterface::~QCamera2HardwareInterface()
 {
     CDBG_HIGH("%s: E", __func__);
-    mDefferedWorkThread.sendCmd(CAMERA_CMD_TYPE_STOP_DATA_PROC, TRUE, TRUE);
-    mDefferedWorkThread.exit();
+    mDeferredWorkThread.sendCmd(CAMERA_CMD_TYPE_STOP_DATA_PROC, TRUE, TRUE);
+    mDeferredWorkThread.exit();
+
+    if (mMetadataMem != NULL) {
+        delete mMetadataMem;
+        mMetadataMem = NULL;
+    }
 
     lockAPI();
     m_smThreadActive = false;
@@ -1331,17 +1343,17 @@ QCamera2HardwareInterface::~QCamera2HardwareInterface()
 uint32_t QCamera2HardwareInterface::deferPPInit()
 {
     // init pproc
-    DefferWorkArgs args;
+    DeferWorkArgs args;
     DeferPProcInitArgs pprocInitArgs;
 
-    memset(&args, 0, sizeof(DefferWorkArgs));
+    memset(&args, 0, sizeof(DeferWorkArgs));
     memset(&pprocInitArgs, 0, sizeof(DeferPProcInitArgs));
 
     pprocInitArgs.jpeg_cb = jpegEvtHandle;
     pprocInitArgs.user_data = this;
     args.pprocInitArgs = pprocInitArgs;
 
-    return queueDefferedWork(CMD_DEF_PPROC_INIT,
+    return queueDeferredWork(CMD_DEF_PPROC_INIT,
             args);
 }
 
@@ -1403,18 +1415,50 @@ int QCamera2HardwareInterface::openCamera()
         ALOGE("Failure: Camera already opened");
         return ALREADY_EXISTS;
     }
-    rc = camera_open((uint8_t)mCameraId, &mCameraHandle);
-    if (rc) {
-        ALOGE("camera_open failed. rc = %d, mCameraHandle = %p", rc, mCameraHandle);
-        return rc;
-    }
-    if (NULL == gCamCaps[mCameraId]) {
+
+    if (gCamCapability[mCameraId] != NULL) {
+        // allocate metadata buffers
+        DeferWorkArgs args;
+        DeferMetadataAllocArgs metadataAllocArgs;
+
+        memset(&args, 0, sizeof(args));
+        memset(&metadataAllocArgs, 0, sizeof(metadataAllocArgs));
+
+        uint32_t padding =
+                gCamCapability[mCameraId]->padding_info.plane_padding;
+        metadataAllocArgs.size = PAD_TO_SIZE(sizeof(metadata_buffer_t),
+                padding);
+        metadataAllocArgs.bufferCnt = CAMERA_MIN_METADATA_BUFFERS;
+        args.metadataAllocArgs = metadataAllocArgs;
+
+        mMetadataAllocJob = queueDeferredWork(CMD_DEF_METADATA_ALLOC, args);
+        if (mMetadataAllocJob == 0) {
+            CDBG_HIGH("%s: Failed to allocate param buffer", __func__);
+        }
+
+        rc = camera_open((uint8_t)mCameraId, &mCameraHandle);
+        if (rc) {
+            ALOGE("camera_open failed. rc = %d, mCameraHandle = %p", rc, mCameraHandle);
+            return rc;
+        }
+
+        mCameraHandle->ops->register_event_notify(mCameraHandle->camera_handle,
+                camEvtHandle,
+                (void *) this);
+    } else {
+        CDBG_HIGH("%s: Capabilities are not initialized. Initializing them now.", __func__);
+
+        rc = camera_open((uint8_t)mCameraId, &mCameraHandle);
+        if (rc) {
+            ALOGE("camera_open failed. rc = %d, mCameraHandle = %p", rc, mCameraHandle);
+            return rc;
+        }
+
         if(NO_ERROR != initCapabilities(mCameraId,mCameraHandle)) {
             ALOGE("initCapabilities failed.");
             rc = UNKNOWN_ERROR;
             goto error_exit;
         }
-
         mCameraHandle->ops->register_event_notify(mCameraHandle->camera_handle,
                 camEvtHandle,
                 (void *) this);
@@ -1423,7 +1467,7 @@ int QCamera2HardwareInterface::openCamera()
     // Now PostProc need calibration data as initialization time for jpeg_open
     // And calibration data is a get param for now, so params needs to be initialized
     // before postproc init
-    rc = mParameters.init(gCamCaps[mCameraId], mCameraHandle, this, this);
+    rc = mParameters.init(gCamCapability[mCameraId], mCameraHandle, this, this);
     if (rc != 0) {
         ALOGE("Init Parameters failed");
         mCameraHandle->ops->close_camera(mCameraHandle->camera_handle);
@@ -1443,7 +1487,7 @@ int QCamera2HardwareInterface::openCamera()
         m_bRelCamCalibValid = true;
     }
 
-    mParameters.setMinPpMask(gCamCaps[mCameraId]->qcom_supported_feature_mask);
+    mParameters.setMinPpMask(gCamCapability[mCameraId]->qcom_supported_feature_mask);
 
     mExifParams.debug_params =
             (mm_jpeg_debug_exif_params_t *) malloc (sizeof(mm_jpeg_debug_exif_params_t));
@@ -1649,9 +1693,9 @@ int QCamera2HardwareInterface::closeCamera()
     m_cbNotifier.exit();
 
     // stop and deinit postprocessor
-    waitDefferedWork(mReprocJob);
+    waitDeferredWork(mReprocJob);
     // Close the JPEG session
-    waitDefferedWork(mJpegJob);
+    waitDeferredWork(mJpegJob);
     m_postprocessor.stop();
     deinitJpegHandle();
     m_postprocessor.deinit();
@@ -1745,15 +1789,15 @@ int QCamera2HardwareInterface::initCapabilities(uint32_t cameraId,
         ALOGE("%s: failed to query capability",__func__);
         goto query_failed;
     }
-    gCamCaps[cameraId] = (cam_capability_t *)malloc(sizeof(cam_capability_t));
-    if (!gCamCaps[cameraId]) {
+    gCamCapability[cameraId] = (cam_capability_t *)malloc(sizeof(cam_capability_t));
+    if (!gCamCapability[cameraId]) {
         ALOGE("%s: out of memory", __func__);
         goto query_failed;
     }
-    memcpy(gCamCaps[cameraId], DATA_PTR(capabilityHeap,0),
+    memcpy(gCamCapability[cameraId], DATA_PTR(capabilityHeap,0),
                                         sizeof(cam_capability_t));
-    gCamCaps[cameraId]->analysis_padding_info.offset_info.offset_x = 0;
-    gCamCaps[cameraId]->analysis_padding_info.offset_info.offset_y = 0;
+    gCamCapability[cameraId]->analysis_padding_info.offset_info.offset_x = 0;
+    gCamCapability[cameraId]->analysis_padding_info.offset_info.offset_y = 0;
 
     rc = NO_ERROR;
 
@@ -1808,7 +1852,7 @@ int QCamera2HardwareInterface::getCapabilities(uint32_t cameraId,
  *==========================================================================*/
 cam_capability_t* QCamera2HardwareInterface::getCamHalCapabilities()
 {
-    return gCamCaps[mCameraId];
+    return gCamCapability[mCameraId];
 }
 
 /*===========================================================================
@@ -1831,7 +1875,7 @@ int QCamera2HardwareInterface::prepareTorchCamera()
             !m_stateMachine.isPreviewReady() &&
             ( m_channels[QCAMERA_CH_TYPE_PREVIEW] == NULL ) ) {
         rc = addChannel(QCAMERA_CH_TYPE_PREVIEW);
-        waitDefferedWork(mMetadataJob);
+        waitDeferredWork(mMetadataJob);
     }
 
     return rc;
@@ -2202,12 +2246,36 @@ QCameraMemory *QCamera2HardwareInterface::allocateStreamBuf(
     case CAM_STREAM_TYPE_ANALYSIS:
     case CAM_STREAM_TYPE_SNAPSHOT:
     case CAM_STREAM_TYPE_RAW:
-    case CAM_STREAM_TYPE_METADATA:
     case CAM_STREAM_TYPE_OFFLINE_PROC:
         mem = new QCameraStreamMemory(mGetMemory,
                 bCachedMem,
                 (bPoolMem) ? &m_memoryPool : NULL,
                 stream_type);
+        break;
+    case CAM_STREAM_TYPE_METADATA:
+        {
+            waitDeferredWork(mMetadataAllocJob);
+            if (mMetadataMem == NULL) {
+                mem = new QCameraMetadataStreamMemory(QCAMERA_ION_USE_CACHE);
+            } else {
+                mem = mMetadataMem;
+                mMetadataMem = NULL;
+
+                int32_t numAdditionalBuffers = bufferCnt - mem->getCnt();
+                if (numAdditionalBuffers > 0) {
+                    rc = mem->allocateMore(numAdditionalBuffers, size);
+                    if (rc != NO_ERROR) {
+                        ALOGE("%s: Failed to allocate additional buffers, "
+                                "but attempting to proceed.", __func__);
+                    }
+                }
+                bufferCnt = mem->getCnt();
+
+                // The memory is already allocated  and initialized, so
+                // simply return here.
+                return mem;
+            }
+        }
         break;
     case CAM_STREAM_TYPE_VIDEO:
         {
@@ -2501,9 +2569,9 @@ QCameraHeapMemory *QCamera2HardwareInterface::allocateStreamInfoBuf(
 
     if (!((needReprocess()) && (CAM_STREAM_TYPE_SNAPSHOT == stream_type ||
             CAM_STREAM_TYPE_RAW == stream_type))) {
-        if (gCamCaps[mCameraId]->qcom_supported_feature_mask & CAM_QCOM_FEATURE_CROP)
+        if (gCamCapability[mCameraId]->qcom_supported_feature_mask & CAM_QCOM_FEATURE_CROP)
             streamInfo->pp_config.feature_mask |= CAM_QCOM_FEATURE_CROP;
-        if (gCamCaps[mCameraId]->qcom_supported_feature_mask & CAM_QCOM_FEATURE_SCALE)
+        if (gCamCapability[mCameraId]->qcom_supported_feature_mask & CAM_QCOM_FEATURE_SCALE)
             streamInfo->pp_config.feature_mask |= CAM_QCOM_FEATURE_SCALE;
     }
 
@@ -2584,6 +2652,25 @@ QCameraMemory *QCamera2HardwareInterface::allocateStreamUserBuf(
         }
     }
     return mem;
+}
+
+
+/*===========================================================================
+ * FUNCTION   : waitForDeferredAlloc
+ *
+ * DESCRIPTION: Wait for deferred allocation, if applicable
+ *              (applicable only for metadata buffers so far)
+ *
+ * PARAMETERS :
+ *   @stream_type  : type of stream to (possibly) wait for
+ *
+ * RETURN     : None
+ *==========================================================================*/
+void QCamera2HardwareInterface::waitForDeferredAlloc(cam_stream_type_t stream_type)
+{
+    if (stream_type == CAM_STREAM_TYPE_METADATA) {
+        waitDeferredWork(mMetadataAllocJob);
+    }
 }
 
 
@@ -2812,9 +2899,9 @@ int QCamera2HardwareInterface::startPreview()
 
     // if job id is non-zero, that means the postproc init job is already
     // pending or complete
-    if (mInitPProcJob == -1) {
+    if (mInitPProcJob == 0) {
         mInitPProcJob = deferPPInit();
-        if (mInitPProcJob == -1) {
+        if (mInitPProcJob == 0) {
             ALOGE("%s: Unable to initialize postprocessor, mCameraHandle = %p",
                     __func__, mCameraHandle);
             rc = UNKNOWN_ERROR;
@@ -3120,7 +3207,7 @@ bool QCamera2HardwareInterface::processUFDumps(qcamera_jpeg_evt_payload_t *evt)
        omx_jpeg_ouput_buf_t *jpeg_out = NULL;
        size_t dataLen;
        uint8_t *dataPtr;
-       waitDefferedWork(mInitPProcJob);
+       waitDeferredWork(mInitPProcJob);
        if (!m_postprocessor.getJpegMemOpt()) {
            dataLen = evt->out_data.buf_filled_len;
            dataPtr = evt->out_data.buf_vaddr;
@@ -3307,10 +3394,10 @@ int32_t QCamera2HardwareInterface::configureAFBracketing(bool enable)
 
     if (mParameters.isUbiRefocus()) {
         af_bracketing_need =
-                &gCamCaps[mCameraId]->refocus_af_bracketing_need;
+                &gCamCapability[mCameraId]->refocus_af_bracketing_need;
     } else {
         af_bracketing_need =
-                &gCamCaps[mCameraId]->ubifocus_af_bracketing_need;
+                &gCamCapability[mCameraId]->ubifocus_af_bracketing_need;
     }
 
     //Enable AF Bracketing.
@@ -3354,7 +3441,7 @@ int32_t QCamera2HardwareInterface::configureHDRBracketing()
     int32_t rc = NO_ERROR;
 
     cam_hdr_bracketing_info_t& hdrBracketingSetting =
-            gCamCaps[mCameraId]->hdr_bracketing_setting;
+            gCamCapability[mCameraId]->hdr_bracketing_setting;
 
     // 'values' should be in "idx1,idx2,idx3,..." format
     uint32_t hdrFrameCount =
@@ -3650,17 +3737,27 @@ int QCamera2HardwareInterface::takePicture()
             }
 
             // start postprocessor
-            DefferWorkArgs args;
-            memset(&args, 0, sizeof(DefferWorkArgs));
+            DeferWorkArgs args;
+            memset(&args, 0, sizeof(DeferWorkArgs));
+
             args.pprocArgs = pZSLChannel;
             // No need to wait for mInitPProcJob here, because it was
             // queued in startPreview, and will definitely be processed before
             // mReprocJob can begin.
-            mReprocJob = queueDefferedWork(CMD_DEFF_PPROC_START,
+            mReprocJob = queueDeferredWork(CMD_DEF_PPROC_START,
                     args);
+            if (mReprocJob == 0) {
+                ALOGE("%s: Failure: Unable to start pproc", __func__);
+                return UNKNOWN_ERROR;
+            }
             // Create JPEG session
-            mJpegJob = queueDefferedWork(CMD_DEFF_CREATE_JPEG_SESSION,
+            mJpegJob = queueDeferredWork(CMD_DEF_CREATE_JPEG_SESSION,
                     args);
+            if (mJpegJob == 0) {
+                ALOGE("%s: Failure: Unable to create jpeg session", __func__);
+                return UNKNOWN_ERROR;
+            }
+
             if (mParameters.isUbiFocusEnabled() ||
                     mParameters.isUbiRefocus() ||
                     mParameters.isOptiZoomEnabled() ||
@@ -3695,8 +3792,8 @@ int QCamera2HardwareInterface::takePicture()
                     if (rc != NO_ERROR) {
                         ALOGE("%s: FS_DBG cannot take ZSL picture, stop pproc",
                                 __func__);
-                        waitDefferedWork(mReprocJob);
-                        waitDefferedWork(mJpegJob);
+                        waitDeferredWork(mReprocJob);
+                        waitDeferredWork(mJpegJob);
                         m_postprocessor.stop();
                         return rc;
                     }
@@ -3710,8 +3807,8 @@ int QCamera2HardwareInterface::takePicture()
                 rc = pZSLChannel->takePicture(&buf);
                 if (rc != NO_ERROR) {
                     ALOGE("%s: cannot take ZSL picture, stop pproc", __func__);
-                    waitDefferedWork(mReprocJob);
-                    waitDefferedWork(mJpegJob);
+                    waitDeferredWork(mReprocJob);
+                    waitDeferredWork(mJpegJob);
                     m_postprocessor.stop();
                     return rc;
                 }
@@ -3744,30 +3841,30 @@ int QCamera2HardwareInterface::takePicture()
                     }
                 }
 
-                waitDefferedWork(mSnapshotJob);
-                waitDefferedWork(mMetadataJob);
-                waitDefferedWork(mRawdataJob);
+                waitDeferredWork(mSnapshotJob);
+                waitDeferredWork(mMetadataJob);
+                waitDeferredWork(mRawdataJob);
 
                 {
-                    DefferWorkArgs args;
-                    DefferAllocBuffArgs allocArgs;
+                    DeferWorkArgs args;
+                    DeferAllocBuffArgs allocArgs;
 
-                    memset(&args, 0, sizeof(DefferWorkArgs));
-                    memset(&allocArgs, 0, sizeof(DefferAllocBuffArgs));
+                    memset(&args, 0, sizeof(DeferWorkArgs));
+                    memset(&allocArgs, 0, sizeof(DeferAllocBuffArgs));
 
                     allocArgs.ch = m_channels[QCAMERA_CH_TYPE_CAPTURE];
                     allocArgs.type = CAM_STREAM_TYPE_POSTVIEW;
                     args.allocArgs = allocArgs;
 
-                    mPostviewJob = queueDefferedWork(CMD_DEFF_ALLOCATE_BUFF,
+                    mPostviewJob = queueDeferredWork(CMD_DEF_ALLOCATE_BUFF,
                             args);
 
-                    if (mPostviewJob == -1) {
+                    if (mPostviewJob == 0) {
                         rc = UNKNOWN_ERROR;
                     }
                 }
 
-                waitDefferedWork(mPostviewJob);
+                waitDeferredWork(mPostviewJob);
             } else {
                 // normal capture case
                 // need to stop preview channel
@@ -3804,26 +3901,30 @@ int QCamera2HardwareInterface::takePicture()
                     }
                 }
 
-                DefferWorkArgs args;
-                memset(&args, 0, sizeof(DefferWorkArgs));
+                DeferWorkArgs args;
+                memset(&args, 0, sizeof(DeferWorkArgs));
 
                 args.pprocArgs = m_channels[QCAMERA_CH_TYPE_CAPTURE];
                 // No need to wait for mInitPProcJob here, because it was
                 // queued in startPreview, and will definitely be processed before
                 // mReprocJob can begin.
-                mReprocJob = queueDefferedWork(CMD_DEFF_PPROC_START,
+                mReprocJob = queueDeferredWork(CMD_DEF_PPROC_START,
                         args);
+                if (mReprocJob == 0) {
+                    ALOGE("%s: Failure: Unable to start pproc", __func__);
+                    return UNKNOWN_ERROR;
+                }
 
                 // Create JPEG session
-                mJpegJob = queueDefferedWork(CMD_DEFF_CREATE_JPEG_SESSION,
+                mJpegJob = queueDeferredWork(CMD_DEF_CREATE_JPEG_SESSION,
                         args);
 
                 // start catpure channel
                 rc =  m_channels[QCAMERA_CH_TYPE_CAPTURE]->start();
                 if (rc != NO_ERROR) {
                     ALOGE("%s: cannot start capture channel", __func__);
-                    waitDefferedWork(mReprocJob);
-                    waitDefferedWork(mJpegJob);
+                    waitDeferredWork(mReprocJob);
+                    waitDeferredWork(mJpegJob);
                     delChannel(QCAMERA_CH_TYPE_CAPTURE);
                     return rc;
                 }
@@ -3844,8 +3945,8 @@ int QCamera2HardwareInterface::takePicture()
                 if ( mLongshotEnabled ) {
                     rc = longShot();
                     if (NO_ERROR != rc) {
-                        waitDefferedWork(mReprocJob);
-                        waitDefferedWork(mJpegJob);
+                        waitDeferredWork(mReprocJob);
+                        waitDeferredWork(mJpegJob);
                         delChannel(QCAMERA_CH_TYPE_CAPTURE);
                         return rc;
                     }
@@ -3860,7 +3961,7 @@ int QCamera2HardwareInterface::takePicture()
             stopChannel(QCAMERA_CH_TYPE_PREVIEW);
             delChannel(QCAMERA_CH_TYPE_PREVIEW);
 
-            rc = mParameters.updateRAW(gCamCaps[mCameraId]->raw_dim[0]);
+            rc = mParameters.updateRAW(gCamCapability[mCameraId]->raw_dim[0]);
             if (NO_ERROR != rc) {
                 ALOGE("%s: Raw dimension update failed %d", __func__, rc);
                 return rc;
@@ -3877,7 +3978,7 @@ int QCamera2HardwareInterface::takePicture()
             rc = addRawChannel();
             if (rc == NO_ERROR) {
                 // start postprocessor
-                waitDefferedWork(mInitPProcJob);
+                waitDeferredWork(mInitPProcJob);
                 rc = m_postprocessor.start(m_channels[QCAMERA_CH_TYPE_RAW]);
                 if (rc != NO_ERROR) {
                     ALOGE("%s: cannot start postprocessor", __func__);
@@ -4039,7 +4140,7 @@ int QCamera2HardwareInterface::stopCaptureChannel(bool destroy)
         rc = stopChannel(QCAMERA_CH_TYPE_CAPTURE);
         if (destroy && (NO_ERROR == rc)) {
             // Destroy camera channel but dont release context
-            waitDefferedWork(mJpegJob);
+            waitDeferredWork(mJpegJob);
             rc = delChannel(QCAMERA_CH_TYPE_CAPTURE, false);
         }
     }
@@ -4060,8 +4161,8 @@ int QCamera2HardwareInterface::stopCaptureChannel(bool destroy)
  *==========================================================================*/
 int QCamera2HardwareInterface::cancelPicture()
 {
-    waitDefferedWork(mReprocJob);
-    waitDefferedWork(mJpegJob);
+    waitDeferredWork(mReprocJob);
+    waitDeferredWork(mJpegJob);
 
     //stop post processor
     m_postprocessor.stop();
@@ -4326,7 +4427,7 @@ int QCamera2HardwareInterface::takeBackendPic_internal(bool *JpegMemOpt, char *r
 
     if (true == m_bIntJpegEvtPending) {
         //Attempting to take JPEG snapshot
-        waitDefferedWork(mInitPProcJob);
+        waitDeferredWork(mInitPProcJob);
         *JpegMemOpt = m_postprocessor.getJpegMemOpt();
         m_postprocessor.setJpegMemOpt(false);
 
@@ -4352,7 +4453,7 @@ int QCamera2HardwareInterface::takeBackendPic_internal(bool *JpegMemOpt, char *r
         rc = addRawChannel();
         if (rc == NO_ERROR) {
             // start postprocessor
-            waitDefferedWork(mInitPProcJob);
+            waitDeferredWork(mInitPProcJob);
             rc = m_postprocessor.start(m_channels[QCAMERA_CH_TYPE_RAW]);
             if (rc != NO_ERROR) {
                 ALOGE("%s: cannot start postprocessor", __func__);
@@ -4450,7 +4551,7 @@ int QCamera2HardwareInterface::takeLiveSnapshot_internal()
     }
 
     // start post processor
-    waitDefferedWork(mInitPProcJob);
+    waitDeferredWork(mInitPProcJob);
     rc = m_postprocessor.start(m_channels[QCAMERA_CH_TYPE_SNAPSHOT]);
     if (NO_ERROR != rc) {
         ALOGE("%s: Post-processor start failed %d", __func__, rc);
@@ -5037,9 +5138,9 @@ void QCamera2HardwareInterface::camEvtHandle(uint32_t /*camera_handle*/,
                     break;
                 case CAM_EVENT_TYPE_DAEMON_DIED:
                     {
-                        Mutex::Autolock l(obj->mDeffLock);
-                        obj->mDeffCond.broadcast();
-                        CDBG_HIGH("%s: broadcast mDeffCond signal\n", __func__);
+                        Mutex::Autolock l(obj->mDefLock);
+                        obj->mDefCond.broadcast();
+                        CDBG_HIGH("%s: broadcast mDefCond signal\n", __func__);
                     }
                 default:
                     obj->processEvt(QCAMERA_SM_EVT_EVT_NOTIFY, payload);
@@ -5824,10 +5925,10 @@ int32_t QCamera2HardwareInterface::addStreamToChannel(QCameraChannel *pChannel,
     cam_padding_info_t padding_info;
     if (streamType == CAM_STREAM_TYPE_ANALYSIS) {
         padding_info =
-                gCamCaps[mCameraId]->analysis_padding_info;
+                gCamCapability[mCameraId]->analysis_padding_info;
     } else {
         padding_info =
-                gCamCaps[mCameraId]->padding_info;
+                gCamCapability[mCameraId]->padding_info;
         if (streamType == CAM_STREAM_TYPE_PREVIEW) {
             padding_info.width_padding = mSurfaceStridePadding;
             padding_info.height_padding = CAM_PAD_TO_2;
@@ -5859,34 +5960,34 @@ int32_t QCamera2HardwareInterface::addStreamToChannel(QCameraChannel *pChannel,
 
         // Queue buffer allocation for Snapshot and Metadata streams
         if ( !rc ) {
-            DefferWorkArgs args;
-            DefferAllocBuffArgs allocArgs;
+            DeferWorkArgs args;
+            DeferAllocBuffArgs allocArgs;
 
-            memset(&args, 0, sizeof(DefferWorkArgs));
-            memset(&allocArgs, 0, sizeof(DefferAllocBuffArgs));
+            memset(&args, 0, sizeof(DeferWorkArgs));
+            memset(&allocArgs, 0, sizeof(DeferAllocBuffArgs));
             allocArgs.type = streamType;
             allocArgs.ch = pChannel;
             args.allocArgs = allocArgs;
 
             if (streamType == CAM_STREAM_TYPE_SNAPSHOT) {
-                mSnapshotJob = queueDefferedWork(CMD_DEFF_ALLOCATE_BUFF,
+                mSnapshotJob = queueDeferredWork(CMD_DEF_ALLOCATE_BUFF,
                         args);
 
-                if ( mSnapshotJob == -1) {
+                if ( mSnapshotJob == 0) {
                     rc = UNKNOWN_ERROR;
                 }
             } else if (streamType == CAM_STREAM_TYPE_METADATA) {
-                mMetadataJob = queueDefferedWork(CMD_DEFF_ALLOCATE_BUFF,
+                mMetadataJob = queueDeferredWork(CMD_DEF_ALLOCATE_BUFF,
                         args);
 
-                if ( mMetadataJob == -1) {
+                if ( mMetadataJob == 0) {
                     rc = UNKNOWN_ERROR;
                 }
             } else if (streamType == CAM_STREAM_TYPE_RAW) {
-                mRawdataJob = queueDefferedWork(CMD_DEFF_ALLOCATE_BUFF,
+                mRawdataJob = queueDeferredWork(CMD_DEF_ALLOCATE_BUFF,
                         args);
 
-                if ( mRawdataJob == -1) {
+                if ( mRawdataJob == 0) {
                     rc = UNKNOWN_ERROR;
                 }
             }
@@ -5915,12 +6016,12 @@ int32_t QCamera2HardwareInterface::addStreamToChannel(QCameraChannel *pChannel,
         ALOGE("%s: add stream type (%d) failed, ret = %d",
               __func__, streamType, rc);
         // Returning error will delete corresponding channel but at the same time some of
-        // deffered streams in same channel might be still in process of allocating buffers
+        // deferred streams in same channel might be still in process of allocating buffers
         // by CAM_defrdWrk thread.
-        waitDefferedWork(mMetadataJob);
-        waitDefferedWork(mPostviewJob);
-        waitDefferedWork(mSnapshotJob);
-        waitDefferedWork(mRawdataJob);
+        waitDeferredWork(mMetadataJob);
+        waitDeferredWork(mPostviewJob);
+        waitDeferredWork(mSnapshotJob);
+        waitDeferredWork(mRawdataJob);
         return rc;
     }
 
@@ -6172,7 +6273,7 @@ int32_t QCamera2HardwareInterface::addRawChannel()
         delete pChannel;
         return rc;
     }
-    waitDefferedWork(mMetadataJob);
+    waitDeferredWork(mMetadataJob);
 
     rc = addStreamToChannel(pChannel, CAM_STREAM_TYPE_RAW,
                             raw_stream_cb_routine, this);
@@ -6181,7 +6282,7 @@ int32_t QCamera2HardwareInterface::addRawChannel()
         delete pChannel;
         return rc;
     }
-    waitDefferedWork(mRawdataJob);
+    waitDeferredWork(mRawdataJob);
     m_channels[QCAMERA_CH_TYPE_RAW] = pChannel;
     return rc;
 }
@@ -6589,8 +6690,8 @@ int32_t QCamera2HardwareInterface::getPPConfig(cam_pp_feature_config_t &pp_confi
     }
 
     CDBG_HIGH("%s: Supported pproc feature mask = %x", __func__,
-            gCamCaps[mCameraId]->qcom_supported_feature_mask);
-    uint32_t feature_mask = gCamCaps[mCameraId]->qcom_supported_feature_mask;
+            gCamCapability[mCameraId]->qcom_supported_feature_mask);
+    uint32_t feature_mask = gCamCapability[mCameraId]->qcom_supported_feature_mask;
     int32_t zoomLevel = mParameters.getParmZoomLevel();
     uint32_t rotation = mParameters.getJpegRotation();
     int32_t effect = mParameters.getEffectValue();
@@ -6868,7 +6969,7 @@ QCameraReprocessChannel *QCamera2HardwareInterface::addReprocChannel(
             snapshot_feature_mask, pp_config.feature_mask);
 
     bool offlineReproc = isRegularCapture();
-    cam_padding_info_t paddingInfo = gCamCaps[mCameraId]->padding_info;
+    cam_padding_info_t paddingInfo = gCamCapability[mCameraId]->padding_info;
     paddingInfo.offset_info.offset_x = 0;
     paddingInfo.offset_info.offset_y = 0;
     rc = pChannel->addReprocStreamsFromSource(*this,
@@ -6947,7 +7048,7 @@ QCameraReprocessChannel *QCamera2HardwareInterface::addOfflineReprocChannel(
 
     rc = pChannel->addStream(*this,
             pStreamInfo, NULL, img_config.num_of_bufs,
-            &gCamCaps[mCameraId]->padding_info,
+            &gCamCapability[mCameraId]->padding_info,
             stream_cb, userdata, false);
 
     if (rc != NO_ERROR) {
@@ -7179,8 +7280,8 @@ int32_t QCamera2HardwareInterface::preparePreview()
         }
 
         if (!recordingHint && !mParameters.isSecureMode()) {
-            waitDefferedWork(mMetadataJob);
-            waitDefferedWork(mRawdataJob);
+            waitDeferredWork(mMetadataJob);
+            waitDeferredWork(mRawdataJob);
         }
 
         if (NO_ERROR != rc) {
@@ -7706,7 +7807,7 @@ int QCamera2HardwareInterface::calcThermalLevel(
             // Set lowest min FPS for now
             adjustedRange.min_fps = minFPS/1000.0f;
             adjustedRange.max_fps = minFPS/1000.0f;
-            cam_capability_t *capability = gCamCaps[mCameraId];
+            cam_capability_t *capability = gCamCapability[mCameraId];
             for (size_t i = 0;
                      i < capability->fps_ranges_tbl_cnt;
                      i++) {
@@ -8035,7 +8136,7 @@ bool QCamera2HardwareInterface::needRotationReprocess()
         return false;
     }
 
-    if ((gCamCaps[mCameraId]->qcom_supported_feature_mask & CAM_QCOM_FEATURE_ROTATION) > 0 &&
+    if ((gCamCapability[mCameraId]->qcom_supported_feature_mask & CAM_QCOM_FEATURE_ROTATION) > 0 &&
             (mParameters.getJpegRotation() > 0)) {
         // current rotation is not zero, and pp has the capability to process rotation
         CDBG_HIGH("%s: need to do reprocess for rotation=%d",
@@ -8398,23 +8499,23 @@ bool QCamera2HardwareInterface::needFDMetadata(qcamera_ch_type_enum_t channel_ty
 }
 
 /*===========================================================================
- * FUNCTION   : defferedWorkRoutine
+ * FUNCTION   : deferredWorkRoutine
  *
- * DESCRIPTION: data process routine that executes deffered tasks
+ * DESCRIPTION: data process routine that executes deferred tasks
  *
  * PARAMETERS :
  *   @data    : user data ptr (QCamera2HardwareInterface)
  *
  * RETURN     : None
  *==========================================================================*/
-void *QCamera2HardwareInterface::defferedWorkRoutine(void *obj)
+void *QCamera2HardwareInterface::deferredWorkRoutine(void *obj)
 {
     int running = 1;
     int ret;
     uint8_t is_active = FALSE;
 
     QCamera2HardwareInterface *pme = (QCamera2HardwareInterface *)obj;
-    QCameraCmdThread *cmdThread = &pme->mDefferedWorkThread;
+    QCameraCmdThread *cmdThread = &pme->mDeferredWorkThread;
     cmdThread->setName("CAM_defrdWrk");
 
     do {
@@ -8442,8 +8543,8 @@ void *QCamera2HardwareInterface::defferedWorkRoutine(void *obj)
             break;
         case CAMERA_CMD_TYPE_DO_NEXT_JOB:
             {
-                DeffWork *dw =
-                    reinterpret_cast<DeffWork *>(pme->mCmdQueue.dequeue());
+                DefWork *dw =
+                    reinterpret_cast<DefWork *>(pme->mCmdQueue.dequeue());
 
                 if ( NULL == dw ) {
                     ALOGE("%s : Invalid deferred work", __func__);
@@ -8451,7 +8552,7 @@ void *QCamera2HardwareInterface::defferedWorkRoutine(void *obj)
                 }
 
                 switch( dw->cmd ) {
-                case CMD_DEFF_ALLOCATE_BUFF:
+                case CMD_DEF_ALLOCATE_BUFF:
                     {
                         QCameraChannel * pChannel = dw->args.allocArgs.ch;
 
@@ -8462,7 +8563,7 @@ void *QCamera2HardwareInterface::defferedWorkRoutine(void *obj)
                         }
 
                         cam_stream_type_t streamType = dw->args.allocArgs.type;
-                        CDBG_HIGH("%s: Deffered buffer allocation started for stream type: %d",
+                        CDBG_HIGH("%s: Deferred buffer allocation started for stream type: %d",
                                 __func__, streamType);
 
                         uint32_t iNumOfStreams = pChannel->getNumOfStreams();
@@ -8482,18 +8583,9 @@ void *QCamera2HardwareInterface::defferedWorkRoutine(void *obj)
                                 break;
                             }
                         }
-                        {
-                            Mutex::Autolock l(pme->mDeffLock);
-                            pme->mDeffOngoingJobs[dw->id] = false;
-                            CDBG_HIGH("%s: Deffered buffer allocation done for stream type: %d",
-                                    __func__, streamType);
-                            delete dw;
-                            pme->mDeffCond.signal();
-                        }
-
                     }
                     break;
-                case CMD_DEFF_PPROC_START:
+                case CMD_DEF_PPROC_START:
                     {
                         QCameraChannel * pChannel = dw->args.pprocArgs;
                         assert(pChannel);
@@ -8501,29 +8593,6 @@ void *QCamera2HardwareInterface::defferedWorkRoutine(void *obj)
                         if (pme->m_postprocessor.start(pChannel) != NO_ERROR) {
                             ALOGE("%s: cannot start postprocessor", __func__);
                             pme->sendEvtNotify(CAMERA_MSG_ERROR, CAMERA_ERROR_UNKNOWN, 0);
-                        }
-                        {
-                            Mutex::Autolock l(pme->mDeffLock);
-                            pme->mDeffOngoingJobs[dw->id] = false;
-                            delete dw;
-                            pme->mDeffCond.broadcast();
-                        }
-                    }
-                    break;
-                case CMD_DEFF_CREATE_JPEG_SESSION:
-                    {
-                        QCameraChannel * pChannel = dw->args.pprocArgs;
-                        assert(pChannel);
-
-                        if (pme->m_postprocessor.createJpegSession(pChannel) != NO_ERROR) {
-                            ALOGE("%s: cannot create JPEG session", __func__);
-                            pme->sendEvtNotify(CAMERA_MSG_ERROR, CAMERA_ERROR_UNKNOWN, 0);
-                        }
-                        {
-                            Mutex::Autolock l(pme->mDeffLock);
-                            pme->mDeffOngoingJobs[dw->id] = false;
-                            delete dw;
-                            pme->mDeffCond.broadcast();
                         }
                     }
                     break;
@@ -8538,7 +8607,7 @@ void *QCamera2HardwareInterface::defferedWorkRoutine(void *obj)
                                 &(pme->m_postprocessor);
                         uint32_t cameraId = pme->mCameraId;
                         cam_capability_t *capability =
-                                gCamCaps[cameraId];
+                                gCamCapability[cameraId];
                         cam_padding_info_t padding_info;
                         cam_padding_info_t& cam_capability_padding_info =
                                 capability->padding_info;
@@ -8606,12 +8675,45 @@ void *QCamera2HardwareInterface::defferedWorkRoutine(void *obj)
                         }
                     }
                     break;
+                case CMD_DEF_METADATA_ALLOC:
+                    {
+                        pme->mMetadataMem = new QCameraMetadataStreamMemory(
+                                QCAMERA_ION_USE_CACHE);
+
+                        if (pme->mMetadataMem == NULL) {
+                            ALOGE("%s: Unable to allocate metadata buffers",
+                                    __func__);
+                        } else {
+                            int32_t rc = pme->mMetadataMem->allocate(
+                                    dw->args.metadataAllocArgs.bufferCnt,
+                                    dw->args.metadataAllocArgs.size,
+                                    NON_SECURE);
+                            if (rc < 0) {
+                                delete pme->mMetadataMem;
+                                pme->mMetadataMem = NULL;
+                            }
+                        }
+                     }
+                     break;
+                case CMD_DEF_CREATE_JPEG_SESSION:
+                    {
+                        QCameraChannel * pChannel = dw->args.pprocArgs;
+                        assert(pChannel);
+
+                        if (pme->m_postprocessor.createJpegSession(pChannel) != NO_ERROR) {
+                            ALOGE("%s: cannot create JPEG session", __func__);
+                            pme->sendEvtNotify(CAMERA_MSG_ERROR, CAMERA_ERROR_UNKNOWN, 0);
+                        }
+                    }
+                    break;
                 default:
                     ALOGE("%s[%d]:  Incorrect command : %d",
                             __func__,
                             __LINE__,
                             dw->cmd);
                 }
+
+                pme->dequeueDeferredWork(dw);
             }
             break;
         case CAMERA_CMD_TYPE_EXIT:
@@ -8626,39 +8728,41 @@ void *QCamera2HardwareInterface::defferedWorkRoutine(void *obj)
 }
 
 /*===========================================================================
- * FUNCTION   : queueDefferedWork
+ * FUNCTION   : queueDeferredWork
  *
  * DESCRIPTION: function which queues deferred tasks
  *
  * PARAMETERS :
  *   @cmd     : deferred task
- *   @args    : deffered task arguments
+ *   @args    : deferred task arguments
  *
- * RETURN     : int32_t type of status
- *              NO_ERROR  -- success
- *              none-zero failure code
+ * RETURN     : job id of deferred job
+ *            : 0 in case of error
  *==========================================================================*/
-int32_t QCamera2HardwareInterface::queueDefferedWork(DefferedWorkCmd cmd,
-                                                     DefferWorkArgs args)
+uint32_t QCamera2HardwareInterface::queueDeferredWork(DeferredWorkCmd cmd,
+                                                      DeferWorkArgs args)
 {
-    Mutex::Autolock l(mDeffLock);
+    Mutex::Autolock l(mDefLock);
     for (uint32_t i = 0; i < MAX_ONGOING_JOBS; ++i) {
-        if (!mDeffOngoingJobs[i]) {
-            DeffWork *dw = new DeffWork(cmd, i, args);
+        if (mDefOngoingJobs[i] == 0) {
+            DefWork *dw = new DefWork(cmd, sNextJobId, args);
             if (mCmdQueue.enqueue(dw)) {
-                mDeffOngoingJobs[i] = true;
-                mDefferedWorkThread.sendCmd(CAMERA_CMD_TYPE_DO_NEXT_JOB,
+                mDefOngoingJobs[i] = sNextJobId++;
+                if (sNextJobId == 0) { // handle overflow
+                    sNextJobId = 1;
+                }
+                mDeferredWorkThread.sendCmd(CAMERA_CMD_TYPE_DO_NEXT_JOB,
                         FALSE,
                         FALSE);
-                return (int32_t)i;
+                return mDefOngoingJobs[i];
             } else {
                 CDBG("%s: Command queue not active! cmd = %d", __func__, cmd);
                 delete dw;
-                return -1;
+                return 0;
             }
         }
     }
-    return -1;
+    return 0;
 }
 
 /*===========================================================================
@@ -8780,7 +8884,7 @@ int32_t QCamera2HardwareInterface::setJpegHandleInfo(mm_jpeg_ops_t *ops,
  *==========================================================================*/
 int32_t QCamera2HardwareInterface::getJpegHandleInfo(mm_jpeg_ops_t *ops,
         mm_jpeg_mpo_ops_t *mpo_ops, uint32_t *pJpegClientHandle) {
-    waitDefferedWork(mInitPProcJob);
+    waitDeferredWork(mInitPProcJob);
 
    // Copy JPEG ops if present
     if (ops && mpo_ops && pJpegClientHandle) {
@@ -8796,9 +8900,60 @@ int32_t QCamera2HardwareInterface::getJpegHandleInfo(mm_jpeg_ops_t *ops,
 }
 
 /*===========================================================================
- * FUNCTION   : waitDefferedWork
+ * FUNCTION   : queueDeferredWork
  *
- * DESCRIPTION: waits for a deffered task to finish
+ * DESCRIPTION: function which dequeues deferred tasks
+ *
+ * PARAMETERS :
+ *   @dw      : deferred work
+ *   @args    : deferred task arguments
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+uint32_t QCamera2HardwareInterface::dequeueDeferredWork(DefWork* dw)
+{
+    Mutex::Autolock l(mDefLock);
+    for (uint32_t i = 0; i < MAX_ONGOING_JOBS; i++) {
+        if (mDefOngoingJobs[i] == dw->id) {
+            mDefOngoingJobs[i] = 0;
+            delete dw;
+            mDefCond.broadcast();
+            return NO_ERROR;
+        }
+    }
+
+    return UNKNOWN_ERROR;
+}
+
+/*===========================================================================
+ * FUNCTION   : checkDeferredWork
+ *
+ * DESCRIPTION: checks if a deferred task is in progress
+ *
+ * PARAMETERS :
+ *   @job_id  : deferred task id
+ *
+ * RETURN     : true if the task exists, otherwise false
+ *
+ * PRECONDITION : mDefLock is held by current thread
+ *==========================================================================*/
+bool QCamera2HardwareInterface::checkDeferredWork(uint32_t &job_id)
+{
+    for (uint32_t i = 0; i < MAX_ONGOING_JOBS; i++) {
+        if (mDefOngoingJobs[i] == job_id) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/*===========================================================================
+ * FUNCTION   : waitDeferredWork
+ *
+ * DESCRIPTION: waits for a deferred task to finish
  *
  * PARAMETERS :
  *   @job_id  : deferred task id
@@ -8807,19 +8962,21 @@ int32_t QCamera2HardwareInterface::getJpegHandleInfo(mm_jpeg_ops_t *ops,
  *              NO_ERROR  -- success
  *              none-zero failure code
  *==========================================================================*/
-int32_t QCamera2HardwareInterface::waitDefferedWork(int32_t &job_id)
+int32_t QCamera2HardwareInterface::waitDeferredWork(uint32_t &job_id)
 {
-    Mutex::Autolock l(mDeffLock);
+    int32_t rc = NO_ERROR;
+    Mutex::Autolock l(mDefLock);
 
-    if ((MAX_ONGOING_JOBS <= job_id) || (0 > job_id)) {
+    if (job_id == 0) {
+        ALOGE("%s: Invalid job id %d", __func__, job_id);
         return NO_ERROR;
     }
 
-    while ( mDeffOngoingJobs[job_id] == true ) {
-        mDeffCond.wait(mDeffLock);
+    while ( checkDeferredWork(job_id) == true ) {
+        mDefCond.waitRelative(mDefLock, CAMERA_DEFERRED_THREAD_TIMEOUT);
     }
 
-    return NO_ERROR;
+    return rc;
 }
 
 /*===========================================================================
@@ -8893,7 +9050,7 @@ void QCamera2HardwareInterface::getLogLevel()
  *==========================================================================*/
 cam_sensor_t QCamera2HardwareInterface::getSensorType()
 {
-    return gCamCaps[mCameraId]->sensor_type.sens_type;
+    return gCamCapability[mCameraId]->sensor_type.sens_type;
 }
 
 }; // namespace qcamera

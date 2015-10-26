@@ -642,64 +642,74 @@ private:
     pthread_mutex_t m_int_lock;
     pthread_cond_t m_int_cond;
 
-    enum DefferedWorkCmd {
-        CMD_DEFF_ALLOCATE_BUFF,
-        CMD_DEFF_PPROC_START,
+    enum DeferredWorkCmd {
+        CMD_DEF_ALLOCATE_BUFF,
+        CMD_DEF_PPROC_START,
         CMD_DEF_PPROC_INIT,
-        CMD_DEFF_CREATE_JPEG_SESSION,
-        CMD_DEFF_MAX
+        CMD_DEF_METADATA_ALLOC,
+        CMD_DEF_CREATE_JPEG_SESSION,
+        CMD_DEF_MAX
     };
 
     typedef struct {
         QCameraChannel *ch;
         cam_stream_type_t type;
-    } DefferAllocBuffArgs;
+    } DeferAllocBuffArgs;
 
     typedef struct {
         jpeg_encode_callback_t jpeg_cb;
         void *user_data;
     } DeferPProcInitArgs;
 
+    typedef struct {
+        uint8_t bufferCnt;
+        size_t size;
+    } DeferMetadataAllocArgs;
+
     typedef union {
-        DefferAllocBuffArgs allocArgs;
+        DeferAllocBuffArgs allocArgs;
         QCameraChannel *pprocArgs;
         DeferPProcInitArgs pprocInitArgs;
-    } DefferWorkArgs;
+        DeferMetadataAllocArgs metadataAllocArgs;
+    } DeferWorkArgs;
 
-    bool mDeffOngoingJobs[MAX_ONGOING_JOBS];
+    uint32_t mDefOngoingJobs[MAX_ONGOING_JOBS];
 
-    struct DeffWork
+    struct DefWork
     {
-        DeffWork(DefferedWorkCmd cmd_,
+        DefWork(DeferredWorkCmd cmd_,
                  uint32_t id_,
-                 DefferWorkArgs args_)
+                 DeferWorkArgs args_)
             : cmd(cmd_),
               id(id_),
               args(args_){};
 
-        DefferedWorkCmd cmd;
+        DeferredWorkCmd cmd;
         uint32_t id;
-        DefferWorkArgs args;
+        DeferWorkArgs args;
     };
 
-    QCameraCmdThread      mDefferedWorkThread;
+    QCameraCmdThread      mDeferredWorkThread;
     QCameraQueue          mCmdQueue;
 
-    Mutex                 mDeffLock;
-    Condition             mDeffCond;
+    Mutex                 mDefLock;
+    Condition             mDefCond;
 
-    int32_t queueDefferedWork(DefferedWorkCmd cmd,
-                              DefferWorkArgs args);
-    int32_t waitDefferedWork(int32_t &job_id);
-    static void *defferedWorkRoutine(void *obj);
-
-    int32_t mSnapshotJob;
-    int32_t mPostviewJob;
-    int32_t mMetadataJob;
-    int32_t mReprocJob;
-    int32_t mJpegJob;
-    int32_t mRawdataJob;
-    int32_t mInitPProcJob;
+    uint32_t queueDeferredWork(DeferredWorkCmd cmd,
+                               DeferWorkArgs args);
+    uint32_t dequeueDeferredWork(DefWork* dw);
+    int32_t waitDeferredWork(uint32_t &job_id);
+    static void *deferredWorkRoutine(void *obj);
+    bool checkDeferredWork(uint32_t &job_id);
+    void waitForDeferredAlloc(cam_stream_type_t stream_type);
+    uint32_t mSnapshotJob;
+    uint32_t mPostviewJob;
+    uint32_t mMetadataJob;
+    uint32_t mReprocJob;
+    uint32_t mJpegJob;
+    uint32_t mRawdataJob;
+    uint32_t mInitPProcJob;
+    uint32_t mMetadataAllocJob;
     uint32_t mOutputCount;
     uint32_t mInputCount;
     bool mAdvancedCaptureConfigured;
@@ -724,6 +734,10 @@ private:
     void *lib_surface_utils;
     int (*LINK_get_surface_pixel_alignment)();
     uint32_t mSurfaceStridePadding;
+
+    QCameraMemory *mMetadataMem;
+
+    static uint32_t sNextJobId;
 };
 
 }; // namespace qcamera
