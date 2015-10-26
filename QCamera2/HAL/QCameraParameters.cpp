@@ -5700,6 +5700,26 @@ int32_t QCameraParameters::initDefaultParameters()
     //Setup dual-camera
     setDcrf();
 
+    cam_dimension_t pic_dim;
+    pic_dim.width = 0;
+    pic_dim.height = 0;
+
+    for(uint32_t i = 0;
+            i < (m_pCapability->picture_sizes_tbl_cnt - 1);
+            i++) {
+        if ((pic_dim.width * pic_dim.height) <
+                (int32_t)(m_pCapability->picture_sizes_tbl[i].width *
+                m_pCapability->picture_sizes_tbl[i].height)) {
+            pic_dim.width =
+                    m_pCapability->picture_sizes_tbl[i].width;
+            pic_dim.height =
+                    m_pCapability->picture_sizes_tbl[i].height;
+        }
+    }
+    CDBG ("%s: max pic size = %d %d", __func__, pic_dim.width,
+            pic_dim.height);
+    setMaxPicSize(pic_dim);
+
     return rc;
 }
 
@@ -9209,13 +9229,14 @@ void QCameraParameters::getTouchIndexAf(int *x, int *y)
 }
 
 /*===========================================================================
- * FUNCTION   : getStreamFormat
+ * FUNCTION   : getStreamRotation
  *
- * DESCRIPTION: get stream format by its type
+ * DESCRIPTION: get stream rotation by its type
  *
  * PARAMETERS :
- *   @streamType : [input] stream type
- *   @format     : [output] stream format
+ *   @streamType        : stream type
+ *   @featureConfig     : stream feature config structure
+ *   @dim               : stream dimension
  *
  * RETURN     : int32_t type of status
  *              NO_ERROR  -- success
@@ -9358,12 +9379,10 @@ int32_t QCameraParameters::getStreamFormat(cam_stream_type_t streamType,
         }
         break;
     case CAM_STREAM_TYPE_RAW:
-        if (isRdiMode()) {
+        if ((isRdiMode()) || (getofflineRAW())) {
             format = m_pCapability->rdi_mode_stream_fmt;
         } else if (mPictureFormat >= CAM_FORMAT_YUV_RAW_8BIT_YUYV) {
             format = (cam_format_t)mPictureFormat;
-        } else if (getofflineRAW()) {
-            format = CAM_FORMAT_BAYER_MIPI_RAW_10BPP_BGGR;
         } else {
             char raw_format[PROPERTY_VALUE_MAX];
             int rawFormat;
@@ -9479,7 +9498,9 @@ int32_t QCameraParameters::getStreamDimension(cam_stream_type_t streamType,
         getPreviewSize(&dim.width, &dim.height);
         break;
     case CAM_STREAM_TYPE_SNAPSHOT:
-        if (getRecordingHintValue() == true) {
+        if (isPostProcScaling()) {
+            getMaxPicSize(dim);
+        } else if (getRecordingHintValue()) {
             // live snapshot
             getLiveSnapshotSize(dim);
         } else {
@@ -9498,6 +9519,14 @@ int32_t QCameraParameters::getStreamDimension(cam_stream_type_t streamType,
         dim.height = 1;
         break;
     case CAM_STREAM_TYPE_OFFLINE_PROC:
+        if (isPostProcScaling()) {
+            if (getRecordingHintValue()) {
+                // live snapshot
+                getLiveSnapshotSize(dim);
+            } else {
+                getPictureSize(&dim.width, &dim.height);
+            }
+        }
         break;
     case CAM_STREAM_TYPE_ANALYSIS:
         cam_dimension_t prv_dim, max_dim;
@@ -12731,6 +12760,33 @@ bool QCameraParameters::isLLNoiseEnabled()
     CDBG_HIGH("%s: Low light noise enabled : %d",
             __func__, llnoise);
     return llnoise;
+}
+
+/*===========================================================================
+ * FUNCTION   : isPostProcScaling
+ *
+ * DESCRIPTION: is scaling to be done by CPP?
+ *
+ * PARAMETERS : none
+ *
+ * RETURN     : TRUE  : If CPP scaling enabled
+ *              FALSE : If VFE scaling enabled
+ *==========================================================================*/
+bool QCameraParameters::isPostProcScaling()
+{
+    char value[PROPERTY_VALUE_MAX];
+    bool cpp_scaling = FALSE;
+
+    if (getRecordingHintValue()) {
+        return FALSE;
+    }
+
+    property_get("persist.camera.pp_scaling", value, "0");
+    cpp_scaling = atoi(value) > 0 ? TRUE : FALSE;
+
+    CDBG_HIGH("%s: Post proc scaling enabled : %d",
+            __func__, cpp_scaling);
+    return cpp_scaling;
 }
 
 /*===========================================================================
