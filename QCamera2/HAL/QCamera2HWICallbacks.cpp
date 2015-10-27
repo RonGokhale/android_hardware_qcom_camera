@@ -2783,6 +2783,7 @@ void * QCameraCbNotifier::cbNotifyRoutine(void * data)
                                            (numOfSnapshotExpected == numOfSnapshotRcvd)) {
                                             ALOGI("%s: [ZSL Retro] Expected snapshot received = %d",
                                                     __func__, numOfSnapshotRcvd);
+                                            numOfSnapshotRcvd = 0;
                                             // notify HWI that snapshot is done
                                             pme->mParent->processSyncEvt(QCAMERA_SM_EVT_SNAPSHOT_DONE,
                                                                          NULL);
