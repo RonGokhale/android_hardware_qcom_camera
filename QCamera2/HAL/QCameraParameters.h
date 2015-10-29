@@ -826,6 +826,7 @@ public:
     int32_t getRelatedCamCalibration(
             cam_related_system_calibration_data_t* calib);
     int32_t bundleRelatedCameras(bool sync, uint32_t sessionid);
+    bool isOEMFeatEnabled() { return m_bOEMFeatEnabled; }
 private:
     int32_t setPreviewSize(const QCameraParameters& );
     int32_t setVideoSize(const QCameraParameters& );
@@ -1131,6 +1132,7 @@ private:
     uint32_t mJpegRotation;
     bool m_LLCaptureEnabled;
     cam_low_light_mode_t m_LowLightLevel;
+    bool m_bOEMFeatEnabled;
 };
 
 }; // namespace qcamera
