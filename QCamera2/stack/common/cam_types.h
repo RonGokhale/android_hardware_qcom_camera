@@ -1080,28 +1080,67 @@ typedef struct {
   cam_coordinate_type_t contour_chin_pt[CAM_FACE_CT_POINT_CHIN_MAX];
   uint8_t is_ear_valid;
   cam_coordinate_type_t contour_ear_pt[CAM_FACE_CT_POINT_EAR_MAX];
-} cam_face_detect_contour_t;
+} cam_face_contour_info_t;
 
 typedef struct {
-    int32_t face_id;            /* unique id for face tracking within view unless view changes */
-    int8_t score;              /* score of confidence (0, -100) */
-    cam_rect_t face_boundary;  /* boundary of face detected */
+    cam_face_contour_info_t face_contour[MAX_ROI];
+} cam_face_contour_data_t;
+
+typedef struct {
     cam_coordinate_type_t left_eye_center;  /* coordinate of center of left eye */
     cam_coordinate_type_t right_eye_center; /* coordinate of center of right eye */
     cam_coordinate_type_t mouth_center;     /* coordinate of center of mouth */
-    cam_face_detect_contour_t contour_info; /* face detection contour info */
+} cam_face_landmarks_info_t;
+
+typedef struct {
+    cam_face_landmarks_info_t face_landmarks[MAX_ROI];
+} cam_face_landmarks_data_t;
+
+typedef struct {
     uint8_t smile_degree;      /* smile degree (0, -100) */
     uint8_t smile_confidence;  /* smile confidence (0, 100) */
-    uint8_t face_recognised;   /* if face is recognised */
+} cam_face_smile_info_t;
+
+typedef struct {
+    cam_face_smile_info_t smile[MAX_ROI];
+} cam_face_smile_data_t;
+
+typedef struct {
     int8_t gaze_angle;         /* -90 -45 0 45 90 for head left to rigth tilt */
     int32_t updown_dir;        /* up down direction (-180, 179) */
     int32_t leftright_dir;     /* left right direction (-180, 179) */
     int32_t roll_dir;          /* roll direction (-180, 179) */
     int8_t left_right_gaze;    /* left right gaze degree (-50, 50) */
     int8_t top_bottom_gaze;    /* up down gaze degree (-50, 50) */
+} cam_face_gaze_info_t;
+
+typedef struct {
+    cam_face_gaze_info_t gaze[MAX_ROI];
+} cam_face_gaze_data_t;
+
+typedef struct {
     uint8_t blink_detected;    /* if blink is detected */
     uint8_t left_blink;        /* left eye blink degeree (0, -100) */
     uint8_t right_blink;       /* right eye blink degree (0, - 100) */
+} cam_face_blink_info_t;
+
+typedef struct {
+    cam_face_blink_info_t blink[MAX_ROI];
+} cam_face_blink_data_t;
+
+typedef struct {
+    uint8_t face_recognised;   /* if face is recognised */
+    uint32_t unique_id;   /* if face is recognised */
+} cam_face_recog_info_t;
+
+typedef struct {
+    cam_face_recog_info_t face_rec[MAX_ROI];
+} cam_face_recog_data_t;
+
+typedef struct {
+    int32_t face_id;            /* unique id for face tracking within view unless view changes */
+    int8_t score;              /* score of confidence (0, -100) */
+    cam_rect_t face_boundary;  /* boundary of face detected */
 } cam_face_detection_info_t;
 
 typedef struct {
@@ -1916,10 +1955,22 @@ typedef enum {
     /* Special event to request stream frames*/
     CAM_INTF_PARM_REQUEST_FRAMES,
     /* dynamic feature detection */
-    CAM_INTF_META_IMG_DYN_FEAT,
+    CAM_INTF_META_IMG_DYN_FEAT, /* 200 */
     /*Parameter entry to communicate manual
     capture type*/
-    CAM_INTF_PARM_MANUAL_CAPTURE_TYPE, /*200*/
+    CAM_INTF_PARM_MANUAL_CAPTURE_TYPE,
+    /* face recognition */
+    CAM_INTF_META_FACE_RECOG,
+    /* face blink detection */
+    CAM_INTF_META_FACE_BLINK,
+    /* face gaze detection */
+    CAM_INTF_META_FACE_GAZE,
+    /* face smile detection */
+    CAM_INTF_META_FACE_SMILE,
+    /* face landmark detection */
+    CAM_INTF_META_FACE_LANDMARK,
+    /* face contour detection */
+    CAM_INTF_META_FACE_CONTOUR,
     CAM_INTF_PARM_MAX
 } cam_intf_parm_type_t;
 
