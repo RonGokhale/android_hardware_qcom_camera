@@ -45,7 +45,7 @@
 #define ASPECT_TOLERANCE 0.001
 #define FLIP_V_H (FLIP_H | FLIP_V)
 
-#define DEFAULT_ZSL_MODE_ON 1
+//#define DEFAULT_ZSL_MODE_ON 1
 
 namespace qcamera {
 // Parameter keys to communicate between camera application and driver.

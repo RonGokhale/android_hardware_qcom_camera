@@ -42,10 +42,10 @@
 #include "camera_log.h"
 #include "camera_parameters.h"
 
-#define DEFAULT_EXPOSURE_VALUE_STR "2500"
+#define DEFAULT_EXPOSURE_VALUE_STR "250"
 #define MIN_EXPOSURE_VALUE 0
 #define MAX_EXPOSURE_VALUE 65535
-#define DEFAULT_GAIN_VALUE_STR "100"
+#define DEFAULT_GAIN_VALUE_STR "50"
 #define MIN_GAIN_VALUE 0
 #define MAX_GAIN_VALUE 255
 
@@ -465,50 +465,72 @@ int CameraTest::setParameters()
     vSize_ = config_.vSize;
     picSize_ = caps_.picSizes[picSizeIdx];
 
-    if ( config_.func == CAM_FUNC_OPTIC_FLOW ){
-	pSize_ = VGASize;
-	vSize_ = VGASize;
-		printf("Setting default preview and video size for optic flow : 640x480 \n");
-    } else if (config_.func == CAM_FUNC_LEFT_SENSOR)
-    {
-        pSize_ = QVGASize;
-        vSize_ = QVGASize;
-		printf("Setting default preview and video size for left sensor : 320x240 \n");
-    }else if (config_.func == CAM_FUNC_STEREO )
-    {
-        pSize_ = stereoQVGASize;
-        vSize_ = stereoQVGASize;
-		printf("Setting default preview and video size for stereo : 640x240 \n");
-    }
 
-    printf("setting preview size: %dx%d\n", pSize_.width, pSize_.height);
-    params_.setPreviewSize(pSize_);
-    printf("setting video size: %dx%d\n", vSize_.width, vSize_.height);
-    params_.setVideoSize(vSize_);
-    printf("setting picture size: %dx%d\n", picSize_.width, picSize_.height);
-    params_.setPictureSize(picSize_);
+	switch ( config_.func ){
+		case CAM_FUNC_OPTIC_FLOW:
+			pSize_ = VGASize;
+			vSize_ = VGASize;
+		    picSize_ = VGASize;
+			printf("setting preview size: %dx%d\n", pSize_.width, pSize_.height);
+			params_.setPreviewSize(pSize_);
+			printf("setting video size: %dx%d\n", vSize_.width, vSize_.height);
+			params_.setVideoSize(vSize_);
+			printf("setting picture size: %dx%d\n", picSize_.width, picSize_.height);
+			params_.setPictureSize(picSize_);
+			printf("Setting default preview and video size for optic flow : 640x480 \n");
+			break;
+		case CAM_FUNC_LEFT_SENSOR:
+			pSize_ = QVGASize;
+			vSize_ = QVGASize;
+			picSize_ = QVGASize;
+			printf("setting preview size: %dx%d\n", pSize_.width, pSize_.height);
+			params_.setPreviewSize(pSize_);
+			printf("setting video size: %dx%d\n", vSize_.width, vSize_.height);
+			params_.setVideoSize(vSize_);
+			printf("setting picture size: %dx%d\n", picSize_.width, picSize_.height);
+			params_.setPictureSize(picSize_);
+			printf("Setting default preview and video size for left sensor : 320x240 \n");
+			break;
+		case CAM_FUNC_STEREO:
+		        pSize_ = stereoQVGASize;
+	                vSize_ = stereoQVGASize;
+			picSize_ = stereoQVGASize;
+			printf("setting preview size: %dx%d\n", pSize_.width, pSize_.height);
+			params_.setPreviewSize(pSize_);
+			printf("Setting default preview and video size for stereo : 640x240 \n");
+			break;
+		case CAM_FUNC_HIRES:
+			printf("setting preview size: %dx%d\n", pSize_.width, pSize_.height);
+			params_.setPreviewSize(pSize_);
+			printf("setting video size: %dx%d\n", vSize_.width, vSize_.height);
+			params_.setVideoSize(vSize_);
+			printf("setting picture size: %dx%d\n", picSize_.width, picSize_.height);
+			params_.setPictureSize(picSize_);
 
-    if (config_.func == CAM_FUNC_HIRES ) {
-      printf("setting focus mode: %s\n",
-             caps_.focusModes[focusModeIdx].c_str());
-      params_.setFocusMode(caps_.focusModes[focusModeIdx]);
-      printf("setting WB mode: %s\n", caps_.wbModes[wbModeIdx].c_str());
-      params_.setWhiteBalance(caps_.wbModes[wbModeIdx]);
-      printf("setting ISO mode: %s\n", caps_.isoModes[isoModeIdx].c_str());
-      params_.setISO(caps_.isoModes[isoModeIdx]);
+			printf("setting focus mode: %s\n",
+				 caps_.focusModes[focusModeIdx].c_str());
+			params_.setFocusMode(caps_.focusModes[focusModeIdx]);
+			printf("setting WB mode: %s\n", caps_.wbModes[wbModeIdx].c_str());
+			params_.setWhiteBalance(caps_.wbModes[wbModeIdx]);
+			printf("setting ISO mode: %s\n", caps_.isoModes[isoModeIdx].c_str());
+			params_.setISO(caps_.isoModes[isoModeIdx]);
 
-      printf("setting preview fps range: %d, %d\n",
-           caps_.previewFpsRanges[pFpsIdx].min,
-           caps_.previewFpsRanges[pFpsIdx].max);
-      params_.setPreviewFpsRange(caps_.previewFpsRanges[pFpsIdx]);
+			printf("setting preview fps range: %d, %d\n",
+			   caps_.previewFpsRanges[pFpsIdx].min,
+			   caps_.previewFpsRanges[pFpsIdx].max);
+			params_.setPreviewFpsRange(caps_.previewFpsRanges[pFpsIdx]);
+			printf("setting video fps: %d\n", caps_.videoFpsValues[vFpsIdx]);
+			params_.setVideoFPS(caps_.videoFpsValues[vFpsIdx]);
 
-      printf("setting video fps: %d\n", caps_.videoFpsValues[vFpsIdx]);
-      params_.setVideoFPS(caps_.videoFpsValues[vFpsIdx]);
+			printf("setting preview format: %s\n",
+				 caps_.previewFormats[prevFmtIdx].c_str());
+			params_.setPreviewFormat(caps_.previewFormats[prevFmtIdx]);
+			break;
+		default:
+			printf("invalid sensor function \n");
+			break;
+	}
 
-      printf("setting preview format: %s\n",
-             caps_.previewFormats[prevFmtIdx].c_str());
-      params_.setPreviewFormat(caps_.previewFormats[prevFmtIdx]);
-    }
     if (config_.outputFormat == RAW_FORMAT)
     {
         params_.set("preview-format", "bayer-rggb");
@@ -576,6 +598,9 @@ int CameraTest::run()
     vFpsAvg_ = 0.0f;
     pFpsAvg_ = 0.0f;
 
+    printf("start preview\n");
+    camera_->startPreview();
+
     if ( config_.func == CAM_FUNC_OPTIC_FLOW )
     {
         params_.set("qc-exposure-manual", config_.exposureValue.c_str() );
@@ -588,10 +613,7 @@ int CameraTest::run()
         }
     }
 
-    printf("start preview\n");
-    camera_->startPreview();
-
-    if( config_.outputFormat != RAW_FORMAT ) {
+    if( config_.outputFormat != RAW_FORMAT && config_.func != CAM_FUNC_STEREO) {
         printf("start recording\n");
         camera_->startRecording();
 
@@ -613,7 +635,7 @@ int CameraTest::run()
     printf("waiting for %d seconds ...\n", config_.runTime);
     sleep(config_.runTime);
 
-    if( config_.outputFormat != RAW_FORMAT ) {
+    if( config_.outputFormat != RAW_FORMAT && config_.func != CAM_FUNC_STEREO ) {
         printf("stop recording\n");
         camera_->stopRecording();
     }
@@ -621,7 +643,8 @@ int CameraTest::run()
     camera_->stopPreview();
 
     printf("Average preview FPS = %.2f\n", pFpsAvg_);
-    printf("Average video FPS = %.2f\n", vFpsAvg_);
+    if( config_.outputFormat != RAW_FORMAT && config_.func != CAM_FUNC_STEREO )
+		printf("Average video FPS = %.2f\n", vFpsAvg_);
 
 del_camera:
     /* release camera device */
