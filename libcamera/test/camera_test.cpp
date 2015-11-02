@@ -49,6 +49,7 @@
 #define MIN_GAIN_VALUE 0
 #define MAX_GAIN_VALUE 255
 
+#define DEFAULT_CAMERA_FPS 30
 #define MS_PER_SEC 1000
 #define NS_PER_MS 1000000
 #define NS_PER_US 1000
@@ -94,6 +95,7 @@ struct TestConfig
     OutputFormatType outputFormat;
     ImageSize pSize;
     ImageSize vSize;
+    int fps;
 };
 
 class CameraTest : ICameraListener
@@ -133,6 +135,7 @@ private:
     int setParameters();
     int compressJpegAndSave(ICameraFrame *frame, char *name);
     int takePicture();
+    int setFPSindex(int fps, int &pFpsIdx, int &vFpsIdx);
 };
 
 CameraTest::CameraTest() :
@@ -451,6 +454,58 @@ ImageSize VGASize(640,480);
 ImageSize QVGASize(320,240);
 ImageSize stereoQVGASize(640,240);
 
+int CameraTest::setFPSindex(int fps, int &pFpsIdx, int &vFpsIdx)
+{
+    int defaultPrevFPSIndex = -1;
+    int defaultVideoFPSIndex = -1;
+    int i,rc = 0;
+    for (i = 0; i < caps_.previewFpsRanges.size(); i++) {
+        if (  (caps_.previewFpsRanges[i].max)/1000 == fps )
+        {
+            pFpsIdx = i;
+            break;
+        }
+        if ( (caps_.previewFpsRanges[i].max)/1000 == DEFAULT_CAMERA_FPS )
+        {
+            defaultPrevFPSIndex = i;
+        }
+    }
+    if ( i >= caps_.previewFpsRanges.size() )
+    {
+        if (defaultPrevFPSIndex != -1 )
+        {
+            pFpsIdx = defaultPrevFPSIndex;
+        } else
+        {
+            pFpsIdx = -1;
+            rc = -1;
+        }
+    }
+
+    for (i = 0; i < caps_.videoFpsValues.size(); i++) {
+        if ( fps == caps_.videoFpsValues[i])
+        {
+            vFpsIdx = i;
+            break;
+        }
+        if ( DEFAULT_CAMERA_FPS == caps_.videoFpsValues[i])
+        {
+            defaultVideoFPSIndex = i;
+        }
+    }
+    if ( i >= caps_.videoFpsValues.size())
+    {
+        if (defaultVideoFPSIndex != -1)
+        {
+            vFpsIdx = defaultVideoFPSIndex;
+        }else
+        {
+            vFpsIdx = -1;
+            rc = -1;
+        }
+    }
+    return rc;
+}
 int CameraTest::setParameters()
 {
     int focusModeIdx = 3;
@@ -460,11 +515,11 @@ int CameraTest::setParameters()
     int vFpsIdx = 3;
     int prevFmtIdx = 0;
     int picSizeIdx = 0;
+    int rc = 0;
 
     pSize_ = config_.pSize;
     vSize_ = config_.vSize;
     picSize_ = caps_.picSizes[picSizeIdx];
-
 
 	switch ( config_.func ){
 		case CAM_FUNC_OPTIC_FLOW:
@@ -515,13 +570,6 @@ int CameraTest::setParameters()
 			printf("setting ISO mode: %s\n", caps_.isoModes[isoModeIdx].c_str());
 			params_.setISO(caps_.isoModes[isoModeIdx]);
 
-			printf("setting preview fps range: %d, %d\n",
-			   caps_.previewFpsRanges[pFpsIdx].min,
-			   caps_.previewFpsRanges[pFpsIdx].max);
-			params_.setPreviewFpsRange(caps_.previewFpsRanges[pFpsIdx]);
-			printf("setting video fps: %d\n", caps_.videoFpsValues[vFpsIdx]);
-			params_.setVideoFPS(caps_.videoFpsValues[vFpsIdx]);
-
 			printf("setting preview format: %s\n",
 				 caps_.previewFormats[prevFmtIdx].c_str());
 			params_.setPreviewFormat(caps_.previewFormats[prevFmtIdx]);
@@ -530,6 +578,18 @@ int CameraTest::setParameters()
 			printf("invalid sensor function \n");
 			break;
 	}
+
+    rc = setFPSindex(config_.fps, pFpsIdx, vFpsIdx);
+    if ( rc == -1)
+    {
+        return rc;
+    }
+    printf("setting preview fps range: %d, %d ( idx = %d ) \n",
+    caps_.previewFpsRanges[pFpsIdx].min,
+    caps_.previewFpsRanges[pFpsIdx].max, pFpsIdx);
+    params_.setPreviewFpsRange(caps_.previewFpsRanges[pFpsIdx]);
+    printf("setting video fps: %d ( idx = %d )\n", caps_.videoFpsValues[vFpsIdx], vFpsIdx );
+    params_.setVideoFPS(caps_.videoFpsValues[vFpsIdx]);
 
     if (config_.outputFormat == RAW_FORMAT)
     {
@@ -688,6 +748,11 @@ const char usageStr[] =
     "  -g <value>      set gain value (only for ov7251)\n"
     "                     min - 0\n"
     "                     max - 255\n"
+    "  -s < value>     set fps value      (Enter supported fps for requested resolution) \n"
+    "                    -  30 (default)\n"
+    "                    -  60 \n"
+    "                    -  90 \n"
+    "                    - 120\n"
     "  -o <value>      Output format\n"
     "                     0 :YUV format (default)\n"
     "                     1 : RAW format \n"
@@ -719,8 +784,9 @@ static TestConfig parseCommandline(int argc, char* argv[])
     int gainValueInt = 0;
     cfg.pSize = FHDSize;
     cfg.vSize = HDSize;
+    cfg.fps = DEFAULT_CAMERA_FPS;
     int c;
-    while ((c = getopt(argc, argv, "hdt:if:o:e:g:p:v:n")) != -1) {
+    while ((c = getopt(argc, argv, "hdt:if:o:e:g:p:v:n:s:")) != -1) {
         switch (c) {
           case 't':
               cfg.runTime = atoi(optarg);
@@ -802,6 +868,14 @@ static TestConfig parseCommandline(int argc, char* argv[])
                   cfg.gainValue = DEFAULT_GAIN_VALUE_STR;
               }else{
                   cfg.gainValue = optarg;
+              }
+              break;
+         case 's':
+              cfg.fps = atoi(optarg);
+              if ( !(cfg.fps == 30 || cfg.fps == 60 || cfg.fps == 90 || cfg.fps == 120) )
+              {
+                  cfg.fps = DEFAULT_CAMERA_FPS;
+                  printf("Invalid fps values. Using default = %d ", cfg.fps);
               }
               break;
          case 'o':
