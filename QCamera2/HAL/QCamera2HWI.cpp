@@ -629,7 +629,9 @@ int QCamera2HardwareInterface::take_picture(struct camera_device *device)
     qcamera_api_result_t apiResult;
 
     /* Prepare snapshot in case LED needs to be flashed */
-    if (hw->mFlashNeeded == 1 || hw->mParameters.isChromaFlashEnabled()) {
+    if (hw->mParameters.getFlashMode() == CAM_FLASH_MODE_ON
+      || (hw->mParameters.getFlashMode() == CAM_FLASH_MODE_AUTO && hw->mFlashNeeded == 1)
+      || hw->mParameters.isChromaFlashEnabled()) {
         ret = hw->processAPI(QCAMERA_SM_EVT_PREPARE_SNAPSHOT, NULL);
         if (ret == NO_ERROR) {
             hw->waitAPIResult(QCAMERA_SM_EVT_PREPARE_SNAPSHOT, &apiResult);

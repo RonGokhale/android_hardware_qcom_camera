@@ -608,6 +608,7 @@ public:
     bool needThumbnailReprocess(uint32_t *pFeatureMask);
     inline bool isUbiFocusEnabled() {return m_bAFBracketingOn;};
     inline bool isChromaFlashEnabled() {return m_bChromaFlashOn;};
+    inline int32_t getFlashMode(){return mFlashValue;};
     bool isOptiZoomEnabled();
     bool isDifferentFlipZSL();
     int32_t commitAFBracket(cam_af_bracketing_t afBracket);
