@@ -2036,6 +2036,8 @@ void QCamera2HardwareInterface::metadata_stream_cb_routine(mm_camera_super_buf_t
         IF_META_AVAILABLE(cam_low_light_mode_t, low_light_level,
                 CAM_INTF_META_LOW_LIGHT, pMetaData) {
             pme->mParameters.setLowLightLevel(*low_light_level);
+            CDBG_HIGH("%s: getLowLightCapture = %di level = %d\n", __func__,
+                    pme->mParameters.getLowLightCapture(), *low_light_level);
         }
     }
 
