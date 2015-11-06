@@ -83,6 +83,14 @@ enum CamFunction {
     CAM_FUNC_STEREO = 3,
 };
 
+enum AppLoglevel {
+    CAM_LOG_SILENT = 0,
+    CAM_LOG_ERROR = 1,
+    CAM_LOG_INFO = 2,
+    CAM_LOG_DEBUG = 3,
+    CAM_LOG_MAX,
+};
+
 struct TestConfig
 {
     bool dumpFrames;
@@ -98,6 +106,7 @@ struct TestConfig
     ImageSize picSize;
     int picSizeIdx;
     int fps;
+    AppLoglevel logLevel;
 };
 
 class CameraTest : ICameraListener
@@ -512,6 +521,11 @@ const char usageStr[] =
     "  -o <value>      Output format\n"
     "                     0 :YUV format (default)\n"
     "                     1 : RAW format \n"
+    "  -V <level>      syslog level [0]\n"
+    "                    0: silent\n"
+    "                    1: error\n"
+    "                    2: info\n"
+    "                    3: debug\n"
     "  -h              print this message\n"
 ;
 
@@ -769,6 +783,7 @@ static int setDefaultConfig(TestConfig &cfg) {
     cfg.gainValue = DEFAULT_GAIN_VALUE_STR;  /* Default gain value */
     cfg.fps = DEFAULT_CAMERA_FPS;
     cfg.picSizeIdx = -1;
+    cfg.logLevel = CAM_LOG_SILENT;
 
     switch (cfg.func) {
     case CAM_FUNC_OPTIC_FLOW:
@@ -810,7 +825,7 @@ static TestConfig parseCommandline(int argc, char* argv[])
     int exposureValueInt = 0;
     int gainValueInt = 0;
 
-    while ((c = getopt(argc, argv, "hdt:io:e:g:p:v:ns:f:r:")) != -1) {
+    while ((c = getopt(argc, argv, "hdt:io:e:g:p:v:ns:f:r:V:")) != -1) {
         switch (c) {
         case 'f':
             {
@@ -836,7 +851,7 @@ static TestConfig parseCommandline(int argc, char* argv[])
     setDefaultConfig(cfg);
 
     optind = 1;
-    while ((c = getopt(argc, argv, "hdt:io:e:g:p:v:ns:f:r:")) != -1) {
+    while ((c = getopt(argc, argv, "hdt:io:e:g:p:v:ns:f:r:V:")) != -1) {
         switch (c) {
         case 't':
             printf(" T \n");
@@ -964,6 +979,9 @@ static TestConfig parseCommandline(int argc, char* argv[])
                 break;
             }
             break;
+        case 'V':
+            cfg.logLevel = (AppLoglevel)atoi(optarg);
+            break;
         case 'f':
             break;
         case 'h':
@@ -980,6 +998,18 @@ int main(int argc, char* argv[])
 {
 
     TestConfig config = parseCommandline(argc, argv);
+
+    /* setup syslog level */
+    if (config.logLevel == CAM_LOG_SILENT) {
+        setlogmask(LOG_UPTO(LOG_EMERG));
+    } else if (config.logLevel == CAM_LOG_DEBUG) {
+        setlogmask(LOG_UPTO(LOG_DEBUG));
+    } else if (config.logLevel == CAM_LOG_INFO) {
+        setlogmask(LOG_UPTO(LOG_INFO));
+    } else if (config.logLevel == CAM_LOG_ERROR) {
+        setlogmask(LOG_UPTO(LOG_ERR));
+    }
+    openlog(NULL, LOG_NDELAY, LOG_DAEMON);
 
     CameraTest test(config);
     test.run();
