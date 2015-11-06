@@ -3716,7 +3716,8 @@ int QCamera2HardwareInterface::takePicture()
             mParameters.isHDREnabled() ||
             mParameters.isChromaFlashEnabled() ||
             mParameters.isAEBracketEnabled() ||
-            mParameters.isStillMoreEnabled()) {
+            mParameters.isStillMoreEnabled() ||
+            mParameters.getLowLightLevel()) {
         rc = configureAdvancedCapture();
         if (rc == NO_ERROR) {
             numSnapshots = numAdvancedSnapshot;
@@ -3764,7 +3765,8 @@ int QCamera2HardwareInterface::takePicture()
                     mParameters.isHDREnabled() ||
                     mParameters.isChromaFlashEnabled() ||
                     mParameters.isAEBracketEnabled() ||
-                    mParameters.isStillMoreEnabled()) {
+                    mParameters.isStillMoreEnabled() ||
+                    mParameters.getLowLightLevel()) {
                 rc = startAdvancedCapture(pZSLChannel);
                 if (rc != NO_ERROR) {
                     ALOGE("%s: cannot start zsl advanced capture", __func__);
@@ -3934,7 +3936,8 @@ int QCamera2HardwareInterface::takePicture()
                 if (NULL != pCapChannel) {
                     if (mParameters.isUbiFocusEnabled() ||
                             mParameters.isUbiRefocus() ||
-                            mParameters.isChromaFlashEnabled()) {
+                            mParameters.isChromaFlashEnabled() ||
+                            mParameters.getLowLightLevel()) {
                         rc = startAdvancedCapture(pCapChannel);
                         if (rc != NO_ERROR) {
                             ALOGE("%s: cannot start advanced capture", __func__);
@@ -5626,7 +5629,7 @@ int32_t QCamera2HardwareInterface::processPrepSnapshotDoneEvent(
                         cam_prep_snapshot_state_t prep_snapshot_state)
 {
     int32_t ret = NO_ERROR;
-
+    ALOGI("%s: E",__func__);
     if (m_channels[QCAMERA_CH_TYPE_ZSL] &&
         prep_snapshot_state == NEED_FUTURE_FRAME) {
         CDBG_HIGH("%s: already handled in mm-camera-intf, no ops here", __func__);
@@ -5636,6 +5639,7 @@ int32_t QCamera2HardwareInterface::processPrepSnapshotDoneEvent(
             m_bLedAfAecLock = TRUE;
         }
     }
+    ALOGI("%s: X",__func__);
     return ret;
 }
 
