@@ -774,6 +774,23 @@ const QCameraParameters::QCameraMap<int>
 #define PARAM_MAP_SIZE(MAP) (sizeof(MAP)/sizeof(MAP[0]))
 
 /*===========================================================================
+ * FUNCTION   : isOEMFeat1PropEnabled
+ *
+ * DESCRIPTION: inline function to check from property if custom feature
+ *            is enabled
+ *
+ * PARAMETERS : none
+ *
+ * RETURN     : boolean true/false
+ *==========================================================================*/
+static inline bool isOEMFeat1PropEnabled()
+{
+    char value[PROPERTY_VALUE_MAX];
+    property_get("persist.camera.imglib.oemfeat1", value, "0");
+    return atoi(value) > 0 ? true : false;
+}
+
+/*===========================================================================
  * FUNCTION   : QCameraParameters
  *
  * DESCRIPTION: default constructor of QCameraParameters
@@ -890,6 +907,7 @@ QCameraParameters::QCameraParameters()
     mBufBatchCnt = 0;
     mRotation = 0;
     mJpegRotation = 0;
+    m_bOEMFeatEnabled = isOEMFeat1PropEnabled();
 }
 
 /*===========================================================================
@@ -985,6 +1003,7 @@ QCameraParameters::QCameraParameters(const String8 &params)
     mCurPPCount = 0;
     mRotation = 0;
     mJpegRotation = 0;
+    m_bOEMFeatEnabled = isOEMFeat1PropEnabled();
 }
 
 /*===========================================================================
@@ -12304,6 +12323,8 @@ uint8_t QCameraParameters::getNumOfExtraBuffersForImageProc()
         } else {
             numOfBufs += m_pCapability->stillmore_settings_need.burst_count - 1;
         }
+    } else if (isOEMFeatEnabled()) {
+        numOfBufs += 1;
     }
 
     return (uint8_t)(numOfBufs * getBurstNum());
