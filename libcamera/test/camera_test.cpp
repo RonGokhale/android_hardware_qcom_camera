@@ -520,7 +520,7 @@ const char usageStr[] =
     "                    - 120\n"
     "  -o <value>      Output format\n"
     "                     0 :YUV format (default)\n"
-    "                     1 : RAW format \n"
+    "                     1 : RAW format (default of optic)\n"
     "  -V <level>      syslog level [0]\n"
     "                    0: silent\n"
     "                    1: error\n"
@@ -603,6 +603,7 @@ int CameraTest::setParameters()
 	switch ( config_.func ){
 		case CAM_FUNC_OPTIC_FLOW:
 			if (config_.outputFormat == RAW_FORMAT) {
+				printf("Setting output = RAW_FORMAT for optic flow sensor \n");
 				params_.set("preview-format", "bayer-rggb");
 				params_.set("picture-format", "bayer-mipi-10gbrg");
 				params_.set("raw-size", "640x480");
@@ -790,6 +791,7 @@ static int setDefaultConfig(TestConfig &cfg) {
         cfg.pSize   = VGASize;
         cfg.vSize   = VGASize;
         cfg.picSize   = VGASize;
+        cfg.outputFormat = RAW_FORMAT;
         break;
     case CAM_FUNC_LEFT_SENSOR:
         cfg.pSize   = VGASize;
@@ -829,7 +831,6 @@ static TestConfig parseCommandline(int argc, char* argv[])
         switch (c) {
         case 'f':
             {
-                printf(" F \n");
                 string str(optarg);
                 if (str == "hires") {
                     cfg.func = CAM_FUNC_HIRES;
@@ -854,12 +855,10 @@ static TestConfig parseCommandline(int argc, char* argv[])
     while ((c = getopt(argc, argv, "hdt:io:e:g:p:v:ns:f:r:V:")) != -1) {
         switch (c) {
         case 't':
-            printf(" T \n");
             cfg.runTime = atoi(optarg);
             break;
          case 'p':
             {
-                printf(" P \n");
                 string str(optarg);
                 if (str == "4k") {
                     cfg.pSize = UHDSize;
@@ -880,7 +879,6 @@ static TestConfig parseCommandline(int argc, char* argv[])
             }
         case 'v':
             {
-                printf(" V \n");
                 string str(optarg);
                 if (str == "4k") {
                     cfg.vSize = UHDSize;
@@ -900,13 +898,11 @@ static TestConfig parseCommandline(int argc, char* argv[])
                 break;
             }
         case 'n':
-            printf(" N \n");
             cfg.testSnapshot = true;
             cfg.picSizeIdx = 0;
             break;
        case 's':
             {
-                printf(" S \n");
                 string str(optarg);
                 if (str == "4k") {
                     cfg.picSize = UHDSize;
@@ -928,15 +924,12 @@ static TestConfig parseCommandline(int argc, char* argv[])
                 break;
             }
         case 'd':
-            printf(" D \n");
             cfg.dumpFrames = true;
             break;
         case 'i':
-            printf(" I \n");
             cfg.infoMode = true;
             break;
         case  'e':
-            printf(" E \n");
             exposureValueInt =  atoi(optarg);
             if (exposureValueInt < MIN_EXPOSURE_VALUE || exposureValueInt > MAX_EXPOSURE_VALUE) {
                 printf("Invalid exposure value. Using default\n");
@@ -946,7 +939,6 @@ static TestConfig parseCommandline(int argc, char* argv[])
             }
             break;
         case  'g':
-            printf(" G \n");
             gainValueInt =  atoi(optarg);
             if (gainValueInt < MIN_GAIN_VALUE || gainValueInt > MAX_GAIN_VALUE) {
                 printf("Invalid exposure value. Using default\n");
@@ -956,7 +948,6 @@ static TestConfig parseCommandline(int argc, char* argv[])
             }
             break;
         case 'r':
-            printf(" R \n");
             cfg.fps = atoi(optarg);
             if (!(cfg.fps == 30 || cfg.fps == 60 || cfg.fps == 90 || cfg.fps == 120)) {
                 cfg.fps = DEFAULT_CAMERA_FPS;
@@ -964,7 +955,6 @@ static TestConfig parseCommandline(int argc, char* argv[])
             }
             break;
         case 'o':
-            printf(" O \n");
             outputFormat = atoi(optarg);
             switch (outputFormat) {
             case 0: /* IMX135 , IMX214 */
