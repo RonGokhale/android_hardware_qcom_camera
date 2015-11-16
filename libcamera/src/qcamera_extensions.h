@@ -303,4 +303,10 @@ const char CDS_MODE_AUTO[] = "auto";
 
 const char KEY_SELECTED_AUTO_SCENE[] = "selected-auto-scene";
 
+const char KEY_QC_EXPOSURE_MANUAL[] = "qc-exposure-manual";
+const char KEY_QC_GAIN_MANUAL[] = "qc-gain-manual";
+const char KEY_QC_VERTICAL_FLIP[] = "qc-vertical-flip";
+const char KEY_QC_HORIZONTAL_MIRROR[] = "qc-horizontal-mirror";
+
+
 } /* namespace camera */

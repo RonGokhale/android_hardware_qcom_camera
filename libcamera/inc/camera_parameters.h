@@ -422,6 +422,34 @@ public:
      */
     void setPreviewFormat(const std::string& value);
 
+     /**
+     * set manual exposure in sensor
+     *
+     * @param value
+     */
+    void setManualExposure(int value);
+
+    /**
+     * set manual gain in sensor
+     *
+     * @param value
+     */
+    void setManualGain(int value);
+
+    /**
+     * set vertical flip bit in sensor
+     *
+     * @param value
+     */
+    void setVerticalFlip(bool value);
+
+    /**
+     * set horizontal mirror bit in sensor
+     *
+     * @param value
+     */
+    void setHorizontalMirror(bool value);
+
 private:
 
     /**

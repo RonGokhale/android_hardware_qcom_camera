@@ -415,6 +415,9 @@ public:
     static const char  KEY_QC_EXPOSURE_MANUAL[];
     static const char  KEY_QC_GAIN_MANUAL[];
 
+    static const char  KEY_QC_VERTICAL_FLIP[];
+    static const char  KEY_QC_HORIZONTAL_MIRROR[];
+
     // Values for SKIN TONE ENHANCEMENT
     static const char SKIN_TONE_ENHANCEMENT_ENABLE[] ;
     static const char SKIN_TONE_ENHANCEMENT_DISABLE[] ;
@@ -651,6 +654,8 @@ private:
     int32_t setISOValue(const QCameraParameters& );
     int32_t setExposureManualValue(const QCameraParameters& );
     int32_t setGainManualValue(const QCameraParameters& );
+    int32_t setVerticalFlip(const QCameraParameters& );
+    int32_t setHorizontalMirror(const QCameraParameters& );
     int32_t setExposureTime(const QCameraParameters& );
     int32_t setRotation(const QCameraParameters& );
     int32_t setVideoRotation(const QCameraParameters& );
@@ -712,6 +717,8 @@ private:
     int32_t setISOValue(const char *isoValue);
     int32_t setExposureManualValue(const char *exposureManual);
     int32_t setGainManualValue(const char *gainManual);
+    int32_t setVerticalFlip(const char *verticalFlip);
+    int32_t setHorizontalMirror(const char *horizontalMirror);
     int32_t setExposureTime(const char *expTimeStr);
     int32_t setFlash(const char *flashStr);
     int32_t setAecLock(const char *aecStr);

@@ -516,5 +516,37 @@ void CameraParams::setPreviewFormat(const string& value)
                             value.c_str());
 }
 
+void CameraParams::setManualExposure(int value)
+{
+    std::stringstream value_str;
+    value_str << value;
+    params_cast(priv_)->set(KEY_QC_EXPOSURE_MANUAL,
+                            value_str.str());
+}
+
+void CameraParams::setManualGain(int value)
+{
+    std::stringstream value_str;
+    value_str << value;
+    params_cast(priv_)->set(KEY_QC_GAIN_MANUAL,
+                            value_str.str());
+}
+
+void CameraParams::setVerticalFlip(bool value)
+{
+    std::stringstream value_str;
+    value_str << value;
+    params_cast(priv_)->set(KEY_QC_VERTICAL_FLIP,
+                            value_str.str());
+}
+
+void CameraParams::setHorizontalMirror(bool value)
+{
+    std::stringstream value_str;
+    value_str << value;
+    params_cast(priv_)->set(KEY_QC_HORIZONTAL_MIRROR,
+                            value_str.str());
+}
+
 } /* namespace camera */
 

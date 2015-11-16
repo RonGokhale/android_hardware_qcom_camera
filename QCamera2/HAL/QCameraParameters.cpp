@@ -289,6 +289,8 @@ const char QCameraParameters::KEY_QC_MAX_NUM_REQUESTED_FACES[] = "qc-max-num-req
 
 const char QCameraParameters::KEY_QC_EXPOSURE_MANUAL[] = "qc-exposure-manual";
 const char QCameraParameters::KEY_QC_GAIN_MANUAL[] = "qc-gain-manual";
+const char QCameraParameters::KEY_QC_VERTICAL_FLIP[] = "qc-vertical-flip";
+const char QCameraParameters::KEY_QC_HORIZONTAL_MIRROR[] = "qc-horizontal-mirror";
 
 //Values for DENOISE
 const char QCameraParameters::DENOISE_OFF[] = "denoise-off";
@@ -2584,6 +2586,55 @@ int32_t  QCameraParameters::setGainManualValue(const QCameraParameters& params)
     return NO_ERROR;
 }
 
+/*===========================================================================
+ * FUNCTION   : setVerticalFlip
+ *
+ * DESCRIPTION: set vertical flip bit in the sensor
+ *
+ * PARAMETERS :
+ *   @params  : user setting parameters
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t  QCameraParameters::setVerticalFlip(const QCameraParameters& params)
+{
+    const char *str = params.get(KEY_QC_VERTICAL_FLIP);
+    const char *prev_str = get(KEY_QC_VERTICAL_FLIP);
+    if (str != NULL) {
+        if (prev_str == NULL ||
+            strcmp(str, prev_str) != 0) {
+            return setVerticalFlip(str);
+        }
+    }
+    return NO_ERROR;
+}
+
+/*===========================================================================
+ * FUNCTION   : setHorizontalMirror
+ *
+ * DESCRIPTION: set horizontal mirror bit in the sensor
+ *
+ * PARAMETERS :
+ *   @params  : user setting parameters
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t  QCameraParameters::setHorizontalMirror(const QCameraParameters& params)
+{
+    const char *str = params.get(KEY_QC_HORIZONTAL_MIRROR);
+    const char *prev_str = get(KEY_QC_HORIZONTAL_MIRROR);
+    if (str != NULL) {
+        if (prev_str == NULL ||
+            strcmp(str, prev_str) != 0) {
+            return setHorizontalMirror(str);
+        }
+    }
+    return NO_ERROR;
+}
 
 /*===========================================================================
  * FUNCTION   : setExposureTime
@@ -3775,6 +3826,8 @@ int32_t QCameraParameters::updateParameters(QCameraParameters& params,
     if ((rc = setISOValue(params)))                     final_rc = rc;
     if ((rc = setExposureManualValue(params)))          final_rc = rc;
     if ((rc = setGainManualValue(params)))              final_rc = rc;
+    if ((rc = setVerticalFlip(params)))                 final_rc = rc;
+    if ((rc = setHorizontalMirror(params)))             final_rc = rc;
     if ((rc = setExposureTime(params)))                 final_rc = rc;
     if ((rc = setSkinToneEnhancement(params)))          final_rc = rc;
     if ((rc = setFlash(params)))                        final_rc = rc;
@@ -5305,6 +5358,48 @@ int32_t  QCameraParameters::setGainManualValue(const char *gainValue)
 									  CAM_INTF_PARM_GAIN_MANUAL,
 									  sizeof(gain),
 									  &gain);
+}
+
+/*===========================================================================
+ * FUNCTION   : setVerticalFlip
+ *
+ * DESCRIPTION: set Vertical Flip
+ *
+ * PARAMETERS :
+ *   @isoValue : Vertical flip value string
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t  QCameraParameters::setVerticalFlip(const char *flipValue)
+{
+	int32_t flip = atoi(flipValue);
+    return AddSetParmEntryToBatch(m_pParamBuf,
+                                  CAM_INTF_PARM_VERTICAL_FLIP,
+                                  sizeof(flip),
+                                  &flip);
+}
+
+/*===========================================================================
+ * FUNCTION   : setHorizontalMirror
+ *
+ * DESCRIPTION: set Horizontal Mirror
+ *
+ * PARAMETERS :
+ *   @isoValue : Horizontal mirror value string
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t  QCameraParameters::setHorizontalMirror(const char *mirrorValue)
+{
+	int32_t mirror = atoi(mirrorValue);
+    return AddSetParmEntryToBatch(m_pParamBuf,
+                                  CAM_INTF_PARM_HORIZONTAL_MIRROR,
+                                  sizeof(mirror),
+                                  &mirror);
 }
 
 /*===========================================================================

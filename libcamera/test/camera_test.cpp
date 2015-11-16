@@ -42,10 +42,10 @@
 #include "camera_log.h"
 #include "camera_parameters.h"
 
-#define DEFAULT_EXPOSURE_VALUE_STR "250"
+#define DEFAULT_EXPOSURE_VALUE  250
 #define MIN_EXPOSURE_VALUE 0
 #define MAX_EXPOSURE_VALUE 65535
-#define DEFAULT_GAIN_VALUE_STR "50"
+#define DEFAULT_GAIN_VALUE  50
 #define MIN_GAIN_VALUE 0
 #define MAX_GAIN_VALUE 255
 
@@ -96,9 +96,10 @@ struct TestConfig
     bool dumpFrames;
     bool infoMode;
     bool testSnapshot;
+    bool testVideo;
     int runTime;
-    string exposureValue;  /* 0 -3000 Supported. -1 Indicates default setting of the setting  */
-    string gainValue;
+    int exposureValue;  /* 0 -3000 Supported. -1 Indicates default setting of the setting  */
+    int gainValue;
     CamFunction func;
     OutputFormatType outputFormat;
     ImageSize pSize;
@@ -497,6 +498,7 @@ const char usageStr[] =
     "                    - QVGA           ( 320x240 ) \n"
     "                    - stereoVGA      ( 1280x480 : Stereo only - Max resolution )\n"
     "                    - stereoQVGA     ( 640x240  : Stereo only )\n"
+    "                    - disable        ( do not start video stream )\n"
     "  -n              take a picture with  max resolution of camera ( disabled by default)\n"
     "                  $camera-test -f <type> -i to find max picture size\n"
     "  -s <size>       take pickture at set resolution ( disabled by default) \n"
@@ -603,6 +605,7 @@ int CameraTest::setParameters()
 	switch ( config_.func ){
 		case CAM_FUNC_OPTIC_FLOW:
 			if (config_.outputFormat == RAW_FORMAT) {
+				config_.testVideo = false;
 				printf("Setting output = RAW_FORMAT for optic flow sensor \n");
 				params_.set("preview-format", "bayer-rggb");
 				params_.set("picture-format", "bayer-mipi-10gbrg");
@@ -721,19 +724,42 @@ int CameraTest::run()
     printf("start preview\n");
     camera_->startPreview();
 
-    if (config_.func == CAM_FUNC_OPTIC_FLOW || config_.func == CAM_FUNC_STEREO)
+    /* Set parameters which are required after starting preview */
+    switch(config_.func)
     {
-        params_.set("qc-exposure-manual", config_.exposureValue.c_str() );
-        params_.set("qc-gain-manual", config_.gainValue.c_str() );
-        printf("Setting exposure value =  %s , gain value = %s \n", config_.exposureValue.c_str(), config_.gainValue.c_str());
-        rc = params_.commit();
-        if (rc) {
-            printf("commit failed\n");
-            exit(EXIT_FAILURE);
-        }
+        case CAM_FUNC_OPTIC_FLOW:
+            {
+                 params_.setManualExposure(config_.exposureValue);
+                 params_.setManualGain(config_.gainValue);
+                 printf("Setting exposure value =  %d , gain value = %d \n", config_.exposureValue, config_.gainValue );
+            }
+            break;
+        case CAM_FUNC_LEFT_SENSOR:
+            {
+                 params_.setManualExposure(config_.exposureValue);
+                 params_.setManualGain(config_.gainValue);
+                 printf("Setting exposure value =  %d , gain value = %d \n", config_.exposureValue, config_.gainValue );
+            }
+            break;
+        case CAM_FUNC_STEREO:
+            {
+                params_.setManualExposure(config_.exposureValue);
+                params_.setManualGain(config_.gainValue);
+                printf("Setting exposure value =  %d , gain value = %d \n", config_.exposureValue, config_.gainValue );
+                params_.setVerticalFlip(true);
+                params_.setHorizontalMirror(true);
+                printf("Setting Vertical Flip and Horizontal Mirror bit in sensor \n");
+            }
+            break;
+
+    }
+    rc = params_.commit();
+    if (rc) {
+        printf("commit failed\n");
+        exit(EXIT_FAILURE);
     }
 
-    if (config_.outputFormat != RAW_FORMAT) {
+    if (config_.testVideo  == true ) {
         printf("start recording\n");
         camera_->startRecording();
 
@@ -755,7 +781,7 @@ int CameraTest::run()
     printf("waiting for %d seconds ...\n", config_.runTime);
     sleep(config_.runTime);
 
-    if (config_.outputFormat != RAW_FORMAT) {
+    if (config_.testVideo  == true) {
         printf("stop recording\n");
         camera_->stopRecording();
     }
@@ -779,9 +805,10 @@ static int setDefaultConfig(TestConfig &cfg) {
     cfg.dumpFrames = false;
     cfg.runTime = 10;
     cfg.infoMode = false;
+    cfg.testVideo = true;
     cfg.testSnapshot = false;
-    cfg.exposureValue = DEFAULT_EXPOSURE_VALUE_STR;  /* Default exposure value */
-    cfg.gainValue = DEFAULT_GAIN_VALUE_STR;  /* Default gain value */
+    cfg.exposureValue = DEFAULT_EXPOSURE_VALUE;  /* Default exposure value */
+    cfg.gainValue = DEFAULT_GAIN_VALUE;  /* Default gain value */
     cfg.fps = DEFAULT_CAMERA_FPS;
     cfg.picSizeIdx = -1;
     cfg.logLevel = CAM_LOG_SILENT;
@@ -882,18 +909,27 @@ static TestConfig parseCommandline(int argc, char* argv[])
                 string str(optarg);
                 if (str == "4k") {
                     cfg.vSize = UHDSize;
+                    cfg.testVideo = true;
                 } else if (str == "1080p") {
                     cfg.vSize = FHDSize;
+                    cfg.testVideo = true;
                 } else if (str == "720p") {
                     cfg.vSize = HDSize;
+                    cfg.testVideo = true;
                 } else if (str == "VGA") {
                     cfg.vSize = VGASize;
+                    cfg.testVideo = true;
                 } else if (str == "QVGA") {
                     cfg.vSize = QVGASize;
+                    cfg.testVideo = true;
                 } else if (str == "stereoVGA") {
                     cfg.vSize = stereoVGASize;
+                    cfg.testVideo = true;
                 } else if (str == "stereoQVGA"){
                     cfg.vSize = stereoQVGASize;
+                    cfg.testVideo = true;
+                } else if (str == "disable"){
+                    cfg.testVideo = false;
                 }
                 break;
             }
@@ -930,21 +966,17 @@ static TestConfig parseCommandline(int argc, char* argv[])
             cfg.infoMode = true;
             break;
         case  'e':
-            exposureValueInt =  atoi(optarg);
-            if (exposureValueInt < MIN_EXPOSURE_VALUE || exposureValueInt > MAX_EXPOSURE_VALUE) {
+            cfg.exposureValue =  atoi(optarg);
+            if (cfg.exposureValue < MIN_EXPOSURE_VALUE || cfg.exposureValue > MAX_EXPOSURE_VALUE) {
                 printf("Invalid exposure value. Using default\n");
-                cfg.exposureValue = DEFAULT_EXPOSURE_VALUE_STR;
-            } else {
-                cfg.exposureValue = optarg;
+                cfg.exposureValue = DEFAULT_EXPOSURE_VALUE;
             }
             break;
         case  'g':
-            gainValueInt =  atoi(optarg);
-            if (gainValueInt < MIN_GAIN_VALUE || gainValueInt > MAX_GAIN_VALUE) {
+            cfg.gainValue =  atoi(optarg);
+            if (cfg.gainValue < MIN_GAIN_VALUE || cfg.gainValue > MAX_GAIN_VALUE) {
                 printf("Invalid exposure value. Using default\n");
-                cfg.gainValue = DEFAULT_GAIN_VALUE_STR;
-            } else {
-                cfg.gainValue = optarg;
+                cfg.gainValue = DEFAULT_GAIN_VALUE;
             }
             break;
         case 'r':
@@ -962,6 +994,7 @@ static TestConfig parseCommandline(int argc, char* argv[])
                 break;
             case 1: /* IMX214 */
                 cfg.outputFormat = RAW_FORMAT;
+                cfg.testVideo = false;
                 break;
             default:
                 printf("Invalid format. Setting to default YUV_FORMAT");
