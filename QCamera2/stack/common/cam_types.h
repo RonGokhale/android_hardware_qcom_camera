@@ -1965,7 +1965,11 @@ typedef enum {
     CAM_INTF_PARM_MANUAL_CAPTURE_TYPE,
     /*AF state change detected by AF module*/
     CAM_INTF_AF_STATE_TRANSITION,
-    CAM_INTF_PARM_MAX /* 201 */
+
+    /*set cid of stream*/
+    CAM_INTF_PARM_RDI_CID,
+
+    CAM_INTF_PARM_MAX /* 202 */
 } cam_intf_parm_type_t;
 
 typedef struct {
@@ -2504,4 +2508,9 @@ typedef enum {
     CAM_CUSTOM_PARM_EXAMPLE,
     CAM_CUSTOM_PARM_MAX,
 } cam_custom_parm_type;
+
+typedef struct {
+   uint8_t  rdi_cid;
+   uint32_t streamId;
+} cam_intf_parm_rdi_cid_t;
 #endif /* __QCAMERA_TYPES_H__ */
