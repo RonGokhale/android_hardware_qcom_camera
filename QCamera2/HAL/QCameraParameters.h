@@ -729,6 +729,7 @@ public:
     inline bool isTruePortraitEnabled() {return m_bTruePortraitOn;};
     inline size_t getTPMaxMetaSize() {
         return m_pCapability->true_portrait_settings_need.meta_max_size;};
+    inline bool isSwTnrEnabled() {return m_bSwTnrOn;};
     inline bool isSeeMoreEnabled() {return m_bSeeMoreOn;};
     inline bool isStillMoreEnabled() {return m_bStillMoreOn;};
     bool isOptiZoomEnabled();
@@ -1081,6 +1082,7 @@ private:
     bool m_bSceneSelection;
     Mutex m_SceneSelectLock;
     cam_scene_mode_type m_SelectedScene;
+    bool m_bSwTnrOn;
     bool m_bSeeMoreOn;
     bool m_bStillMoreOn;
     cam_fps_range_t m_hfrFpsRange;

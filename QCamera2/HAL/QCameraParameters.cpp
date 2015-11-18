@@ -847,6 +847,7 @@ QCameraParameters::QCameraParameters()
       m_bOptiZoomOn(false),
       m_bSceneSelection(false),
       m_SelectedScene(CAM_SCENE_MODE_MAX),
+      m_bSwTnrOn(false),
       m_bSeeMoreOn(false),
       m_bStillMoreOn(false),
       m_bHfrMode(false),
@@ -4788,7 +4789,6 @@ int32_t QCameraParameters::updateParameters(QCameraParameters& params,
     if ((rc = setRetroActiveBurstNum(params)))          final_rc = rc;
     if ((rc = setSnapshotFDReq(params)))                final_rc = rc;
     if ((rc = setTintlessValue(params)))                final_rc = rc;
-    if ((rc = setCDSMode(params)))                      final_rc = rc;
     if ((rc = setTemporalDenoise(params)))              final_rc = rc;
     if ((rc = setCacheVideoBuffers(params)))            final_rc = rc;
 
@@ -4802,6 +4802,7 @@ int32_t QCameraParameters::updateParameters(QCameraParameters& params,
     if ((rc = setStillMore(params)))                    final_rc = rc;
     if ((rc = setCustomParams(params)))                 final_rc = rc;
     if ((rc = setNoiseReductionMode(params)))           final_rc = rc;
+    if ((rc = setCDSMode(params)))                      final_rc = rc;
 
     if ((rc = updateFlash(false)))                      final_rc = rc;
     if ((rc = setLongshotParam(params)))                final_rc = rc;
@@ -7337,7 +7338,7 @@ int32_t QCameraParameters::setCDSMode(const QCameraParameters& params)
                         video_str);
                 if (cds_mode != NAME_NOT_FOUND) {
                     updateParamEntry(KEY_QC_VIDEO_CDS_MODE, video_str);
-                    if (ADD_SET_PARAM_ENTRY_TO_BATCH(m_pParamBuf, CAM_INTF_PARM_CDS_MODE, cds_mode)) {
+                    if (setCDSMode(cds_mode, false)) {
                         ALOGE("%s:Failed CDS MODE to update table", __func__);
                         rc = BAD_VALUE;
                     } else {
@@ -7358,7 +7359,7 @@ int32_t QCameraParameters::setCDSMode(const QCameraParameters& params)
                     video_prop);
             if (cds_mode != NAME_NOT_FOUND) {
                 updateParamEntry(KEY_QC_VIDEO_CDS_MODE, video_prop);
-                if (ADD_SET_PARAM_ENTRY_TO_BATCH(m_pParamBuf, CAM_INTF_PARM_CDS_MODE, cds_mode)) {
+                if (setCDSMode(cds_mode, false)) {
                     ALOGE("%s:Failed CDS MODE to update table", __func__);
                     rc = BAD_VALUE;
                 } else {
@@ -7377,7 +7378,7 @@ int32_t QCameraParameters::setCDSMode(const QCameraParameters& params)
                         str);
                 if (cds_mode != NAME_NOT_FOUND) {
                     updateParamEntry(KEY_QC_CDS_MODE, str);
-                    if (ADD_SET_PARAM_ENTRY_TO_BATCH(m_pParamBuf, CAM_INTF_PARM_CDS_MODE, cds_mode)) {
+                    if (setCDSMode(cds_mode, false)) {
                         ALOGE("%s:Failed CDS MODE to update table", __func__);
                         rc = BAD_VALUE;
                     } else {
@@ -7398,7 +7399,7 @@ int32_t QCameraParameters::setCDSMode(const QCameraParameters& params)
                     prop);
             if (cds_mode != NAME_NOT_FOUND) {
                 updateParamEntry(KEY_QC_CDS_MODE, prop);
-                if (ADD_SET_PARAM_ENTRY_TO_BATCH(m_pParamBuf, CAM_INTF_PARM_CDS_MODE, cds_mode)) {
+                if (setCDSMode(cds_mode, false)) {
                     ALOGE("%s:Failed CDS MODE to update table", __func__);
                     rc = BAD_VALUE;
                 } else {
@@ -8330,6 +8331,14 @@ int32_t QCameraParameters::setNoiseReductionMode(const char *noiseReductionModeS
                 return BAD_VALUE;
             }
 
+            m_bSwTnrOn = (CAM_NOISE_REDUCTION_MODE_HIGH_QUALITY ==
+                    (cam_noise_reduction_mode_t)value) ? true : false;
+
+            if (setCDSMode(mCds_mode, false)) {
+                ALOGE("%s:Failed CDS MODE to update table", __func__);
+                return BAD_VALUE;
+            }
+
             updateParamEntry(KEY_QC_NOISE_REDUCTION_MODE, noiseReductionModeStr);
             return NO_ERROR;
         }
@@ -8645,6 +8654,12 @@ int32_t QCameraParameters::setSeeMore(const char *seeMoreStr)
                 }
             }
             updateParamEntry(KEY_QC_SEE_MORE, seeMoreStr);
+
+            if (setCDSMode(mCds_mode, false)) {
+                ALOGE("%s:Failed CDS MODE to update table", __func__);
+                return BAD_VALUE;
+            }
+
             return NO_ERROR;
         }
     }
@@ -13096,9 +13111,17 @@ int32_t QCameraParameters::setCDSMode(int32_t cds_mode, bool initCommit)
     }
 
     int32_t rc = NO_ERROR;
-    if (ADD_SET_PARAM_ENTRY_TO_BATCH(m_pParamBuf, CAM_INTF_PARM_CDS_MODE, cds_mode)) {
-        ALOGE("%s:Failed to update cds mode", __func__);
-        return BAD_VALUE;
+
+    if (isSwTnrEnabled() || isSeeMoreEnabled()) {
+        if (ADD_SET_PARAM_ENTRY_TO_BATCH(m_pParamBuf, CAM_INTF_PARM_CDS_MODE, CAM_CDS_MODE_OFF)) {
+            ALOGE("%s:Failed to update cds mode", __func__);
+            return BAD_VALUE;
+        }
+    } else {
+        if (ADD_SET_PARAM_ENTRY_TO_BATCH(m_pParamBuf, CAM_INTF_PARM_CDS_MODE, cds_mode)) {
+            ALOGE("%s:Failed to update cds mode", __func__);
+            return BAD_VALUE;
+        }
     }
 
     if (initCommit) {
