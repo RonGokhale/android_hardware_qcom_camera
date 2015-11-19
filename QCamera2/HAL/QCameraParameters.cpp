@@ -3802,6 +3802,7 @@ int32_t QCameraParameters::setNoiseReductionMode(const QCameraParameters& params
     CDBG_HIGH("%s: str =%s & prev_str =%s", __func__, str, prev_str);
     if (str != NULL) {
         if (prev_str == NULL || strcmp(str, prev_str) != 0) {
+            m_bNeedRestart = true;
             return setNoiseReductionMode(str);
         }
     }
@@ -12995,7 +12996,7 @@ uint8_t QCameraParameters::getNumOfExtraBuffersForVideo()
 {
     uint8_t numOfBufs = 0;
 
-    if (isSeeMoreEnabled()) {
+    if (isSeeMoreEnabled() || isSwTnrEnabled()) {
         numOfBufs = 3;
     }
 
@@ -13016,8 +13017,9 @@ uint8_t QCameraParameters::getNumOfExtraBuffersForPreview()
 {
     uint8_t numOfBufs = 0;
 
-    if (isSeeMoreEnabled() && !isZSLMode() && getRecordingHintValue()) {
-        numOfBufs = 1;
+    if ((isSeeMoreEnabled() || isSwTnrEnabled()) &&
+            !isZSLMode() && getRecordingHintValue()) {
+        numOfBufs = 3;
     }
 
     return numOfBufs;
