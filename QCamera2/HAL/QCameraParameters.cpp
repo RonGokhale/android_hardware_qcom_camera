@@ -1459,6 +1459,7 @@ int32_t QCameraParameters::setJpegThumbnailSize(const QCameraParameters& params)
 
     CDBG("requested jpeg thumbnail size %d x %d", width, height);
 
+#ifdef USE_KK_CODE
     int sizes_cnt = sizeof(THUMBNAIL_SIZES_MAP) / sizeof(cam_dimension_t);
 
     cam_dimension_t dim;
@@ -1524,6 +1525,10 @@ int32_t QCameraParameters::setJpegThumbnailSize(const QCameraParameters& params)
     }
     set(KEY_JPEG_THUMBNAIL_WIDTH, optimalWidth);
     set(KEY_JPEG_THUMBNAIL_HEIGHT, optimalHeight);
+#else
+    set(KEY_JPEG_THUMBNAIL_WIDTH, width);
+    set(KEY_JPEG_THUMBNAIL_HEIGHT, height);
+#endif
     return NO_ERROR;
 }
 
