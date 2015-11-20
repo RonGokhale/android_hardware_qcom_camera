@@ -27,6 +27,76 @@
  *
  */
 
+/*************************************************************************
+*
+*Application Notes:
+*
+*Camera selection:
+*  Each camera is given a unique function id in the sensor driver.
+*   HIRES = 0, OPTIC_FLOW = 1, LEFT SENSOR = 2, STEREO = 3
+*  getNumberOfCameras gives information on number of camera connected on target.
+*  getCameraInfo provides information on each camera loop.
+*  camid is obtained by looping through available cameras and matching info.func
+*  with the requested camera.
+*
+*Camera configuration:
+*
+* Optic flow:
+*   Do not set the following parameters :
+*    PictureSize
+*    focus mode
+*    white balance
+*    ISO
+*    preview format
+*
+*  The following parameters can be set only after starting preview :
+*    Manual exposure
+*    Manual gain
+*
+*  Notes:
+*    Snapshot is not supported for optic flow.
+*
+*  How to enable RAW mode for optic flow sensor ?
+*    RAW stream is only available for OV7251
+*    RAW stream currently returns images in the preview callback.
+*    When configuring RAW stream, video stream on the same sensor must not be enabled. Else you will not see preview callbacks.
+*    When configuration RAW, these parameters must be set  in addition to other parameters for optic flow
+*                params_.set("preview-format", "bayer-rggb");
+*                params_.set("picture-format", "bayer-mipi-10gbrg");
+*                params_.set("raw-size", "640x480");
+*
+*
+*  Stereo:
+*    Do not set the following parameters :
+*     PictureSize
+*     focus mode
+*     white balance
+*     ISO
+*     preview format
+*
+*   The following parameters can be set only after starting preview :
+*     Manual exposure
+*     Manual gain
+*     setVerticalFlip
+*     setHorizontalMirror
+*
+* How to perform vertical flip and horizontal mirror on individual images in stereo ?
+*  In stereo since the image is merged,
+*  it makes it harder to perform these operation on individual images which may be required based on  senor  orientation on target.
+*  setVerticalFlip and setHorizontalMirror perform  perform these operation by changing the output configuration from the sensor.
+*
+*
+* How to set FPS
+*  Preview fps is set using the function : setPreviewFpsRange
+*  Video fps is set using the function : setVideoFPS
+*  setFPSindex scans through the supported fps values and returns index of requested fps in the array of supported fps.
+*
+* How to change the format to NV12
+*  To change the format to NV12 use the "preview-format" key.
+*  params.set(std::string("preview-format"), std::string("nv12"));
+*
+****************************************************************************/
+
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -91,6 +161,9 @@ enum AppLoglevel {
     CAM_LOG_MAX,
 };
 
+/**
+*  Helper class to store all parameter settings
+*/
 struct TestConfig
 {
     bool dumpFrames;
@@ -98,7 +171,7 @@ struct TestConfig
     bool testSnapshot;
     bool testVideo;
     int runTime;
-    int exposureValue;  /* 0 -3000 Supported. -1 Indicates default setting of the setting  */
+    int exposureValue;
     int gainValue;
     CamFunction func;
     OutputFormatType outputFormat;
@@ -110,6 +183,19 @@ struct TestConfig
     AppLoglevel logLevel;
 };
 
+/**
+ * CLASS  CameraTest
+ *
+ * - inherits ICameraListers which provides core functionality
+ * - User must define onPreviewFrame (virtual) function. It is
+ *    the callback function for every preview frame.
+ * - If user is using VideoStream then the user must define
+ *    onVideoFrame (virtual) function. It is the callback
+ *    function for every video frame.
+ * - If any error occurs,  onError() callback function is
+ *    called. User must define onError if error handling is
+ *    required.
+ */
 class CameraTest : ICameraListener
 {
 public:
@@ -345,6 +431,18 @@ void CameraTest::onError()
     exit(EXIT_FAILURE);
 }
 
+/**
+ *
+ * FUNCTION: onPreviewFrame
+ *
+ *  - This is called every frame I
+ *  - In the test app, we save files only after every 30 frames
+ *  - In parameter frame (ICameraFrame) also has the timestamps
+ *    field which is public
+ *
+ * @param frame
+ *
+ */
 void CameraTest::onPreviewFrame(ICameraFrame* frame)
 {
     if (pFrameCount_ > 0 && pFrameCount_ % 30 == 0) {
@@ -388,6 +486,18 @@ void CameraTest::onPictureFrame(ICameraFrame* frame)
     pthread_mutex_unlock(&mutexPicDone);
 }
 
+/**
+ *
+ * FUNCTION: onVideoFrame
+ *
+ *  - This is called every frame I
+ *  - In the test app, we save files only after every 30 frames
+ *  - In parameter frame (ICameraFrame) also has the timestamps
+ *    field which is public
+ *
+ * @param frame
+ *
+ */
 void CameraTest::onVideoFrame(ICameraFrame* frame)
 {
     if (vFrameCount_ > 0 && vFrameCount_ % 30 == 0) {
@@ -519,7 +629,6 @@ const char usageStr[] =
     "                    -  30 (default)\n"
     "                    -  60 \n"
     "                    -  90 \n"
-    "                    - 120\n"
     "  -o <value>      Output format\n"
     "                     0 :YUV format (default)\n"
     "                     1 : RAW format (default of optic)\n"
@@ -536,6 +645,17 @@ static inline void printUsageExit(int code)
     printf("%s", usageStr);
     exit(code);
 }
+/**
+ * FUNCTION: setFPSindex
+ *
+ * scans through the supported fps values and returns index of
+ * requested fps in the array of supported fps
+ *
+ * @param fps      : Required FPS  (Input)
+ * @param pFpsIdx  : preview fps index (output)
+ * @param vFpsIdx  : video fps index   (output)
+ *
+ *  */
 int CameraTest::setFPSindex(int fps, int &pFpsIdx, int &vFpsIdx)
 {
     int defaultPrevFPSIndex = -1;
@@ -588,6 +708,24 @@ int CameraTest::setFPSindex(int fps, int &pFpsIdx, int &vFpsIdx)
     }
     return rc;
 }
+/**
+ *  FUNCTION : setParameters
+ *
+ *  - When camera is opened, it is initialized with default set
+ *    of parameters.
+ *  - This function sets required parameters based on camera and
+ *    usecase
+ *  - params_setXXX and params_set  only updates parameter
+ *    values in a local object.
+ *  - params_.commit() function will update the hardware
+ *    settings with the current state of the parameter object
+ *  - Some functionality will not be application for all for
+ *    sensor modules. for eg. optic flow sensor does not support
+ *    autofocus/focus mode.
+ *  - Reference setting for different sensors and format are
+ *    provided in this function.
+ *
+ *  */
 int CameraTest::setParameters()
 {
     int focusModeIdx = 3;
@@ -605,6 +743,7 @@ int CameraTest::setParameters()
 	switch ( config_.func ){
 		case CAM_FUNC_OPTIC_FLOW:
 			if (config_.outputFormat == RAW_FORMAT) {
+				/* Do not turn on videostream for optic flow in RAW format */
 				config_.testVideo = false;
 				printf("Setting output = RAW_FORMAT for optic flow sensor \n");
 				params_.set("preview-format", "bayer-rggb");
@@ -647,6 +786,7 @@ int CameraTest::setParameters()
     printf("setting video size: %dx%d\n", vSize_.width, vSize_.height);
     params_.setVideoSize(vSize_);
 
+    /* Find index and set FPS  */
     rc = setFPSindex(config_.fps, pFpsIdx, vFpsIdx);
     if ( rc == -1)
     {
@@ -667,6 +807,7 @@ int CameraTest::run()
 {
     int rc = EXIT_SUCCESS;
 
+    /* returns the number of camera-modules connected on the board */
     int n = getNumberOfCameras();
 
     if (n < 0) {
@@ -681,6 +822,8 @@ int CameraTest::run()
         return EXIT_FAILURE;
     }
 
+    /* The camID for sensor is not fixed. It depends on which drivers comes up first.
+       Hence loop throuch all modules to find camID based on the functionality. */
     int camId=-1;
 
     /* find camera based on function */
@@ -721,6 +864,7 @@ int CameraTest::run()
     vFpsAvg_ = 0.0f;
     pFpsAvg_ = 0.0f;
 
+    /* starts the preview stream. At every preview frame onPreviewFrame( ) callback is invoked */
     printf("start preview\n");
     camera_->startPreview();
 
@@ -760,6 +904,8 @@ int CameraTest::run()
     }
 
     if (config_.testVideo  == true ) {
+
+        /* starts video stream. At every video frame onVideoFrame( )  callback is invoked */
         printf("start recording\n");
         camera_->startRecording();
 
@@ -778,9 +924,11 @@ int CameraTest::run()
         }
     }
 
+    /* Put the main/run thread to sleep and process the frames in the callbacks */
     printf("waiting for %d seconds ...\n", config_.runTime);
     sleep(config_.runTime);
 
+    /* After the sleep interval stop preview stream, stop video stream and end application */
     if (config_.testVideo  == true) {
         printf("stop recording\n");
         camera_->stopRecording();
@@ -789,7 +937,7 @@ int CameraTest::run()
     camera_->stopPreview();
 
     printf("Average preview FPS = %.2f\n", pFpsAvg_);
-    if( config_.outputFormat != RAW_FORMAT && config_.func != CAM_FUNC_STEREO )
+    if( config_.testVideo  == true )
 		printf("Average video FPS = %.2f\n", vFpsAvg_);
 
 del_camera:
@@ -798,7 +946,12 @@ del_camera:
     return rc;
 }
 
-/* default config */
+/**
+ *  FUNCTION: setDefaultConfig
+ *
+ *  set default config based on camera module
+ *
+ * */
 static int setDefaultConfig(TestConfig &cfg) {
 
     cfg.outputFormat = YUV_FORMAT;
@@ -842,8 +995,13 @@ static int setDefaultConfig(TestConfig &cfg) {
 
 }
 
-/* parses commandline options and populates the config
-   data structure */
+/**
+ *  FUNCTION: parseCommandline
+ *
+ *  parses commandline options and populates the config
+ *  data structure
+ *
+ *  */
 static TestConfig parseCommandline(int argc, char* argv[])
 {
     TestConfig cfg;
