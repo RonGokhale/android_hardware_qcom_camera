@@ -924,16 +924,24 @@ int QCamera2HardwareInterface::take_picture(struct camera_device *device)
         /* Unlock API since it is acquired in prepare snapshot seperately */
         hw->unlockAPI();
 
-        /* Prepare snapshot in case LED needs to be flashed */
-        CDBG_HIGH("%s: [ZSL Retro]  Start Prepare Snapshot", __func__);
-        ret = hw->prepare_snapshot(device);
+        // Give HWI control to call prepare_snapshot in single camera mode.
+        // In dual-cam mode, this control belongs to muxer.
+        if (hw->getRelatedCamSyncInfo()->sync_control != CAM_SYNC_RELATED_SENSORS_ON) {
+            /* Prepare snapshot in case LED needs to be flashed */
+            CDBG_HIGH("%s: [ZSL Retro]  Start Prepare Snapshot", __func__);
+            ret = hw->prepare_snapshot(device);
+        }
     }
     else {
         hw->setRetroPicture(0);
-        // Check if prepare snapshot is done
-        if (!hw->mPrepSnapRun) {
-            // Ignore the status from prepare_snapshot
-            hw->prepare_snapshot(device);
+        // Give HWI control to call prepare_snapshot in single camera mode.
+        // In dual-cam mode, this control belongs to muxer.
+        if (hw->getRelatedCamSyncInfo()->sync_control != CAM_SYNC_RELATED_SENSORS_ON) {
+             // Check if prepare snapshot is done
+            if (!hw->mPrepSnapRun) {
+                // Ignore the status from prepare_snapshot
+                hw->prepare_snapshot(device);
+            }
         }
 
         // Give HWI control to call pre_take_picture in single camera mode.
