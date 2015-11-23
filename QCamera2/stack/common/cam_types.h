@@ -118,6 +118,17 @@
 #define EXTRA_FRAME_SYNC_BUFFERS     4 /* Extra frame sync buffers in dc mode*/
 #define MM_CAMERA_FRAME_SYNC_NODES   EXTRA_FRAME_SYNC_BUFFERS
 
+/**
+ * Defines the number of rows in the color correction matrix (CCM).
+ */
+#define AWB_NUM_CCM_ROWS (3)
+
+/**
+ * Defines the number of columns in the color correction matrix (CCM).
+ */
+#define AWB_NUM_CCM_COLS (3)
+
+
 typedef enum {
     CAM_HAL_V1 = 1,
     CAM_HAL_V3 = 3
@@ -1357,8 +1368,17 @@ typedef struct {
 } cam_ae_exif_debug_t;
 
 typedef struct {
+    int8_t awb_ccm_enable;
+    int8_t hard_awb_ccm_flag;
+    int8_t ccm_update_flag;
+    float  ccm[AWB_NUM_CCM_ROWS][AWB_NUM_CCM_COLS];
+    float  ccm_offset[AWB_NUM_CCM_ROWS];
+} cam_awb_ccm_update_t;
+
+typedef struct {
     int32_t cct_value;
     cam_awb_gain_t rgb_gains;
+    cam_awb_ccm_update_t ccm_update;
 } cam_awb_params_t;
 
 typedef struct {
