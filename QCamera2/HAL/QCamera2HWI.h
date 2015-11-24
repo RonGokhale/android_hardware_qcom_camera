@@ -739,6 +739,7 @@ private:
     QCameraMemory *mMetadataMem;
 
     static uint32_t sNextJobId;
+    bool mCACDoneReceived;
 };
 
 }; // namespace qcamera
