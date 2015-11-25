@@ -139,11 +139,13 @@ struct CameraCaps
     vector<Range> previewFpsRanges;
     vector<VideoFPS> videoFpsValues;
     vector<string> previewFormats;
+    string rawSize;
 };
 
 enum OutputFormatType{
     YUV_FORMAT,
     RAW_FORMAT,
+    JPEG_FORMAT
 };
 
 enum CamFunction {
@@ -175,6 +177,7 @@ struct TestConfig
     int gainValue;
     CamFunction func;
     OutputFormatType outputFormat;
+    OutputFormatType snapshotFormat;
     ImageSize pSize;
     ImageSize vSize;
     ImageSize picSize;
@@ -292,6 +295,7 @@ int CameraTest::initialize(int camId)
     caps_.previewFpsRanges = params_.getSupportedPreviewFpsRanges();
     caps_.videoFpsValues = params_.getSupportedVideoFps();
     caps_.previewFormats = params_.getSupportedPreviewFormats();
+    caps_.rawSize = params_.get("raw-size");
 }
 
 CameraTest::~CameraTest()
@@ -307,7 +311,7 @@ static int dumpToFile(uint8_t* data, uint32_t size, char* name, uint64_t timesta
         return -1;
     }
     fwrite(data, size, 1, fp);
-    printf("saved filename %s, timestamp %llu nSecs\n", name, timestamp);
+    printf("saved filename %s\n", name);
     fclose(fp);
 }
 
@@ -472,18 +476,23 @@ void CameraTest::onPreviewFrame(ICameraFrame* frame)
 void CameraTest::onPictureFrame(ICameraFrame* frame)
 {
     char yuvName[128], jpgName[128];
-    snprintf(yuvName, 128, "S_%dx%d_%04d_%llu.yuv",
-                 picSize_.width, picSize_.height, 0,frame->timeStamp);
-    dumpToFile(frame->data, frame->size, yuvName, frame->timeStamp);
-
-    snprintf(jpgName, 128, "snapshot_%dx%d.jpg", picSize_.width, picSize_.height);
-    compressJpegAndSave(frame, jpgName);
-
+    char rawName[128];
+    if (config_.snapshotFormat == RAW_FORMAT) {
+        snprintf(rawName, 128, "snapshot_%s_mipi.raw", caps_.rawSize.c_str());
+        dumpToFile(frame->data, frame->size, rawName, frame->timeStamp);
+    } else {
+        snprintf(yuvName, 128, "snapshot_%dx%d.yuv",
+                 picSize_.width, picSize_.height);
+        dumpToFile(frame->data, frame->size, yuvName, frame->timeStamp);
+        snprintf(jpgName, 128, "snapshot_%dx%d.jpg", picSize_.width, picSize_.height);
+        compressJpegAndSave(frame, jpgName);
+    }
     /* notify the waiting thread about picture done */
     pthread_mutex_lock(&mutexPicDone);
     isPicDone = true;
     pthread_cond_signal(&cvPicDone);
     pthread_mutex_unlock(&mutexPicDone);
+    printf("%s:%d\n", __func__, __LINE__);
 }
 
 /**
@@ -632,6 +641,9 @@ const char usageStr[] =
     "  -o <value>      Output format\n"
     "                     0 :YUV format (default)\n"
     "                     1 : RAW format (default of optic)\n"
+    "  -j <value>      Snapshot Format\n"
+    "                     jpeg : JPEG format (default)\n"
+    "                     raw  : Full-size MIPI RAW format\n"
     "  -V <level>      syslog level [0]\n"
     "                    0: silent\n"
     "                    1: error\n"
@@ -762,8 +774,17 @@ int CameraTest::setParameters()
 		    } else {
 		        picSize_ = config_.picSize;
 		    }
-			printf("setting picture size: %dx%d\n", picSize_.width, picSize_.height);
-			params_.setPictureSize(picSize_);
+                    if (config_.snapshotFormat == RAW_FORMAT) {
+                        printf("raw picture format: %s\n",
+                               "bayer-mipi-10bggr");
+                        params_.set("picture-format",
+                                     "bayer-mipi-10bggr");
+                        printf("raw picture size: %s\n", caps_.rawSize.c_str());
+                    } else {
+                        printf("setting picture size: %dx%d\n",
+                                picSize_.width, picSize_.height);
+                        params_.setPictureSize(picSize_);
+                    }
 
 			printf("setting focus mode: %s\n",
 				 caps_.focusModes[focusModeIdx].c_str());
@@ -904,23 +925,22 @@ int CameraTest::run()
     }
 
     if (config_.testVideo  == true ) {
-
         /* starts video stream. At every video frame onVideoFrame( )  callback is invoked */
         printf("start recording\n");
         camera_->startRecording();
+    }
 
-        if (config_.testSnapshot == true) {
-            printf("waiting for exposure to settle...\n");
-            /* sleep required to settle the exposure before taking snapshot.
-               This app does not provide interactive feedback to user
-               about the exposure */
-            sleep(2);
-            printf("taking picture\n");
-            rc = takePicture();
-            if (rc) {
-                printf("takePicture failed\n");
-                exit(EXIT_FAILURE);
-            }
+    if (config_.testSnapshot == true) {
+        printf("waiting for 2 seconds for exposure to settle...\n");
+        /* sleep required to settle the exposure before taking snapshot.
+           This app does not provide interactive feedback to user
+           about the exposure */
+        sleep(2);
+        printf("taking picture\n");
+        rc = takePicture();
+        if (rc) {
+            printf("takePicture failed\n");
+            exit(EXIT_FAILURE);
         }
     }
 
@@ -965,6 +985,7 @@ static int setDefaultConfig(TestConfig &cfg) {
     cfg.fps = DEFAULT_CAMERA_FPS;
     cfg.picSizeIdx = -1;
     cfg.logLevel = CAM_LOG_SILENT;
+    cfg.snapshotFormat = JPEG_FORMAT;
 
     switch (cfg.func) {
     case CAM_FUNC_OPTIC_FLOW:
@@ -1012,7 +1033,7 @@ static TestConfig parseCommandline(int argc, char* argv[])
     int exposureValueInt = 0;
     int gainValueInt = 0;
 
-    while ((c = getopt(argc, argv, "hdt:io:e:g:p:v:ns:f:r:V:")) != -1) {
+    while ((c = getopt(argc, argv, "hdt:io:e:g:p:v:ns:f:r:V:j:")) != -1) {
         switch (c) {
         case 'f':
             {
@@ -1037,7 +1058,7 @@ static TestConfig parseCommandline(int argc, char* argv[])
     setDefaultConfig(cfg);
 
     optind = 1;
-    while ((c = getopt(argc, argv, "hdt:io:e:g:p:v:ns:f:r:V:")) != -1) {
+    while ((c = getopt(argc, argv, "hdt:io:e:g:p:v:ns:f:r:V:j:")) != -1) {
         switch (c) {
         case 't':
             cfg.runTime = atoi(optarg);
@@ -1160,6 +1181,18 @@ static TestConfig parseCommandline(int argc, char* argv[])
                 break;
             }
             break;
+          case 'j': {
+              string str(optarg);
+              if (str == "jpeg") {
+                  cfg.snapshotFormat = JPEG_FORMAT;
+              } else if (str == "raw") {
+                  cfg.snapshotFormat = RAW_FORMAT;
+              } else {
+                  printf("invalid snapshot format \"%s\", using default\n",
+                         optarg);
+              }
+              break;
+          }
         case 'V':
             cfg.logLevel = (AppLoglevel)atoi(optarg);
             break;
@@ -1172,6 +1205,11 @@ static TestConfig parseCommandline(int argc, char* argv[])
             abort();
         }
     }
+
+    if (cfg.snapshotFormat == RAW_FORMAT) {
+        cfg.testVideo = false;
+    }
+
     return cfg;
 }
 

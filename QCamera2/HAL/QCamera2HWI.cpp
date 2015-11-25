@@ -4356,12 +4356,9 @@ int32_t QCamera2HardwareInterface::addZSLChannel()
         return rc;
     }
 
-#ifdef _ANDROID_
     property_get("persist.camera.raw_yuv", value, "0");
     raw_yuv = atoi(value) > 0 ? true : false;
-#else
-    raw_yuv = false;
-#endif
+
     if ( raw_yuv ) {
         rc = addStreamToChannel(pChannel,
                                 CAM_STREAM_TYPE_RAW,
@@ -4469,12 +4466,9 @@ int32_t QCamera2HardwareInterface::addCaptureChannel()
         return rc;
     }
 
-#ifdef _ANDROID_
     property_get("persist.camera.raw_yuv", value, "0");
     raw_yuv = atoi(value) > 0 ? true : false;
-#else
-    raw_yuv = false;
-#endif
+
     if ( raw_yuv ) {
         rc = addStreamToChannel(pChannel,
                                 CAM_STREAM_TYPE_RAW,
