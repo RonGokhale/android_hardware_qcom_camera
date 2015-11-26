@@ -965,6 +965,12 @@ int QCameraMuxer::take_picture(struct camera_device * device)
     char prop[PROPERTY_VALUE_MAX];
     property_get("persist.camera.dual.camera.mpo", prop, "1");
     gMuxer->m_bMpoEnabled = atoi(prop);
+    //If only one Physical Camera included in Logical, disable MPO
+    int numOfAcitvePhyCam = 0;
+    gMuxer->getActiveNumOfPhyCam(cam, numOfAcitvePhyCam);
+    if (gMuxer->m_bMpoEnabled && numOfAcitvePhyCam <= 1) {
+        gMuxer->m_bMpoEnabled = 0;
+    }
     CDBG_HIGH("%s: dualCamera MPO Enabled:%d ", __func__, gMuxer->m_bMpoEnabled);
 
     // prepare snapshot for main camera
@@ -1261,6 +1267,22 @@ int QCameraMuxer::send_command(struct camera_device * device,
 
         switch (cmd) {
 #ifndef VANILLA_HAL
+        case CAMERA_CMD_LONGSHOT_ON:
+            for (uint32_t i = 0; i < cam->numCameras; i++) {
+                pCam = gMuxer->getPhysicalCamera(cam, i);
+                CHECK_CAMERA_ERROR(pCam);
+
+                QCamera2HardwareInterface *hwi = pCam->hwi;
+                CHECK_HWI_ERROR(hwi);
+
+                rc = QCamera2HardwareInterface::send_command_restart(pCam->dev,
+                        cmd, arg1, arg2);
+                if (rc != NO_ERROR) {
+                    ALOGE("%s: Error sending command restart !! ", __func__);
+                    return rc;
+                }
+            }
+        break;
         case CAMERA_CMD_LONGSHOT_OFF:
             gMuxer->m_ComposeMpoTh.sendCmd(CAMERA_CMD_TYPE_STOP_DATA_PROC,
                     FALSE, FALSE);
@@ -1925,6 +1947,30 @@ qcamera_physical_descriptor_t* QCameraMuxer::getPhysicalCamera(
     }
     return &m_pPhyCamera[log_cam->pId[index]];
 }
+
+/*===========================================================================
+ * FUNCTION   : getActiveNumOfPhyCam
+ *
+ * DESCRIPTION: Get active physical camera number in Logical Camera
+ *
+ * PARAMETERS :
+ *   @log_cam :   Logical camera descriptor
+ *   @numOfAcitvePhyCam :  number of active physical camera in Logical Camera.
+ *
+ * RETURN     :
+ *                NO_ERROR  : success
+ *                ENODEV : Camera not found
+ *                other: non-zero failure code
+ *==========================================================================*/
+int32_t QCameraMuxer::getActiveNumOfPhyCam(
+        qcamera_logical_descriptor_t* log_cam, int& numOfAcitvePhyCam)
+{
+    CHECK_CAMERA_ERROR(log_cam);
+
+    numOfAcitvePhyCam = log_cam->numCameras;
+    return NO_ERROR;
+}
+
 
 /*===========================================================================
  * FUNCTION   : sendEvtNotify
