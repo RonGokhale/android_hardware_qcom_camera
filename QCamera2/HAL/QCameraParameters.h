@@ -813,6 +813,7 @@ public:
     uint8_t getLongshotStages();
     void setBufBatchCount(int8_t buf_cnt);
     int8_t  getBufBatchCount() {return mBufBatchCnt;};
+    bool isASFOSDEnabled();
 
     int32_t setManualCaptureMode(
             QCameraManualCaptureModes value = CAM_MANUAL_CAPTURE_TYPE_OFF);

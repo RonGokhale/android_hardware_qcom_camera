@@ -2028,6 +2028,16 @@ void QCamera2HardwareInterface::metadata_stream_cb_routine(mm_camera_super_buf_t
         }
     }
 
+    IF_META_AVAILABLE(cam_asf_trigger_regions_t, osd_region,
+            CAM_INTF_META_ASF_TRIGGER_REGION, pMetaData) {
+        if ((pme->mParameters.isASFOSDEnabled())
+                && (osd_region != NULL)) {
+            //ASF region processing code can be triggered from here.
+            CDBG_HIGH("ASF OSD info: region 1 = %d Region2 = %d",
+                    osd_region->region1, osd_region->region2);
+        }
+    }
+
     stream->bufDone(frame->buf_idx);
     free(super_frame);
 
