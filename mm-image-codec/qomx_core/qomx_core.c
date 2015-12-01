@@ -63,11 +63,13 @@ static int get_idx_from_handle(OMX_IN OMX_HANDLETYPE *ahComp, int *acompIndex,
 * Description: This is the first call that is made to the OMX Core
 * and initializes the OMX IL core
 ==============================================================================*/
-OMX_API OMX_ERRORTYPE OMX_APIENTRY OMX_Init()
+OMX_ERRORTYPE OMX_Init_jpeg()
 {
   OMX_ERRORTYPE rc = OMX_ErrorNone;
   int i = 0;
   int comp_cnt = sizeof(g_comp_info)/sizeof(g_comp_info[0]);
+
+  ALOGE("%s:%d", __func__, __LINE__);
 
   pthread_mutex_lock(&g_omxcore_lock);
 
@@ -110,7 +112,7 @@ OMX_API OMX_ERRORTYPE OMX_APIENTRY OMX_Init()
 * Return Value : OMX_ERRORTYPE
 * Description: Deinit all the OMX components
 ==============================================================================*/
-OMX_API OMX_ERRORTYPE OMX_APIENTRY OMX_Deinit()
+OMX_ERRORTYPE OMX_Deinit_jpeg()
 {
   pthread_mutex_lock(&g_omxcore_lock);
 
@@ -178,11 +180,11 @@ static int get_free_inst_idx(omx_core_component_t *p_comp)
 * Return Value : OMX_ERRORTYPE
 * Description: Construct and load the requested omx library
 ==============================================================================*/
-OMX_API OMX_ERRORTYPE OMX_APIENTRY OMX_GetHandle(
-  OMX_OUT OMX_HANDLETYPE* handle,
-  OMX_IN OMX_STRING componentName,
-  OMX_IN OMX_PTR appData,
-  OMX_IN OMX_CALLBACKTYPE* callBacks)
+OMX_ERRORTYPE OMX_GetHandle_jpeg(
+  OMX_HANDLETYPE* handle,
+  OMX_STRING componentName,
+  OMX_PTR appData,
+  OMX_CALLBACKTYPE* callBacks)
 {
   OMX_ERRORTYPE rc = OMX_ErrorNone;
   int comp_idx = 0, inst_idx = 0;
@@ -191,6 +193,10 @@ OMX_API OMX_ERRORTYPE OMX_APIENTRY OMX_GetHandle(
   OMX_COMPONENTTYPE *p_comp = NULL;
   omx_core_component_t *p_core_comp = NULL;
   OMX_BOOL close_handle = OMX_FALSE;
+
+  ALOGE("%s:%d] ", __func__, __LINE__);
+
+  ALOGE("%s:%d", __func__, __LINE__);
 
   if (NULL == handle) {
     ALOGE("%s:%d] Error invalid input ", __func__, __LINE__);
@@ -219,9 +225,11 @@ OMX_API OMX_ERRORTYPE OMX_APIENTRY OMX_GetHandle(
 
   if (FALSE == p_core_comp->open) {
     /* load the library */
-    p_core_comp->lib_handle = dlopen(p_core_comp->lib_name, RTLD_NOW);
+    //p_core_comp->lib_handle = dlopen(p_core_comp->lib_name, RTLD_NOW);
+    p_core_comp->lib_handle = dlopen(p_core_comp->lib_name, RTLD_LAZY);
     if (NULL == p_core_comp->lib_handle) {
-      ALOGE("%s:%d] Cannot load the library", __func__, __LINE__);
+      ALOGE("%s:%d] Cannot load the library %s [%s]", __func__, __LINE__,
+            p_core_comp->lib_name, dlerror());
       rc = OMX_ErrorInvalidComponent;
       goto error;
     }
@@ -329,8 +337,8 @@ static uint8_t is_comp_active(omx_core_component_t *p_core_comp)
 * Return Value : OMX_ERRORTYPE
 * Description: Deinit the omx component and remove it from the global list
 ==============================================================================*/
-OMX_API OMX_ERRORTYPE OMX_APIENTRY OMX_FreeHandle(
-  OMX_IN OMX_HANDLETYPE hComp)
+OMX_ERRORTYPE OMX_FreeHandle_jpeg(
+  OMX_HANDLETYPE hComp)
 {
   OMX_ERRORTYPE rc = OMX_ErrorNone;
   int comp_idx, inst_idx;

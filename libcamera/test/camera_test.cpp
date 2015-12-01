@@ -481,11 +481,8 @@ void CameraTest::onPictureFrame(ICameraFrame* frame)
         snprintf(rawName, 128, "snapshot_%s_mipi.raw", caps_.rawSize.c_str());
         dumpToFile(frame->data, frame->size, rawName, frame->timeStamp);
     } else {
-        snprintf(yuvName, 128, "snapshot_%dx%d.yuv",
-                 picSize_.width, picSize_.height);
-        dumpToFile(frame->data, frame->size, yuvName, frame->timeStamp);
         snprintf(jpgName, 128, "snapshot_%dx%d.jpg", picSize_.width, picSize_.height);
-        compressJpegAndSave(frame, jpgName);
+       dumpToFile(frame->data, frame->size, jpgName, frame->timeStamp);
     }
     /* notify the waiting thread about picture done */
     pthread_mutex_lock(&mutexPicDone);

@@ -4059,7 +4059,7 @@ int32_t QCameraParameters::initDefaultParameters()
 
     set(KEY_SUPPORTED_PICTURE_FORMATS, pictureTypeValues.c_str());
     // Set default picture Format
-    CameraParameters::setPictureFormat(PIXEL_FORMAT_YUV420SP);
+    CameraParameters::setPictureFormat(PIXEL_FORMAT_JPEG);
     // Set raw image size
     char raw_size_str[32];
     snprintf(raw_size_str, sizeof(raw_size_str), "%dx%d",

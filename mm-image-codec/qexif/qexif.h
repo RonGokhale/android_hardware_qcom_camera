@@ -30,6 +30,7 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
 #define __QEXIF_H__
 
 #include <stdio.h>
+#include <sys/types.h>
 
 /* Exif Info (opaque definition) */
 struct exif_info_t;

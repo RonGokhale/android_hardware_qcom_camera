@@ -295,8 +295,7 @@ OMX_ERRORTYPE mm_jpeg_session_create(mm_jpeg_job_session_t* p_session)
   p_session->omx_callbacks.FillBufferDone = mm_jpeg_fbd;
   p_session->omx_callbacks.EventHandler = mm_jpeg_event_handler;
 
-
-  rc = OMX_GetHandle(&p_session->omx_handle,
+  rc = OMX_GetHandle_jpeg(&p_session->omx_handle,
       "OMX.qcom.image.jpeg.encoder",
       (void *)p_session,
       &p_session->omx_callbacks);
@@ -356,7 +355,7 @@ void mm_jpeg_session_destroy(mm_jpeg_job_session_t* p_session)
     }
   }
 
-  rc = OMX_FreeHandle(p_session->omx_handle);
+  rc = OMX_FreeHandle_jpeg(p_session->omx_handle);
   if (0 != rc) {
     CDBG_ERROR("%s:%d] OMX_FreeHandle failed (%d)", __func__, __LINE__, rc);
   }
@@ -1781,7 +1780,7 @@ int32_t mm_jpeg_init(mm_jpeg_obj *my_obj)
   my_obj->work_buf_cnt = i;
 
   /* load OMX */
-  if (OMX_ErrorNone != OMX_Init()) {
+  if (OMX_ErrorNone != OMX_Init_jpeg()) {
     /* roll back in error case */
     CDBG_ERROR("%s:%d] OMX_Init failed (%d)", __func__, __LINE__, rc);
     for (i = 0; i < initial_workbufs_cnt; i++) {
@@ -1828,7 +1827,7 @@ int32_t mm_jpeg_deinit(mm_jpeg_obj *my_obj)
   }
 
   /* unload OMX engine */
-  OMX_Deinit();
+  OMX_Deinit_jpeg();
 
   /* deinit ongoing job and cb queue */
   rc = mm_jpeg_queue_deinit(&my_obj->ongoing_job_q);

@@ -47,6 +47,19 @@
 #define MAX_JPEG_SIZE 20000000
 #define MAX_OMX_HANDLES (5)
 
+OMX_ERRORTYPE OMX_Init_jpeg();
+
+OMX_ERRORTYPE OMX_Deinit_jpeg();
+
+OMX_ERRORTYPE OMX_GetHandle_jpeg(
+  OMX_HANDLETYPE* handle,
+  OMX_STRING componentName,
+  OMX_PTR appData,
+  OMX_CALLBACKTYPE* callBacks);
+
+OMX_ERRORTYPE OMX_FreeHandle_jpeg(
+  OMX_HANDLETYPE hComp);
+
 
 /** mm_jpeg_abort_state_t:
  *  @MM_JPEG_ABORT_NONE: Abort is not issued
