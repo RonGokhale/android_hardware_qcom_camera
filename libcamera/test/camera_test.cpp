@@ -79,6 +79,10 @@
 *     Manual gain
 *     setVerticalFlip
 *     setHorizontalMirror
+*  left/right:
+*    code is written with reference to schematic but for end users the left and right sensor appears swapped.
+*    so for user experience in the current app left option is changed to right.
+*    right sensor with reference to schematic always goes in stereo mode, so no left option for end users.
 *
 * How to perform vertical flip and horizontal mirror on individual images in stereo ?
 *  In stereo since the image is merged,
@@ -151,7 +155,7 @@ enum OutputFormatType{
 enum CamFunction {
     CAM_FUNC_HIRES = 0,
     CAM_FUNC_OPTIC_FLOW = 1,
-    CAM_FUNC_LEFT_SENSOR = 2,
+    CAM_FUNC_RIGHT_SENSOR = 2,
     CAM_FUNC_STEREO = 3,
 };
 
@@ -596,13 +600,13 @@ const char usageStr[] =
     "  -f <type>       camera type\n"
     "                    - hires\n"
     "                    - optic\n"
-    "                    - left \n"
+    "                    - right \n"
     "                    - stereo \n"
     "  -p <size>       Set resolution for preview frame\n"
     "                    - 4k             ( imx sensor only ) \n"
     "                    - 1080p          ( imx sensor only ) \n"
     "                    - 720p           ( imx sensor only ) \n"
-    "                    - VGA            ( Max resolution of optic flow and left sensor )\n"
+    "                    - VGA            ( Max resolution of optic flow and right sensor )\n"
     "                    - QVGA           ( 320x240 ) \n"
     "                    - stereoVGA      ( 1280x480 : Stereo only - Max resolution )\n"
     "                    - stereoQVGA     ( 640x240  : Stereo only )\n"
@@ -610,7 +614,7 @@ const char usageStr[] =
     "                    - 4k             ( imx sensor only ) \n"
     "                    - 1080p          ( imx sensor only ) \n"
     "                    - 720p           ( imx sensor only ) \n"
-    "                    - VGA            ( Max resolution of optic flow and left sensor )\n"
+    "                    - VGA            ( Max resolution of optic flow and right sensor )\n"
     "                    - QVGA           ( 320x240 ) \n"
     "                    - stereoVGA      ( 1280x480 : Stereo only - Max resolution )\n"
     "                    - stereoQVGA     ( 640x240  : Stereo only )\n"
@@ -621,7 +625,7 @@ const char usageStr[] =
     "                    - 4k             ( imx sensor only ) \n"
     "                    - 1080p          ( imx sensor only ) \n"
     "                    - 720p           ( imx sensor only ) \n"
-    "                    - VGA            ( Max resolution of optic flow and left sensor )\n"
+    "                    - VGA            ( Max resolution of optic flow and right sensor )\n"
     "                    - QVGA           ( 320x240 ) \n"
     "                    - stereoVGA      ( 1280x480 : Stereo only - Max resolution )\n"
     "                    - stereoQVGA     ( 640x240  : Stereo only )\n"
@@ -760,7 +764,7 @@ int CameraTest::setParameters()
 				params_.set("raw-size", "640x480");
 			}
 			break;
-		case CAM_FUNC_LEFT_SENSOR:
+		case CAM_FUNC_RIGHT_SENSOR:
 			break;
 		case CAM_FUNC_STEREO:
 			break;
@@ -896,7 +900,7 @@ int CameraTest::run()
                  printf("Setting exposure value =  %d , gain value = %d \n", config_.exposureValue, config_.gainValue );
             }
             break;
-        case CAM_FUNC_LEFT_SENSOR:
+        case CAM_FUNC_RIGHT_SENSOR:
             {
                  params_.setManualExposure(config_.exposureValue);
                  params_.setManualGain(config_.gainValue);
@@ -991,7 +995,7 @@ static int setDefaultConfig(TestConfig &cfg) {
         cfg.picSize   = VGASize;
         cfg.outputFormat = RAW_FORMAT;
         break;
-    case CAM_FUNC_LEFT_SENSOR:
+    case CAM_FUNC_RIGHT_SENSOR:
         cfg.pSize   = VGASize;
         cfg.vSize   = VGASize;
         cfg.picSize   = VGASize;
@@ -1039,8 +1043,8 @@ static TestConfig parseCommandline(int argc, char* argv[])
                     cfg.func = CAM_FUNC_HIRES;
                 } else if (str == "optic") {
                     cfg.func = CAM_FUNC_OPTIC_FLOW;
-                } else if (str == "left") {
-                    cfg.func = CAM_FUNC_LEFT_SENSOR;
+                } else if (str == "right") {
+                    cfg.func = CAM_FUNC_RIGHT_SENSOR;
                 } else if (str == "stereo") {
                     cfg.func = CAM_FUNC_STEREO;
                 }
