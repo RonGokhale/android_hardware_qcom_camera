@@ -476,6 +476,129 @@ int QCamera2HardwareInterface::store_meta_data_in_buffers(
 }
 
 /*===========================================================================
+ * FUNCTION   : restart_start_preview
+ *
+ * DESCRIPTION: start preview as part of the restart preview
+ *
+ * PARAMETERS :
+ *   @device  : ptr to camera device struct
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int QCamera2HardwareInterface::restart_start_preview(struct camera_device *device)
+{
+    ATRACE_CALL();
+    int ret = NO_ERROR;
+    QCamera2HardwareInterface *hw =
+        reinterpret_cast<QCamera2HardwareInterface *>(device->priv);
+    if (!hw) {
+        ALOGE("NULL camera device");
+        return BAD_VALUE;
+    }
+    CDBG_HIGH("%s: E camera id %d", __func__, hw->getCameraId());
+    hw->lockAPI();
+    qcamera_api_result_t apiResult;
+
+    if (hw->getRelatedCamSyncInfo()->sync_control == CAM_SYNC_RELATED_SENSORS_ON) {
+        ret = hw->processAPI(QCAMERA_SM_EVT_RESTART_START_PREVIEW, NULL);
+        if (ret == NO_ERROR) {
+            hw->waitAPIResult(QCAMERA_SM_EVT_RESTART_START_PREVIEW, &apiResult);
+            ret = apiResult.status;
+        }
+    } else {
+        ALOGE("%s is not supposed to be called in single-camera mode", __func__);
+        ret = INVALID_OPERATION;
+    }
+    // Preview restart done, update the mPreviewRestartNeeded flag to false.
+    hw->mPreviewRestartNeeded = false;
+    hw->unlockAPI();
+    CDBG_HIGH("%s: X camera id %d", __func__, hw->getCameraId());
+
+    return ret;
+}
+
+/*===========================================================================
+ * FUNCTION   : restart_stop_preview
+ *
+ * DESCRIPTION: stop preview as part of the restart preview
+ *
+ * PARAMETERS :
+ *   @device  : ptr to camera device struct
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int QCamera2HardwareInterface::restart_stop_preview(struct camera_device *device)
+{
+    ATRACE_CALL();
+    int ret = NO_ERROR;
+    QCamera2HardwareInterface *hw =
+        reinterpret_cast<QCamera2HardwareInterface *>(device->priv);
+    if (!hw) {
+        ALOGE("NULL camera device");
+        return BAD_VALUE;
+    }
+    CDBG_HIGH("%s: E camera id %d", __func__, hw->getCameraId());
+    hw->lockAPI();
+    qcamera_api_result_t apiResult;
+
+    if (hw->getRelatedCamSyncInfo()->sync_control == CAM_SYNC_RELATED_SENSORS_ON) {
+        ret = hw->processAPI(QCAMERA_SM_EVT_RESTART_STOP_PREVIEW, NULL);
+        if (ret == NO_ERROR) {
+            hw->waitAPIResult(QCAMERA_SM_EVT_RESTART_STOP_PREVIEW, &apiResult);
+            ret = apiResult.status;
+        }
+    } else {
+        ALOGE("%s is not supposed to be called in single-camera mode", __func__);
+        ret = INVALID_OPERATION;
+    }
+
+    hw->unlockAPI();
+    CDBG_HIGH("%s: X camera id %d", __func__, hw->getCameraId());
+
+    return ret;
+}
+
+/*===========================================================================
+ * FUNCTION   : pre_start_recording
+ *
+ * DESCRIPTION: prepare for the start recording
+ *
+ * PARAMETERS :
+ *   @device  : ptr to camera device struct
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int QCamera2HardwareInterface::pre_start_recording(struct camera_device *device)
+{
+    ATRACE_CALL();
+    int ret = NO_ERROR;
+    QCamera2HardwareInterface *hw =
+        reinterpret_cast<QCamera2HardwareInterface *>(device->priv);
+    if (!hw) {
+        ALOGE("NULL camera device");
+        return BAD_VALUE;
+    }
+    ALOGI("[KPI Perf] %s: E PROFILE_PRE_START_RECORDING camera id %d",
+            __func__, hw->getCameraId());
+    hw->lockAPI();
+    qcamera_api_result_t apiResult;
+    ret = hw->processAPI(QCAMERA_SM_EVT_PRE_START_RECORDING, NULL);
+    if (ret == NO_ERROR) {
+        hw->waitAPIResult(QCAMERA_SM_EVT_PRE_START_RECORDING, &apiResult);
+        ret = apiResult.status;
+    }
+    hw->unlockAPI();
+    ALOGI("[KPI Perf] %s: X", __func__);
+    return ret;
+}
+
+/*===========================================================================
  * FUNCTION   : start_recording
  *
  * DESCRIPTION: start recording
@@ -499,6 +622,16 @@ int QCamera2HardwareInterface::start_recording(struct camera_device *device)
     }
     ALOGI("[KPI Perf] %s: E PROFILE_START_RECORDING camera id %d",
             __func__, hw->getCameraId());
+    // Give HWI control to call pre_start_recording in single camera mode.
+    // In dual-cam mode, this control belongs to muxer.
+    if (hw->getRelatedCamSyncInfo()->sync_control != CAM_SYNC_RELATED_SENSORS_ON) {
+        ret = pre_start_recording(device);
+        if (ret != NO_ERROR) {
+            ALOGE("%s: pre_start_recording failed with ret = %d",__func__,ret);
+            return ret;
+        }
+    }
+
     hw->lockAPI();
     qcamera_api_result_t apiResult;
     ret = hw->processAPI(QCAMERA_SM_EVT_START_RECORDING, NULL);
@@ -688,6 +821,42 @@ int QCamera2HardwareInterface::cancel_auto_focus(struct camera_device *device)
 }
 
 /*===========================================================================
+ * FUNCTION   : pre_take_picture
+ *
+ * DESCRIPTION: pre take picture, restart preview if necessary.
+ *
+ * PARAMETERS :
+ *   @device  : ptr to camera device struct
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int QCamera2HardwareInterface::pre_take_picture(struct camera_device *device)
+{
+    ATRACE_CALL();
+    int ret = NO_ERROR;
+    QCamera2HardwareInterface *hw =
+        reinterpret_cast<QCamera2HardwareInterface *>(device->priv);
+    if (!hw) {
+        ALOGE("NULL camera device");
+        return BAD_VALUE;
+    }
+    ALOGI("[KPI Perf] %s: E PROFILE_PRE_TAKE_PICTURE camera id %d",
+            __func__, hw->getCameraId());
+    hw->lockAPI();
+    qcamera_api_result_t apiResult;
+    ret = hw->processAPI(QCAMERA_SM_EVT_PRE_TAKE_PICTURE, NULL);
+    if (ret == NO_ERROR) {
+        hw->waitAPIResult(QCAMERA_SM_EVT_PRE_TAKE_PICTURE, &apiResult);
+        ret = apiResult.status;
+    }
+    hw->unlockAPI();
+    ALOGI("[KPI Perf] %s: X", __func__);
+    return ret;
+}
+
+/*===========================================================================
  * FUNCTION   : take_picture
  *
  * DESCRIPTION: take picture
@@ -733,6 +902,16 @@ int QCamera2HardwareInterface::take_picture(struct camera_device *device)
         hw->m_bLedAfAecLock = 0;
         CDBG_HIGH("%s: [ZSL Retro] mode", __func__);
 
+        // Give HWI control to call pre_take_picture in single camera mode.
+        // In dual-cam mode, this control belongs to muxer.
+        if (hw->getRelatedCamSyncInfo()->sync_control != CAM_SYNC_RELATED_SENSORS_ON) {
+            ret = pre_take_picture(device);
+            if (ret != NO_ERROR) {
+                ALOGE("%s: pre_take_picture failed with ret = %d",__func__,ret);
+                return ret;
+            }
+        }
+
         /* Call take Picture for total number of snapshots required.
              This includes the number of retro frames and normal frames */
         ret = hw->processAPI(QCAMERA_SM_EVT_TAKE_PICTURE, NULL);
@@ -755,6 +934,16 @@ int QCamera2HardwareInterface::take_picture(struct camera_device *device)
         if (!hw->mPrepSnapRun) {
             // Ignore the status from prepare_snapshot
             hw->prepare_snapshot(device);
+        }
+
+        // Give HWI control to call pre_take_picture in single camera mode.
+        // In dual-cam mode, this control belongs to muxer.
+        if (hw->getRelatedCamSyncInfo()->sync_control != CAM_SYNC_RELATED_SENSORS_ON) {
+            ret = pre_take_picture(device);
+            if (ret != NO_ERROR) {
+                ALOGE("%s: pre_take_picture failed with ret = %d",__func__,ret);
+                return ret;
+            }
         }
 
         // Regardless what the result value for prepare_snapshot,
@@ -867,6 +1056,33 @@ int QCamera2HardwareInterface::set_parameters(struct camera_device *device,
     return ret;
 }
 
+int QCamera2HardwareInterface::preview_restart_needed(
+          struct camera_device *device, int &needRestart)
+{
+    ATRACE_CALL();
+    int ret = NO_ERROR;
+    QCamera2HardwareInterface *hw =
+        reinterpret_cast<QCamera2HardwareInterface *>(device->priv);
+    if (!hw) {
+        ALOGE("NULL camera device");
+        return BAD_VALUE;
+    }
+    CDBG("%s: E camera id %d", __func__, hw->getCameraId());
+
+    hw->lockAPI();
+    qcamera_api_result_t apiResult;
+    ret = hw->processAPI(QCAMERA_SM_EVT_PREVIEW_RESTART_NEENED, NULL);
+    if (ret == NO_ERROR) {
+        hw->waitAPIResult(QCAMERA_SM_EVT_PREVIEW_RESTART_NEENED, &apiResult);
+        needRestart = apiResult.enabled;
+        ret = apiResult.status;
+    }
+    hw->unlockAPI();
+    CDBG("%s: X camera id %d", __func__, hw->getCameraId());
+
+    return ret;
+}
+
 /*===========================================================================
  * FUNCTION   : commit_parameters_stop_preview
  *
@@ -879,7 +1095,8 @@ int QCamera2HardwareInterface::set_parameters(struct camera_device *device,
  *              NO_ERROR  -- success
  *              none-zero failure code
  *==========================================================================*/
-int QCamera2HardwareInterface::commit_parameters_stop_preview(struct camera_device *device)
+int QCamera2HardwareInterface::commit_parameters_stop_preview(
+                     struct camera_device *device, int needRestart)
 {
     ATRACE_CALL();
     int ret = NO_ERROR;
@@ -894,7 +1111,7 @@ int QCamera2HardwareInterface::commit_parameters_stop_preview(struct camera_devi
     qcamera_api_result_t apiResult;
 
     if (hw->getRelatedCamSyncInfo()->sync_control == CAM_SYNC_RELATED_SENSORS_ON) {
-        ret = hw->processAPI(QCAMERA_SM_EVT_COMMIT_STOP_PREVIEW, NULL);
+        ret = hw->processAPI(QCAMERA_SM_EVT_COMMIT_STOP_PREVIEW, (void *)(&needRestart));
         if (ret == NO_ERROR) {
             hw->waitAPIResult(QCAMERA_SM_EVT_COMMIT_STOP_PREVIEW, &apiResult);
             ret = apiResult.status;
@@ -922,7 +1139,8 @@ int QCamera2HardwareInterface::commit_parameters_stop_preview(struct camera_devi
  *              NO_ERROR  -- success
  *              none-zero failure code
  *==========================================================================*/
-int QCamera2HardwareInterface::commit_parameters_start_preview(struct camera_device *device)
+int QCamera2HardwareInterface::commit_parameters_start_preview(
+                 struct camera_device *device, int needRestart)
 {
     ATRACE_CALL();
     int ret = NO_ERROR;
@@ -937,7 +1155,7 @@ int QCamera2HardwareInterface::commit_parameters_start_preview(struct camera_dev
     qcamera_api_result_t apiResult;
 
     if (hw->getRelatedCamSyncInfo()->sync_control == CAM_SYNC_RELATED_SENSORS_ON) {
-        ret = hw->processAPI(QCAMERA_SM_EVT_COMMIT_START_PREVIEW, NULL);
+        ret = hw->processAPI(QCAMERA_SM_EVT_COMMIT_START_PREVIEW, (void *)(&needRestart));
         if (ret == NO_ERROR) {
             hw->waitAPIResult(QCAMERA_SM_EVT_COMMIT_START_PREVIEW, &apiResult);
             ret = apiResult.status;
@@ -1280,6 +1498,11 @@ int QCamera2HardwareInterface::prepare_snapshot(struct camera_device *device)
         ALOGE("NULL camera device");
         return BAD_VALUE;
     }
+    if (hw->isLongshotEnabled() && hw->mPrepSnapRun == true) {
+        // For longshot mode, we prepare snapshot only once
+        ALOGI("%s: prepare snapshot only once ", __func__);
+        return NO_ERROR;
+    }
     ALOGI("[KPI Perf] %s: E PROFILE_PREPARE_SNAPSHOT camera id %d",
             __func__, hw->getCameraId());
     hw->lockAPI();
@@ -1352,6 +1575,7 @@ QCamera2HardwareInterface::QCamera2HardwareInterface(uint32_t cameraId)
       mIs3ALocked(false),
       mPrepSnapRun(false),
       mZoomLevel(0),
+      mPreviewRestartNeeded(false),
       mVFrameCount(0),
       mVLastFrameCount(0),
       mVLastFpsTime(0),
@@ -1546,7 +1770,7 @@ int QCamera2HardwareInterface::openCamera()
     // Now PostProc need calibration data as initialization time for jpeg_open
     // And calibration data is a get param for now, so params needs to be initialized
     // before postproc init
-    rc = mParameters.init(gCamCaps[mCameraId], mCameraHandle, this, this);
+    rc = mParameters.init(gCamCaps[mCameraId], mCameraHandle, this);
     if (rc != 0) {
         ALOGE("Init Parameters failed");
         mCameraHandle->ops->close_camera(mCameraHandle->camera_handle);
@@ -1772,13 +1996,45 @@ int32_t QCamera2HardwareInterface::setMpoComposition(bool enable)
     if ((getRelatedCamSyncInfo()->sync_control == CAM_SYNC_RELATED_SENSORS_ON) &&
             !mParameters.isAdvCamFeaturesEnabled() &&
             !mParameters.getRecordingHintValue() &&
-            !mFlashNeeded) {
+            !mFlashNeeded &&
+            !isLongshotEnabled()) {
         m_bMpoEnabled = enable;
         CDBG_HIGH("%s: MpoComposition:%d ", __func__, m_bMpoEnabled);
         return NO_ERROR;
     } else {
         return BAD_TYPE;
     }
+}
+
+/*===========================================================================
+ * FUNCTION   : getRecordingHintValue
+ *
+ * DESCRIPTION:function to retrieve recording hint value
+ *
+ * PARAMETERS :none
+ *
+ * RETURN     : bool indicates whether recording hint is enabled or not
+ *==========================================================================*/
+bool QCamera2HardwareInterface::getRecordingHintValue(void)
+{
+    return mParameters.getRecordingHintValue();
+}
+
+/*===========================================================================
+ * FUNCTION   : setRecordingHintValue
+ *
+ * DESCRIPTION:set recording hint value
+ *
+ * PARAMETERS :
+ *   @enable  : video hint value
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCamera2HardwareInterface::setRecordingHintValue(int32_t value)
+{
+    return mParameters.updateRecordingHintValue(value);
 }
 
 /*===========================================================================
@@ -1980,57 +2236,7 @@ cam_capability_t* QCamera2HardwareInterface::getCamHalCapabilities()
 }
 
 /*===========================================================================
- * FUNCTION   : prepareTorchCamera
- *
- * DESCRIPTION: initializes the camera ( if needed )
- *              so torch can be configured.
- *
- * PARAMETERS :
- *
- * RETURN     : int32_t type of status
- *              NO_ERROR  -- success
- *              none-zero failure code
- *==========================================================================*/
-int QCamera2HardwareInterface::prepareTorchCamera()
-{
-    int rc = NO_ERROR;
-
-    if ( ( !m_stateMachine.isPreviewRunning() ) &&
-            !m_stateMachine.isPreviewReady() &&
-            ( m_channels[QCAMERA_CH_TYPE_PREVIEW] == NULL ) ) {
-        rc = addChannel(QCAMERA_CH_TYPE_PREVIEW);
-        waitDefferedWork(mMetadataJob);
-    }
-
-    return rc;
-}
-
-/*===========================================================================
- * FUNCTION   : releaseTorchCamera
- *
- * DESCRIPTION: releases all previously acquired camera resources ( if any )
- *              needed for torch configuration.
- *
- * PARAMETERS :
- *
- * RETURN     : int32_t type of status
- *              NO_ERROR  -- success
- *              none-zero failure code
- *==========================================================================*/
-int QCamera2HardwareInterface::releaseTorchCamera()
-{
-    if ( !m_stateMachine.isPreviewRunning() &&
-            !m_stateMachine.isPreviewReady() &&
-            ( m_channels[QCAMERA_CH_TYPE_PREVIEW] != NULL ) ) {
-        delete m_channels[QCAMERA_CH_TYPE_PREVIEW];
-        m_channels[QCAMERA_CH_TYPE_PREVIEW] = NULL;
-    }
-
-    return NO_ERROR;
-}
-
-/*===========================================================================
- * FUNCTION   : getBufNumRequired
+  * FUNCTION   : getBufNumRequired
  *
  * DESCRIPTION: return number of stream buffers needed for given stream type
  *
@@ -3030,6 +3236,48 @@ int QCamera2HardwareInterface::storeMetaDataInBuffers(int enable)
 }
 
 /*===========================================================================
+ * FUNCTION   : preStartRecording
+ *
+ * DESCRIPTION: Prepare start recording impl
+ *
+ * PARAMETERS : none
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int QCamera2HardwareInterface::preStartRecording()
+{
+    int32_t rc = NO_ERROR;
+    CDBG_HIGH("%s: E", __func__);
+    if (mParameters.getRecordingHintValue() == false) {
+
+        // Give HWI control to restart preview only in single camera mode.
+        // In dual-cam mode, this control belongs to muxer.
+        if (getRelatedCamSyncInfo()->sync_control != CAM_SYNC_RELATED_SENSORS_ON) {
+            CDBG_HIGH("%s: start recording when hint is false, stop preview first", __func__);
+            stopPreview();
+
+            // Set recording hint to TRUE
+            mParameters.updateRecordingHintValue(TRUE);
+            rc = preparePreview();
+            if (rc == NO_ERROR) {
+                rc = startPreview();
+            }
+        }
+        else
+        {
+            // For dual cam mode, update the flag mPreviewRestartNeeded to true
+            // Restart control will be handled by muxer.
+            mPreviewRestartNeeded = true;
+        }
+    }
+
+    CDBG_HIGH("%s: X", __func__);
+    return rc;
+}
+
+/*===========================================================================
  * FUNCTION   : startRecording
  *
  * DESCRIPTION: start recording impl
@@ -3044,21 +3292,8 @@ int QCamera2HardwareInterface::startRecording()
 {
     int32_t rc = NO_ERROR;
     CDBG_HIGH("%s: E", __func__);
-    if (mParameters.getRecordingHintValue() == false) {
-        ALOGE("%s: start recording when hint is false, stop preview first", __func__);
-        stopPreview();
 
-        // Set recording hint to TRUE
-        mParameters.updateRecordingHintValue(TRUE);
-        rc = preparePreview();
-        if (rc == NO_ERROR) {
-            rc = startPreview();
-        }
-    }
-
-    if (rc == NO_ERROR) {
-        rc = startChannel(QCAMERA_CH_TYPE_VIDEO);
-    }
+    rc = startChannel(QCAMERA_CH_TYPE_VIDEO);
 
 #ifdef HAS_MULTIMEDIA_HINTS
     if (rc == NO_ERROR) {
@@ -3689,6 +3924,50 @@ int32_t QCamera2HardwareInterface::startAdvancedCapture(
 }
 
 /*===========================================================================
+ * FUNCTION   : preTakePicture
+ *
+ * DESCRIPTION: Prepare take picture impl, Restarts preview if necessary
+ *
+ * PARAMETERS : none
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int QCamera2HardwareInterface::preTakePicture()
+{
+    int32_t rc = NO_ERROR;
+    CDBG_HIGH("%s: E", __func__);
+    if (mParameters.getRecordingHintValue() == true) {
+
+        // Give HWI control to restart preview only in single camera mode.
+        // In dual-cam mode, this control belongs to muxer.
+        if (getRelatedCamSyncInfo()->sync_control != CAM_SYNC_RELATED_SENSORS_ON) {
+            CDBG_HIGH("%s: restart preview if rec hint is true and preview is running", __func__);
+            stopPreview();
+            mParameters.updateRecordingHintValue(FALSE);
+            // start preview again
+            rc = preparePreview();
+            if (rc == NO_ERROR) {
+                rc = startPreview();
+                if (rc != NO_ERROR) {
+                    unpreparePreview();
+                }
+            }
+        }
+        else
+        {
+            // For dual cam mode, update the flag mPreviewRestartNeeded to true
+            // Restart control will be handled by muxer.
+            mPreviewRestartNeeded = true;
+        }
+    }
+
+    CDBG_HIGH("%s: X", __func__);
+    return rc;
+}
+
+/*===========================================================================
  * FUNCTION   : takePicture
  *
  * DESCRIPTION: take picture impl
@@ -3779,6 +4058,7 @@ int QCamera2HardwareInterface::takePicture()
             memset(&buf, 0x0, sizeof(buf));
             if ((!mParameters.isAdvCamFeaturesEnabled() &&
                     !mFlashNeeded &&
+                    !isLongshotEnabled() &&
                     getRelatedCamSyncInfo()->is_frame_sync_enabled) &&
                     (getRelatedCamSyncInfo()->sync_control ==
                     CAM_SYNC_RELATED_SENSORS_ON)) {
@@ -5966,11 +6246,9 @@ int32_t QCamera2HardwareInterface::addPreviewChannel()
 
 
     if (m_channels[QCAMERA_CH_TYPE_PREVIEW] != NULL) {
-        // Using the no preview torch WA it is possible
-        // to already have a preview channel present before
-        // start preview gets called.
-        ALOGD(" %s : Preview Channel already added!", __func__);
-        return NO_ERROR;
+        // if we had preview channel before, delete it first
+        delete m_channels[QCAMERA_CH_TYPE_PREVIEW];
+        m_channels[QCAMERA_CH_TYPE_PREVIEW] = NULL;
     }
 
     pChannel = new QCameraChannel(mCameraHandle->camera_handle,
@@ -6231,11 +6509,6 @@ int32_t QCamera2HardwareInterface::addZSLChannel()
         // if we had ZSL channel before, delete it first
         delete m_channels[QCAMERA_CH_TYPE_ZSL];
         m_channels[QCAMERA_CH_TYPE_ZSL] = NULL;
-    }
-
-     if (m_channels[QCAMERA_CH_TYPE_PREVIEW] != NULL) {
-        delete m_channels[QCAMERA_CH_TYPE_PREVIEW];
-        m_channels[QCAMERA_CH_TYPE_PREVIEW] = NULL;
     }
 
     pChannel = new QCameraPicChannel(mCameraHandle->camera_handle,

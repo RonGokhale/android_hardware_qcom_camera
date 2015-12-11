@@ -211,11 +211,8 @@ private:
     QCameraCmdThread mProcTh;
     bool             mActive;
 };
-
 class QCamera2HardwareInterface : public QCameraAllocator,
-                                  public QCameraThermalCallback,
-                                  public QCameraAdjustFPS,
-                                  public QCameraTorchInterface
+        public QCameraThermalCallback, public QCameraAdjustFPS
 {
 public:
     /* static variable and functions accessed by camera service */
@@ -236,12 +233,16 @@ public:
     static void stop_preview(struct camera_device *);
     static int preview_enabled(struct camera_device *);
     static int store_meta_data_in_buffers(struct camera_device *, int enable);
+    static int restart_start_preview(struct camera_device *);
+    static int restart_stop_preview(struct camera_device *);
+    static int pre_start_recording(struct camera_device *);
     static int start_recording(struct camera_device *);
     static void stop_recording(struct camera_device *);
     static int recording_enabled(struct camera_device *);
     static void release_recording_frame(struct camera_device *, const void *opaque);
     static int auto_focus(struct camera_device *);
     static int cancel_auto_focus(struct camera_device *);
+    static int pre_take_picture(struct camera_device *);
     static int take_picture(struct camera_device *);
     int takeLiveSnapshot_internal();
     int takeBackendPic_internal(bool *JpegMemOpt, char *raw_format);
@@ -249,8 +250,9 @@ public:
     void checkIntPicPending(bool JpegMemOpt, char *raw_format);
     static int cancel_picture(struct camera_device *);
     static int set_parameters(struct camera_device *, const char *parms);
-    static int commit_parameters_stop_preview(struct camera_device *);
-    static int commit_parameters_start_preview(struct camera_device *);
+    static int commit_parameters_stop_preview(struct camera_device *, int needRestart);
+    static int commit_parameters_start_preview(struct camera_device *, int needRestart);
+    static int preview_restart_needed(struct camera_device *, int &needRestart);
     static char* get_parameters(struct camera_device *);
     static void put_parameters(struct camera_device *, char *);
     static int send_command(struct camera_device *,
@@ -282,6 +284,9 @@ public:
             cam_sync_related_sensors_event_info_t* info);
     int32_t setMpoComposition(bool enable);
     bool getMpoComposition(void);
+    bool getRecordingHintValue(void);
+    int32_t setRecordingHintValue(int32_t value);
+    bool isPreviewRestartNeeded(void) { return mPreviewRestartNeeded; };
     static int getCapabilities(uint32_t cameraId,
             struct camera_info *info, cam_sync_type_t *cam_type);
     static int initCapabilities(uint32_t cameraId, mm_camera_vtbl_t *cameraHandle);
@@ -303,10 +308,6 @@ public:
 
     virtual int recalcFPSRange(int &minFPS, int &maxFPS,
             cam_fps_range_t &adjustedRange);
-
-    // Implementation of QCameraTorchInterface
-    virtual int prepareTorchCamera();
-    virtual int releaseTorchCamera();
 
     friend class QCameraStateMachine;
     friend class QCameraPostProcessor;
@@ -338,11 +339,13 @@ private:
     int startPreview();
     int stopPreview();
     int storeMetaDataInBuffers(int enable);
+    int preStartRecording();
     int startRecording();
     int stopRecording();
     int releaseRecordingFrame(const void *opaque);
     int autoFocus();
     int cancelAutoFocus();
+    int preTakePicture();
     int takePicture();
     int stopCaptureChannel(bool destroy);
     int cancelPicture();
@@ -629,6 +632,8 @@ private:
     bool mIs3ALocked;
     bool mPrepSnapRun;
     int32_t mZoomLevel;
+    // Flag to indicate whether preview restart needed (for dual camera mode)
+    bool mPreviewRestartNeeded;
 
     int mVFrameCount;
     int mVLastFrameCount;
