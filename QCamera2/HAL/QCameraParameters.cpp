@@ -2908,7 +2908,6 @@ int32_t QCameraParameters::setVideoHDR(const QCameraParameters& params)
     if (str != NULL) {
         if (prev_str == NULL ||
             strcmp(str, prev_str) != 0) {
-            m_bNeedRestart = true;
             return setVideoHDR(str);
         }
     }
@@ -3291,34 +3290,6 @@ bool QCameraParameters::isAutoHDREnabled()
     }
 
     CDBG_HIGH("%s : Auto HDR status not set!", __func__);
-    return false;
-}
-
-/*===========================================================================
-* FUNCTION   : isStaggeredVideoHDREnabled
-*
-* DESCRIPTION: Query staggered video HDR enabled
-*
-* PARAMETERS : None
-*
-* RETURN     : bool true/false
-*==========================================================================*/
-bool QCameraParameters::isStaggeredVideoHDREnabled()
-{
-    const char *str = get(KEY_QC_VIDEO_HDR);
-    if (str != NULL) {
-        int32_t value = lookupAttr(VIDEO_HDR_MODES_MAP,
-                PARAM_MAP_SIZE(VIDEO_HDR_MODES_MAP), str);
-        if (value == NAME_NOT_FOUND) {
-            ALOGE("%s: Invalid Video HDR value %s", __func__, str);
-            return false;
-        }
-
-        CDBG_HIGH("%s : Video HDR mode is: %d", __func__, value);
-        return (CAM_INTF_VIDEO_HDR_MODE_STAGGERED == value) ? true : false;
-    }
-
-    CDBG_HIGH("%s : Staggered video HDR not set!", __func__);
     return false;
 }
 
@@ -12092,7 +12063,7 @@ bool QCameraParameters::setStreamConfigure(bool isCapture,
     raw_yuv = atoi(value) > 0 ? true : false;
 
     if (isZSLMode() &&
-            ((getRecordingHintValue() != true) || isStaggeredVideoHDREnabled())) {
+            ((getRecordingHintValue() != true) || isStaggeredVideoHDRSupported())) {
         stream_config_info.type[stream_config_info.num_streams] =
             CAM_STREAM_TYPE_PREVIEW;
         getStreamDimension(CAM_STREAM_TYPE_PREVIEW,
@@ -12181,7 +12152,7 @@ bool QCameraParameters::setStreamConfigure(bool isCapture,
         // in non DCRF use cases
         if ((getDcrf() == true) ||
                 (getRecordingHintValue() != true) ||
-                (isStaggeredVideoHDREnabled())) {
+                (isStaggeredVideoHDRSupported())) {
             stream_config_info.type[stream_config_info.num_streams] =
                     CAM_STREAM_TYPE_ANALYSIS;
             getStreamDimension(CAM_STREAM_TYPE_ANALYSIS,

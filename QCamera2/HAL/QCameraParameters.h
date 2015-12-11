@@ -686,7 +686,8 @@ public:
     int32_t setHDRAEBracket(cam_exp_bracketing_t hdrBracket);
     bool isHDREnabled();
     bool isAutoHDREnabled();
-    bool isStaggeredVideoHDREnabled();
+    bool isStaggeredVideoHDRSupported() {return
+            ((m_pCapability->qcom_supported_feature_mask & CAM_QCOM_FEATURE_STAGGERED_VIDEO_HDR) > 0);};
     int32_t stopAEBracket();
     int32_t updateFlash(bool commitSettings);
     int32_t updateRAW(cam_dimension_t max_dim);
