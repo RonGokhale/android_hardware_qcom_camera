@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -8385,7 +8385,7 @@ int32_t QCameraParameters::setNoiseReductionMode(const char *noiseReductionModeS
         if (value != NAME_NOT_FOUND) {
 
             if (ADD_SET_PARAM_ENTRY_TO_BATCH(m_pParamBuf,
-                    CAM_INTF_NOISE_REDUCTION_MODE,
+                    CAM_INTF_META_NOISE_REDUCTION_MODE,
                     (cam_noise_reduction_mode_t)value)) {
                 ALOGE("%s:Failed to update table", __func__);
                 return BAD_VALUE;

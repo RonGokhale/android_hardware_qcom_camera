@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundataion. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundataion. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -87,7 +87,8 @@ namespace qcamera {
                                               CAM_QCOM_FEATURE_SHARPNESS |\
                                               CAM_QCOM_FEATURE_SCALE |\
                                               CAM_QCOM_FEATURE_CAC |\
-                                              CAM_QCOM_FEATURE_CDS )
+                                              CAM_QCOM_FEATURE_CDS |\
+                                              CAM_QTI_FEATURE_SW_TNR)
 
 cam_capability_t *gCamCapability[MM_CAMERA_MAX_NUM_SENSORS];
 const camera_metadata_t *gStaticMetadata[MM_CAMERA_MAX_NUM_SENSORS];
