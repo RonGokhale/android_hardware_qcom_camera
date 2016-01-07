@@ -641,7 +641,7 @@ const char usageStr[] =
     "                    -  90 \n"
     "  -o <value>      Output format\n"
     "                     0 :YUV format (default)\n"
-    "                     1 : RAW format (default of optic)\n"
+    "                     1 : RAW format [optic only] (default of optic)\n"
     "  -j <value>      Snapshot Format\n"
     "                     jpeg : JPEG format (default)\n"
     "                     raw  : Full-size MIPI RAW format\n"
@@ -1172,9 +1172,14 @@ static TestConfig parseCommandline(int argc, char* argv[])
             case 0: /* IMX135 , IMX214 */
                 cfg.outputFormat = YUV_FORMAT;
                 break;
-            case 1: /* IMX214 */
-                cfg.outputFormat = RAW_FORMAT;
-                cfg.testVideo = false;
+            case 1: /* optic only */
+                if (cfg.func == CAM_FUNC_OPTIC_FLOW) {
+                    cfg.outputFormat = RAW_FORMAT;
+                    cfg.testVideo = false;
+                } else {
+                    printf("Invalid format for sensor:  RAW mode is only supported for optic \n");
+                    printUsageExit(0);
+                }
                 break;
             default:
                 printf("Invalid format. Setting to default YUV_FORMAT");
