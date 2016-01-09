@@ -308,5 +308,6 @@ const char KEY_QC_GAIN_MANUAL[] = "qc-gain-manual";
 const char KEY_QC_VERTICAL_FLIP[] = "qc-vertical-flip";
 const char KEY_QC_HORIZONTAL_MIRROR[] = "qc-horizontal-mirror";
 
+const char KEY_QC_STATS_LOGGING_MASK[] = "qc-stats-logging-mask";
 
 } /* namespace camera */
