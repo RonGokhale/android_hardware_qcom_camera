@@ -415,6 +415,8 @@ public:
     static const char  KEY_QC_EXPOSURE_MANUAL[];
     static const char  KEY_QC_GAIN_MANUAL[];
 
+    static const char  KEY_QC_STATS_LOGGING_MASK[];
+
     static const char  KEY_QC_VERTICAL_FLIP[];
     static const char  KEY_QC_HORIZONTAL_MIRROR[];
 
@@ -692,7 +694,7 @@ private:
     int32_t setFlip(const QCameraParameters& );
     int32_t setBurstNum(const QCameraParameters& params);
     int32_t setSnapshotFDReq(const QCameraParameters& );
-    int32_t setStatsDebugMask();
+    int32_t setStatsDebugMask(const QCameraParameters& params);
     int32_t setAlgoOptimizationsMask();
     int32_t setTintlessValue(const QCameraParameters& params);
     int32_t setCDSMode(const QCameraParameters& params);

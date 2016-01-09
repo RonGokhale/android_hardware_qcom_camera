@@ -548,5 +548,13 @@ void CameraParams::setHorizontalMirror(bool value)
                             value_str.str());
 }
 
+void CameraParams::setStatsLoggingMask(int value)
+{
+    std::stringstream value_str;
+    value_str << value;
+    params_cast(priv_)->set(KEY_QC_STATS_LOGGING_MASK,
+                            value_str.str());
+}
+
 } /* namespace camera */
 
