@@ -394,10 +394,10 @@ typedef enum {
 typedef enum {
     CAM_GLBL_DBG_NONE  = 0,
     CAM_GLBL_DBG_ERR   = 1,
-    CAM_GLBL_DBG_HIGH  = 2,
-    CAM_GLBL_DBG_WARN  = 3,
-    CAM_GLBL_DBG_LOW   = 4,
-    CAM_GLBL_DBG_DEBUG = 5,
+    CAM_GLBL_DBG_WARN  = 2,
+    CAM_GLBL_DBG_HIGH  = 3,
+    CAM_GLBL_DBG_DEBUG = 4,
+    CAM_GLBL_DBG_LOW   = 5,
     CAM_GLBL_DBG_INFO  = 6
 } cam_global_debug_level_t;
 
@@ -823,6 +823,13 @@ typedef enum {
     CAM_CDS_MODE_LOCK,
     CAM_CDS_MODE_MAX
 } cam_cds_mode_type_t;
+
+typedef enum {
+    CAM_SENSOR_HDR_OFF,
+    CAM_SENSOR_HDR_IN_SENSOR = 1,
+    CAM_SENSOR_HDR_ZIGZAG,
+    CAM_SENSOR_HDR_MAX,
+} cam_sensor_hdr_type_t;
 
 typedef struct  {
     int32_t left;
