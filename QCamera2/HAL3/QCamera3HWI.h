@@ -39,6 +39,7 @@
 #include "QCamera3HALHeader.h"
 #include "QCamera3Channel.h"
 #include "QCamera3CropRegionMapper.h"
+#include "QCamera3VendorTags.h"
 
 #include <hardware/power.h>
 
@@ -380,6 +381,8 @@ private:
             cam_focus_calibration_t> FOCUS_CALIBRATION_MAP[];
     static const QCameraMap<camera_metadata_enum_android_sensor_test_pattern_mode_t,
             cam_test_pattern_mode_t> TEST_PATTERN_MAP[];
+    static const QCameraMap<camera_metadata_enum_android_video_hdr_mode_t,
+            cam_intf_video_hdr_mode_t> VIDEO_HDR_MODES_MAP[];
     static const QCameraMap<camera_metadata_enum_android_sensor_reference_illuminant1_t,
             cam_illuminat_t> REFERENCE_ILLUMINANT_MAP[];
 

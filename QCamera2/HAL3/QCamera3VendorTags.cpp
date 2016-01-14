@@ -49,7 +49,8 @@ enum qcamera3_ext_tags qcamera3_ext3_section_bounds[QCAMERA3_SECTIONS_END -
         QCAMERA3_OPAQUE_RAW_END,
         QCAMERA3_CROP_END,
         QCAMERA3_TUNING_META_DATA_END,
-        QCAMERA3_TEMPORAL_DENOISE_END
+        QCAMERA3_TEMPORAL_DENOISE_END,
+        QCAMERA3_VIDEO_HDR_END
 } ;
 
 typedef struct vendor_tag_info {
@@ -64,7 +65,8 @@ const char *qcamera3_ext_section_names[QCAMERA3_SECTIONS_END -
     "org.codeaurora.qcamera3.opaque_raw",
     "org.codeaurora.qcamera3.crop",
     "org.codeaurora.qcamera3.tuning_meta_data",
-    "org.codeaurora.qcamera3.temporal_denoise"
+    "org.codeaurora.qcamera3.temporal_denoise",
+    "org.codeaurora.qcamera3.video_hdr_mode"
 };
 
 vendor_tag_info_t qcamera3_privatedata[QCAMERA3_PRIVATEDATA_END - QCAMERA3_PRIVATEDATA_START] = {
@@ -99,6 +101,12 @@ vendor_tag_info_t qcamera3_temporal_denoise[QCAMERA3_TEMPORAL_DENOISE_END -
     { "process_type", TYPE_INT32 }
 };
 
+vendor_tag_info_t qcamera3_video_hdr[QCAMERA3_VIDEO_HDR_END -
+        QCAMERA3_VIDEO_HDR_START] = {
+    { "vhdr_mode", TYPE_BYTE },
+    { "vhdr_supported_modes", TYPE_BYTE }
+};
+
 vendor_tag_info_t *qcamera3_tag_info[QCAMERA3_SECTIONS_END -
         VENDOR_SECTION] = {
     qcamera3_privatedata,
@@ -106,7 +114,8 @@ vendor_tag_info_t *qcamera3_tag_info[QCAMERA3_SECTIONS_END -
     qcamera3_opaque_raw,
     qcamera3_crop,
     qcamera3_tuning_meta_data,
-    qcamera3_temporal_denoise
+    qcamera3_temporal_denoise,
+    qcamera3_video_hdr
 };
 
 uint32_t qcamera3_all_tags[] = {
@@ -131,7 +140,11 @@ uint32_t qcamera3_all_tags[] = {
 
     // QCAMERA3_TEMPORAL_DENOISE
     (uint32_t)QCAMERA3_TEMPORAL_DENOISE_ENABLE,
-    (uint32_t)QCAMERA3_TEMPORAL_DENOISE_PROCESS_TYPE
+    (uint32_t)QCAMERA3_TEMPORAL_DENOISE_PROCESS_TYPE,
+
+    // QCAMERA3_VIDEO_HDR
+    (uint32_t)QCAMERA3_VIDEO_HDR_MODE,
+    (uint32_t)QCAMERA3_VIDEO_HDR_AVAILABLE_VIDEO_HDR_MODES
 };
 
 const vendor_tag_ops_t* QCamera3VendorTags::Ops = NULL;

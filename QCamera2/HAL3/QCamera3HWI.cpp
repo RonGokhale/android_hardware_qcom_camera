@@ -46,7 +46,6 @@
 #include "QCamera3Mem.h"
 #include "QCamera3Channel.h"
 #include "QCamera3PostProc.h"
-#include "QCamera3VendorTags.h"
 #include <cutils/properties.h>
 #include <dlfcn.h>
 
@@ -88,6 +87,7 @@ namespace qcamera {
                                               CAM_QCOM_FEATURE_SCALE |\
                                               CAM_QCOM_FEATURE_CAC |\
                                               CAM_QCOM_FEATURE_CDS |\
+                                              CAM_QCOM_FEATURE_STAGGERED_VIDEO_HDR|\
                                               CAM_QTI_FEATURE_SW_TNR)
 
 cam_capability_t *gCamCapability[MM_CAMERA_MAX_NUM_SENSORS];
@@ -244,6 +244,14 @@ const QCamera3HardwareInterface::QCameraMap<
     { ANDROID_SENSOR_TEST_PATTERN_MODE_PN9,          CAM_TEST_PATTERN_PN9 },
 };
 
+const QCamera3HardwareInterface::QCameraMap<
+        camera_metadata_enum_android_video_hdr_mode_t,
+        cam_intf_video_hdr_mode_t> QCamera3HardwareInterface::VIDEO_HDR_MODES_MAP[] = {
+    { ANDROID_VIDEO_HDR_MODE_OFF,       CAM_INTF_VIDEO_HDR_MODE_OFF  },
+    { ANDROID_VIDEO_HDR_MODE_SENSOR,    CAM_INTF_VIDEO_HDR_MODE_SENSOR },
+    { ANDROID_VIDEO_HDR_MODE_STAGGERED, CAM_INTF_VIDEO_HDR_MODE_STAGGERED }
+};
+
 /* Since there is no mapping for all the options some Android enum are not listed.
  * Also, the order in this list is important because while mapping from HAL to Android it will
  * traverse from lower to higher index which means that for HAL values that are map to different
@@ -269,6 +277,7 @@ const QCamera3HardwareInterface::QCameraMap<
     { ANDROID_SENSOR_REFERENCE_ILLUMINANT1_DAY_WHITE_FLUORESCENT, CAM_AWB_CUSTOM_DAYLIGHT },
     { ANDROID_SENSOR_REFERENCE_ILLUMINANT1_WHITE_FLUORESCENT, CAM_AWB_COLD_FLO},
 };
+
 
 camera3_device_ops_t QCamera3HardwareInterface::mCameraOps = {
     initialize:                         QCamera3HardwareInterface::initialize,
@@ -4206,6 +4215,11 @@ QCamera3HardwareInterface::translateFromHalMetadata(
         camMetadata.update(QCAMERA3_TEMPORAL_DENOISE_PROCESS_TYPE, &tnr_process_type, 1);
     }
 
+    // Video HDR
+    IF_META_AVAILABLE(cam_intf_video_hdr_mode_t, vhdr, CAM_INTF_PARM_VIDEO_HDR, metadata) {
+        camMetadata.update(QCAMERA3_VIDEO_HDR_MODE, (int32_t *)&vhdr, 1);
+    }
+
     // Reprocess crop data
     IF_META_AVAILABLE(cam_crop_data_t, crop_data, CAM_INTF_META_CROP_DATA, metadata) {
         uint8_t cnt = crop_data->num_of_streams;
@@ -6058,6 +6072,32 @@ int QCamera3HardwareInterface::initStaticMetadata(uint32_t cameraId)
     staticInfo.update(QCAMERA3_OPAQUE_RAW_STRIDES, strides,
             3*raw_count);
 
+    /* Video HDR default */
+    if (gCamCapability[cameraId]->qcom_supported_feature_mask &
+        (CAM_QCOM_FEATURE_STAGGERED_VIDEO_HDR | CAM_QCOM_FEATURE_HDR)) {
+      uint8_t vhdr_mode_num = 0;
+      uint8_t vhdr_mode[CAM_INTF_VIDEO_HDR_MODE_MAX];
+
+      vhdr_mode[vhdr_mode_num++] = lookupFwkName(VIDEO_HDR_MODES_MAP,
+              METADATA_MAP_SIZE(VIDEO_HDR_MODES_MAP),
+              CAM_INTF_VIDEO_HDR_MODE_OFF);
+
+      if (gCamCapability[cameraId]->qcom_supported_feature_mask &
+          CAM_QCOM_FEATURE_SENSOR_HDR) {
+          vhdr_mode[vhdr_mode_num++] = lookupFwkName(VIDEO_HDR_MODES_MAP,
+                  METADATA_MAP_SIZE(VIDEO_HDR_MODES_MAP),
+                  CAM_INTF_VIDEO_HDR_MODE_SENSOR);
+      }
+      if (gCamCapability[cameraId]->qcom_supported_feature_mask &
+              CAM_QCOM_FEATURE_STAGGERED_VIDEO_HDR) {
+          vhdr_mode[vhdr_mode_num++] = lookupFwkName(VIDEO_HDR_MODES_MAP,
+                  METADATA_MAP_SIZE(VIDEO_HDR_MODES_MAP),
+                  CAM_INTF_VIDEO_HDR_MODE_STAGGERED);
+      }
+      staticInfo.update(QCAMERA3_VIDEO_HDR_AVAILABLE_VIDEO_HDR_MODES,
+                 vhdr_mode, vhdr_mode_num);
+    }
+
     gStaticMetadata[cameraId] = staticInfo.release();
     return rc;
 }
@@ -7597,6 +7637,19 @@ int QCamera3HardwareInterface::translateToHalMetadata
 
         if (ADD_SET_PARAM_ENTRY_TO_BATCH(mParameters, CAM_INTF_PARM_TEMPORAL_DENOISE, tnr)) {
             rc = BAD_VALUE;
+        }
+    }
+
+    // Video HDR
+    if (frame_settings.exists(QCAMERA3_VIDEO_HDR_MODE)) {
+        cam_intf_video_hdr_mode_t vhdr = (cam_intf_video_hdr_mode_t)
+            frame_settings.find(QCAMERA3_VIDEO_HDR_MODE).data.i32[0];
+        if ((CAM_INTF_VIDEO_HDR_MODE_MAX <= (vhdr)) || (0 > (vhdr))) {
+            ALOGE("%s: Invalid Video HDR mode %d!", __func__, vhdr);
+        } else {
+            if (ADD_SET_PARAM_ENTRY_TO_BATCH(mParameters, CAM_INTF_PARM_VIDEO_HDR, vhdr)) {
+                rc = BAD_VALUE;
+            }
         }
     }
 
