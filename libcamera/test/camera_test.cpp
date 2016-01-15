@@ -189,6 +189,7 @@ struct TestConfig
     int fps;
     AppLoglevel logLevel;
     int statsLogMask;
+    int focusModeIdx;
 };
 
 /**
@@ -659,6 +660,13 @@ const char usageStr[] =
     "                    0x08:  STATS_ASD_LOG_MASK  (1 << 3)\n"
     "                    0x10:  STATS_AFD_LOG_MASK  (1 << 4)\n"
     "                    0x1F:  STATS_ALL_LOG\n"
+    "  -u <value>       focus mode [3]\n"
+    "                    0: auto\n"
+    "                    1: infinity\n"
+    "                    2: macro\n"
+    "                    3: continuous-video\n"
+    "                    4: continuous-picture\n"
+    "                    5: manual\n"
     "  -h              print this message\n"
 ;
 
@@ -761,7 +769,7 @@ int CameraTest::setParameters()
     pSize_ = config_.pSize;
     vSize_ = config_.vSize;
     picSize_ = config_.picSize;
-
+	focusModeIdx = config_.focusModeIdx;
 	switch ( config_.func ){
 		case CAM_FUNC_OPTIC_FLOW:
 			if (config_.outputFormat == RAW_FORMAT) {
@@ -998,7 +1006,7 @@ static int setDefaultConfig(TestConfig &cfg) {
     cfg.logLevel = CAM_LOG_SILENT;
     cfg.snapshotFormat = JPEG_FORMAT;
     cfg.statsLogMask = STATS_NO_LOG;
-
+    cfg.focusModeIdx = 3;
     switch (cfg.func) {
     case CAM_FUNC_OPTIC_FLOW:
         cfg.pSize   = VGASize;
@@ -1045,7 +1053,7 @@ static TestConfig parseCommandline(int argc, char* argv[])
     int exposureValueInt = 0;
     int gainValueInt = 0;
 
-    while ((c = getopt(argc, argv, "hdt:io:e:g:p:v:ns:f:r:V:j:S:")) != -1) {
+    while ((c = getopt(argc, argv, "hdt:io:e:g:p:v:ns:f:r:V:j:S:u:")) != -1) {
         switch (c) {
         case 'f':
             {
@@ -1070,7 +1078,7 @@ static TestConfig parseCommandline(int argc, char* argv[])
     setDefaultConfig(cfg);
 
     optind = 1;
-    while ((c = getopt(argc, argv, "hdt:io:e:g:p:v:ns:f:r:V:j:S:")) != -1) {
+    while ((c = getopt(argc, argv, "hdt:io:e:g:p:v:ns:f:r:V:j:S:u:")) != -1) {
         switch (c) {
         case 't':
             cfg.runTime = atoi(optarg);
@@ -1213,6 +1221,9 @@ static TestConfig parseCommandline(int argc, char* argv[])
             break;
         case 'f':
             break;
+	case 'u':
+            cfg.focusModeIdx = atoi(optarg); // 2: MACRO 1: INFINITY ;//3: CONTINOUS VIDEO; 5: manual
+	    break;
         case 'h':
         case '?':
             printUsageExit(0);
