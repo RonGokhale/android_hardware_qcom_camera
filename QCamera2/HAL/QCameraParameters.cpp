@@ -292,6 +292,8 @@ const char QCameraParameters::KEY_QC_GAIN_MANUAL[] = "qc-gain-manual";
 const char QCameraParameters::KEY_QC_VERTICAL_FLIP[] = "qc-vertical-flip";
 const char QCameraParameters::KEY_QC_HORIZONTAL_MIRROR[] = "qc-horizontal-mirror";
 
+const char QCameraParameters::KEY_QC_STATS_LOGGING_MASK[] = "qc-stats-logging-mask";
+
 //Values for DENOISE
 const char QCameraParameters::DENOISE_OFF[] = "denoise-off";
 const char QCameraParameters::DENOISE_ON[] = "denoise-on";
@@ -2354,12 +2356,9 @@ int32_t QCameraParameters::setAlgoOptimizationsMask()
  *              NO_ERROR  -- success
  *              none-zero failure code
  *==========================================================================*/
-int32_t QCameraParameters::setStatsDebugMask()
+int32_t QCameraParameters::setStatsDebugMask(const QCameraParameters& params)
 {
-    uint32_t mask = 0;
-    char value[PROPERTY_VALUE_MAX];
-    property_get("persist.camera.stats.debug.mask", value, "0");
-    mask = (uint32_t)atoi(value);
+    uint32_t mask = params.getInt(KEY_QC_STATS_LOGGING_MASK);
 
     ALOGV("%s: ctrl mask :%d", __func__, mask);
 
@@ -3862,7 +3861,7 @@ int32_t QCameraParameters::updateParameters(QCameraParameters& params,
     // update live snapshot size after all other parameters are set
     if ((rc = setLiveSnapshotSize(params)))             final_rc = rc;
     if ((rc = setJpegThumbnailSize(params)))            final_rc = rc;
-    if ((rc = setStatsDebugMask()))                     final_rc = rc;
+    if ((rc = setStatsDebugMask(params)))               final_rc = rc;
     if ((rc = setAlgoOptimizationsMask()))              final_rc = rc;
     if ((rc = setMobicat(params)))                      final_rc = rc;
     if ((rc = setAFBracket(params)))                    final_rc = rc;

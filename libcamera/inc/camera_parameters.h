@@ -106,6 +106,17 @@ const std::string WHITE_BALANCE_TWILIGHT = "twilight";
 const std::string WHITE_BALANCE_SHADE = "shade";
 const std::string WHITE_BALANCE_MANUAL_CCT = "manual-cct";
 
+enum StatsLoggingMask {
+    STATS_NO_LOG           = 0,
+    STATS_AEC_LOG_MASK     = (1 << 0),
+    STATS_AWB_LOG_MASK     = (1 << 1),
+    STATS_AF_LOG_MASK      = (1 << 2),
+    STATS_ASD_LOG_MASK     = (1 << 3),
+    STATS_AFD_LOG_MASK     = (1 << 4),
+    STATS_ALL_LOG          = 0x1F,
+};
+
+
 class CameraParams : public ICameraParameters
 {
 public:
@@ -449,6 +460,14 @@ public:
      * @param value
      */
     void setHorizontalMirror(bool value);
+
+
+     /**
+     * set stats logging mask
+     *
+     * @param value
+     */
+    void setStatsLoggingMask(int value);
 
 private:
 
