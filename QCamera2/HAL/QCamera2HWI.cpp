@@ -1243,7 +1243,9 @@ int QCamera2HardwareInterface::prepare_snapshot(struct camera_device *device)
     qcamera_api_result_t apiResult;
 
     /* Prepare snapshot in case LED needs to be flashed */
-    if (hw->mFlashNeeded || hw->mParameters.isChromaFlashEnabled()) {
+    if (hw->mParameters.getFlashMode() == CAM_FLASH_MODE_ON
+      || (hw->mParameters.getFlashMode() == CAM_FLASH_MODE_AUTO && hw->mFlashNeeded == 1)
+      || hw->mParameters.isChromaFlashEnabled()) {
         CDBG_HIGH("%s: mFlashNeeded: %d ChromaFlash :%d",
                 __func__, hw->mFlashNeeded,
                 hw->mParameters.isChromaFlashEnabled());
@@ -4453,7 +4455,9 @@ int QCamera2HardwareInterface::takeBackendPic_internal(bool *JpegMemOpt, char *r
 
     setRetroPicture(0);
     /* Prepare snapshot in case LED needs to be flashed */
-    if (mFlashNeeded == 1 || mParameters.isChromaFlashEnabled()) {
+    if (mParameters.getFlashMode() == CAM_FLASH_MODE_ON
+      || (mParameters.getFlashMode() == CAM_FLASH_MODE_AUTO && mFlashNeeded == 1)
+      || mParameters.isChromaFlashEnabled()) {
         // Start Preparing for normal Frames
         CDBG_HIGH("%s: Start Prepare Snapshot", __func__);
         /* Prepare snapshot in case LED needs to be flashed */
