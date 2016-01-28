@@ -1227,7 +1227,8 @@ typedef struct {
 
 typedef enum {
     CAM_SENSOR_RAW,
-    CAM_SENSOR_YUV
+    CAM_SENSOR_YUV,
+    CAM_SENSOR_Y,
 } cam_sensor_t;
 
 typedef struct {

@@ -1854,6 +1854,9 @@ int32_t QCameraParameters::setPreviewFormat(const QCameraParameters& params)
             mPreviewFormat = (cam_format_t)previewFormat;
             mAppPreviewFormat = (cam_format_t)previewFormat;
         }
+        if (m_pCapability->sensor_type.sens_type == CAM_SENSOR_Y) {
+            mPreviewFormat = CAM_FORMAT_Y_ONLY;
+        }
         CameraParameters::setPreviewFormat(str);
         CDBG_HIGH("%s: format %d\n", __func__, mPreviewFormat);
         return NO_ERROR;
@@ -4079,7 +4082,8 @@ int32_t QCameraParameters::setNoDisplayMode(const QCameraParameters& params)
     CDBG("%s: str_val: %s, prev_str: %s", __func__, str_val, prev_str);
 
     // Aux Camera Mode, set no display mode
-    if (m_relCamSyncInfo.mode == CAM_MODE_SECONDARY) {
+    if ((m_relCamSyncInfo.mode == CAM_MODE_SECONDARY)||
+       (m_pCapability->sensor_type.sens_type == CAM_SENSOR_Y)) {
         if (!m_bNoDisplayMode) {
             set(KEY_QC_NO_DISPLAY_MODE, 1);
             m_bNoDisplayMode = true;
@@ -9586,6 +9590,13 @@ int32_t QCameraParameters::getStreamFormat(cam_stream_type_t streamType,
             format = mPreviewFormat;
         break;
     case CAM_STREAM_TYPE_POSTVIEW:
+        if (m_pCapability->sensor_type.sens_type ==
+                CAM_SENSOR_Y) {
+            format = CAM_FORMAT_Y_ONLY;
+        } else {
+            format = mAppPreviewFormat;
+        }
+        break;
     case CAM_STREAM_TYPE_CALLBACK:
         format = mAppPreviewFormat;
         break;
@@ -9613,6 +9624,9 @@ int32_t QCameraParameters::getStreamFormat(cam_stream_type_t streamType,
             } else {
                 format = CAM_FORMAT_YUV_420_NV21;
             }
+        }
+        if (m_pCapability->sensor_type.sens_type == CAM_SENSOR_Y) {
+            format = CAM_FORMAT_Y_ONLY;
         }
         break;
     case CAM_STREAM_TYPE_VIDEO:
@@ -12215,17 +12229,18 @@ bool QCameraParameters::setStreamConfigure(bool isCapture,
         getStreamFormat(CAM_STREAM_TYPE_PREVIEW,
                 stream_config_info.format[stream_config_info.num_streams]);
         stream_config_info.num_streams++;
-
-        stream_config_info.type[stream_config_info.num_streams] =
+        if (m_pCapability->sensor_type.sens_type != CAM_SENSOR_Y) {
+            stream_config_info.type[stream_config_info.num_streams] =
                 CAM_STREAM_TYPE_ANALYSIS;
-        getStreamDimension(CAM_STREAM_TYPE_ANALYSIS,
+            getStreamDimension(CAM_STREAM_TYPE_ANALYSIS,
                 stream_config_info.stream_sizes[stream_config_info.num_streams]);
-        updatePpFeatureMask(CAM_STREAM_TYPE_ANALYSIS);
-        stream_config_info.postprocess_mask[stream_config_info.num_streams] =
+            updatePpFeatureMask(CAM_STREAM_TYPE_ANALYSIS);
+            stream_config_info.postprocess_mask[stream_config_info.num_streams] =
                 mStreamPpMask[CAM_STREAM_TYPE_ANALYSIS];
-        getStreamFormat(CAM_STREAM_TYPE_ANALYSIS,
+            getStreamFormat(CAM_STREAM_TYPE_ANALYSIS,
                 stream_config_info.format[stream_config_info.num_streams]);
-        stream_config_info.num_streams++;
+            stream_config_info.num_streams++;
+        }
 
         stream_config_info.type[stream_config_info.num_streams] =
                 CAM_STREAM_TYPE_SNAPSHOT;
@@ -12291,9 +12306,10 @@ bool QCameraParameters::setStreamConfigure(bool isCapture,
 
         // Analysis stream is needed in all use cases of DCRF and needed only in camera mode in
         // in non DCRF use cases
-        if ((getDcrf() == true) ||
+        if (((getDcrf() == true) ||
                 (getRecordingHintValue() != true) ||
-                (isFDInVideoEnabled())) {
+                (isFDInVideoEnabled()))
+                  && (m_pCapability->sensor_type.sens_type != CAM_SENSOR_Y)) {
             stream_config_info.type[stream_config_info.num_streams] =
                     CAM_STREAM_TYPE_ANALYSIS;
             getStreamDimension(CAM_STREAM_TYPE_ANALYSIS,
@@ -12800,7 +12816,10 @@ int32_t QCameraParameters::updatePpFeatureMask(cam_stream_type_t stream_type) {
         ALOGE("%s: Error!! stream type: %d not valid", __func__, stream_type);
         return -1;
     }
-
+    if (m_pCapability->sensor_type.sens_type == CAM_SENSOR_Y) {
+       setStreamPpMask(stream_type, feature_mask);
+       return NO_ERROR;
+    }
     // Update feature mask for SeeMore in video and video preview
     if (isSeeMoreEnabled() && ((stream_type == CAM_STREAM_TYPE_VIDEO) ||
             (stream_type == CAM_STREAM_TYPE_PREVIEW && getRecordingHintValue() &&
