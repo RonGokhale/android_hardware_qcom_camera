@@ -2968,6 +2968,9 @@ QCameraHeapMemory *QCamera2HardwareInterface::allocateStreamInfoBuf(
             streamInfo->pp_config.feature_mask |= CAM_QCOM_FEATURE_SCALE;
     }
 
+    if (getSensorType() == CAM_SENSOR_Y) {
+        streamInfo->pp_config.feature_mask = 0;
+    }
     CDBG_HIGH("%s: allocateStreamInfoBuf: stream type: %d, pp_mask: 0x%x",
             __func__, stream_type, streamInfo->pp_config.feature_mask);
 
@@ -6411,12 +6414,13 @@ int32_t QCamera2HardwareInterface::addPreviewChannel()
         ALOGE("%s: add metadata stream failed, ret = %d", __func__, rc);
         return rc;
     }
-
+    /* For Mono Sensor as we are not linking the pproc analysis stream
+       will not be supported */
     if (((mParameters.getDcrf() == true)
             || (mParameters.getRecordingHintValue() != true)
             || (mParameters.isFDInVideoEnabled()))
-            && (!mParameters.isSecureMode())) {
-
+            && (!mParameters.isSecureMode()) &&
+            (getSensorType() != CAM_SENSOR_Y)) {
         rc = addStreamToChannel(pChannel, CAM_STREAM_TYPE_ANALYSIS,
                 NULL, this);
         if (rc != NO_ERROR) {
@@ -6732,7 +6736,8 @@ int32_t QCamera2HardwareInterface::addZSLChannel()
         return rc;
     }
 
-    if (!mParameters.isSecureMode()) {
+    if (!mParameters.isSecureMode() &&
+        (getSensorType() != CAM_SENSOR_Y)) {
         rc = addStreamToChannel(pChannel, CAM_STREAM_TYPE_ANALYSIS,
                 NULL, this);
         if (rc != NO_ERROR) {
@@ -8427,8 +8432,9 @@ bool QCamera2HardwareInterface::needReprocess()
     bool needReprocess = false;
     pthread_mutex_lock(&m_parm_lock);
 
-    if (!mParameters.isJpegPictureFormat() &&
-        !mParameters.isNV21PictureFormat()) {
+    if ((!mParameters.isJpegPictureFormat() &&
+        !mParameters.isNV21PictureFormat()) ||
+        (getSensorType() == CAM_SENSOR_Y)) {
         // RAW image, no need to reprocess
         pthread_mutex_unlock(&m_parm_lock);
         return false;
