@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundataion. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundataion. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -133,8 +133,9 @@ int QCameraMemory::cacheOpsInternal(uint32_t index, unsigned int cmd, void *vadd
          (unsigned long)cache_inv_data.handle, cache_inv_data.length,
          mMemInfo[index].main_ion_fd);
     ret = ioctl(mMemInfo[index].main_ion_fd, ION_IOC_CUSTOM, &custom_data);
-    if (ret < 0)
+    if (ret < 0) {
         LOGE("Cache Invalidate failed: %s\n", strerror(errno));
+    }
 
     return ret;
 }
@@ -226,6 +227,21 @@ uint8_t QCameraMemory::getMappable() const
 {
     return mBufferCount;
 }
+
+/*===========================================================================
+ * FUNCTION   : checkIfAllBuffersMapped
+ *
+ * DESCRIPTION: query if all buffers are mapped
+ *
+ * PARAMETERS : none
+ *
+ * RETURN     : 1 as buffer count is always equal to mappable count
+ *==========================================================================*/
+uint8_t QCameraMemory::checkIfAllBuffersMapped() const
+{
+    return 1;
+}
+
 
 /*===========================================================================
  * FUNCTION   : getBufDef
@@ -982,6 +998,10 @@ QCameraMetadataStreamMemory::QCameraMetadataStreamMemory(bool cached)
  *==========================================================================*/
 QCameraMetadataStreamMemory::~QCameraMetadataStreamMemory()
 {
+    if (mBufferCount > 0) {
+        LOGH("%s, buf_cnt > 0, deallocate buffers now.\n", __func__);
+        deallocate();
+    }
 }
 
 /*===========================================================================
@@ -1775,7 +1795,7 @@ int QCameraGrallocMemory::displayBuffer(uint32_t index)
             mMappableBuffers++;
         }
     } else {
-        LOGH("dequeue_buffer, no free buffer from display now");
+        LOGW("dequeue_buffer, no free buffer from display now");
     }
     return dequeuedIdx;
 }
@@ -1898,7 +1918,7 @@ int32_t QCameraGrallocMemory::dequeueBuffer()
             mMappableBuffers++;
         }
     } else {
-        LOGH("dequeue_buffer, no free buffer from display now");
+        LOGW("dequeue_buffer, no free buffer from display now");
     }
 
     return dequeuedIdx;
@@ -2305,5 +2325,23 @@ uint8_t QCameraGrallocMemory::getMappable() const
 {
     return mMappableBuffers;
 }
+
+/*===========================================================================
+ * FUNCTION   : checkIfAllBuffersMapped
+ *
+ * DESCRIPTION: check if all buffers for the are mapped
+ *
+ * PARAMETERS : none
+ *
+ * RETURN     : 1 if all buffers mapped
+ *              0 if total buffers not equal to mapped buffers
+ *==========================================================================*/
+uint8_t QCameraGrallocMemory::checkIfAllBuffersMapped() const
+{
+    LOGH("mBufferCount: %d, mMappableBuffers: %d",
+             mBufferCount, mMappableBuffers);
+    return (mBufferCount == mMappableBuffers);
+}
+
 
 }; //namespace qcamera

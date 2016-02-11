@@ -1,6 +1,6 @@
 /*
 ** Copyright 2008, The Android Open Source Project
-** Copyright (c) 2012-2015, The Linux Foundation. All rights reserved.
+** Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
 ** Not a Contribution. Apache license notifications and license are
 ** retained for attribution purposes only.
 **
@@ -207,6 +207,7 @@ private:
     static const char WHITE_BALANCE_MANUAL[];
     static const char FOCUS_MODE_MANUAL_POSITION[];
     static const char KEY_QC_LONG_SHOT[];
+    static const char KEY_QC_INITIAL_EXPOSURE_INDEX[];
 
     static const char KEY_QC_MANUAL_FOCUS_POSITION[];
     static const char KEY_QC_MANUAL_FOCUS_POS_TYPE[];
@@ -690,6 +691,7 @@ public:
     bool isSnapshotFDNeeded();
 
     bool isHDR1xFrameEnabled() {return m_bHDR1xFrameEnabled;}
+    bool isSupportedSensorHdrSize(const QCameraParameters& params);
     bool isYUVFrameInfoNeeded();
     const char*getFrameFmtString(cam_format_t fmt);
     bool isHDR1xExtraBufferNeeded() {return m_bHDR1xExtraBufferNeeded;}
@@ -895,6 +897,7 @@ private:
     int32_t setPAAF();
     int32_t setTintlessValue(const QCameraParameters& params);
     int32_t setCDSMode(const QCameraParameters& params);
+    int32_t setInitialExposureIndex(const QCameraParameters& params);
     int32_t setMobicat(const QCameraParameters& params);
     int32_t setRdiMode(const QCameraParameters& );
     int32_t setSecureMode(const QCameraParameters& );
@@ -1003,6 +1006,7 @@ private:
             size_t len, int &default_fps_index);
     String8 createFpsString(cam_fps_range_t &fps);
     String8 createZoomRatioValuesString(uint32_t *zoomRatios, size_t length);
+    int32_t setDualLedCalibration(const QCameraParameters& params);
 
     // ops for batch set/get params with server
     int32_t initBatchUpdate(parm_buffer_t *p_table);
@@ -1159,6 +1163,7 @@ private:
     int32_t m_isoValue;
     QCameraManualCaptureModes m_ManualCaptureMode;
     cam_dyn_img_data_t m_DynamicImgData;
+    int32_t m_dualLedCalibration;
 };
 
 }; // namespace qcamera
