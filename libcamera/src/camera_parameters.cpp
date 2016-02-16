@@ -123,19 +123,19 @@ static vector<string> parseParanthesis(const char *valueStr)
  */
 inline static const char *toHFRMode(VideoFPS fps)
 {
-    if (fps == VIDEO_FPS_30) {
+    if (fps == VIDEO_FPS_1X) {
         return VIDEO_HFR_OFF;
     }
-    if (fps == VIDEO_FPS_60) {
+    if (fps == VIDEO_FPS_2X) {
         return VIDEO_HFR_2X;
     }
-    if (fps == VIDEO_FPS_90) {
+    if (fps == VIDEO_FPS_3X) {
         return VIDEO_HFR_3X;
     }
-    if (fps == VIDEO_FPS_120) {
+    if (fps == VIDEO_FPS_4X) {
         return VIDEO_HFR_4X;
     }
-    if (fps == VIDEO_FPS_150) {
+    if (fps == VIDEO_FPS_5X) {
         return VIDEO_HFR_5X;
     }
 }
@@ -146,19 +146,19 @@ inline static const char *toHFRMode(VideoFPS fps)
 inline static VideoFPS toVideoFPS(string hfrMode)
 {
     if (hfrMode == VIDEO_HFR_OFF) {
-        return VIDEO_FPS_30;
+        return VIDEO_FPS_1X;
     }
     if (hfrMode == VIDEO_HFR_2X) {
-        return VIDEO_FPS_60;
+        return VIDEO_FPS_2X;
     }
     if (hfrMode == VIDEO_HFR_3X) {
-        return VIDEO_FPS_90;
+        return VIDEO_FPS_3X;
     }
     if (hfrMode == VIDEO_HFR_4X) {
-        return VIDEO_FPS_120;
+        return VIDEO_FPS_4X;
     }
     if (hfrMode == VIDEO_HFR_5X) {
-        return VIDEO_FPS_150;
+        return VIDEO_FPS_5X;
     }
 }
 

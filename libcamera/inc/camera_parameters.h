@@ -65,14 +65,18 @@ struct Range
 
 /**
  * Available values for video FPS
- */
+ * 1X, 2X, 3X describes the video FPS values relative to preview
+ * FPS. With video fps set to 3X, the video will run 3X the
+ * speed of preview. This is also called HFR (High FrameRate)
+ * mode
+ * */
 enum VideoFPS
 {
-    VIDEO_FPS_30 = 30,   /*!< 30fps regular framerate mode */
-    VIDEO_FPS_60 = 60,   /*!< 60fps High framerate mode */
-    VIDEO_FPS_90 = 90,   /*!< 90fps High framerate mode */
-    VIDEO_FPS_120 = 120, /*!< 120fps High framerate mode */
-    VIDEO_FPS_150 = 150, /*!< 150fps High framerate mode */
+    VIDEO_FPS_1X = 1,   /*!< 1x regular framerate mode */
+    VIDEO_FPS_2X = 2,   /*!< 2x High framerate mode */
+    VIDEO_FPS_3X = 3,   /*!< 3x High framerate mode */
+    VIDEO_FPS_4X = 4, /*!< 4x High framerate mode */
+    VIDEO_FPS_5X = 5, /*!< 5x High framerate mode */
 };
 
 /* focus mode values */
