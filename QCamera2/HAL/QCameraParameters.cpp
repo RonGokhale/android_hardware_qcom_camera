@@ -184,6 +184,8 @@ const char QCameraParameters::KEY_QC_AUTO_HDR_SUPPORTED[] = "auto-hdr-supported"
 const char QCameraParameters::WHITE_BALANCE_MANUAL[] = "manual";
 const char QCameraParameters::FOCUS_MODE_MANUAL_POSITION[] = "manual";
 const char QCameraParameters::KEY_QC_CACHE_VIDEO_BUFFERS[] = "cache-video-buffers";
+const char QCameraParameters::KEY_QC_JPEG_SECOND_THUMBNAIL_WIDTH[] = "jpeg-second-thumbnail-width";
+const char QCameraParameters::KEY_QC_JPEG_SECOND_THUMBNAIL_HEIGHT[] = "jpeg-second-thumbnail-height";
 
 // Values for effect settings.
 const char QCameraParameters::EFFECT_EMBOSS[] = "emboss";
@@ -427,12 +429,18 @@ static const char* portrait = "portrait";
 static const char* landscape = "landscape";
 
 const cam_dimension_t QCameraParameters::THUMBNAIL_SIZES_MAP[] = {
+    { 960, 720 }, //1.33333
+    { 640, 480 }, //1.33333
     { 512, 288 }, //1.777778
     { 480, 288 }, //1.666667
     { 256, 154 }, //1.66233
     { 432, 288 }, //1.5
     { 320, 240 }, //1.33333
     { 176, 144 }, //1.222222
+    /*Thumbnail sizes to match portrait picture size aspect ratio*/
+    { 240, 320 }, //to match 480X640 & 240X320 picture size
+    { 144, 176 }, //to match 144X176  picture size
+    { 160, 120 }, //1.33333
     { 0, 0 }      // required by Android SDK
 };
 
@@ -1687,12 +1695,44 @@ int32_t QCameraParameters::setJpegThumbnailSize(const QCameraParameters& params)
     for (int i = 0; i < sizes_cnt; i++) {
         if (width == THUMBNAIL_SIZES_MAP[i].width &&
                 height == THUMBNAIL_SIZES_MAP[i].height) {
-           set(KEY_JPEG_THUMBNAIL_WIDTH, width);
-           set(KEY_JPEG_THUMBNAIL_HEIGHT, height);
-           return NO_ERROR;
+            set(KEY_JPEG_THUMBNAIL_WIDTH, width);
+            set(KEY_JPEG_THUMBNAIL_HEIGHT, height);
+            return NO_ERROR;
         }
     }
     ALOGE("%s: error: setting jpeg thumbnail size (%d, %d)", __func__, width, height);
+    return BAD_VALUE;
+}
+
+/*===========================================================================
+ * FUNCTION   : setJpegSecondThumbnailSize
+ *
+ * DESCRIPTION: set jpeg second thumbnail size from user setting
+ *
+ * PARAMETERS :
+ *   @params  : user setting parameters
+ *
+ * RETURN     : int32_t type of status
+ *              NO_ERROR  -- success
+ *              none-zero failure code
+ *==========================================================================*/
+int32_t QCameraParameters::setJpegSecondThumbnailSize(const QCameraParameters& params)
+{
+    int width = params.getInt(KEY_QC_JPEG_SECOND_THUMBNAIL_WIDTH);
+    int height = params.getInt(KEY_QC_JPEG_SECOND_THUMBNAIL_HEIGHT);
+
+    CDBG("requested jpeg second thumbnail size %d x %d", width, height);
+    int sizes_cnt = sizeof(THUMBNAIL_SIZES_MAP) / sizeof(cam_dimension_t);
+    // Validate thumbnail size
+    for (int i = 0; i < sizes_cnt; i++) {
+        if (width == THUMBNAIL_SIZES_MAP[i].width &&
+                height == THUMBNAIL_SIZES_MAP[i].height) {
+            set(KEY_QC_JPEG_SECOND_THUMBNAIL_WIDTH, width);
+            set(KEY_QC_JPEG_SECOND_THUMBNAIL_HEIGHT, height);
+            return NO_ERROR;
+        }
+    }
+    ALOGE("%s: error: setting jpeg second thumbnail size (%d, %d)", __func__, width, height);
     return BAD_VALUE;
 }
 
@@ -4399,6 +4439,7 @@ int32_t QCameraParameters::updateParameters(QCameraParameters& params,
     // update live snapshot size after all other parameters are set
     if ((rc = setLiveSnapshotSize(params)))             final_rc = rc;
     if ((rc = setJpegThumbnailSize(params)))            final_rc = rc;
+    if ((rc = setJpegSecondThumbnailSize(params)))      final_rc = rc;
     if ((rc = setStatsDebugMask()))                     final_rc = rc;
     if ((rc = setISPDebugMask()))                       final_rc = rc;
     if ((rc = setAlgoOptimizationsMask()))              final_rc = rc;
@@ -4466,6 +4507,8 @@ int32_t QCameraParameters::commitParameters()
  *==========================================================================*/
 int32_t QCameraParameters::initDefaultParameters()
 {
+    char value[PROPERTY_VALUE_MAX];
+
     if(initBatchUpdate(m_pParamBuf) < 0 ) {
         ALOGE("%s:Failed to initialize group update table", __func__);
         return BAD_TYPE;
@@ -4576,8 +4619,30 @@ int32_t QCameraParameters::initDefaultParameters()
             PARAM_MAP_SIZE(THUMBNAIL_SIZES_MAP));
     set(KEY_SUPPORTED_JPEG_THUMBNAIL_SIZES, thumbnailSizeValues.string());
     // Set default thumnail size
-    set(KEY_JPEG_THUMBNAIL_WIDTH, THUMBNAIL_SIZES_MAP[0].width);
-    set(KEY_JPEG_THUMBNAIL_HEIGHT, THUMBNAIL_SIZES_MAP[0].height);
+    property_get("persist.camera.thmb.width", value, "0");
+    uint32_t width = atoi(value);
+    property_get("persist.camera.thmb.height", value, "0");
+    uint32_t height = atoi(value);
+    if ((width != 0) && (height != 0)) {
+        set(KEY_JPEG_THUMBNAIL_WIDTH, width);
+        set(KEY_JPEG_THUMBNAIL_HEIGHT, height);
+    } else {
+        set(KEY_JPEG_THUMBNAIL_WIDTH, THUMBNAIL_SIZES_MAP[0].width);
+        set(KEY_JPEG_THUMBNAIL_HEIGHT, THUMBNAIL_SIZES_MAP[0].height);
+    }
+
+    // set default second thumbnail
+    property_get("persist.camera.sthmb.width", value, "0");
+    width = atoi(value);
+    property_get("persist.camera.sthmb.height", value, "0");
+    height = atoi(value);
+    if ((width != 0) && (height != 0)) {
+        set(KEY_QC_JPEG_SECOND_THUMBNAIL_WIDTH, width);
+        set(KEY_QC_JPEG_SECOND_THUMBNAIL_HEIGHT, height);
+    } else {
+        set(KEY_QC_JPEG_SECOND_THUMBNAIL_WIDTH, 0);
+        set(KEY_QC_JPEG_SECOND_THUMBNAIL_HEIGHT, 0);
+    }
 
     // Set supported livesnapshot sizes
     if (m_pCapability->livesnapshot_sizes_tbl_cnt > 0 &&
@@ -5117,8 +5182,6 @@ int32_t QCameraParameters::initDefaultParameters()
     }
 
     // Set HDR output scaling
-    char value[PROPERTY_VALUE_MAX];
-
     property_get("persist.camera.hdr.outcrop", value, VALUE_DISABLE);
     if (strncmp(VALUE_ENABLE, value, sizeof(VALUE_ENABLE))) {
       m_bHDROutputCropEnabled = false;
@@ -8244,6 +8307,22 @@ int32_t QCameraParameters::getStreamRotation(cam_stream_type_t streamType,
 }
 
 /*===========================================================================
+ * FUNCTION   : getSecondThumbnailSize
+ *
+ * DESCRIPTION: get second thumbnail size
+ *
+ * PARAMETERS :
+ *   @width, height : [output] second thumbnail width and height
+ *
+ * RETURN     : none
+ *==========================================================================*/
+void QCameraParameters::getSecondThumbnailSize(int *width, int *height) const
+{
+    *width = getInt(KEY_QC_JPEG_SECOND_THUMBNAIL_WIDTH);
+    *height = getInt(KEY_QC_JPEG_SECOND_THUMBNAIL_HEIGHT);
+}
+
+/*===========================================================================
  * FUNCTION   : getStreamFormat
  *
  * DESCRIPTION: get stream format by its type
@@ -10692,17 +10771,23 @@ bool QCameraParameters::isMobicatEnabled()
  *==========================================================================*/
 bool QCameraParameters::needThumbnailReprocess(uint32_t *pFeatureMask)
 {
+    *pFeatureMask &= ~CAM_QCOM_FEATURE_CHROMA_FLASH;
+    *pFeatureMask &= ~CAM_QCOM_FEATURE_UBIFOCUS;
+    *pFeatureMask &= ~CAM_QCOM_FEATURE_REFOCUS;
+    *pFeatureMask &= ~CAM_QCOM_FEATURE_OPTIZOOM;
+    *pFeatureMask &= ~CAM_QCOM_FEATURE_HDR;
+    *pFeatureMask &= ~CAM_QCOM_FEATURE_DENOISE2D;
+    *pFeatureMask &= ~CAM_QCOM_FEATURE_CAC;
+    *pFeatureMask &= ~CAM_QCOM_FEATURE_SHARPNESS;
+    *pFeatureMask &= ~CAM_QCOM_FEATURE_FLIP;
+    *pFeatureMask &= ~CAM_QCOM_FEATURE_TRUEPORTRAIT;
+    *pFeatureMask &= ~CAM_QCOM_FEATURE_FSSR;
+    *pFeatureMask &= ~CAM_QCOM_FEATURE_MULTI_TOUCH_FOCUS;
+
     if (isUbiFocusEnabled() || isChromaFlashEnabled() ||
             isOptiZoomEnabled() || isUbiRefocus() || isfssrEnabled() ||
             isMultiTouchFocusEnabled() ||
             (isHDREnabled() && !isHDRThumbnailProcessNeeded()) || isDifferentFlipZSL()) {
-        *pFeatureMask &= ~CAM_QCOM_FEATURE_CHROMA_FLASH;
-        *pFeatureMask &= ~CAM_QCOM_FEATURE_UBIFOCUS;
-        *pFeatureMask &= ~CAM_QCOM_FEATURE_REFOCUS;
-        *pFeatureMask &= ~CAM_QCOM_FEATURE_OPTIZOOM;
-        *pFeatureMask &= ~CAM_QCOM_FEATURE_FSSR;
-        *pFeatureMask &= ~CAM_QCOM_FEATURE_MULTI_TOUCH_FOCUS;
-        *pFeatureMask &= ~CAM_QCOM_FEATURE_HDR;
         return false;
     } else {
         cam_dimension_t thumb_dim;

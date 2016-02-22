@@ -917,6 +917,7 @@ int32_t QCameraReprocessChannel::addReprocStreamsFromSource(
     for (uint32_t i = 0; i < pSrcChannel->getNumOfStreams(); i++) {
         pStream = pSrcChannel->getStreamByIndex(i);
         if (pStream != NULL) {
+            uint32_t feature_mask = config.feature_mask;
             if (pStream->isTypeOf(CAM_STREAM_TYPE_METADATA) ||
                 pStream->isTypeOf(CAM_STREAM_TYPE_RAW)) {
                 // Skip metadata&raw for reprocess now because PP module cannot handle
@@ -928,17 +929,9 @@ int32_t QCameraReprocessChannel::addReprocStreamsFromSource(
                     pStream->isTypeOf(CAM_STREAM_TYPE_POSTVIEW) ||
                     pStream->isOrignalTypeOf(CAM_STREAM_TYPE_PREVIEW) ||
                     pStream->isOrignalTypeOf(CAM_STREAM_TYPE_POSTVIEW)) {
-                uint32_t feature_mask = config.feature_mask;
 
                 // skip thumbnail reprocessing if not needed
                 if (!param.needThumbnailReprocess(&feature_mask)) {
-                    continue;
-                }
-                //Don't do WNR for thumbnail
-                feature_mask &= ~CAM_QCOM_FEATURE_DENOISE2D;
-                if (!feature_mask) {
-                    // Skip thumbnail stream reprocessing since no other
-                    //reprocessing is enabled.
                     continue;
                 }
             }
@@ -956,14 +949,19 @@ int32_t QCameraReprocessChannel::addReprocStreamsFromSource(
             rc = pStream->getFormat(streamInfo->fmt);
             if (pStream->isTypeOf(CAM_STREAM_TYPE_POSTVIEW) ||
                     pStream->isTypeOf(CAM_STREAM_TYPE_PREVIEW)) {
+                int width, height;
                 param.getThumbnailSize(&(streamInfo->dim.width), &(streamInfo->dim.height));
+                param.getSecondThumbnailSize(&width, &height);
+                if (width * height > streamInfo->dim.width * streamInfo->dim.height) {
+                    streamInfo->dim.width = width;
+                    streamInfo->dim.height = height;
+                }
             }
             else {
                 rc = pStream->getFrameDimension(streamInfo->dim);
             }
 
             //FSSR generates 4x output
-            uint32_t feature_mask = config.feature_mask;
             if (feature_mask & CAM_QCOM_FEATURE_FSSR) {
                 (streamInfo->dim).width *= 2;
                 (streamInfo->dim).height *= 2;
@@ -1001,27 +999,7 @@ int32_t QCameraReprocessChannel::addReprocStreamsFromSource(
             }
             streamInfo->reprocess_config = rp_cfg;
             streamInfo->reprocess_config.pp_feature_config = config;
-
-            if (!(pStream->isTypeOf(CAM_STREAM_TYPE_SNAPSHOT) ||
-                pStream->isOrignalTypeOf(CAM_STREAM_TYPE_SNAPSHOT))) {
-                // CAC, SHARPNESS, FLIP and WNR would have been already applied -
-                // on preview/postview stream in realtime. Need not apply again.
-                streamInfo->reprocess_config.pp_feature_config.feature_mask &=
-                        ~CAM_QCOM_FEATURE_CAC;
-                streamInfo->reprocess_config.pp_feature_config.feature_mask &=
-                        ~CAM_QCOM_FEATURE_SHARPNESS;
-                streamInfo->reprocess_config.pp_feature_config.feature_mask &=
-                        ~CAM_QCOM_FEATURE_FLIP;
-                //Don't do WNR for thumbnail
-                streamInfo->reprocess_config.pp_feature_config.feature_mask &=
-                        ~CAM_QCOM_FEATURE_DENOISE2D;
-
-                if (param.isHDREnabled()
-                  && !param.isHDRThumbnailProcessNeeded()){
-                    streamInfo->reprocess_config.pp_feature_config.feature_mask
-                      &= ~CAM_QCOM_FEATURE_HDR;
-                }
-            }
+            streamInfo->reprocess_config.pp_feature_config.feature_mask = feature_mask;
 
             uint32_t mask;
             mask = streamInfo->reprocess_config.pp_feature_config.feature_mask;
