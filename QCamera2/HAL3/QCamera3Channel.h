@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundataion. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -30,17 +30,25 @@
 #ifndef __QCAMERA3_CHANNEL_H__
 #define __QCAMERA3_CHANNEL_H__
 
-#include <hardware/camera3.h>
-#include "QCamera3Stream.h"
-#include "QCamera3Mem.h"
-#include "QCamera3StreamMem.h"
-#include "QCamera3PostProc.h"
-#include "QCamera3HALHeader.h"
-#include "utils/Vector.h"
+// System dependencies
 #include <utils/List.h>
+#include <utils/Mutex.h>
+#include <utils/Vector.h>
+#include "gralloc_priv.h"
+
+// Camera dependencies
+#include "cam_intf.h"
+#include "cam_types.h"
+#include "camera3.h"
+#include "QCamera3HALHeader.h"
+#include "QCamera3Mem.h"
+#include "QCamera3PostProc.h"
+#include "QCamera3Stream.h"
+#include "QCamera3StreamMem.h"
 
 extern "C" {
-#include <mm_camera_interface.h>
+#include "mm_camera_interface.h"
+#include "mm_jpeg_interface.h"
 }
 
 using namespace android;
@@ -519,7 +527,8 @@ public:
     // offline reprocess
     virtual int32_t start();
     virtual int32_t stop();
-    int32_t doReprocessOffline(qcamera_fwk_input_pp_data_t *frame);
+    int32_t doReprocessOffline(qcamera_fwk_input_pp_data_t *frame,
+            bool isPriorityFrame = false);
     int32_t doReprocess(int buf_fd, size_t buf_length, int32_t &ret_val,
                         mm_camera_super_buf_t *meta_buf);
     int32_t overrideMetadata(qcamera_hal3_pp_buffer_t *pp_buffer,
@@ -554,6 +563,7 @@ private:
         uint32_t index;
     } OfflineBuffer;
 
+    int32_t resetToCamPerfNormal(uint32_t frameNumber);
     android::List<OfflineBuffer> mOfflineBuffers;
     android::List<OfflineBuffer> mOfflineMetaBuffers;
     int32_t mOfflineBuffersIndex;
@@ -567,6 +577,9 @@ private:
     QCamera3Channel *m_pMetaChannel;
     QCamera3StreamMem *mMemory;
     QCamera3StreamMem mGrallocMemory;
+    Vector<uint32_t> mPriorityFrames;
+    Mutex            mPriorityFramesLock;
+    bool             mReprocessPerfMode;
 };
 
 
@@ -582,6 +595,7 @@ public:
                     cam_stream_type_t streamType,
                     cam_dimension_t *dim,
                     cam_format_t streamFormat,
+                    uint8_t hw_analysis_supported,
                     void *userData,
                     uint32_t numBuffers = MIN_STREAMING_BUFFER_NUM
                     );

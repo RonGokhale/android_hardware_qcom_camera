@@ -29,17 +29,28 @@
 
 #define LOG_TAG "QCameraParameters"
 
+// To remove
 #include <cutils/properties.h>
+
+// System dependencies
 #include <math.h>
-#include <utils/Errors.h>
-#include <utils/Log.h>
 #include <string.h>
 #include <stdlib.h>
-#include <gralloc_priv.h>
-#include <sys/sysinfo.h>
+#include <utils/Errors.h>
+#define SYSINFO_H <SYSTEM_HEADER_PREFIX/sysinfo.h>
+#include SYSINFO_H
+#include "gralloc_priv.h"
+#include "graphics.h"
+
+// Camera dependencies
 #include "QCameraBufferMaps.h"
-#include "QCameraParameters.h"
 #include "QCamera2HWI.h"
+#include "QCameraParameters.h"
+#include "QCameraTrace.h"
+
+extern "C" {
+#include "mm_camera_dbg.h"
+}
 
 #define PI 3.14159265
 #define ASPECT_TOLERANCE 0.001
@@ -9720,15 +9731,17 @@ int32_t QCameraParameters::getStreamFormat(cam_stream_type_t streamType,
         format = mAppPreviewFormat;
         break;
     case CAM_STREAM_TYPE_ANALYSIS:
-        if (m_pCapability->analysis_recommended_format ==
-                CAM_FORMAT_Y_ONLY) {
+        if (m_pCapability->hw_analysis_supported &&
+                m_pCapability->analysis_recommended_format == CAM_FORMAT_Y_ONLY) {
             format = m_pCapability->analysis_recommended_format;
         } else {
-            LOGW("Invalid analysis_recommended_format %d\n",
-                     m_pCapability->analysis_recommended_format);
+            if (m_pCapability->hw_analysis_supported) {
+                LOGW("Invalid analysis_recommended_format %d\n",
+                        m_pCapability->analysis_recommended_format);
+            }
             format = mAppPreviewFormat;
         }
-      break;
+        break;
     case CAM_STREAM_TYPE_SNAPSHOT:
         if ( mPictureFormat == CAM_FORMAT_YUV_422_NV16 ) {
             format = CAM_FORMAT_YUV_422_NV16;

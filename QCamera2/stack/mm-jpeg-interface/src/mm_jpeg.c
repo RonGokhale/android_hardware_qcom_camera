@@ -27,24 +27,23 @@
  *
  */
 
+// System dependencies
 #include <pthread.h>
 #include <errno.h>
-#include <sys/ioctl.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/prctl.h>
 #include <fcntl.h>
-#include <poll.h>
-
-#include "mm_jpeg_dbg.h"
-#include "mm_jpeg_interface.h"
-#include "mm_jpeg.h"
-#include "mm_jpeg_inlines.h"
+#define PRCTL_H <SYSTEM_HEADER_PREFIX/prctl.h>
+#include PRCTL_H
 
 #ifdef LOAD_ADSP_RPC_LIB
 #include <dlfcn.h>
 #include <stdlib.h>
 #endif
+
+// JPEG dependencies
+#include "mm_jpeg_dbg.h"
+#include "mm_jpeg_interface.h"
+#include "mm_jpeg.h"
+#include "mm_jpeg_inlines.h"
 
 #define ENCODING_MODE_PARALLEL 1
 
@@ -2880,8 +2879,8 @@ OMX_ERRORTYPE mm_jpeg_fbd(OMX_HANDLETYPE hComponent,
   OMX_ERRORTYPE ret = OMX_ErrorNone;
   mm_jpeg_job_session_t *p_session = (mm_jpeg_job_session_t *) pAppData;
   mm_jpeg_output_t output_buf;
-  LOGH("count %d ", p_session->fbd_count);
-  LOGH("KPI Perf] : PROFILE_JPEG_FBD");
+  LOGI("count %d ", p_session->fbd_count);
+  LOGI("KPI Perf] : PROFILE_JPEG_FBD");
 
   pthread_mutex_lock(&p_session->lock);
   KPI_ATRACE_INT("Camera:JPEG",

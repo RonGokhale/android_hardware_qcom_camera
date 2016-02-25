@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundataion. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -28,16 +28,23 @@
 */
 
 #define LOG_TAG "QCamera3PostProc"
-//#define LOG_NDEBUG 0
 
-#include <stdlib.h>
-#include <utils/Errors.h>
+// To remove
 #include <cutils/properties.h>
 
-#include "QCamera3PostProc.h"
-#include "QCamera3HWI.h"
+// System dependencies
+#include <stdio.h>
+
+// Camera dependencies
 #include "QCamera3Channel.h"
+#include "QCamera3HWI.h"
+#include "QCamera3PostProc.h"
 #include "QCamera3Stream.h"
+#include "QCameraTrace.h"
+
+extern "C" {
+#include "mm_camera_dbg.h"
+}
 
 #define ENABLE_MODEL_INFO_EXIF
 
@@ -1886,7 +1893,7 @@ void *QCamera3PostProcessor::dataProcessRoutine(void *data)
                                 if (NO_ERROR == ret) {
                                     // add into ongoing PP job Q
                                     ret = pme->m_pReprocChannel->doReprocessOffline(
-                                            &fwk_frame);
+                                            &fwk_frame, true);
                                     if (NO_ERROR != ret) {
                                         // remove from ongoing PP job Q
                                         pme->m_ongoingPPQ.dequeue(false);

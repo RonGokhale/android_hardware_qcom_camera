@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2015, The Linux Foundataion. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -30,16 +30,17 @@
 #ifndef __QCAMERA_STATEMACHINE_H__
 #define __QCAMERA_STATEMACHINE_H__
 
+// System dependencies
 #include <pthread.h>
 
-#include <cam_semaphore.h>
-extern "C" {
-#include <mm_camera_interface.h>
-}
-
-#include "cam_types.h"
+// Camera dependencies
 #include "QCameraQueue.h"
 #include "QCameraChannel.h"
+#include "cam_semaphore.h"
+
+extern "C" {
+#include "mm_camera_interface.h"
+}
 
 namespace qcamera {
 
@@ -146,29 +147,6 @@ typedef struct {
     void *img_ptr;
     cam_pp_offline_src_config_t *config;
 } qcamera_sm_evt_reg_face_payload_t;
-
-// definition of composite face detection data
-typedef struct {
-    cam_face_detection_data_t detection_data;
-
-    bool recog_valid;
-    cam_face_recog_data_t recog_data;
-
-    bool blink_valid;
-    cam_face_blink_data_t blink_data;
-
-    bool gaze_valid;
-    cam_face_gaze_data_t gaze_data;
-
-    bool smile_valid;
-    cam_face_smile_data_t smile_data;
-
-    bool landmark_valid;
-    cam_face_landmarks_data_t landmark_data;
-
-    bool contour_valid;
-    cam_face_contour_data_t contour_data;
-} cam_faces_data_t;
 
 typedef enum {
     QCAMERA_INTERNAL_EVT_FOCUS_UPDATE,       // focus updating result

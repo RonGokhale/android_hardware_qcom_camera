@@ -1,4 +1,4 @@
-/* Copyright (c) 2012-2016, The Linux Foundataion. All rights reserved.
+/* Copyright (c) 2012-2016, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -28,21 +28,28 @@
  */
 #define LOG_TAG "QCameraHWI_Mem"
 
-#include <string.h>
+// System dependencies
 #include <fcntl.h>
-#include <sys/mman.h>
+#include <stdio.h>
 #include <utils/Errors.h>
-#include <utils/Log.h>
-#include <gralloc_priv.h>
-#include <QComOMXMetadata.h>
-#include "OMX_QCOMExtns.h"
-#include <OMX_IVCommon.h>
+#define MMAN_H <SYSTEM_HEADER_PREFIX/mman.h>
+#include MMAN_H
+#include "gralloc.h"
+#include "gralloc_priv.h"
 
+// OpenMAX dependencies
+#include "OMX_QCOMExtns.h"
+#include "QComOMXMetadata.h"
+
+// Camera dependencies
 #include "QCamera2HWI.h"
 #include "QCameraMem.h"
+#include "QCameraParameters.h"
+#include "QCameraTrace.h"
 
 extern "C" {
-#include <mm_camera_interface.h>
+#include "mm_camera_dbg.h"
+#include "mm_camera_interface.h"
 }
 
 using namespace android;
@@ -1274,7 +1281,10 @@ QCameraVideoMemory::QCameraVideoMemory(camera_request_memory memory,
     memset(mMetadata, 0, sizeof(mMetadata));
     mMetaBufCount = 0;
     mBufType = bufType;
-    mUsage = 0;
+    //Set Default color conversion format
+    mUsage = private_handle_t::PRIV_FLAGS_ITU_R_709;
+
+    //Set Default frame format
     mFormat = OMX_COLOR_FormatYUV420SemiPlanar;
 }
 
@@ -1313,8 +1323,6 @@ int QCameraVideoMemory::allocate(uint8_t count, size_t size, uint32_t isSecure)
         return rc;
     }
 
-    int usage = mUsage | private_handle_t::PRIV_FLAGS_ITU_R_709;
-
     if (!(mBufType & QCAMERA_MEM_TYPE_BATCH)) {
         /*
         *    FDs = 1
@@ -1337,7 +1345,7 @@ int QCameraVideoMemory::allocate(uint8_t count, size_t size, uint32_t isSecure)
             nh->data[0] = mMemInfo[i].fd;
             nh->data[1] = 0;
             nh->data[2] = (int)mMemInfo[i].size;
-            nh->data[3] = usage;
+            nh->data[3] = mUsage;
             nh->data[4] = 0; //dummy value for timestamp in non-batch mode
             nh->data[5] = mFormat;
         }
@@ -1368,8 +1376,6 @@ int QCameraVideoMemory::allocateMore(uint8_t count, size_t size)
         ATRACE_END();
         return rc;
     }
-
-    int usage = mUsage | private_handle_t::PRIV_FLAGS_ITU_R_709;
 
     if (!(mBufType & QCAMERA_MEM_TYPE_BATCH)) {
         for (int i = mBufferCount; i < count + mBufferCount; i ++) {
@@ -1402,7 +1408,7 @@ int QCameraVideoMemory::allocateMore(uint8_t count, size_t size)
             nh->data[0] = mMemInfo[i].fd;
             nh->data[1] = 0;
             nh->data[2] = (int)mMemInfo[i].size;
-            nh->data[3] = usage;
+            nh->data[3] = mUsage;
             nh->data[4] = 0; //dummy value for timestamp in non-batch mode
             nh->data[5] = mFormat;
         }
@@ -1577,7 +1583,7 @@ int QCameraVideoMemory::getMatchBufIndex(const void *opaque,
  *==========================================================================*/
 void QCameraVideoMemory::setVideoInfo(int usage, cam_format_t format)
 {
-    mUsage = usage;
+    mUsage |= usage;
     mFormat = convCamtoOMXFormat(format);
 }
 
@@ -1953,7 +1959,8 @@ int QCameraGrallocMemory::allocate(uint8_t count, size_t /*size*/,
     if (!mWindow) {
         LOGE("Invalid native window");
         ATRACE_END();
-        return INVALID_OPERATION;
+        ret = INVALID_OPERATION;
+        goto end;
     }
 
     // Increment buffer count by min undequeued buffer.
@@ -2120,6 +2127,9 @@ int QCameraGrallocMemory::allocate(uint8_t count, size_t /*size*/,
     }
 
 end:
+    if (ret != NO_ERROR) {
+        mMappableBuffers = 0;
+    }
     LOGD("X ");
     ATRACE_END();
     return ret;
