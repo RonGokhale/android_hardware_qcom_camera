@@ -715,12 +715,12 @@ int CameraTest::setFPSindex(int fps, int &pFpsIdx, int &vFpsIdx)
     }
 
     for (i = 0; i < caps_.videoFpsValues.size(); i++) {
-        if ( fps == caps_.videoFpsValues[i])
+        if ( fps == 30 * caps_.videoFpsValues[i])
         {
             vFpsIdx = i;
             break;
         }
-        if ( DEFAULT_CAMERA_FPS == caps_.videoFpsValues[i])
+        if ( DEFAULT_CAMERA_FPS == 30 * caps_.videoFpsValues[i])
         {
             defaultVideoFPSIndex = i;
         }
