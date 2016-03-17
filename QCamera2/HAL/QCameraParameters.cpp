@@ -12061,8 +12061,7 @@ bool QCameraParameters::setStreamConfigure(bool isCapture,
     property_get("persist.camera.raw_yuv", value, "0");
     raw_yuv = atoi(value) > 0 ? true : false;
 
-    if (isZSLMode() &&
-            ((getRecordingHintValue() != true) || isStaggeredVideoHDRSupported())) {
+    if (isZSLMode() && (getRecordingHintValue() != true)) {
         stream_config_info.type[stream_config_info.num_streams] =
             CAM_STREAM_TYPE_PREVIEW;
         getStreamDimension(CAM_STREAM_TYPE_PREVIEW,
